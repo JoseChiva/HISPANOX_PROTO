@@ -1,4 +1,5 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+######
 If !clalev([F:ZSTJ]) Then : Local File ZSTOJOU [F:ZSTJ] : Endif
 [F:ZSTJ]ITMREF = '23061'
 [F:ZSTJ]STOFCY = 'PHISP'
