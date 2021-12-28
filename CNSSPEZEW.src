@@ -1,0 +1,244 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "DEBUT"    : Gosub DEBUT
+  When "BOUTON"   : Gosub BOUTON
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$DEBUT
+  [M:ZEW0]ZORDDATDEB = date$
+  [M:ZEW0]ZORDDATFIN = date$
+  Affzo [M:ZEW0]ZORDDATDEB
+  Affzo [M:ZEW0]ZORDDATFIN
+  [M:ZEW1]ZLEY1 = "Diferencia entre precio total línea AI y Precio oferta superior a 2€"
+  [M:ZEW1]ZLEY2 = "Línea no asignada totalmente"
+  [M:ZEW1]ZLEY3 = "Ambos casos"
+  [M:ZEW1]ZLEY4 = "No cumple ninguna opción"
+  Affzo [M:ZEW1]
+  zonsui = "[M:ZEW0]SHOTYP"
+Return
+
+##############################################################
+$BOUTON
+  Case BOUT
+    When "b"  : Gosub BUSCAR_
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+$BUSCAR_
+Local Integer LCON
+Local Clbfile LCRIT(2)
+
+  Effzo [M:ZEW1]5
+  Raz   [M:ZEW1]NBLIG
+  LCRIT = "1=1"
+  If [M:ZEW0]SOHTYP     <> ""           Then : LCRIT += " & SOHTYP=[M:ZEW0]SOHTYP"                                : Endif
+  If [M:ZEW0]ZORDDATDEB <> [00/00/0000] Then : LCRIT += " & ORDDAT>=[M:ZEW0]ZORDDATDEB"                           : Endif
+  If [M:ZEW0]ZORDDATFIN <> [00/00/0000] Then : LCRIT += " & ORDDAT<=[M:ZEW0]ZORDDATFIN"                           : Endif
+  If [M:ZEW0]ZSOHNUMDEB <> ""           Then : LCRIT += " & SOHNUM>=[M:ZEW0]ZSOHNUMDEB"                           : Endif
+  If [M:ZEW0]ZSOHNUMFIN <> ""           Then : LCRIT += " & SOHNUM<=[M:ZEW0]ZSOHNUMFIN"                           : Endif
+#  If [M:ZEW0]ZIMPDIFMIN <> 0            Then : LCRIT += " & abs(PRE_TOT_LIN - PROF_TOT_LIN)>=[M:ZEW0]ZIMPDIFMIN"  : Endif
+  If [M:ZEW0]ZROTURAFLG =  2            Then : LCRIT += " & ALLQTY < QTY"                                         : Endif
+
+  If !clalev([F:ZVEPW]) Then : Local File ZVERRPRESOHW  [F:ZVEPW] : Endif
+  If !clalev([F:ZSPL])  Then : Local File SPRICLIST     [F:ZSPL]  : Endif
+  If !clalev([F:ZBPC])  Then : Local File BPCUSTOMER    [F:ZBPC]  : Endif
+  Filter [F:ZVEPW] Where evalue(LCRIT) Order By ORDDAT Desc; SOHNUM Desc
+  For [ZVEPW]
+    Read [F:ZBPC]BPC0 = [F:ZVEPW]BPCORD
+    # busca en orden de prioridad de las tarifas T10, T20, T30, T40, T50
+    # 1º busca en T10
+#    Read [F:ZSPL]SPL4 = "T10";[F:ZVEPW]BPCORD;[F:ZVEPW]ITMREF;"";"";""
+    Filter [F:ZSPL] Where PLI = "T10" and PLICRI1 = [F:ZVEPW]BPCORD and PLICRI2 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+    Read [F:ZSPL] First
+    # si existe precio de tarifa para artículo proveedor (T10)
+    # compara el importe de la línea con el de la tarifa
+    If !fstat Then
+      [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
+      [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
+      If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                  # JC.23092021.NEW
+#      If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then                 # JC.23092021.NEW
+#        If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                    # JC.23092021.NEW
+          [M:ZEW1]DIF_CON_PROF(LCON)  = 1
+#        Endif                                                                                            # JC.23092021.NEW
+      Else
+        If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then             # JC.24092021.NEW
+          Goto ENDNEXT
+#          [M:ZEW1]DIF_CON_PROF(LCON)  = 0
+        Endif                                                                                                                         # JC.24092021.NEW
+      Endif
+    Else
+      # 2º busca en T20
+      Filter [F:ZSPL]
+      Filter [F:ZSPL] Where PLI = "T20" and PLICRI1 = [F:ZBPC]ZTARINOX and PLICRI2 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+      Read [F:ZSPL] First
+      # si existe precio de tarifa para artículo proveedor (T20)
+      # compara el importe de la línea con el de la tarifa
+      If !fstat Then
+        [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
+        [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
+        If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                # JC.23092021.NEW
+#        If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then               # JC.23092021.NEW
+#          If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                  # JC.23092021.NEW
+            [M:ZEW1]DIF_CON_PROF(LCON)  = 1
+#          Endif                                                                                          # JC.23092021.NEW
+        Else
+          If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then           # JC.24092021.NEW
+            Goto ENDNEXT
+#            [M:ZEW1]DIF_CON_PROF(LCON)  = 0
+          Endif                                                                                                                       # JC.24092021.NEW
+        Endif
+      Else
+        # 3º busca en T30
+        Filter [F:ZSPL]
+        Filter [F:ZSPL] Where PLI = "T30" and PLICRI1 = [F:ZBPC]ZTARACE and PLICRI2 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+        Read [F:ZSPL] First
+        # si existe precio de tarifa para artículo proveedor (T30)
+        # compara el importe de la línea con el de la tarifa
+        If !fstat Then
+          [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
+          [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
+          If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                              # JC.23092021.NEW
+#          If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then             # JC.23092021.NEW
+#            If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                # JC.23092021.NEW
+              [M:ZEW1]DIF_CON_PROF(LCON)  = 1
+#            Endif                                                                                        # JC.23092021.NEW
+          Else
+            If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then         # JC.24092021.NEW
+              Goto ENDNEXT
+#              [M:ZEW1]DIF_CON_PROF(LCON)  = 0
+            Endif                                                                                                                     # JC.24092021.NEW
+          Endif
+        Else
+          # 4º busca en T40
+          Filter [F:ZSPL]
+          Filter [F:ZSPL] Where PLI = "T40" and PLICRI1 = [F:ZBPC]ZTARNEW and PLICRI2 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+          Read [F:ZSPL] First
+          # si existe precio de tarifa para artículo proveedor (T40)
+          # compara el importe de la línea con el de la tarifa
+          If !fstat Then
+            [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
+            [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
+            If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                            # JC.23092021.NEW
+#            If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then           # JC.23092021.NEW
+#              If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                              # JC.23092021.NEW
+                [M:ZEW1]DIF_CON_PROF(LCON)  = 1
+#              Endif                                                                                      # JC.23092021.NEW
+            Else
+              If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then       # JC.24092021.NEW
+                Goto ENDNEXT
+#                [M:ZEW1]DIF_CON_PROF(LCON)  = 0
+              Endif                                                                                                                   # JC.24092021.NEW
+            Endif
+          Else
+            # 5º busca en T50
+            Filter [F:ZSPL]
+            Filter [F:ZSPL] Where PLI = "T50" and PLICRI1 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+            Read [F:ZSPL] First
+            # si existe precio de tarifa para artículo proveedor (T50)
+            # compara el importe de la línea con el de la tarifa
+            If !fstat Then
+              [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
+              [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
+              If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                          # JC.23092021.NEW
+#              If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then         # JC.23092021.NEW
+#                If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                            # JC.23092021.NEW
+                  [M:ZEW1]DIF_CON_PROF(LCON)  = 1
+#                Endif                                                                                    # JC.23092021.NEW
+              Else
+                If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then     # JC.24092021.NEW
+                  Goto ENDNEXT
+#                  [M:ZEW1]DIF_CON_PROF(LCON)  = 0
+                Endif                                                                                                                 # JC.24092021.NEW
+              Endif
+            # si no existe tarifa para ese artículo
+            # compara el precio de la línea con el precio calculado
+            Else
+#              If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                                     # JC.24092021.NEW
+#              If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 0 Then                              # JC.23092021.NEW
+                [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZVEPW]ZPREOFERTA
+                [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZVEPW]PROF_TOT_LIN
+                [M:ZEW1]DIF_CON_PROF(LCON)    = [F:ZVEPW]DIF_CON_PROF
+#              Else
+                If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then     # JC.24092021.NEW
+                  Goto ENDNEXT
+                Endif                                                                                                                 # JC.24092021.NEW
+#              Endif                                                                                                                  # JC.24092021.NEW
+            Endif
+          Endif
+        Endif
+      Endif
+    Endif
+    [M:ZEW1]SOHNUM(LCON)            = [F:ZVEPW]SOHNUM
+    [M:ZEW1]SOPLIN(LCON)            = [F:ZVEPW]SOPLIN
+    [M:ZEW1]BPCORD(LCON)            = [F:ZVEPW]BPCORD
+    [M:ZEW1]STOFCY(LCON)            = [F:ZVEPW]STOFCY
+    [M:ZEW1]ITMREF(LCON)            = [F:ZVEPW]ITMREF
+    [M:ZEW1]SAU(LCON)               = [F:ZVEPW]SAU
+    [M:ZEW1]QTY(LCON)               = [F:ZVEPW]QTY
+    [M:ZEW1]ALLQTY(LCON)            = [F:ZVEPW]ALLQTY
+    [M:ZEW1]ORDDAT(LCON)            = [F:ZVEPW]ORDDAT
+    [M:ZEW1]DEMDLVDAT(LCON)         = [F:ZVEPW]DEMDLVDAT
+    [M:ZEW1]PRE_TOT_LIN(LCON)       = [F:ZVEPW]PRE_TOT_LIN
+#    [M:ZEW1]ZPREOFERTA(LCON)        = [F:ZVEPW]ZPREOFERTA
+#    [M:ZEW1]PROF_TOT_LIN(LCON)      = [F:ZVEPW]PROF_TOT_LIN
+    [M:ZEW1]QTY_NO_ASIG(LCON)       = [F:ZVEPW]QTY_NO_ASIG
+    [M:ZEW1]ITMDES(LCON)            = [F:ZVEPW]ITMDES
+    [M:ZEW1]ZITMDES2(LCON)          = [F:ZVEPW]ZITMDES2
+    [M:ZEW1]ZPORMARGEN(LCON)        = [F:ZVEPW]ZPFM
+    [M:ZEW1]GROPRI(LCON)            = [F:ZVEPW]GROPRI
+    [M:ZEW1]DISCRGVAL1(LCON)        = [F:ZVEPW]DISCRGVAL1
+    [M:ZEW1]NETPRI(LCON)            = [F:ZVEPW]NETPRI
+    [M:ZEW1]DIFERENCIA(LCON)        = [M:ZEW1]PRE_TOT_LIN(LCON) - [M:ZEW1]PROF_TOT_LIN(LCON)
+    LCON += 1
+    [M:ZEW1]NBLIG = LCON
+    $ENDNEXT
+  Next
+  Affzo [M:ZEW1]
+
+  Sorta [M:ZEW1]NBLIG [M:ZEW1]NBLIG Order By [M:ZEW1]SOHNUM(indice),[M:ZEW1]SOPLIN(indice) Asc
+  Affzo [M:ZEW1]
+
+  For LCON = 0 To [M:ZEW1]NBLIG-1
+    If [M:ZEW1]DIF_CON_PROF(LCON)     = 1 and [M:ZEW1]QTY_NO_ASIG(LCON) = 0 Then
+      Chgstl [M:ZEW1]NBLIG(LCON) With "BACKRED"
+    Elsif [M:ZEW1]DIF_CON_PROF(LCON)  = 0 and [M:ZEW1]QTY_NO_ASIG(LCON) = 1 Then
+      Chgstl [M:ZEW1]NBLIG(LCON) With "BACKGREEN"
+    Elsif [M:ZEW1]DIF_CON_PROF(LCON)  = 1 and [M:ZEW1]QTY_NO_ASIG(LCON) = 1 Then
+      Chgstl [M:ZEW1]NBLIG(LCON) With "BACKORANGE"
+    Else
+      Chgstl [M:ZEW1]NBLIG(LCON) With ""
+    Endif
+  Next
+
+  Affzo [M:ZEW1]
+
+  Close Local File [ZVEPW],[ZSPL],[ZBPC]
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Inicializa el botón 1 (pantalla ZERRWEB) 06/09/2021 13:37:25 (ADEV)
+######################################################################################
+Subprog IB_NBLIG
+  GBOUT1 = mess(191, 198,1)-[M]SOHNUM(nolign-1)
+End
+
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

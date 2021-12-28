@@ -1,0 +1,95 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Inic. botón NBLIG (pantalla ZPVPENAGRDET) 15/11/2021 16:44:53 (ADEV)
+######################################################################################
+Subprog IB_NBLIG
+  GBOUT5 = "Pedido"-[M:ZPVPADET]PEDIDO(nolign-1)
+End
+
+######################################################################################
+## Después de modificar el campo 'Tipo portes' (pantalla ZPVPENAGRDET) 15/11/2021 17:03:08 (ADEV)
+######################################################################################
+Subprog AM_TIPOPORT(VALEUR)
+Variable Integer VALEUR
+
+Local Char LFILETMP(250)
+
+  LFILETMP = filpath("ZIMPORT","","")
+  LFILETMP = LFILETMP+"\Act_portes.txt"
+
+  # borramos el fichero si existe...
+  If filinfo(LFILETMP, 7) > 0 Then
+    System "ae_rm " + LFILETMP
+  Endif
+
+  # abre el fichero
+  adxifs = ";"
+  adxirs = chr$(13)+chr$(10)
+  Openo LFILETMP Using [ZIMP_W]
+
+  If !clalev([F:ZSOH]) Then : Local File SORDER   [F:ZSOH] : Endif
+  If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP] : Endif
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
+
+#  # actualiza el tipo de portes en todas las líneas del pedido
+#  Filter [F:ZSOP] Where SOHNUM = [M:ZPVPADET]PEDIDO
+#  For [F:ZSOP]
+#    [F:ZSOP]ZFREINV = VALEUR
+#    Trbegin [F:ZSOP]
+#    Rewrite [F:ZSOP]
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#  Next
+#  Filter [F:ZSOP]
+
+  Read [F:ZSOH]SOH0 = [M:ZPVPADET]PEDIDO(nolign-1)
+
+  # datos de cabecera de pedido
+  Wrseq "E" + ";" + [F:ZSOH]SALFCY + ";" + [F:ZSOH]SOHTYP + ";" + [F:ZSOH]SOHNUM + ";" + [F:ZSOH]BPCORD + ";" + [F:ZSOH]ORDDAT + ";" + [F:ZSOH]CUSORDREF + ";" +
+&       [F:ZSOH]STOFCY + ";" + [F:ZSOH]CUR + ";" + [F:ZSOH]SQHNUM + ";" + [F:ZSOH]PTE + ";" + num$([F:ZSOH]ZDEMSTA) + ";" + num$([F:ZSOH]DLVPIO) + ";" +
+&       num$([F:ZSOH]ZCLAOFER) + ";" + num$(VALEUR) Using [ZIMP_W]
+
+  Filter [F:ZSOP] Where SOHNUM = [F:ZSOH]SOHNUM
+  For [F:ZSOP]
+    Read [F:ZSOQ]SOQ0 = [F:ZSOP]SOHNUM;[F:ZSOP]SOPLIN;[F:ZSOP]SOPSEQ
+    Wrseq "L" + ";" + num$([F:ZSOP]SOPLIN) + ";" + [F:ZSOP]ITMREF + ";" + [F:ZSOP]STOFCY + ";" + [F:ZSOP]SAU + ";" + num$([F:ZSOQ]QTY) + ";" + num$([F:ZSOP]GROPRI) + ";" +
+&         num$([F:ZSOP]DISCRGVAL1) + ";" + num$([F:ZSOP]ZTIPOPRECIO) + ";" + [F:ZSOP]SQHNUM + ";" + num$([F:ZSOP]SQDLIN) + ";" + num$([F:ZSOQ]ZCANTJUSTA) + ";" +
+&         num$(VALEUR) Using [ZIMP_W]
+  Next
+
+  Close Local File [ZSOH],[ZSOP],[ZSOQ]
+
+  # cierra el fichero
+  Openo Using [ZIMP_W]
+
+  # lanza la importación
+  Call IMPORTSIL ("ZSOHCNSPA",LFILETMP)From GIMPOBJ
+
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

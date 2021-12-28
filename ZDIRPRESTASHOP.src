@@ -1,0 +1,92 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = '0100176'
+#
+#
+#Call DIRAUX(NUM)
+#End
+##################################################################
+
+
+Subprog DIRAUX
+  Gosub OPEN_TABLAS
+  Filter [F:ZAS] Order By BPCNUM Asc
+  If rowcount([F:ZAS])>0
+    Gosub CREAR_FICHERO
+    For [ZAS]
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [DIR]
+  Endif
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$ESC_REGISTRO
+#  # código cliente
+#  Wrseq format$("K:7X",[F:ZAS]BPCNUM);          Using [DIR]
+#  # Tipo dirección
+#  Wrseq format$("K:1X",[F:ZAS]BPAADD);          Using [DIR]
+#  # nombre
+#  Wrseq format$("K:40X",[F:ZAS]BPRNAM);         Using [DIR]
+#  # ampli nombre
+#  Wrseq format$("K:40X",[F:ZAS]BPRNAM2);        Using [DIR]
+#  # direccion
+#  Wrseq format$("K:40X",[F:ZAS]BPAADDLIG);      Using [DIR]
+#  # código postal
+#  Wrseq format$("K:5X",[F:ZAS]POSCOD);          Using [DIR]
+#  # ciudad
+#  Wrseq format$("K:20X",[F:ZAS]CTY);            Using [DIR]
+#  #provincia
+#  Wrseq format$("K:20X",[F:ZAS]SAT);            Using [DIR]
+#  # direccion 2
+#  Wrseq format$("K:40X",[F:ZAS]BPAADDLIG2);     Using [DIR]
+#  # Descripcion direccion
+#  Wrseq format$("K:30X",[F:ZAS]BPADES)          Using [DIR]
+
+  # código cliente
+  Wrseq [F:ZAS]BPCNUM;        Using [DIR]
+  # Tipo dirección
+  Wrseq [F:ZAS]BPAADD;        Using [DIR]
+  # nombre
+  Wrseq [F:ZAS]BPRNAM;        Using [DIR]
+  # ampli nombre
+  Wrseq [F:ZAS]BPRNAM2;       Using [DIR]
+  # direccion
+  Wrseq [F:ZAS]BPAADDLIG;     Using [DIR]
+  # código postal
+  Wrseq [F:ZAS]POSCOD;        Using [DIR]
+  # ciudad
+  Wrseq [F:ZAS]CTY;           Using [DIR]
+  #provincia
+  Wrseq [F:ZAS]SAT;           Using [DIR]
+  # direccion 2
+  Wrseq [F:ZAS]BPAADDLIG2;    Using [DIR]
+  # Descripcion direccion
+  Wrseq [F:ZAS]BPADES         Using [DIR]
+
+
+Return
+
+##################################################################
+
+
+##################################################################
+$OPEN_TABLAS
+
+  #USAMOS LA VISTA CREADA
+  If !clalev([F:ZAS]) Then : Local File ZDIRAUXSHOP  [F:ZAS] : Endif
+  Local Clbfile LCRIT(1)
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ZAS]
+Return
+
+##################################################################
+$CREAR_FICHERO
+  Openo filpath("ZPSHOP\ERP_to_WEB\DIR","WDIRAUX","txt"),0 Using [DIR]
+  Iomode adxifs ";"        Using [DIR]
+  Iomode adxium 50         Using [DIR]
+Return

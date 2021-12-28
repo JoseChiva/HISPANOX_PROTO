@@ -1,0 +1,37 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara ZMBEXTRA (Especifico)
+$ACTION
+Return
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZMBEXTRA) 26/08/2020 17:36:11 (ADMIN)
+######################################################################################
+Subprog AM_CLI_1(VALEUR)
+Variable Decimal VALEUR
+$LIENS
+If !clalev([ADI]): Local File ATABDIV: Endif
+If !clalev([ZMBED]): Local File ZMBEXTRAD[ZMBED]: Endif
+Filter [F:ADI]Where NUMTAB=33
+X=0
+[M:ZMBE]TSCCOD(X)=""
+Raz [F:ZMBED]
+Read [ZMBED]ZMBED0=VALEUR;""
+If !fstat
+    [M:ZMBE]MBEXTRA(X)=[F:ZMBED]MBEXTRA
+Endif
+  X+=1
+For [F:ADI]CODE
+  [M:ZMBE]TSCCOD(X)=[F:ADI]CODE
+  Raz [F:ZMBED]
+  Read [ZMBED]ZMBED0=VALEUR;[M:ZMBE]TSCCOD(X)
+  If !fstat
+    [M:ZMBE]MBEXTRA(X)=[F:ZMBED]MBEXTRA
+  Endif
+  X+=1
+Next
+NBLIG=X
+Affzo [M:ZMBE]
+End
+
+
+######################################################################################
+

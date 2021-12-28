@@ -1,0 +1,338 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = '0100005'
+#
+#
+#Call CLIENTES(NUM)
+#End
+##################################################################
+
+
+Subprog CLIENTES
+  Gosub OPEN_TABLAS
+  Filter [F:ZBPC] Where ZWEB=2 #and BPCNUM=NUM
+  If rowcount([F:ZBPC])>0
+    Gosub CREAR_FICHERO
+    For [ZBPC]
+      Gosub LEER_DATOS
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [CLI]
+  Endif
+  Gosub CLOSE_TABLAS
+End
+
+###
+#
+#BPRSHO=[F:ZBPR]BPRSHO
+#BPRNAM_0=[F:ZBPR]BPRNAM(0)
+#BPRNAM_1=[F:ZBPR]BPRNAM(1)
+#
+##################################################################
+$ESC_REGISTRO
+#  # código cliente
+#  Wrseq format$("K:7X",[F:ZBPC]BPCNUM);                Using [CLI]
+#  # mote
+#  Wrseq format$("K:16X",BPRSHO);                       Using [CLI] #16
+#  # nombre
+#  Wrseq format$("K:40X",BPRNAM_0);                     Using [CLI] #35
+#  # ampli nombre
+#  Wrseq format$("K:40X",BPRNAM_1);                     Using [CLI]
+#
+#  # dirección
+#    Wrseq format$("K:40X",BPADDLIG);                   Using [CLI]
+#  # código postal
+#    Wrseq format$("K:5X",POSCOD);                      Using [CLI]
+#  # población
+#    Wrseq format$("K:20X",CTY);                        Using [CLI]
+#  # provincia
+#    Wrseq format$("K:20X",SAT);                        Using [CLI]
+#  # nif
+#    Wrseq format$("K:15X",CRN);                        Using [CLI]
+#  #tarifas del 1 al 6
+#    Wrseq format$("K:10X",PLICRD(0));                  Using [CLI]
+#    Wrseq format$("K:10X",PLICRD(1));                  Using [CLI]
+#    Wrseq format$("K:10X",PLICRD(2));                  Using [CLI]
+#    Wrseq format$("K:10X",PLICRD(3));                  Using [CLI]
+#    Wrseq format$("K:10X",PLICRD(4));                  Using [CLI]
+#    Wrseq format$("K:10X",PLICRD(5));                  Using [CLI]
+#
+#  # clase oferta
+#  Wrseq format$("K:2X",[F:ZBPC]TSCCOD(3));             Using [CLI]
+#  # límite portes pagados
+#  Wrseq ctrans(num$(format$("N0:6", IMP_PORTES)),".",",");                   Using [CLI]
+#  # moneda
+#  Wrseq format$("K:3X",[F:ZBPC]CUR);                   Using [CLI]
+#  # cambio unitario
+#  Wrseq ctrans(num$(format$("N0:6.5",CAMBIO)),".",",");                      Using [CLI]
+#  # dto pronto pago
+#  Wrseq ctrans(num$(format$("N0:2.1#",[F:ZBPC]INVDTAAMT(2))),".",",");       Using [CLI]
+#  # recargo financiero
+#  #Wrseq format$("N0:2.1#",[F:ZBPC]INVDTAAMT(2));              Using [CLI]
+#  Wrseq "00,0";                                        Using [CLI]
+#  #iva
+#  Wrseq ctrans(num$(format$("N0:2.1#",IVA)),".",",");                        Using [CLI]
+#  #recargo equivalencia
+#  Wrseq ctrans(num$(format$("N0:2.1#",R_EQUI)),".",",");                     Using [CLI]
+#
+#  #mail web
+#  Wrseq format$("K:80X",ZWEB_MAIL);                     Using [CLI]
+#
+#  #codigo direción
+#  Wrseq format$("K:5X",BPAADD);                     Using [CLI]
+#
+#  #bpaaddlig2
+#  Wrseq format$("K:40X",BPAADDLIG2);                     Using [CLI]
+#
+#  #bpades
+#  Wrseq format$("K:30X",BPADES);                     Using [CLI]
+#
+#  #sus medios
+#  Wrseq format$("K:1X",SUSMEDIOS)                     Using [CLI]
+
+  # código cliente
+  Wrseq [F:ZBPC]BPCNUM;                                                   Using [CLI]
+  # mote
+  Wrseq BPRSHO;                                                           Using [CLI]
+  # nombre
+  Wrseq BPRNAM_0;                                                         Using [CLI]
+  # ampli nombre
+  Wrseq BPRNAM_1;                                                         Using [CLI]
+  # dirección
+  Wrseq BPADDLIG;                                                         Using [CLI]
+  # código postal
+  Wrseq POSCOD;                                                           Using [CLI]
+  # población
+  Wrseq CTY;                                                              Using [CLI]
+  # provincia
+  Wrseq SAT;                                                              Using [CLI]
+  # nif
+  Wrseq CRN;                                                              Using [CLI]
+  #tarifas del 1 al 6
+  Wrseq PLICRD(0);                                                        Using [CLI]
+  Wrseq PLICRD(1);                                                        Using [CLI]
+  Wrseq PLICRD(2);                                                        Using [CLI]
+  Wrseq PLICRD(3);                                                        Using [CLI]
+  Wrseq PLICRD(4);                                                        Using [CLI]
+  Wrseq PLICRD(5);                                                        Using [CLI]
+  # clase oferta
+  Wrseq [F:ZBPC]TSCCOD(3);                                                Using [CLI]
+  # límite portes pagados
+  Wrseq ctrans(num$(format$("N0:6", IMP_PORTES)),".",",");                Using [CLI]
+  # moneda
+  Wrseq [F:ZBPC]CUR;                                                      Using [CLI]
+  # cambio unitario
+  Wrseq ctrans(num$(format$("N0:6.5",CAMBIO)),".",",");                   Using [CLI]
+  # dto pronto pago
+  Wrseq ctrans(num$(format$("N0:2.1#",[F:ZBPC]INVDTAAMT(2))),".",",");    Using [CLI]
+  # recargo financiero
+  Wrseq "00,0";                                                           Using [CLI]
+  #iva
+  Wrseq ctrans(num$(format$("N0:2.1#",IVA)),".",",");                     Using [CLI]
+  #recargo equivalencia
+  Wrseq ctrans(num$(format$("N0:2.1#",R_EQUI)),".",",");                  Using [CLI]
+  #mail web
+  Wrseq ZWEB_MAIL;                                                        Using [CLI]
+  #codigo direción
+  Wrseq BPAADD;                                                           Using [CLI]
+  #bpaaddlig2
+  Wrseq BPAADDLIG2;                                                       Using [CLI]
+  #bpades
+  Wrseq BPADES;                                                           Using [CLI]
+  #sus medios
+  Wrseq SUSMEDIOS                                                         Using [CLI]
+
+Return
+
+##################################################################
+$LEER_DATOS
+Local Char BPADDLIG(40),POSCOD(5),CTY(20),STA(20),CRN(15),PLICRD(15)(6),ZTAR(15),ZWEB_MAIL(80),BPRSHO(16),BPRNAM_0(35),BPRNAM_1(35)
+Local Char BPAADD(50), BPAADDLIG2(250), BPADES(250),SUSMEDIOS(2)
+Local Integer XX,A
+Local Decimal IMP_PORTES,CAMBIO,IVA,R_EQUI
+Raz BPADDLIG,POSCOD,CTY,STA,CRN,PLICRD,XX,ZTAR,A,IMP_PORTES,CAMBIO,IVA,R_EQUI,BPRSHO,BPRNAM_0,BPRNAM_1
+Raz BPAADD, BPAADDLIG2, BPADES,SUSMEDIOS
+  ##mail web
+
+    ZWEB_MAIL=[F:ZBPC]ZEMAIL
+
+  #sus medios
+  If  [F:ZBPC]ZSUSMEDIOS=2 Then
+      SUSMEDIOS="S"
+  Else
+      SUSMEDIOS="N"
+  Endif
+
+  Read [F:ZBPR]BPR0=[F:ZBPC]BPCNUM
+  Filter [F:ZBPA] Where BPANUM = [F:ZBPC]BPCNUM and BPAADDFLG = 2
+    Read   [F:ZBPA] First
+    If !fstat Then
+      # dirección
+      BPADDLIG=[F:ZBPA]BPAADDLIG(0)
+    # código postal
+      POSCOD=[F:ZBPA]POSCOD
+    # población
+      CTY=[F:ZBPA]CTY
+    # provincia
+      SAT=[F:ZBPA]SAT
+    # nif
+      CRN=[F:ZBPR]CRN
+    # código dirección
+      BPAADD=[F:ZBPA]BPAADD
+    # bpaaddlig2
+      BPAADDLIG2=[F:ZBPA]BPAADDLIG(1)
+    # bpades
+      BPADES=[F:ZBPA]BPADES
+
+    Endif
+  Filter [F:ZBPA]
+
+#Infbox format$("N0:6.2",2.03)
+#calculo de tarifas
+
+XX=0
+Filter [F:ZTS] Where PLICRI1=[F:ZBPC]BPCNUM
+  For [F:ZTS]
+      If !fstat
+          If XX<6 Then
+              PLICRD(XX)=[F:ZTS]PLICRD
+              XX=XX+1
+          Endif
+      Endif
+  Next
+
+
+A=0
+For Y=0 To 5
+  If PLICRD(Y)="" and A=0 Then
+    PLICRD(Y)=[F:ZBPC]ZTARINOX
+    A=A+1
+  Endif
+  If PLICRD(Y)="" and A=1 Then
+    PLICRD(Y)=[F:ZBPC]ZTARACE
+    A=A+1
+  Endif
+  If PLICRD(Y)="" and A=2 Then
+    PLICRD(Y)=[F:ZBPC]ZTARNEW
+    A=A+1
+  Endif
+
+Next
+
+
+
+###Límite portes pagados
+#IMP_PORTES
+Filter [F:ZBPD] Where BPCNUM = [F:ZBPC]BPCNUM and BPAADD = [F:ZBPC]BPAADD
+Read  [F:ZBPD] First
+
+
+Filter [F:ZBPR] Where BPRNUM = [F:ZBPD]BPTNUM
+Read  [F:ZBPR] First
+
+Filter [F:ZBPT] Where BPTNUM = [F:ZBPD]BPTNUM
+Read  [F:ZBPT] First
+If !fstat Then
+    If [F:ZBPC]FREINV=3
+      IMP_PORTES=[F:ZBPT]TSDFRE(0)
+    Elsif [F:ZBPC]FREINV=4
+      IMP_PORTES=[F:ZBPT]TSDFRE(1)
+    Elsif [F:ZBPC]FREINV=5
+      IMP_PORTES=[F:ZBPT]TSDFRE(2)
+    Elsif [F:ZBPC]FREINV=6
+      IMP_PORTES=[F:ZBPT]TSDFRE(3)
+    Elsif [F:ZBPC]FREINV=7
+      IMP_PORTES=[F:ZBPT]TSDFRE(4)
+    Else
+      IMP_PORTES=0
+    Endif
+Endif
+
+
+
+Filter [F:ZBPR]
+Filter [F:ZBPR] Where BPRNUM = [F:ZBPC]BPCNUM
+Read[F:ZBPR]First
+    If !fstat Then
+        BPRSHO=[F:ZBPR]BPRSHO
+        BPRNAM_0=[F:ZBPR]BPRNAM(0)
+        BPRNAM_1=[F:ZBPR]BPRNAM(1)
+    Endif
+
+
+Filter [F:ZBPD]
+Filter [F:ZBPR]
+Filter [F:ZBPT]
+
+
+##cambio unitario
+If [F:ZBPC]CUR<>"EUR" Then
+Filter [F:ZTCH] Where CURDEN=[F:ZBPC]CUR
+Read [F:ZTCH] First
+        If !fstat
+            CAMBIO=[F:ZTCH]REVCOURS
+        Endif
+Filter [F:ZTCH]
+Else
+            CAMBIO=1
+Endif
+
+
+##IVA
+If [F:ZBPC]VACBPR<>'REQ'
+    Filter [F:ZTVC] Where VACITM='NOR' and VACBPR=[F:ZBPC]VACBPR
+    Read [F:ZTVC] First
+        If !fstat
+            Filter [F:ZTRA] Where VAT=[F:ZTVC]VAT Order By STRDAT Desc
+            Read [F:ZTRA] First
+                If !fstat
+                    IVA=[F:ZTRA]VATRAT
+                Endif
+        Endif
+    Filter [F:ZTVC]
+    Filter [F:ZTRA]
+Else
+    Filter [F:ZTVC] Where VACITM='RQN' and VACBPR=[F:ZBPC]VACBPR
+    Read [F:ZTVC] First
+        If !fstat
+            Filter [F:ZTRA] Where VAT=[F:ZTVC]VAT Order By STRDAT Desc
+            Read [F:ZTRA] First
+                If !fstat
+                    R_EQUI=[F:ZTRA]VATRAT
+                Endif
+        Endif
+    Filter [F:ZTVC]
+    Filter [F:ZTRA]
+Endif
+
+Return
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZBPC]) Then : Local File BPCUSTOMER [F:ZBPC] : Endif
+  If !clalev([F:ZPBR]) Then : Local File BPARTNER   [F:ZBPR] : Endif
+  If !clalev([F:ZPBA]) Then : Local File BPADDRESS  [F:ZBPA] : Endif
+  If !clalev([F:ZVTB]) Then : Local File ZVTARBPC   [F:ZVTB] : Endif
+  If !clalev([F:ZSPC]) Then : Local File SPRICCONF  [F:ZSPC] : Endif
+  If !clalev([F:ZTS])  Then : Local File ZTARIFASHOP [F:ZTS] : Endif
+  If !clalev([F:ZBPT]) Then : Local File BPCARRIER  [F:ZBPT] : Endif
+  If !clalev([F:ZTCH]) Then : Local File TABCHANGE  [F:ZTCH] : Endif
+  If !clalev([F:ZTRA]) Then : Local File TABRATVAT  [F:ZTRA] : Endif
+  If !clalev([F:ZTVC]) Then : Local File TABVAC     [F:ZTVC] : Endif
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+
+
+  Local Clbfile LCRIT(1)
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ZBPC],[ZBPR],[ZBPA],[ZVTB],[ZSPC],[F:ZTS],[F:ZBPT],[F:ZTCH],[F:ZTRA],[F:ZTVC],[F:ZBPD]
+Return
+
+##################################################################
+$CREAR_FICHERO
+  Openo filpath("ZPSHOP\ERP_to_WEB\BPC","WCLI","txt"),0 Using [CLI]
+  Iomode adxifs ";"        Using [CLI]
+  Iomode adxium 50         Using [CLI]
+Return

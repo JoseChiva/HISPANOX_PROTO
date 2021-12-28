@@ -1,0 +1,62 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+ When "SEL_TABLE"     : Gosub SEL_TABLE
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$SEL_TABLE
+  Case TABLE
+    When "ZSELITV"    : Gosub SEL_ZSELITV
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$SEL_ZSELITV
+  If !clalev([F:ZVSV]) Then : Local File ZVSELITV [F:ZVSV] : Endif
+  Default File [F:ZVSV]
+
+##  ORDRE   = 'ITMREF'
+##  START   = 'ITMREF'
+#
+  NBCOL       = 0                                                               # número de la columna
+  TIT(NBCOL)  = "Selección Artículo-Venta"                                      # título de la ventana
+  NBCOL       += 1
+  TIT(NBCOL)  = "Artículo"                                                      # título de la primera columna
+  COL(NBCOL)  = "ITMREF"                                                        # nombre del campo a mostrar en la segunda columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Desc. 1"                                                       # título de la segunda columna
+  COL(NBCOL)  = "ITMDES1"                                                       # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Desc. 2"                                                       # título de la tercera columna
+  COL(NBCOL)  = "ITMDES2"                                                       # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Tipo"                                                          # título de la cuarta columna
+  COL(NBCOL)  = "LANMES"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Precio de base"                                                # título de la quinta columna
+  COL(NBCOL)  = "PURBASPRI"                                                     # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Código EAN"                                                    # título de la sexta columna
+  COL(NBCOL)  = "EANCODE"                                                       # nombre del campo a mostrar en la primera columna
+
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

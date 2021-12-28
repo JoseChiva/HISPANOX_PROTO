@@ -1,0 +1,112 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = '100'
+#
+#
+#Call ARTICULOS(NUM)
+#End
+##################################################################
+
+
+
+Subprog ARTICULOS
+  Gosub OPEN_TABLAS
+  Filter [F:ZITM] Where ZWEB=2  Order By ITMREF Asc
+  If rowcount([F:ZITM])>0
+    Gosub CREAR_FICHERO
+    For [ZITM]
+      Gosub LEER_DATOS
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [ITM]
+  Endif
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$ESC_REGISTRO
+#  Wrseq format$("N0:6",[F:ZITM]ITMREF);     Using [ITM]
+#  Wrseq format$("K:40X",[F:ZITM]ITMDES2);   Using [ITM]
+#  Wrseq "";                                 Using [ITM]
+#  Wrseq "";                                 Using [ITM]
+#  Wrseq "";                                 Using [ITM]
+#  Wrseq format$("K:8X",[F:ZITM]ZMEDIDA1);   Using [ITM]
+#  Wrseq format$("K:8X",[F:ZITM]ZMEDIDA2);   Using [ITM]
+#  Wrseq format$("K:8X",[F:ZITM]ZMEDIDA3);   Using [ITM]
+#  Wrseq format$("K:13X",[F:ZITM]EANCOD);    Using [ITM]
+#  Wrseq ctrans(num$(format$("N0:8",CAJA)),".",",");  Using [ITM]
+#  Wrseq ctrans(num$(format$("N0:5.3#",ITMWEI)),".",",");          Using [ITM]
+#  Wrseq format$("K:8X",[F:ZITM]ZMASK);       Using [ITM]
+#  Wrseq ZCANTJUSTA                          Using [ITM]
+
+  Wrseq [F:ZITM]ITMREF;                                   Using [ITM]
+  Wrseq [F:ZITM]ITMDES2;                                  Using [ITM]
+  Wrseq "";                                               Using [ITM]
+  Wrseq "";                                               Using [ITM]
+  Wrseq "";                                               Using [ITM]
+  Wrseq [F:ZITM]ZMEDIDA1;                                 Using [ITM]
+  Wrseq [F:ZITM]ZMEDIDA2;                                 Using [ITM]
+  Wrseq [F:ZITM]ZMEDIDA3;                                 Using [ITM]
+  Wrseq [F:ZITM]EANCOD;                                   Using [ITM]
+  Wrseq ctrans(num$(format$("N0:8",CAJA)),".",",");       Using [ITM]
+  Wrseq ctrans(num$(format$("N0:5.3#",ITMWEI)),".",",");  Using [ITM]
+  Wrseq ctrans([F:ZITM]ZMASK,"/","*");                    Using [ITM]
+  Wrseq ZCANTJUSTA                                        Using [ITM]
+
+
+Return
+
+$LEER_DATOS
+Local Char ZCANTJUSTA(1)
+Local Decimal CAJA,ITMWEI
+Raz CAJA,ITMWEI,ZCANTJUSTA
+
+If [F:ZITM]PCU(0)="CAJ"
+    CAJA=[F:ZITM]PCUSTUCOE(0)
+Elsif [F:ZITM]PCU(1)="CAJ"
+    CAJA=[F:ZITM]PCUSTUCOE(1)
+Endif
+
+If [F:ZITM]WEU="G"
+ITMWEI=([F:ZITM]ITMWEI/1000)*1000
+Elsif [F:ZITM]WEU="HG"
+ITMWEI=([F:ZITM]ITMWEI/10)*1000
+Elsif [F:ZITM]WEU="KG"
+ITMWEI=([F:ZITM]ITMWEI)*1000
+Elsif [F:ZITM]WEU="LB"
+ITMWEI=([F:ZITM]ITMWEI/2.205)*1000
+Elsif  [F:ZITM]WEU="MG"
+ITMWEI=([F:ZITM]ITMWEI/1000000)*1000
+Elsif  [F:ZITM]WEU="OZ"
+ITMWEI=([F:ZITM]ITMWEI/35.274)*1000
+Elsif  [F:ZITM]WEU="T"
+ITMWEI=([F:ZITM]ITMWEI/0.001)*1000
+Elsif [F:ZITM]WEU="QT"
+ITMWEI=([F:ZITM]ITMWEI/0.01)*1000
+Endif
+
+If [F:ZITM]ZCANTJUSTA=2
+  ZCANTJUSTA="S"
+Else
+  ZCANTJUSTA="N"
+Endif
+
+Return
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ZITM]
+Return
+
+##################################################################
+$CREAR_FICHERO
+  Openo filpath("ZPSHOP\ERP_to_WEB\ITM","WART","txt"),0 Using [ITM]
+  Iomode adxifs ";"        Using [ITM]
+  #Iomode adxirs "\013\010" Using [BPS]
+  Iomode adxium 50         Using [ITM]
+Return

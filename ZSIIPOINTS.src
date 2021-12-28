@@ -1,0 +1,28 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+  When "WVARPOST" : Gosub WVARPOST
+Endcase
+Return
+
+######################################################################################
+$WVARPOST
+If WLIBRO<>1: Return: Endif  # Solo afecta al libro de facturas emitidas
+# Abrimos las tablas necesarias SINVOICE y BPCUSTOMER
+If !clalev([F:SIH1])   : Local File SINVOICE  [SIH1]     : Endif
+If !clalev([F:BPC1])   : Local File BPCUSTOMER[BPC1]     : Endif
+
+For WIND=0 To IND
+  Read [F:SIH1]SIH0=WNUMFACID(WIND)
+  If !fstat Then
+    Read [F:BPC1]BPC0=[F:SIH1]BPR
+    If !fstat Then
+      If [F:BPC1]ZEMITER=2
+        WEMITER(WIND)='S'
+      Endif
+    Endif
+  Endif
+Next
+
+Return
+

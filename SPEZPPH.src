@@ -1,0 +1,1495 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+ #If GUSER = "ADMIN":Infbox ACTION Endif
+Case ACTION
+  When "OUVRE"      :   Gosub OUVRE
+  When "FILTRE"     :   Gosub FILTRE
+  When "LIENS"      :   Gosub LIENS
+  When "VERIF_CRE"  :   Gosub VERIF_CRE
+  When "CREATION"   :   Gosub CREATION
+  When "VERIF_MOD"  :   Gosub VERIF_MOD
+  When "MODIF"      :   Gosub MODIF
+  When "ANNULE"     :   Gosub ANNULE
+  When "APRES_CRE"  :   Gosub APRES_CRE
+  When "APRES_MOD"  :   Gosub APRES_MOD
+  When "AP_ANNULE"  :   Gosub AP_ANNULE
+  When "INICRE_LIG" :   Gosub INICRE_LIG
+  When "DEFLIG"     :   Gosub DEFLIG
+  When "SETBOUT"    :   Gosub SETBOUT
+  When "EXEBOUT"    :   Gosub EXEBOUT
+  When "INICRE"     :   Gosub INICRE
+  When "CLE_GAUCHE"     :   Gosub CLE_GAUCHE
+  When Default
+Endcase
+Return
+#======================================================================================================
+
+##############################################################
+$EXEBOUT
+#If BOUT = 'x'
+#
+#Endif
+
+Return
+
+##############################################################
+$ACTUALIZA_RESP
+##############################################################
+If clalev([F:XPPH])=0:  Local File PRESP [XPPH]: Endif
+If clalev([F:XXPPH])=0: Local File PRESP [XXPPH]: Endif
+
+If clalev([F:XPPD])=0:  Local File PRESPD [XPPD]: Endif
+If clalev([F:XXPPD])=0: Local File PRESPD [XXPPD]: Endif
+If clalev([F:YPPD])=0: Local File PRESPD [YPPD]: Endif
+
+If clalev([F:ZZPPD])=0: Local File ZPRESPD [ZZPPD]: Endif
+If clalev([F:FCY])=0: Local File FACILITY [FCY]: Endif
+If clalev([F:ITP])=0: Local File ITMBPS [ITP]: Endif
+If clalev([F:BPS])=0: Local File BPSUPPLIER [BPS]: Endif
+
+Local Integer ACTUALIZACION
+ACTUALIZACION = 0
+
+
+Filter [F:ZZPPD] Where BPSNUM = [M:ZPPH0]BPSNUM and PQHNUM = [M:ZPPH0]PQHNUM and LINNUMRESP = [M:ZPPH0]NUMRESP Order By PQDLIN Asc
+
+Trbegin [F:XPPH]
+
+For [F:ZZPPD]
+   If [F:ZZPPD]OFERQTY <> 0 #and [F:ZZPPD]BPSPRI <> 0
+    #Cabecera PRESP
+    [F:XPPH]PQHNUM = [F:ZPPH]PQHNUM
+    Read [FCY]FCY0 = [F:ZPPH]PQHFCY
+    If !fstat
+     [F:XPPH]CPY = [FCY]LEGCPY
+     [F:XPPD]CPY = [FCY]LEGCPY
+    Endif
+    [F:XPPH]PQHFCY = [F:ZPPH]PQHFCY
+    [F:XPPH]BPSNUM = [F:ZPPH]BPSNUM
+    [F:XPPH]PQDLIN = [F:ZZPPD]PQDLIN
+    [F:XPPH]RSPDAT = [F:ZZPPD]LINRSPDAT
+    [F:XPPH]ITMREF = [F:ZZPPD]ITMREF
+    Read [ITP]ITP0 = [F:ZZPPD]ITMREF;[F:ZPPH]BPSNUM
+    If !fstat
+        [F:XPPH]ITMREFBPS = [ITP]ITMREFBPS
+        [F:XPPH]ITMDESBPS = [ITP]ITMDESBPS
+        [F:XPPH]EANCODBPS = [ITP]EANCODBPS
+    Endif
+    Read [BPS]BPS0 = [F:ZPPH]BPSNUM
+    If !fstat
+          [F:XPPH]PLISTC = [BPS]PLISTC
+    Endif
+    [F:XPPH]PRIFLG = 1
+    [F:XPPH]PRNFLG = 1
+    [F:XPPH]PRILINNBR = 0
+    [F:XPPH]LINNBR = 1
+
+    Look [F:XPPH]PPH0 = [F:ZPPH]BPSNUM;[F:ZPPH]PQHNUM;[F:ZZPPD]PQDLIN
+    If !fstat
+       Rewrite [F:XPPH]
+       ACTUALIZACION = 2
+    Else
+       Write [F:XPPH]
+    Endif
+
+    #LINEA PRESPD
+    [F:XPPD]PQHNUM = [F:ZPPH]PQHNUM
+    [F:XPPD]PQHFCY = [F:ZPPH]PQHFCY
+    [F:XPPD]BPSNUM = [F:ZPPH]BPSNUM
+    [F:XPPD]PQDLIN = [F:ZZPPD]PQDLIN
+    [F:XPPD]PPDLIN = [F:ZZPPD]PPDLINSTAND
+    [F:XPPD]ITMREF = [F:ZZPPD]ITMREF
+    #[F:XPPD]PRIREN = PENDIENTE DE MOMENTO DEJAR EN BLANCO
+    [F:XPPD]MINQTY = [F:ZZPPD]MINQTY
+    [F:XPPD]MAXQTY = 999999999
+    [F:XPPD]PUU    = [F:ZZPPD]PUU
+    Case [F:ZZPPD]LINPRIDIV
+      When "UN": [F:XPPD]PRIDIV = 1
+      When "CEN": [F:XPPD]PRIDIV = 100
+      When "MIL": [F:XPPD]PRIDIV = 1000
+    Endcase
+    [F:XPPD]PRI    = [F:ZZPPD]PRI
+    [F:XPPD]CUR    = [F:ZZPPD]LINCUR
+    [F:XPPD]LTI    = [F:ZZPPD]LINLTI
+    [F:XPPD]RCPDAT = [F:ZZPPD]LINRSPDAT
+    [F:XPPD]PLISTRDAT =  [F:ZZPPD]PLISTRDAT
+    [F:XPPD]PLIENDDAT =  [F:ZZPPD]LINPLIENDDAT
+    [F:XPPD]DISCRGVAL1 = [F:ZZPPD]LDISCRGVAL1
+    [F:XPPD]PRIFLG = 1
+    [F:XPPD]ORDFLG = 1
+
+    #revisamos
+      If [F:ZZPPD]PPDLINSTAND = 0 Then
+         Filter [YPPD] Where BPSNUM = [F:ZPPH]BPSNUM
+&        and PQHNUM = [F:ZPPH]PQHNUM and PQDLIN = [F:ZZPPD]PQDLIN Order By PPDLIN Asc
+         Read [YPPD]Last
+         #Infbox "NUEVA LINEA" - num$([YPPD]PPDLIN + 1)-num$([F:ZZPPD]PQDLIN)-[F:ZPPH]PQHNUM
+       [F:XPPD]PPDLIN = [YPPD]PPDLIN + 1
+       [F:ZZPPD]PPDLINSTAND = [F:XPPD]PPDLIN
+       Rewrite [F:ZZPPD]
+       Write [F:XPPD]
+       Filter [YPPD]
+    Else
+
+      #Infbox "LINEA EXISTE" - num$([F:ZZPPD]PPDLINSTAND)
+      Look [F:XPPD]PPD0= [F:ZPPH]BPSNUM;[F:ZPPH]PQHNUM;[F:ZZPPD]PQDLIN;[F:ZZPPD]PPDLINSTAND
+      If !fstat
+         #Infbox "ACTUALIZACION"
+         Rewrite [F:XPPD]
+         ACTUALIZACION = 2
+      Else
+         #Infbox "NUEVO"
+         Write [F:XPPD]
+      Endif
+    Endif
+  Endif
+Next
+
+If fstat
+   Rollback
+   #Call ERREUR(GMESSAGE) From GESECRAN #mensaje de error
+Else
+   Commit
+   Call MESSAGE("Actualizacion respuestas realizada")From GESECRAN #informacion
+Endif
+
+Filter [F:ZZPPD]
+
+
+Return
+
+#======================================================================================================
+##############################################################
+$SETBOUT
+
+#If GXACT = 2 Then
+#
+#    Gosub RELIT From GOBJSUB
+#    GXACT = 1
+#  Else
+#    GXACT = 1
+#  Endif
+If [M:ZPPH0]NUMRESP <> ""
+  Diszo [M:ZPPH0]
+Endif
+Return
+
+##############################################################
+$OUVRE
+  If clalev([F:AXX])=0 Local File ATEXTRA [AXX]  : Endif
+  If clalev([F:TCH])=0 Local File TABCHANGE [TCH]   : Endif
+  If clalev([F:PQD])=0: Local File PQUOTATD [PQD]: Endif
+  If clalev([F:ITM])=0: Local File ITMMASTER [ITM]: Endif
+  If clalev([F:ITV])=0: Local File ITMMVT [ITV]: Endif
+  If clalev([F:LPQF])=0: Local File PQUOTATF [LPQF]: Endif
+  Global Char GPQH_SYMBOL(30)
+  Global Integer GXACT : GXACT= 1
+  Gosub DECLARE From TABLEAUX
+  Global Integer CONTA : Raz CONTA
+
+Return
+
+$CLE_GAUCHE
+If dim(TMPVCRRESP)>0 and GXACT= 1 and clalev([M:ZRPR1])>0
+    GXACT= 2
+    #Filter [F:ZPPH] Where [F:ZPPH]BPSNUM="2000004" and [F:ZPPH]PQHNUM="RQ2100028" and [F:ZPPH]NUMRESP=[M:ZRPR1]NUMRESP(nolign-1)
+    Filter [F:ZPPH] Where [F:ZPPH]NUMRESP=TMPVCRRESP#[M:ZRPR1]NUMRESP(nolign-1)
+Endif
+Return
+##############################################################
+$FILTRE
+Default File [ZPPH]
+Return
+
+##############################################################
+$LIENS
+If dim(TMPVCRRESP)>0 and GXACT= 2 and clalev([M:ZRPR1])>0
+    GXACT= 3
+    Read [F:ZPPH]PPH0 = [M:ZRPR1]BPSNUM(nolign-1);[M:ZRPR1]PQHNUM(nolign-1);TMPVCRRESP#[M:ZRPR1]NUMRESP(nolign-1)
+    [M:ZPPH0]=[F:ZPPH]
+    [M:ZPPH1]=[F:ZPPH]
+     [M:ZPPH2]=[F:ZPPH]
+Endif
+Affzo [M:ZPPH1]DTOPREC
+Read [BPR] BPR0 = [M:ZPPH0]BPSNUM
+Read [AXX]AXX0  = "TABCOUNTRY";"CRYDES";"SPA";[BPR]CRY;""
+[M:ZPPH0]CRYDES = [AXX]TEXTE
+If GREP = 'C'
+[M:ZPPH0]PQHFCY = 'PHISP'
+Endif
+Affzo [M:ZPPH0]CRYDES
+Gosub LIENS From TABLEAUX
+For I=0 To [M:ZPPH2]NBLIG -1
+  If [M:ZPPH2]ITMREF(I) <> ""
+    Diszo [M:ZPPH2]ITMREF(I)
+  Else
+    Actzo [M:ZPPH2]ITMREF(I)
+  Endif
+Next
+If [M:ZPPH0]NUMRESP <> ""
+  Diszo [M:ZPPH0]
+Endif
+Return
+
+##############################################################
+$VERIF_CRE
+If GIMPORT Then
+   For Y = 0 To NBLIG-1
+    If [M:ZPPH2]BPSPRI(Y)<>0
+     [M:ZPPH2]AMTTOT += [M:ZPPH2]AMT(Y)
+     [M:ZPPH2]AMTHX  += [M:ZPPH2]HXCOST(Y)/100 * max([M:ZPPH2]OFERQTY(Y),[M:ZPPH2]MINQTY(Y))
+     Read [ITM]ITM0 =  [M:ZPPH2]ITMREF(Y)
+     [M:ZPPH2]PESOTOT += [ITM]ITMWEI /1000 * max([M:ZPPH2]OFERQTY(Y),[M:ZPPH2]MINQTY(Y))
+    Endif
+   Next
+   Affzo [M:ZPPH2]AMTTOT
+   Affzo [M:ZPPH2]AMTHX
+   Affzo [M:ZPPH2]PESOTOT
+Endif
+[M:ZPPH1]LINNBR = [M:ZPPH2]NBLIG
+Affzo [M:ZPPH1]LINNBR
+Return
+
+##############################################################
+$CREATION
+Gosub CREATION From TABLEAUX
+Return
+
+##############################################################
+$VERIF_MOD
+If GIMPORT Then
+   For Y = 0 To NBLIG-1
+    If [M:ZPPH2]BPSPRI(Y)<>0
+       [M:ZPPH2]AMTTOT += [M:ZPPH2]AMT(Y)
+       [M:ZPPH2]AMTHX  += [M:ZPPH2]HXCOST(Y)/100 * max([M:ZPPH2]OFERQTY(Y),[M:ZPPH2]MINQTY(Y))
+       Read [ITM]ITM0 =  [M:ZPPH2]ITMREF(Y)
+       [M:ZPPH2]PESOTOT += [ITM]ITMWEI /1000 * max([M:ZPPH2]OFERQTY(Y),[M:ZPPH2]MINQTY(Y))
+     Endif
+   Next
+
+   Affzo [M:ZPPH2]AMTTOT
+   Affzo [M:ZPPH2]AMTHX
+   Affzo [M:ZPPH2]PESOTOT
+Endif
+[M:ZPPH1]LINNBR = [M:ZPPH2]NBLIG
+Affzo [M:ZPPH1]LINNBR
+Return
+
+##############################################################
+$MODIF
+
+Raz [M:ZPPH2]AMTTOT,[M:ZPPH2]AMTHX,[M:ZPPH2]PESOTOT
+
+For X=0 To [M:ZPPH2]NBLIG -1
+  If [M:ZPPH2]BPSPRI(X)<>0
+    [M:ZPPH2]AMTTOT += [M:ZPPH2]AMT(X)
+    [M:ZPPH2]AMTHX  += [M:ZPPH2]HXCOST(X)/100 * max([M:ZPPH2]OFERQTY(X),[M:ZPPH2]MINQTY(X))
+    Read [ITM]ITM0 =  [M:ZPPH2]ITMREF(X)
+    [M:ZPPH2]PESOTOT += [ITM]ITMWEI /1000 * max([M:ZPPH2]OFERQTY(X),[M:ZPPH2]MINQTY(X))
+  Endif
+Next
+
+Affzo [M:ZPPH2]AMTTOT
+Affzo [M:ZPPH2]AMTHX
+Affzo [M:ZPPH2]PESOTOT
+Gosub MODIF From TABLEAUX
+Return
+
+##############################################################
+$ANNULE
+Gosub ANNULE From TABLEAUX
+Return
+
+##############################################################
+$APRES_CRE
+Gosub LIENS From TABLEAUX
+#Gosub CONSULTA
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then
+    Call CONSULTAS([M:ZPPH0]NUMRESP) From ZPQHINTRANET
+  Endif
+#GXACT = 2
+#Gosub FILGAUCHE From SUBZPPH
+
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:ZPPH2]NBLIG-1
+    Call CALC_CUCONS([M:ZPPH2]ITMREF(LCON),[M:ZPPH0]PQHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+Gosub ACTUALIZA_RESP
+Return
+
+##############################################################
+$APRES_MOD
+Gosub LIENS From TABLEAUX
+#Gosub CONSULTA
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then
+    Call CONSULTAS([M:ZPPH0]NUMRESP) From ZPQHINTRANET
+  Endif
+
+#GXACT = 2
+
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:ZPPH2]NBLIG-1
+    Call CALC_CUCONS([M:ZPPH2]ITMREF(LCON),[M:ZPPH0]PQHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+Gosub ACTUALIZA_RESP
+Return
+
+##############################################################
+$AP_ANNULE
+
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:ZPPH2]NBLIG-1
+    Call CALC_CUCONS([M:ZPPH2]ITMREF(LCON),[M:ZPPH0]PQHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+
+Return
+
+##############################################################
+$INICRE
+  Local Integer STAT
+  Call NUMERO("ZPPH",[M:ZPPH0]PQHFCY,[M:ZPPH1]RSPDAT,"",[M:ZPPH0]NUMRESP,STAT) From SUBANM
+  Affzo [M:ZPPH0]NUMRESP
+  [F:ZPPH]NUMRESP=[M:ZPPH0]NUMRESP
+
+Return
+
+##############################################################
+$INICRE_LIG
+[F:ZPPD]PQHNUM = [M:ZPPH0]PQHNUM
+[F:ZPPD]BPSNUM = [M:ZPPH0]BPSNUM
+[F:ZPPD]LINNUMRESP = [M:ZPPH0]NUMRESP
+Return
+
+##############################################################
+$DEFLIG
+Default Mask [ZPPH2]
+Default File [F:ZPPD]
+
+CRIT="PQHNUM='"+[M:ZPPH0]PQHNUM+"' & BPSNUM='"+[M:ZPPH0]BPSNUM +"' & LINNUMRESP='"+[M:ZPPH0]NUMRESP+"'"
+FICLIG = "ZPRESPD"
+ABLIG = "ZPPD"
+ZONLIG = "PPDLIN"
+
+Return
+
+# Gestión de la máscara ZPPH0 (Especifico)
+
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH0) 16/04/2020 16:15:20 (ADMIN)
+######################################################################################
+Subprog AM_PQHFCY(VALEUR)
+Variable Char    VALEUR()
+If GFCY<>VALEUR
+  GFCY=VALEUR : Call GLOBVAR(GFCY) From WWGLOBACH
+Endif
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH0) 16/04/2020 16:38:07 (ADMIN)
+######################################################################################
+Subprog IB_BPSNUM
+#-------------#
+# Init bouton #
+#-------------#
+Raz GBOUT3 ,GBOUT2
+GBOUT1=mess(457,198,1) : # Fournisseurs
+If GREP="C" | GREP="D"
+  GBOUT2=mess(8,31,1) : # Sélection (SELPPDBPS fournisseurs PPD)
+Else
+  GBOUT3=mess(8,31,1) : # Sélection (SELOBJET)
+Endif
+End
+
+Subprog C_BPSNUM(VALEUR)
+Variable Char    VALEUR()
+
+#[M:ZPPH0]BPSNUM=VALEUR
+##[M:ZPPH0]PQHNUM = [PQF]PQHNUM
+##----- Valeur obligatoire -----#
+#If VALEUR = "" : mkstat = 1 : End : Endif
+##----- En modification vérification existence d'une réponse -----#
+#If GREP <> "C" & GREP <> "D"
+#  Filter [ZPPH] Where BPSNUM = VALEUR
+#  Look [ZPPH]PPH0 First
+#  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PPH] : End : Endif
+#  Filter [ZPPH]
+##----- En création ou duplication vérification existence d'une demande -----#
+#Else
+#  Filter [PQF] Where PQHFCY = [M:ZPPH0]PQHFCY & BPSNUM = VALEUR
+#  Look [PQF] PQF1 First
+#  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PQF] : End : Endif
+#  Filter [PQF]
+#Endif
+##----- Vérification existence du fournisseur et du business partner -----#
+#Read [BPS] BPS0 = VALEUR
+#If fstat Raz [F:BPS] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
+#[M:ZPPH0]BPSNAM = [F:BPS]BPSNAM
+#[M:ZPPH0]BPSSHO = [F:BPS]BPSSHO
+#Read [F:LPQF]PQF0 = [M:ZPPH0]PQHNUM;VALEUR
+#[M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE
+#If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
+#If GIMPORT= 1
+#  If [BPS]ZCPRCOE=0
+#    [M:ZPPH1]CPRCOE = 1
+#  Else
+#    [M:ZPPH1]CPRCOE = [BPS]ZCPRCOE
+#  Endif
+#
+#Endif
+#Affzo [M:ZPPH1]CPRCOE
+##[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
+#Read [BPR] BPR0 = VALEUR
+#
+##
+#Read [AXX]AXX0  = "TABCOUNTRY";"CRYDES";"SPA";[BPR]CRY;""
+#[M:ZPPH0]CRYDES = [AXX]TEXTE
+#Affzo [M:ZPPH0]CRYDES
+#If fstat Raz [F:BPR] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
+#
+#If !GIMPORT Then
+#   Raz [M:ZPPH2]NBLIG
+#   If clalev([F:LPQD])=0: Local File PQUOTATD [LPQD]: Endif
+#
+#   Filter [LPQD] Where PQHNUM=[M:ZPPH0]PQHNUM
+#   For [LPQD]
+#       If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
+#        #  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
+#            [M:ZPPH2]NBLIG += 1
+#            [M:ZPPH2]ITMREF(NBLIG-1) = [LPQD]ITMREF
+#            [M:ZPPH2]LINRSPDAT(NBLIG-1)    = [M:ZPPH1]RSPDAT
+#            [M:ZPPH2]LINPLIENDDAT(NBLIG-1) = [M:ZPPH1]PLIENDDAT
+#            [M:ZPPH2]LINLTI(NBLIG-1)       = [M:ZPPH1]LTI
+#            [M:ZPPH2]LINCPRCOE(NBLIG-1)   = [M:ZPPH1]CPRCOE
+#            [M:ZPPH2]QTYCON(NBLIG-1)       = [LPQD]QTYPUU
+#            [M:ZPPH2]OFERQTY(NBLIG-1)      = [LPQD]QTYPUU
+#            [M:ZPPH2]ZITMDES2(NBLIG-1)     = [LPQD]ITMDES1
+#            [M:ZPPH2]PUU(NBLIG-1)          = [LPQD]PUU
+#            [M:ZPPH2]LINCUR(NBLIG-1)       = [M:ZPPH1]CUR
+#
+#            [M:ZPPH2]LINCPRCOE(NBLIG-1)    = [F:LPQF]ZCPRCOE
+#            [M:ZPPH2]ITMDES(NBLIG-1)       = [LPQD]ITMDES
+#            [M:ZPPH2]PQDLIN(NBLIG-1)       = [LPQD]PQDLIN
+#            [M:ZPPH2]LINPRIDIV(NBLIG-1)    = [M:ZPPH1]PRIDIV
+#            Read [XXXPQH]PQH0 = [LPQD]PQHNUM
+#            If !fstat
+#              [M:ZPPH2]LINPQHREF(NBLIG-1) = [F:XXXPQH]PQHREF
+#            Endif
+#
+#            Affzo [M:ZPPH2]1-99
+#
+#            Filter [LPQD]
+#  Next
+#Endif
+End
+
+##############################################################
+Subprog AM_BPSNUM(VALEUR)
+Variable Char    VALEUR()
+
+############ Esto estaba en C_BPSNUM#######################
+[M:ZPPH0]BPSNUM=VALEUR
+#[M:ZPPH0]PQHNUM = [PQF]PQHNUM
+#----- Valeur obligatoire -----#
+If VALEUR = "" : mkstat = 1 : End : Endif
+#----- En modification vérification existence d'une réponse -----#
+If GREP <> "C" & GREP <> "D"
+  Filter [ZPPH] Where BPSNUM = VALEUR
+  Look [ZPPH]PPH0 First
+  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PPH] : End : Endif
+  Filter [ZPPH]
+#----- En création ou duplication vérification existence d'une demande -----#
+Else
+  Filter [PQF] Where PQHFCY = [M:ZPPH0]PQHFCY & BPSNUM = VALEUR
+  Look [PQF] PQF1 First
+  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PQF] : End : Endif
+  Filter [PQF]
+Endif
+#----- Vérification existence du fournisseur et du business partner -----#
+Read [BPS] BPS0 = VALEUR
+If fstat Raz [F:BPS] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
+[M:ZPPH0]BPSNAM = [F:BPS]BPSNAM
+[M:ZPPH0]BPSSHO = [F:BPS]BPSSHO
+Read [F:LPQF]PQF0 = [M:ZPPH0]PQHNUM;VALEUR
+[M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE
+If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
+#If GIMPORT= 1
+#  If [BPS]ZCPRCOE=0
+#    [M:ZPPH1]CPRCOE = 1
+#  Else
+#    [M:ZPPH1]CPRCOE = [BPS]ZCPRCOE
+#  Endif
+#
+#Endif
+Affzo [M:ZPPH1]CPRCOE
+#[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
+Read [BPR] BPR0 = VALEUR
+[M:ZPPH1]CUR = [BPR]CUR
+[M:ZPPH1]EECICT = [BPS]EECICT
+[M:ZPPH1]MDL    = [BPS]MDL
+[M:ZPPH1]PRIDIV = [BPS]ZUNPRE
+#
+Read [AXX]AXX0  = "TABCOUNTRY";"CRYDES";"SPA";[BPR]CRY;""
+[M:ZPPH0]CRYDES = [AXX]TEXTE
+Affzo [M:ZPPH0]CRYDES
+If fstat Raz [F:BPR] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
+
+#If !GIMPORT Then
+   Raz [M:ZPPH2]NBLIG
+   If clalev([F:LPQD])=0: Local File PQUOTATD [LPQD]: Endif
+
+   Filter [LPQD] Where PQHNUM=[M:ZPPH0]PQHNUM
+   For [LPQD]
+       If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
+        #  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
+            [M:ZPPH2]NBLIG += 1
+            [M:ZPPH2]ITMREF(NBLIG-1) = [LPQD]ITMREF
+            [M:ZPPH2]LINRSPDAT(NBLIG-1)    = [M:ZPPH1]RSPDAT
+            [M:ZPPH2]LINPLIENDDAT(NBLIG-1) = [M:ZPPH1]PLIENDDAT
+            [M:ZPPH2]LINLTI(NBLIG-1)       = [M:ZPPH1]LTI
+            [M:ZPPH2]QTYCON(NBLIG-1)       = [LPQD]QTYPUU
+            [M:ZPPH2]OFERQTY(NBLIG-1)      = [LPQD]QTYPUU
+            [M:ZPPH2]ZITMDES2(NBLIG-1)     = [LPQD]ZITMDES2
+            [M:ZPPH2]PUU(NBLIG-1)          = [LPQD]PUU
+            [M:ZPPH2]LINCUR(NBLIG-1)       = [M:ZPPH1]CUR
+            [M:ZPPH2]LINLTI(NBLIG-1)    = [LPQD]LTI
+            [M:ZPPH2]LINCPRCOE(NBLIG-1)    = [F:LPQF]ZCPRCOE
+            [M:ZPPH2]ITMDES(NBLIG-1)       = [LPQD]ITMDES
+            [M:ZPPH2]PQDLIN(NBLIG-1)       = [LPQD]PQDLIN
+            [M:ZPPH2]LINPRIDIV(NBLIG-1)    = [M:ZPPH1]PRIDIV
+            Read [XXXPQH]PQH0 = [LPQD]PQHNUM
+            If !fstat
+              [M:ZPPH2]LINPQHREF(NBLIG-1) = [F:XXXPQH]PQHREF
+            Endif
+            Read [F:ITV]ITV0 = [LPQD]ITMREF;[M:ZPPH0]PQHFCY
+            [M:ZPPH2]ZPMP(NBLIG-1) = arr([F:ITV]AVC*100,0.001)
+            Affzo [M:ZPPH2]1-99
+
+            Filter [LPQD]
+  Next
+#Endif
+
+##########################
+# poner aqui campos por defecto que se rellenen del proveedor en otras pantallas.
+
+
+
+Affzo [M:ZPPH1]CUR
+Affzo [M:ZPPH1]EECICT
+Affzo [M:ZPPH1]MDL
+
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH0) 22/04/2020 10:29:30 (ADMIN)
+######################################################################################
+Subprog IB_PQHNUM
+#-------------#
+# Init bouton #
+#-------------#
+Raz GBOUT2, GBOUT3
+#GBOUT2=mess(8,31,1) : # Sélection
+End
+
+Subprog C_PQHNUM(VALEUR)
+Variable Char    VALEUR()
+#----- Valeur obligatoire -----#
+If VALEUR = "" : mkstat = 1 : End : Endif
+#----- Lecture appel d'offre entête -----#
+Read [PQH] PQH0=VALEUR
+If fstat  Raz [F:PQH] : GMESSAGE=mess(23,100,1) : mkstat=1 : End : Endif
+#----- En modification vérification existence d'une réponse -----#
+If GREP <> "C" & GREP <> "D"
+  Filter [ZPPH] Where BPSNUM = [M:ZPPH0]BPSNUM & PQHNUM = VALEUR
+  Look [ZPPH]PPH0 First
+  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [ZPPH] : End : Endif
+  Filter [ZPPH]
+#----- En création ou duplication vérification existence d'une demande -----#
+Else
+  Filter [PQF] Where PQHNUM = VALEUR & BPSNUM = [M:ZPPH0]BPSNUM
+  Look [PQF] PQF0 First
+  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PQF] : End : Endif
+  Filter [PQF]
+Endif
+#----- Déblocage logique d'une entête précédente si nécessaire -----#
+If GPQH_SYMBOL<>"" & GPQH_SYMBOL<>"PQH"+VALEUR
+  Unlock=GPQH_SYMBOL : Raz GPQH_SYMBOL
+Endif
+#----- Si entête appel d'offre bloquée logiquement --> Abandon -----#
+If GPQH_SYMBOL=""
+  Lock="PQH"+VALEUR
+  If fstat
+    GMESSAGE="$PQUOTAT"-VALEUR-mess(10,100,1) : mkstat=1 : End
+  Else
+    GPQH_SYMBOL="PQH"+VALEUR
+  Endif
+Endif
+End
+##############################################################################3
+##############################################################################
+Subprog AM_PQHNUM(VALEUR)
+Variable Char    VALEUR()
+
+If [F:PQH]PQHNUM <> VALEUR
+  Read [PQH] PQH0 = VALEUR
+  If fstat Raz [F:PQH] : Endif
+Endif
+[M:ZPPH0]PQHREF = [F:PQH]PQHREF
+Affzo [M:ZPPH0]PQHREF
+
+############ Esto estaba en C_BPSNUM#######################
+
+Read [F:LPQF]PQF0 = VALEUR;[M:ZPPH0]BPSNUM
+[M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE
+If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
+If !GIMPORT Then
+   Raz [M:ZPPH2]NBLIG
+   If clalev([F:LPQD])=0: Local File PQUOTATD [LPQD]: Endif
+
+   Filter [LPQD] Where PQHNUM=VALEUR
+   For [LPQD]
+       If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
+        #  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
+            [M:ZPPH2]NBLIG += 1
+            [M:ZPPH2]ITMREF(NBLIG-1) = [LPQD]ITMREF
+            [M:ZPPH2]LINRSPDAT(NBLIG-1)    = [M:ZPPH1]RSPDAT
+            [M:ZPPH2]LINPLIENDDAT(NBLIG-1) = [M:ZPPH1]PLIENDDAT
+            [M:ZPPH2]LINLTI(NBLIG-1)       = [M:ZPPH1]LTI
+            [M:ZPPH2]QTYCON(NBLIG-1)       = [LPQD]QTYPUU
+            [M:ZPPH2]OFERQTY(NBLIG-1)      = [LPQD]QTYPUU
+            [M:ZPPH2]ZITMDES2(NBLIG-1)     = [LPQD]ZITMDES2
+            [M:ZPPH2]PUU(NBLIG-1)          = [LPQD]PUU
+            [M:ZPPH2]LINCUR(NBLIG-1)       = [M:ZPPH1]CUR
+            [M:ZPPH2]LINCPRCOE(NBLIG-1)    = [F:LPQF]ZCPRCOE
+            [M:ZPPH2]ITMDES(NBLIG-1)       = [LPQD]ITMDES
+            [M:ZPPH2]PQDLIN(NBLIG-1)       = [LPQD]PQDLIN
+            [M:ZPPH2]LINPRIDIV(NBLIG-1)    = [M:ZPPH1]PRIDIV
+            Read [XXXPQH]PQH0 = [LPQD]PQHNUM
+            If !fstat
+              [M:ZPPH2]LINPQHREF(NBLIG-1) = [F:XXXPQH]PQHREF
+            Endif
+            Read [F:ITV]ITV0 = [LPQD]ITMREF;[M:ZPPH0]PQHFCY
+            [M:ZPPH2]ZPMP(NBLIG-1) = arr([F:ITV]AVC*100,0.001)
+
+
+            Filter [LPQD]
+  Next
+  Affzo [M:ZPPH2]
+Endif
+
+##########################
+End
+
+
+######################################################################################
+
+
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 27/04/2020 09:51:01 (ADMIN)
+######################################################################################
+Subprog AM_RSPDAT(VALEUR)
+Variable Date    VALEUR
+
+[M:ZPPH1]PLIENDDAT = VALEUR + 30
+Affzo [M:ZPPH1]PLIENDDAT
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINRSPDAT(Z) = VALEUR
+      [M:ZPPH2]LINPLIENDDAT(Z) = [M:ZPPH1]PLIENDDAT
+      Affzo [M:ZPPH2]LINRSPDAT(Z)
+      Affzo [M:ZPPH2]LINPLIENDDAT(Z)
+      [M:ZPPH2]UPDFLG(Z) = 2
+    Next
+  Endif
+Endif
+End
+
+Subprog AM_CUR(VALEUR)
+Variable Char    VALEUR()
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINCUR(Z) = VALEUR
+      Affzo [M:ZPPH2]LINCUR(Z)
+
+      #Calculamos importe HX
+      PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* [M:ZPPH2]LINCPRCOE(Z)
+      If [M:ZPPH2]LINCUR(Z) <> "EUR"
+          Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
+          Read [TCH]First
+          If !fstat
+          #Infbox num$([TCH]CHGDIV)
+          PRECIO = PRECIO / [TCH]CHGDIV
+          Endif
+          Filter [TCH]
+      Endif
+      [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]HXCOST(Z)
+
+    Next
+  Endif
+Endif
+End
+
+###################################################################################
+
+Subprog AM_PLIENDDAT(VALEUR)
+Variable Date    VALEUR
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINPLIENDDAT(Z) = VALEUR
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]LINPLIENDDAT(Z)
+    Next
+  Endif
+Endif
+End
+
+################################################################################
+
+Subprog AM_PRIDIV(VALEUR)
+Variable Char VALEUR
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINPRIDIV(Z) = VALEUR
+      nolign = Z+1
+      Call AM_LINPRIDIV(VALEUR)
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]LINPRIDIV(Z)
+    Next
+  Endif
+Endif
+End
+
+#################################################################################
+
+Subprog AM_LTI(VALEUR)
+Variable Decimal VALEUR
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINLTI(Z) = VALEUR
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]LINLTI(Z)
+    Next
+  Endif
+Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 28/04/2020 09:14:46 (ADMIN)
+######################################################################################
+Subprog AM_CPRCOE(VALEUR)
+Variable Decimal VALEUR
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LINCPRCOE(Z) = VALEUR
+      Affzo [M:ZPPH2]LINCPRCOE(Z)
+
+      Local Decimal PRECIO
+      #Calculamos importe HX
+      PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* VALEUR
+      If [M:ZPPH2]LINCUR(Z) <> "EUR"
+        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+        Read [TCH]First
+        If !fstat
+        #Infbox num$([TCH]CHGDIV)
+        PRECIO = PRECIO / [TCH]CHGDIV
+        Endif
+      Filter [TCH]
+      Endif
+      [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]HXCOST(Z)
+    Next
+  Endif
+Endif
+End
+
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 27/04/2020 11:08:03 (ADMIN)
+######################################################################################
+Subprog AM_NEWDISCOUNT(VALEUR)
+Variable Decimal VALEUR
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To NBLIG-1
+      [M:ZPPH2]LDISCRGVAL1(Z) = VALEUR
+      Affzo [M:ZPPH2]LDISCRGVAL1(Z)
+      #calculamos importe
+      Local Decimal PRECIO
+      Local Decimal CANTIDAD
+      PRECIO = [M:ZPPH2]PRI(Z) * (1-VALEUR/100)
+      If [M:ZPPH2]MINQTY(Z) > [M:ZPPH2]OFERQTY(Z)
+          CANTIDAD = [M:ZPPH2]MINQTY(Z)
+      Else
+          CANTIDAD = [M:ZPPH2]OFERQTY(Z)
+      Endif
+      [M:ZPPH2]AMT(Z) = PRECIO * CANTIDAD
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]AMT(Z)
+
+      #Calculamos importe HX
+      If [M:ZPPH2]LINCPRCOE(Z) <> 0
+        PRECIO = [M:ZPPH2]PRI(Z) * (1-VALEUR/100)* [M:ZPPH2]LINCPRCOE(Z)
+      Else
+        PRECIO = [M:ZPPH2]PRI(Z) * (1-VALEUR/100)
+      Endif
+      If [M:ZPPH2]LINCUR(Z) <> "EUR"
+        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+        Read [TCH]First
+        If !fstat
+        #Infbox num$([TCH]CHGDIV)
+          PRECIO = PRECIO / [TCH]CHGDIV
+        Endif
+        Filter [TCH]
+      Endif
+      [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+      [M:ZPPH2]UPDFLG(Z) = 2
+      Affzo [M:ZPPH2]HXCOST(Z)
+    Next
+  Endif
+Endif
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 12:37:52 (ADMIN)
+######################################################################################
+Subprog S_ITMREF(VALEUR)
+Variable Char    VALEUR()
+#
+# If clalev([F:PQD])=0: Local File PQUOTATD [PQD]: Endif
+#
+# Choose [PQD] Where PQHNUM=[M:ZPPH0]PQHNUM
+#& Using ITMREF Titled "Artículo",
+#&[PQD]ITMDES1 Titled "Descripción",
+#&[PQD]PQHNUM  Titled "NºSolicitud"
+#
+#            Case status
+#              When 0       : Call MESSAGE(mess(99,100,1)) From GESECRAN
+#              When 7
+#              When Default : VALEUR = [PQD]ITMREF
+#            Endcase
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 12:52:51 (ADMIN)
+######################################################################################
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+ If clalev([F:PQD])=0: Local File PQUOTATD [PQD]: Endif
+  Filter [PQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM  and ITMREF = VALEUR
+  Read [PQD] First
+  If fstat
+     GERR = 1 : GMESSAGE = "No hay ninguna solicitud de oferta para este artículo" : mkstat = 2 : Filter [PQD] :End
+  Endif
+
+  If clalev([F:LPQF])=0: Local File PQUOTATF [LPQF]: Endif
+  If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
+#  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
+
+  #If GUSER = "ADMIN" : Infbox [PQD]ZITMDES2 Endif
+  [M:ZPPH2]ITMREF(nolign-1) = VALEUR
+  [M:ZPPH2]LINRSPDAT(nolign-1)    = [M:ZPPH1]RSPDAT
+  [M:ZPPH2]LINPLIENDDAT(nolign-1) = [M:ZPPH1]PLIENDDAT
+  [M:ZPPH2]LINLTI(nolign-1)       = [M:ZPPH1]LTI
+  [M:ZPPH2]QTYCON(nolign-1)       = [PQD]QTYPUU
+  [M:ZPPH2]OFERQTY(nolign-1)      = [PQD]QTYPUU
+  [M:ZPPH2]PUU(nolign-1)          = [PQD]PUU
+  [M:ZPPH2]LINCUR(nolign-1)       = [M:ZPPH1]CUR
+  [M:ZPPH2]LINCPRCOE(nolign-1)    = [M:ZPPH1]CPRCOE
+  [M:ZPPH2]ITMDES(nolign-1)       = [PQD]ITMDES
+  [M:ZPPH2]PQDLIN(nolign-1)       = [PQD]PQDLIN
+  [M:ZPPH2]LINPRIDIV(nolign-1)    = [M:ZPPH1]PRIDIV
+  [M:ZPPH2]LINCUR(nolign-1)    = [M:ZPPH1]CUR
+  [M:ZPPH2]ZITMDES2(nolign-1)     = [PQD]ZITMDES2
+  Read [XXXPQH]PQH0 = [PQD]PQHNUM
+  If !fstat
+    [M:ZPPH2]LINPQHREF(nolign-1) = [F:XXXPQH]PQHREF
+  Endif
+  Read [F:ITV]ITV0 = VALEUR;[M:ZPPH0]PQHFCY
+
+  [M:ZPPH2]ZPMP(nolign-1) = arr([F:ITV]AVC*100,0.001)
+  Affzo [M:ZPPH2]1-99
+ # Filter [XPQD]
+  Filter [PQD]
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 13:33:32 (ADMIN)
+######################################################################################
+Subprog AM_QTYCON(VALEUR)
+Variable Decimal VALEUR
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 13:36:10 (ADMIN)
+######################################################################################
+Subprog C_QTYCON(VALEUR)
+Variable Decimal VALEUR
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 13:54:23 (ADMIN)
+######################################################################################
+Subprog AM_MINQTY(VALEUR)
+Variable Decimal VALEUR
+Local Decimal PRECIO
+Local Decimal CANTIDAD
+
+PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
+
+If VALEUR > [M:ZPPH2]OFERQTY(nolign-1)
+   CANTIDAD = VALEUR
+Else
+   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
+Endif
+
+[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+Affzo [M:ZPPH2]AMT(nolign-1)
+End
+
+#######################################################################################
+
+Subprog AM_PRI(VALEUR)
+Variable Decimal VALEUR
+
+
+
+End
+
+####################################################################################
+
+#Subprog AM_DISCRGVAL1(VALEUR)
+#Variable Decimal VALEUR
+#
+#Local Decimal PRECIO
+#Local Decimal CANTIDAD
+#
+#PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100)
+#
+#If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
+#   CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
+#Else
+#   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
+#Endif
+#
+#[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+#Affzo [M:ZPPH2]AMT(nolign-1)
+#
+##Calculamos importe HX
+#PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100) + [M:ZPPH2]LINCPRCOE(nolign-1)
+#If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+#     #Infbox num$([TCH]CHGDIV)
+#     PRECIO = PRECIO * [TCH]CHGDIV
+#   Endif
+#   Filter [TCH]
+#Endif
+#[M:ZPPH2]HXCOST(nolign-1) = PRECIO * 100
+#Affzo [M:ZPPH2]HXCOST(nolign-1)
+#
+#End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 17:12:49 (ADMIN)
+######################################################################################
+Subprog AM_LINCPRCOE(VALEUR)
+Variable Decimal VALEUR
+Local Decimal PRECIO
+#Calculamos importe HX
+PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* VALEUR
+If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
+   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+   Read [TCH]First
+   If !fstat
+     #Infbox num$([TCH]CHGDIV)
+     PRECIO = PRECIO / [TCH]CHGDIV
+   Endif
+   Filter [TCH]
+Endif
+[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+Affzo [M:ZPPH2]HXCOST(nolign-1)
+
+End
+
+
+######################################################################################
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 28/04/2020 09:44:48 (ADMIN)
+######################################################################################
+Subprog AM_LINCUR(VALEUR)
+Variable Char    VALEUR()
+Local Decimal PRECIO
+#Calculamos importe HX
+PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
+If VALEUR <> "EUR"
+   Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
+   Read [TCH]First
+   If !fstat
+     #Infbox num$([TCH]CHGDIV)
+     PRECIO = PRECIO / [TCH]CHGDIV
+   Endif
+   Filter [TCH]
+Endif
+[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+Affzo [M:ZPPH2]HXCOST(nolign-1)
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 28/04/2020 14:10:10 (ADMIN)
+######################################################################################
+Subprog C_ITMREF(VALEUR)
+Variable Char    VALEUR()
+#  Filter [PQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM  and ITMREF = VALEUR
+#  Read [PQD] First
+#  If fstat
+#     GERR = 1 : GMESSAGE = "No hay ninguna solicitud de oferta para este artículo" : mkstat = 2
+#  Endif
+#  Filter [PQD]
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 29/04/2020 13:52:31 (ADMIN)
+######################################################################################
+Subprog AVANT_NBLIG
+If [M:ZPPH2]AMT(nolign-1) <> 0
+  [M:ZPPH2]AMTTOT -= [M:ZPPH2]AMT(nolign-1)
+  [M:ZPPH2]AMTHX  -= [M:ZPPH2]HXCOST(nolign-1)/100 * max([M:ZPPH2]OFERQTY(nolign-1),[M:ZPPH2]MINQTY(nolign-1))
+  Read [ITM]ITM0 =  [M:ZPPH2]ITMREF(nolign-1)
+  [M:ZPPH2]PESOTOT -= [ITM]ITMWEI/1000 * max([M:ZPPH2]OFERQTY(nolign-1),[M:ZPPH2]MINQTY(nolign-1))
+#  Affzo [M:ZPPH2]AMTTOT
+#  Affzo [M:ZPPH2]AMTHX
+#  Affzo [M:ZPPH2]PESOTOT
+Endif
+End
+
+#
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 24/04/2020 09:50:40 (ADMIN)
+######################################################################################
+Subprog APRES_NBLIG
+If [M:ZPPH2]AMT(nolign-1) <> 0
+  [M:ZPPH2]AMTTOT += [M:ZPPH2]AMT(nolign-1)
+  [M:ZPPH2]AMTHX  += [M:ZPPH2]HXCOST(nolign-1)/100 * max([M:ZPPH2]OFERQTY(nolign-1),[M:ZPPH2]MINQTY(nolign-1))
+  Read [ITM]ITM0 =  [M:ZPPH2]ITMREF(nolign-1)
+  [M:ZPPH2]PESOTOT += [ITM]ITMWEI/1000 * max([M:ZPPH2]OFERQTY(nolign-1),[M:ZPPH2]MINQTY(nolign-1))
+  Affzo [M:ZPPH2]AMTTOT
+  Affzo [M:ZPPH2]AMTHX
+  Affzo [M:ZPPH2]PESOTOT
+Endif
+End
+######################################################################################
+
+$CONSULTA
+
+  If clalev([F:ZZPPD])=0: Local File ZPRESPD [ZZPPD]: Endif
+  Local Char WFICHERO(200) : WFICHERO = filpath("TXT","Consulta","csv","")
+
+  Openo WFICHERO, -1 Using [SXX]
+  Iomode adxirs chr$(13)+chr$(10) Using [SXX]
+  Iomode adxifs ';' Using [SXX]
+  Iomode adxium 50 Using [SXX]
+
+  Filter [F:ZZPPD] Where BPSNUM = [M:ZPPH0]BPSNUM and PQHNUM = [M:ZPPH0]PQHNUM and LINNUMRESP = [M:ZPPH0]NUMRESP Order By PQDLIN Asc
+
+  For [F:ZZPPD]
+
+     Wrseq [F:ZZPPD]ITMREF;              Using [SXX]
+     Wrseq [F:ZZPPD]NOTA;                Using [SXX]
+     Wrseq [F:ZZPPD]LINNUMRESP;          Using [SXX]
+     Wrseq [F:ZZPPD]PQHNUM;              Using [SXX]
+     Wrseq [F:ZZPPD]BPSNUM;              Using [SXX]
+     Wrseq [F:ZZPPD]LINRSPDAT;           Using [SXX]
+     Wrseq [F:ZZPPD]LINPLIENDDAT;        Using [SXX]
+     Wrseq num$([F:ZZPPD]LINCPRCOE);     Using [SXX]
+     Wrseq num$([F:ZZPPD]HXCOST);        Using [SXX]
+     Wrseq num$([F:ZZPPD]LDISCRGVAL1);   Using [SXX]
+     Wrseq [F:ZZPPD]CREUSR;              Using [SXX]
+     Wrseq [F:ZZPPD]UPDUSR;              Using [SXX]
+     Wrseq [F:ZZPPD]PUU;                 Using [SXX]
+     Wrseq num$([F:ZZPPD]LINPRIDIV);     Using [SXX]
+     Wrseq num$([F:ZZPPD]QTYCON);        Using [SXX]
+     Wrseq [F:ZZPPD]LINPQHREF;           Using [SXX]
+     Wrseq [F:ZZPPD]ITMDES;              Using [SXX]
+     Wrseq num$([F:ZZPPD]PPDLIN);        Using [SXX]
+     Wrseq num$([F:ZZPPD]MINQTY);        Using [SXX]
+     Wrseq num$([F:ZZPPD]LINLTI);        Using [SXX]
+     Wrseq [F:ZZPPD]LINCUR;              Using [SXX]
+     Wrseq [F:ZZPPD]LINCUR;              Using [SXX]
+     Wrseq [F:ZZPPD]PRI                  Using [SXX]
+
+
+
+  Next
+  Openo Using [SXX]
+  Filter [F:ZZPPD]
+Return
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 20/05/2020 13:16:56 (ADMIN)
+######################################################################################
+Subprog AM_OFERQTY(VALEUR)
+Variable Decimal VALEUR
+Local Decimal PRECIO
+Local Decimal CANTIDAD
+
+  PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
+
+  If [M:ZPPH2]MINQTY(nolign-1) > VALEUR
+     CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
+  Else
+     CANTIDAD = VALEUR
+  Endif
+
+  [M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+  Affzo [M:ZPPH2]AMT(nolign-1)
+End
+########################################################################################
+
+Subprog AM_BPSPRI(VALEUR)
+Variable Decimal VALEUR
+
+#calculamos Importe
+Local Decimal PRECIO
+Local Decimal CANTIDAD
+Local Decimal UNITARIO
+Local Integer DIVISOR
+
+Case [M:ZPPH2]LINPRIDIV(nolign-1)
+     When "UN" : DIVISOR = 1
+     When "CEN" : DIVISOR = 100
+     When "MIL" : DIVISOR = 1000
+Endcase
+If [M:ZPPH2]INIPRI(nolign-1) = 0 :[M:ZPPH2]INIPRI(nolign-1) = VALEUR Endif
+UNITARIO = VALEUR / DIVISOR
+
+PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
+
+#Infbox num$(PRECIO)
+
+If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
+   CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
+Else
+   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
+Endif
+
+[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+Affzo [M:ZPPH2]AMT(nolign-1)
+
+#Calculamos importe HX
+PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
+If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
+   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+   Read [TCH]First
+   If !fstat
+     #Infbox num$([TCH]CHGDIV)
+     PRECIO = PRECIO / [TCH]CHGDIV
+   Endif
+   Filter [TCH]
+Endif
+
+#Infbox num$(arr(PRECIO * 100,0.001))+"/"+num$(PRECIO * 100)
+[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+#Infbox num$([M:ZPPH2]HXCOST(nolign-1))
+[M:ZPPH2]PRI(nolign -1) = UNITARIO
+Affzo [M:ZPPH2]PRI(nolign -1)
+Affzo [M:ZPPH2]HXCOST(nolign-1)
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 13/07/2020 09:44:25 (ADMIN)
+######################################################################################
+Subprog AM_LDISCRGVAL1(VALEUR)
+Variable Decimal VALEUR
+Local Decimal PRECIO
+Local Decimal CANTIDAD
+
+PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100)
+
+If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
+   CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
+Else
+   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
+Endif
+
+[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+Affzo [M:ZPPH2]AMT(nolign-1)
+
+#Calculamos importe HX
+
+PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
+If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
+   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+   Read [TCH]First
+   If !fstat
+     #Infbox num$([TCH]CHGDIV)
+     PRECIO = PRECIO / [TCH]CHGDIV
+   Endif
+   Filter [TCH]
+Endif
+[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+Affzo [M:ZPPH2]HXCOST(nolign-1)
+
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 15/10/2021 03:54:43 (ADMIN)
+######################################################################################
+#Subprog AM_DTOPREC(VALEUR)
+#Variable Decimal VALEUR
+#If [M:ZPPH2]NBLIG > 0
+#  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+#
+#  If GBIDI2  = 2 Then
+#    [M:ZPPH1]NEWDISCOUNT = 0
+#    Affzo [M:ZPPH1]NEWDISCOUNT
+#    For Z = 0 To NBLIG-1
+#      If [M:ZPPH2]INIPRI(Z) = 0
+#        [M:ZPPH2]INIPRI(Z) = [M:ZPPH2]PRI(Z)
+#        Affzo [M:ZPPH2]INIPRI(Z)
+#      Endif
+#      If VALEUR = 0 :[M:ZPPH2]PRI(Z) = [M:ZPPH2]INIPRI(Z) Endif
+#      #calculamos importe
+#      Local Decimal PRECIO
+#      Local Decimal CANTIDAD
+#      PRECIO = [M:ZPPH2]PRI(Z)*(1-VALEUR/100)
+#      [M:ZPPH2]PRI(Z) = PRECIO
+#      Affzo [M:ZPPH2]PRI(Z)
+#      #Precio prov
+#      Case  [M:ZPPH2]LINPRIDIV(Z)
+#        When "UN": [M:ZPPH2]BPSPRI(Z) = PRECIO
+#        When "CEN": [M:ZPPH2]BPSPRI(Z) = PRECIO*100
+#        When "MIL": [M:ZPPH2]BPSPRI(Z) = PRECIO*1000
+#      Endcase
+#      Affzo [M:ZPPH2]BPSPRI(Z)
+#      If [M:ZPPH2]MINQTY(Z) > [M:ZPPH2]OFERQTY(Z)
+#          CANTIDAD = [M:ZPPH2]MINQTY(Z)
+#      Else
+#          CANTIDAD = [M:ZPPH2]OFERQTY(Z)
+#      Endif
+#      [M:ZPPH2]AMT(Z) = PRECIO * CANTIDAD
+#      Affzo [M:ZPPH2]AMT(Z)
+#
+#      #pongo a 0 el descuento
+#      [M:ZPPH2]LDISCRGVAL1(Z) = 0
+#      Affzo [M:ZPPH2]LDISCRGVAL1(Z)
+#
+#      #Calculamos importe HX
+#      If [M:ZPPH2]LINCPRCOE(Z) <> 0
+#        PRECIO = PRECIO* [M:ZPPH2]LINCPRCOE(Z)
+#      Endif
+#      If [M:ZPPH2]LINCUR(Z) <> "EUR"
+#        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+#        Read [TCH]First
+#        If !fstat
+#          PRECIO = PRECIO / [TCH]CHGDIV
+#        Endif
+#        Filter [TCH]
+#      Endif
+#      [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+#      [M:ZPPH2]UPDFLG(Z) = 2
+#      Affzo [M:ZPPH2]HXCOST(Z)
+#    Next
+#  Endif
+#Endif
+#
+#End
+#
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH2) 29/10/2021 02:10:58 (ADMIN)
+######################################################################################
+Subprog AM_LINPRIDIV(VALEUR)
+Variable Char    VALEUR()
+#calculamos Importe
+Local Decimal PRECIO
+Local Decimal CANTIDAD
+Local Decimal UNITARIO
+Local Integer DIVISOR
+
+Case VALEUR
+     When "UN" : DIVISOR = 1
+     When "CEN" : DIVISOR = 100
+     When "MIL" : DIVISOR = 1000
+Endcase
+
+UNITARIO = [M:ZPPH2]BPSPRI(nolign-1) / DIVISOR
+
+PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
+
+#Infbox num$(PRECIO)
+
+If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
+   CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
+Else
+   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
+Endif
+
+[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
+Affzo [M:ZPPH2]AMT(nolign-1)
+
+#Calculamos importe HX
+PRECIO = PRECIO* [M:ZPPH2]LINCPRCOE(nolign-1)
+If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
+   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+   Read [TCH]First
+   If !fstat
+     PRECIO = PRECIO / [TCH]CHGDIV
+   Endif
+   Filter [TCH]
+Endif
+
+
+[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+[M:ZPPH2]PRI(nolign -1) = UNITARIO
+Affzo [M:ZPPH2]PRI(nolign -1)
+Affzo [M:ZPPH2]HXCOST(nolign-1)
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 04/11/2021 17:26:35 (ADMIN)
+######################################################################################
+Subprog CL_DTOPREC(VALEUR)
+Variable Char    VALEUR()
+If [M:ZPPH2]NBLIG > 0
+  Call OUINON("Aplicar descuento en Precio proveedor de líneas (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    Local Decimal PRECIO
+    Local Decimal CANTIDAD
+    [M:ZPPH1]NEWDISCOUNT = 0
+    Affzo [M:ZPPH1]NEWDISCOUNT
+    Local Integer Z:Raz Z
+    For Z = 0 To NBLIG-1
+      If [M:ZPPH2]BPSPRI(Z) <> 0
+        Raz PRECIO,CANTIDAD
+        #calculamos importe
+        PRECIO = ([M:ZPPH2]BPSPRI(Z)*(100-[M:ZPPH2]LDISCRGVAL1(Z))/100)
+        [M:ZPPH2]BPSPRI(Z) = arr(PRECIO,0.01)
+        Affzo [M:ZPPH2]BPSPRI(Z)
+
+        Case  [M:ZPPH2]LINPRIDIV(Z)
+          When "UN": [M:ZPPH2]PRI(Z) = PRECIO
+          When "CEN": [M:ZPPH2]PRI(Z) = PRECIO/100
+          When "MIL": [M:ZPPH2]PRI(Z) = PRECIO/1000
+        Endcase
+        Affzo [M:ZPPH2]PRI(Z)
+        If [M:ZPPH2]MINQTY(Z) > [M:ZPPH2]OFERQTY(Z)
+            CANTIDAD = [M:ZPPH2]MINQTY(Z)
+        Else
+            CANTIDAD = [M:ZPPH2]OFERQTY(Z)
+        Endif
+        [M:ZPPH2]AMT(Z) = [M:ZPPH2]PRI(Z) * CANTIDAD
+        Affzo [M:ZPPH2]AMT(Z)
+
+        #pongo a 0 el descuento
+        [M:ZPPH2]LDISCRGVAL1(Z) = 0
+        Affzo [M:ZPPH2]LDISCRGVAL1(Z)
+
+        #Calculamos importe HX
+        If [M:ZPPH2]LINCPRCOE(Z) <> 0
+          PRECIO = [M:ZPPH2]PRI(Z)* [M:ZPPH2]LINCPRCOE(Z)
+        Endif
+        If [M:ZPPH2]LINCUR(Z) <> "EUR"
+          Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+          Read [TCH]First
+          If !fstat
+            PRECIO = PRECIO / [TCH]CHGDIV
+          Endif
+          Filter [TCH]
+        Endif
+        [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+        [M:ZPPH2]UPDFLG(Z) = 2
+        Affzo [M:ZPPH2]HXCOST(Z)
+      Endif
+    Next
+  Endif
+Endif
+mkstat = 4
+#REP = "M":GREP = "M"
+End
+
+
+######################################################################################

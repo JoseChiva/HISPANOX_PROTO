@@ -1,0 +1,233 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#MRR01 - 06/05/2020 - Cód.act.: ZQ008 - Cálculo campo CMO
+#MLGA -  02/06/2020 - Desactivo en importacion
+#MLGA -  05/08/2020 - He anulado el calculo porque me da divion by zero al intentar borrar RECEPCIONES
+
+################################################################
+$ACTION
+
+Case ACTION
+  When "BEFWRISTJ" : Gosub BEFWRISTJ
+Endcase
+
+Return
+
+################################################################
+$BEFWRISTJ
+Gosub CALC_CMO
+
+Return
+
+################################################################
+$CALC_CMO
+#If find([F:STJ]TRSTYP,1,3,12,13,16,23,33,35)=0 : Return : Endif
+Local Decimal ZCMO
+Raz ZCMO
+
+If clalev([F:ITF1])=0 Local File ITMFACILIT[ITF1]  : Endif
+If clalev([F:ITV1])=0 Local File ITMMVT    [ITV1]  : Endif
+
+Read [F:ITV1]ITV0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+If !fstat Then
+  Read [F:ITF1]ITF0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+  If !fstat Then
+      If ([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU) <> 0
+        If [F:STJ]QTYSTU>0
+          If [F:STJ]AMTDEV2 = 0
+            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
+          Else
+            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY)
+          Endif
+          [F:ITF1]ZCMO = arr(ZCMO,0.0000001)
+          Rewrite [F:ITF1]
+        Endif
+      Endif
+  Endif
+Endif
+
+Return
+
+################################################################
+#$CALC_CMO3
+## en una salida varia el CMO no debe modificarse
+##If GFONCTION = "GESSMO" or GFONCTION = "GESPTH" Then : Return : Endif
+#If GFONCTION = "GESSMO" Then : Return : Endif
+#Local Decimal ZCMO
+#Raz ZCMO
+#
+#If clalev([F:ITF1])=0 Local File ITMFACILIT[ITF1]  : Endif
+#If clalev([F:ITV1])=0 Local File ITMMVT    [ITV1]  : Endif
+#If clalev([F:ZSTJ])=0 Local File STOJOU    [ZSTJ]  : Endif
+#
+#Read [F:ITV1]ITV0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+#If !fstat Then
+#  Read [F:ITF1]ITF0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+#  If !fstat Then
+#      If ([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU) <> 0 #and [F:STJ]QTYSTU>0
+#        If GUSER = "ADMIN" or GUSER = "ADEV"
+#          Infbox "1/"+num$([F:ITV1]AVC)
+#          Infbox "2/"+num$([F:ITF1]ZCMO)
+#          Infbox "3/"+num$([F:ITV1]AVCBASQTY)
+#        Endif
+#        If [F:STJ]QTYSTU>0
+##          ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]QTYSTU*[F:STJ]PRIORD)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
+#          Infbox "4/"+num$([F:STJ]QTYSTU)
+#          Infbox "5/"+num$([F:STJ]PRIORD)
+#          Infbox "6/"+num$([F:STJ]VARVAL)
+#          If [F:STJ]AMTDEV2 = 0
+#            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
+#          Else
+#            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY)
+#          Endif
+#          [F:ITF1]ZCMO = arr(ZCMO,0.0000001)
+#          Rewrite [F:ITF1]
+#        Endif
+##        [F:ITF1]ZCMO = arr(ZCMO,GRNDVAL)
+#        If GUSER = "ADMIN" or GUSER = "ADEV"
+#         If clalev([F:ITF2])=0 Local File ITMFACILIT[ITF2]  : Endif
+#         If clalev([F:ITV2])=0 Local File ITMMVT    [ITV2]  : Endif
+#         Read [F:ITV2]ITV0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+#         Read [F:ITF2]ITF0 = [F:STJ]ITMREF;[F:STJ]STOFCY
+#         If !fstat
+##          Infbox "6/"+num$([F:ITV2]AVC)
+#          Infbox "7/"+num$([F:ITF2]ZCMO)
+#         Endif
+#        Endif
+#      Endif
+#  Endif
+#Endif
+#
+#
+#Return
+
+################################################################
+
+# JC.05102021.COST-004.INI
+#**
+#* calcula el campo CM REP de artículo/planta
+#*
+#* @param PITM  > artículo
+#* @param PFCY  > planta
+#*!
+Subprog CALC_CMREP(PITMREF,PFCY)
+Value   Char  PITMREF,PFCY
+
+Local Decimal WQTY, WAMT, WCMREP
+Raz WQTY, WAMT, WCMREP
+
+  If !clalev([F:ITF1]) Then : Local File ITMFACILIT [F:ITF1]  : Endif
+  If !clalev([F:POQ1]) Then : Local File PORDERQ    [F:POQ1]  : Endif
+
+#  Filter [F:POQ1] Where POHFCY = PFCY and ITMREF = PITMREF and LINSTA < 3 and QTYSTU-RETQTYSTU > 0
+#  For [F:POQ1]
+#    WQTY += [F:POQ1]QTYSTU- [F:POQ1]RETQTYSTU
+#    WAMT += ([F:POQ1]QTYSTU - [F:POQ1]RETQTYSTU) * [F:POQ1]CPR
+#  Next
+#  Filter [F:POQ1]
+  Filter [F:POQ1] Where POHFCY = PFCY and ITMREF = PITMREF and LINCLEFLG <> 2 and QTYPUU-RCPQTYPUU > 0
+  # si no hay ningún pedido o cantidad pendiente de recibir el valor de CP REP es cero, ya que no hay reposición prevista
+  # por tanto no hay un coste de reposición
+  If rowcount([F:POQ1]) = 0 Then
+    Read [F:ITF1]ITF0 = PITMREF;PFCY
+    If !fstat Then
+      [F:ITF1]ZCMREP = 0
+      Trbegin [F:ITF1]
+      Rewrite [F:ITF1]
+      If !fstat
+        Commit
+      Else
+        Rollback
+      Endif
+      End
+    Endif
+  Endif
+  For [F:POQ1]
+    WQTY += [F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU
+    WAMT += ([F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU) * [F:POQ1]CPR
+  Next
+  Filter [F:POQ1]
+
+  Read [F:ITF1]ITF0 = PITMREF;PFCY
+  If !fstat Then
+    If WQTY <> 0 Then
+      [F:ITF1]ZCMREP = (WAMT/WQTY) #* 100
+    Endif
+    Trbegin [F:ITF1]
+    Rewrite [F:ITF1]
+    If !fstat
+      Commit
+    Else
+      Rollback
+    Endif
+  Endif
+
+  Close Local File [ITF1],[POQ1]
+
+End
+# JC.05102021.COST-004.FIN
+
+
+################################################################
+# JC.05102021.COST-004.INI
+#**
+#* calcula el campo Mejor coste de artículo/planta
+#*
+#* @param PITM  > artículo
+#* @param PFCY  > planta
+#*!
+Subprog CALC_CUCONS(PITMREF,PFCY)
+Value   Char  PITMREF,PFCY
+
+Local Date    WDATMAX
+Local Decimal WPRIMIN,WPRIMACT  : WPRIMACT = 999999999
+
+  Raz WDATMAX
+
+  If !clalev([F:ITF1])  Then : Local File ITMFACILIT  [F:ITF1]  : Endif
+  If !clalev([F:ZPD1])  Then : Local File ZPRESPD     [F:ZPD1]  : Endif
+  If !clalev([F:ZPD2])  Then : Local File ZPRESPD     [F:ZPD2]  : Endif
+
+  # busca la respuesta más reciente
+  Filter [F:ZPD1] Where ITMREF = PITMREF Order By LINRSPDAT Desc
+  Read [F:ZPD1] First
+  If !fstat Then
+    WDATMAX = [F:ZPD1]LINRSPDAT
+  Endif
+  Filter [F:ZPD1]
+  # filtra sobre las vista que muestra líneas de respuesta por planta, artículo y fecha
+  # (respuestas de los últimos 30 días anteriores a la fecha de la última respuesta)
+  Filter [F:ZPD2] Where ITMREF = PITMREF and LINRSPDAT <= WDATMAX and LINRSPDAT >= (WDATMAX-30)
+  For [F:ZPD2]
+    Read [F:ITF1]ITF0 = [F:ZPD2]ITMREF;PFCY
+    If !fstat Then
+      WPRIMIN = [F:ZPD2]PRI
+      # descuento
+      If [F:ZPD2]LDISCRGVAL1 <> 0 Then
+        WPRIMIN = WPRIMIN - ((WPRIMIN * [F:ZPD2]LDISCRGVAL1)/100)
+      Endif
+      # arancel
+      If [F:ZPD2]LINCPRCOE <> 0 Then
+        WPRIMIN = WPRIMIN * [F:ZPD2]LINCPRCOE
+      Endif
+      # divisa
+      If [F:ZPD2]LINCUR <> "EUR" Then
+        Local Decimal LCAMBIO
+        Call CONVERTDIV([F:ZPD2]LINCUR,"EUR",WPRIMIN,1,WPRIMIN) From ZAULIB01
+      Endif
+      If WPRIMIN > 0 and (WPRIMIN < WPRIMACT) Then
+        Trbegin [F:ITF1]
+        [F:ITF1]ZCUCONS = WPRIMIN
+        Rewrite [F:ITF1]
+        If !fstat Then
+          Commit
+          WPRIMACT = WPRIMIN
+        Else
+          Rollback
+        Endif
+      Endif
+    Endif
+  Next
+  Filter [F:ZPD2]
+
+  Close Local File [ITF1],[ZPD1],[ZPD2]
+End

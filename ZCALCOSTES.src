@@ -1,0 +1,108 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# MRR - 24/03/2020 - Cod. act.: ZQ007 Campos nuevos en articulo-planta
+##########################################################################
+Gosub EXEC   # Esto es para poder ejecutarlo directamente si Batch
+End
+
+##########################################################################
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+
+##########################################################################
+$EXEC
+# Cálculo del campo ZCMREP
+If clalev([F:ITF1])=0 Local File ITMFACILIT[ITF1]  : Endif
+If clalev([F:POQ1])=0 Local File PORDERQ   [POQ1]  : Endif
+
+Local Decimal WQTY, WAMT, WCMREP
+Raz WQTY, WAMT, WCMREP
+#Filter [F:ITF1] Where STOFCY = 'AU012' and left$(ITMREF,5) = 'BMS04' #pruebas para no recorrer toda la tabla, ITMREF like 'BMS0%'
+#Read [F:ITF1] First    #pruebas para no recorrer toda la tabla entera, luego borrar
+#If !fstat Then         #pruebas para no recorrer toda la tabla entera, luego borrar
+#  Infbox 'PLANTA: ' + [F:ITF1]STOFCY + ' articulo: ' + [F:ITF1]ITMREF
+  For [F:ITF1]
+    Filter [F:POQ1] Where POHFCY = [F:ITF1]STOFCY and ITMREF = [F:ITF1]ITMREF and LINSTA<3 and QTYSTU-RETQTYSTU>0
+    Read [F:POQ1] First
+    If !fstat Then
+#      Infbox 'ITMREF: ' + [F:POQ1]ITMREF
+      Raz WQTY, WAMT, WCMREP
+      For [F:POQ1]
+        WQTY += [F:POQ1]QTYSTU - [F:POQ1]RETQTYSTU
+        WAMT += ([F:POQ1]QTYSTU - [F:POQ1]RETQTYSTU) * [F:POQ1]CPRPRI
+        If WQTY <> 0 Then
+          WCMREP = WAMT/WQTY
+        Endif
+      Next
+    Endif
+
+    Trbegin [F:ITF1]
+    [F:ITF1]ZCMREP = WCMREP #WAMT/WQTY
+    Rewrite [F:ITF1]
+    If !fstat
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+#Endif           #pruebas para no recorrer toda la tabla entera, luego borrar
+#Filter [F:ITF1] #pruebas para no recorrer toda la tabla entera, luego borrar
+
+
+#Cálculo del campos ZCUCONS
+If clalev([F:ITF2])=0 Local File ITMFACILIT[ITF2]  : Endif
+If clalev([F:PPD1])=0 Local File PRESPD    [PPD1]  : Endif
+If clalev([F:PPD2])=0 Local File PRESPD    [PPD2]  : Endif
+
+Local Date WDATMAX
+Local Decimal WPRIMIN
+Raz WDATMAX, WPRIMIN
+
+#Filter [F:ITF2] Where ITMREF = 'ASS001' Order By STOFCY #pruebas para no recorrer toda la tabla
+#Read [F:ITF2] First    #pruebas para no recorrer toda la tabla entera, luego borrar
+#If !fstat Then         #pruebas para no recorrer toda la tabla entera, luego borrar
+#  Infbox 'PLANTA: ' + [F:ITF2]STOFCY + ' articulo: ' + [F:ITF2]ITMREF
+  For [F:ITF2]
+    Filter [F:PPD1] Where PQHFCY = [F:ITF2]STOFCY and ITMREF = [F:ITF2]ITMREF
+    Read [F:PPD1] First
+    If !fstat Then
+      For [F:PPD1]
+#        Call ECR_TRACE('PPD1 planta: ' + [F:PPD1]PQHFCY + ' ITMREF: ' + [F:PPD1]ITMREF + ' BPSNUM: ' + [F:PPD1]BPSNUM + ' pqhnum: '+ [F:PPD1]PQHNUM +' ppdlin: ' + num$([F:PPD1]PPDLIN) + ' PQDLIN: ' +
+#& num$([F:PPD1]PQDLIN) ,0) From GESECRAN
+
+#        Infbox 'PPD1 planta: ' + [F:PPD1]PQHFCY + ' ITMREF: ' + [F:PPD1]ITMREF
+        WDATMAX = [F:PPD1]RCPDAT
+
+        Filter [F:PPD2] Where PQHFCY = [F:ITF2]STOFCY and ITMREF = [F:ITF2]ITMREF and RCPDAT <= WDATMAX and RCPDAT >= (WDATMAX-30)
+        Read [F:PPD2] First
+        If !fstat Then
+          For [F:PPD2]
+#            Infbox 'PPD2 planta: ' + [F:PPD2]PQHFCY + 'ITMREF: ' + [F:PPD2]ITMREF
+            WPRIMIN = [F:PPD2]PRI
+#            Infbox 'wprimin: ' + num$(WPRIMIN)
+#        Endif
+
+            Trbegin [F:ITF2]
+            [F:ITF2]ZCUCONS = WPRIMIN
+            Rewrite [F:ITF2]
+            If !fstat
+              Commit
+    #          Infbox 'commit'
+            Else
+              Rollback
+    #          Infbox 'rollback'
+            Endif
+          Next
+        Endif
+      Next
+    Endif
+  Next
+#Endif           #pruebas para no recorrer toda la tabla entera, luego borrar
+#Filter [F:ITF2] #pruebas para no recorrer toda la tabla entera, luego borrar
+
+Return
+
+##########################################################################
+

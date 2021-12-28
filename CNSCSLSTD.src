@@ -1,0 +1,568 @@
+#<AdxTL>@(#)6.0.0.0 $Revision$
+#MRR01 - 23/03/2020 - Cód.act.: ZQ006 - Línea oculta en Oferta
+################################################################
+Local Char PARAM(20)(1..2)
+PARAM(1) = "EB"
+PARAM(2) = "MAR"
+Call GCONSULT("CSL","",PARAM) From GCONSULT
+End
+#############################################################
+
+$ACTION
+Case GACTION
+    When "CONSCSL"
+        Case ACTION
+          When "AUTORIS"    : Gosub AUTORIS
+          When "OUVRE"      : Gosub OUVRE
+          When "LECTURE"    : Gosub LECTURE
+          When "DEB_CRIT"   : Gosub DEB_CRIT
+          When "FIN_CRIT"   : Gosub FIN_CRIT
+          When Default
+        Endcase
+    Endcase
+
+
+Return
+###################################################################
+#                                                                 #
+#        TRAITEMENTS LIES L'ACTION CONSCSL                        #
+#                                                                 #
+###################################################################
+$AUTORIS
+Return
+
+
+###################################################################
+# analyse paramères, initialisations, ouvertures et déclarations  #
+###################################################################
+$OUVRE
+Local Char    WFIL(250),WFIL1(250),WFIL2(250)
+Local Char    DEBNUM, FINNUM
+Local Date    DEBDAT, FINDAT
+Local Integer DEBLIN, FINLIN :# 69747
+Local Integer WAFFREP
+
+NAVIG = "CONSCSL"
+If clalev([F:TCU])=0 Local File TABCUR  [TCU]  : Endif
+If clalev([F:AMZ])=0 Local File AMSKZON [AMZ]  : Endif
+
+Gosub DEFCRIT
+
+Return
+# --------------------------------------------------------------------------#
+# Analyse paramères, initialisations                                        #
+# --------------------------------------------------------------------------#
+$DEFCRIT
+If [M:CSL1]SALFCY<>"" & GUSRFCY(1)<>"\" & !find([M:CSL1]SALFCY,GUSRFCY(1..GNBAUZ))
+ [M:CSL1]SALFCY=""
+Endif
+
+For I = 1 To dim(PARAM)
+  Case I
+    When 1 :    : # Parametre Article
+      If PARAM(I) <> ""
+        If [F:ITM]ITMREF<>PARAM(I) Read [F:ITM]ITM0 = PARAM(I)
+                                     If fstat
+                                       Raz [F:ITM], PARAM(I)
+                                     Endif
+        Endif
+        [M:CSL1]ITMREF = PARAM(I)
+      Endif
+    When 2 :    : # Parametre Client
+      If PARAM(I) <> ""
+        If [F:BPC]BPCNUM<>PARAM(I) Read [F:BPC]BPC0 = PARAM(I)
+                                     If fstat
+                                       Raz [F:BPC], PARAM(I)
+                                     Endif
+        Endif
+        [M:CSL1]BPCORD = PARAM(I)
+      Endif
+
+    When 3 :    : # Parametre site
+      If PARAM(I) <> ""
+        If [F:FCY]FCY <> PARAM(I)    Read [F:FCY]FCY0 = PARAM(I)
+                                     If fstat
+                                       Raz [F:FCY], PARAM(I)
+                                     Endif
+        Endif
+        If GUSRFCY(1)="\" | find(PARAM(I),GUSRFCY(1..GNBAUZ))
+           [M:CSL1]SALFCY = PARAM(I)
+           If [M:CSL1]SALFCY <> ""
+             Call GETDEV([M:CSL1]SALFCY) From DEVSUB
+             [M:CSL1]CPY  = GSOCIETE
+           Endif
+        Endif
+      Endif
+    When 4 :    : # Parametre PJT
+      # Issue Issue X3-15598 - 2017-02-23 by FGR : BEGIN
+      If PARAM(I) <> "" Then
+        [M:CSL1]PJTDEB = PARAM(I)
+        [M:CSL1]PJTFIN = PARAM(I)
+        If find(GNAVIG(GPILNAV-0),"GESPJM") Then   # Note FGR : '-0' is not an error. This is true in this case.
+          [M:CSL1]PJTDSPALL = [V]CST_AYES
+        Endif
+      Endif
+      # Issue Issue X3-15598 - 2017-02-23 by FGR : END
+    When 5 :    : # Parametre DATBEG
+      # Issue Issue X3-15598 - 2017-02-23 by FGR : BEGIN
+      If PARAM(I) <> ""  and PARAM(I) <> "000000" Then
+        [M:CSL1]QUODATDEB = PARAM(I)
+        [M:CSL1]QUODATDEB = gdat$(01,month([M:CSL1]QUODATDEB),year([M:CSL1]QUODATDEB))
+      Endif
+      # Issue Issue X3-15598 - 2017-02-23 by FGR : END
+  Endcase
+Next I
+
+If !find([M:CSL1]VLYSTAN,1,2) : [M:CSL1]VLYSTAN= 2 : Endif
+If !find([M:CSL1]VLYSTAO,1,2) : [M:CSL1]VLYSTAO= 2 : Endif
+If !find([M:CSL1]QUOSTAN,1,2) : [M:CSL1]QUOSTAN= 2 : Endif
+If !find([M:CSL1]QUOSTAO,1,2) : [M:CSL1]QUOSTAO= 2 : Endif
+If !find([M:CSL1]APPFLGO,1,2) : [M:CSL1]APPFLGO= 2 : Endif
+If !find([M:CSL1]APPFLGN,1,2) : [M:CSL1]APPFLGN= 2 : Endif
+If !find([M:CCSL]TRI,1,2)     : [M:CCSL]TRI = 1   : Endif
+
+[M:CSL1]QUODATFIN=eomonth(date$)
+# Issue Issue X3-15598 - 2017-02-23 by FGR : BEGIN
+#[M:CSL1]QUODATDEB=gdat$(01,month(addmonth(date$,-2)),year(addmonth(date$,-2)))
+If [M:CSL1]QUODATDEB = [0/0/0] Then
+  [M:CSL1]QUODATDEB=gdat$(01,month(addmonth(date$,-2)),year(addmonth(date$,-2)))
+Endif
+# Issue Issue X3-15598 - 2017-02-23 by FGR : END
+
+# -- copie de l'écran critères (CCSL) vers le masque 1 (CSL1)
+Gosub CRITENT From =PROGCNS
+
+Return
+
+############################################################
+$DEB_CRIT
+#acces depuis article ou article site
+If GPILNAV>1
+    If find(GNAVIG(GPILNAV-1),"GESITM","GESITF")
+        If find(GNAVIG(GPILNAV-1),"GESITM")
+            Diszo [M:CCSL]ITMREF
+        Elsif find(GNAVIG(GPILNAV-1),"GESITF")
+            Diszo [M:CCSL]ITMREF
+            Diszo [M:CCSL]SALFCY
+            Diszo [M:CCSL]CPY
+            Diszo [M:CCSL]BPCORD
+        Endif
+        If dim([M:CCSL]TSICOD) > 0
+          For I = 0 To dim([M:CCSL]TSICOD)-1
+            Diszo [M:CCSL]TSICOD(I)
+          Next I
+        Endif
+    Endif
+    #acces depuis clients ou fournisseurs
+    If find(GNAVIG(GPILNAV-1),"GESBPS","GESBPC")
+        Diszo [M:CCSL]BPCORD
+        If dim([M:CCSL]TSICOD) > 0
+          For I = 0 To dim([M:CCSL]TSICOD)-1
+            Diszo [M:CCSL]TSICOD(I)
+          Next I
+        Endif
+    Endif
+    # Issue Issue X3-15598 - 2017-02-23 by FGR : BEGIN
+    If find(GNAVIG(GPILNAV-1),"GESPJM","PJMACTBUD", "PJMACTTAS") Then
+      Diszo [M:CCSL]PJTDEB
+      Diszo [M:CCSL]PJTFIN
+    Endif
+    # Issue Issue X3-15598 - 2017-02-23 by FGR : END
+Endif
+Return
+############################################################
+$LECTURE
+Local Decimal WMNTORG(0..1), WMNTDES(0..1)
+Local Integer SPSTAT, WI, WJ
+Local Char    WCUR(GLONCUR)
+
+If GPILNAV>1
+    If find(GNAVIG(GPILNAV-1),"GESITM")
+        Diszo[M:CSL1]ITMREF
+    Elsif find(GNAVIG(GPILNAV-1),"GESITF")
+        Diszo[M:CSL1]ITMREF
+        Diszo[M:CSL1]SALFCY
+        Diszo[M:CSL1]CPY
+    Endif
+
+    #acces depuis clients ou fournisseurs
+    If find(GNAVIG(GPILNAV-1),"GESBPS","GESBPC")
+        Diszo [M:CSL1]BPCORD
+    Endif
+
+    # Issue Issue X3-15598 - 2017-02-23 by FGR : BEGIN
+    If find(GNAVIG(GPILNAV-1),"GESPJM","PJMACTBUD", "PJMACTTAS") Then
+      Diszo [M:CSL1]PJTDEB
+      Diszo [M:CSL1]PJTFIN
+    Endif
+    # Issue Issue X3-15598 - 2017-02-23 by FGR : END
+
+    # GRNA 16/05/2011
+    Local Char CUSSEAORI : CUSSEAORI = "CSL1"
+    Gosub LECTURE From CUSSEALIB
+Endif
+
+Gosub CHANGE_MSK From GCONSULT
+If CHGPAG<0 : NOL = MAXLIG : Endif
+
+#-- Positionnement des Filtres
+Gosub LOAD_FILTER
+If PROGSPE<>""
+  ACTION = "FILTRE" : Gosub ACTION From =PROGSPE
+Endif
+
+Link [SQD] With [SQH]SQH0=[F:SQD]SQHNUM
+&            As [LNK]
+
+
+# ------------------------------------------------------- #
+# CHGPAG = 1    :    Recherche                            #
+# ------ = 2    :    Suite                                #
+#        = 3    :    F5 (Rafraichissement page courante)  #
+# CHGPAG = -1   :    Dernier                              #
+# ------ = -2   :    Retour (Page précédente)             #
+# ------------------------------------------------------- #
+
+#-- Application des Filtres
+If CHGPAG > 0
+    SUITE=1
+    If    CHGPAG = 1 : RETOUR = 1 : Elsif CHGPAG = 2 : RETOUR = 2 : Endif
+    Case [M:CCSL]TRI
+      When 1 : # tri par numéro
+        Filter [LNK] Where evalue(WFIL) & evalue(WFIL1) & evalue(WFIL2) Order By Key SQD0
+      When 2 : # tri par date
+        Filter [LNK] Where evalue(WFIL) & evalue(WFIL1) & evalue(WFIL2)
+&                    Order By Key CLE=[F:SQD]QUODAT;[F:SQD]SQHNUM;[F:SQD]SQDLIN :# 69747
+#&                    Order By Key CLE=[F:SQD]QUODAT;[F:SQD]SQHNUM
+    Endcase
+Else
+    RETOUR=1
+    If    CHGPAG = -1 : SUITE = 1 : Else  SUITE = 2 : Endif
+    Case [M:CCSL]TRI
+      When 1 : # tri par numéro
+        Filter [LNK] Where evalue(WFIL) & evalue(WFIL1) & evalue(WFIL2) Order By Key SQD0 Desc
+      When 2 : # tri par date
+        Filter [LNK] Where evalue(WFIL) & evalue(WFIL1) & evalue(WFIL2)
+&                    Order By [F:SQD]QUODAT Desc ;[F:SQD]SQHNUM Desc;[F:SQD]SQDLIN Desc  :# 69747
+#&                    Order By [F:SQD]QUODAT Desc ;[F:SQD]SQHNUM Desc
+    Endcase
+Endif
+#-- raz du masque
+If CHGPAG<>2 & CHGPAG<>-2 : Raz [M:CSL2] : Endif
+
+#-- lecture
+$BOUCLE
+For [LNK] With Nohint
+
+# Filtre sur la société
+  If [M:CSL1]CPY <> ""
+      If [F:FCY]FCY <> [F:SQD]SALFCY Read [F:FCY]FCY0 = [F:SQD]SALFCY
+                                     If fstat  Raz [F:FCY] : Endif
+                                     Endif
+      If [F:FCY]LEGCPY <> [M:CSL1]CPY Goto SUIV : Endif
+  Endif
+
+  If NBLU = 1
+     If CHGPAG=2 | CHGPAG=-2 : Raz [M:CSL2] : Endif
+     NBLU = 2
+  Endif
+  If CHGPAG > 0
+     If NOL >= MAXLIG-1 : SUITE=2 : Break : Endif
+     NOL    += 1
+     If NOL=0
+         #69747
+         If CHGPAG=2
+           If [F:SQD]SQHNUM=FINNUM and [F:SQD]SQDLIN<=FINLIN : NOL-=1 : Goto SUIV : Endif
+         Endif
+         #fin 69747
+         DEBNUM = [F:SQD]SQHNUM
+         DEBDAT = [F:SQD]QUODAT
+         DEBLIN = [F:SQD]SQDLIN :# 69747
+     Endif
+     FINNUM = [F:SQD]SQHNUM
+     FINDAT = [F:SQD]QUODAT
+     FINLIN = [F:SQD]SQDLIN :# 69747
+  Else
+     If NOL <= 0 : RETOUR=2 : Break : Endif
+     NOL    -= 1
+     If NOL=MAXLIG-1
+         #69747
+         If CHGPAG=-2
+           If [F:SQD]SQHNUM=DEBNUM and [F:SQD]SQDLIN>=DEBLIN : NOL+=1 : Goto SUIV : Endif
+         Endif
+         #fin 69747
+         FINNUM = [F:SQD]SQHNUM
+         FINDAT = [F:SQD]QUODAT
+         FINLIN = [F:SQD]SQDLIN :# 69747
+     Endif
+     DEBNUM = [F:SQD]SQHNUM
+     DEBDAT = [F:SQD]QUODAT
+     DEBLIN = [F:SQD]SQDLIN :# 69747
+  Endif
+
+# Modifié par Dominique BOPP après discussion avec Jacky LESAGE
+# Objectif : disposer d'un maximum de rubriques possibles dans l'écran de consultation des devis
+  nolign = NOL+1
+  [M:CSL2]=[F:SQH]   # trans-classe de l'entête en premier
+  [M:CSL2]=[F:SQD] : # trans-classe des lignes ensuite
+
+$SUIV
+Next
+Filter [LNK]
+
+Return
+
+############################################################
+#    Préparation du filtre                                 #
+############################################################
+$LOAD_FILTER
+WFIL    = "1=1"
+WFIL1   = "1=1"
+WFIL2   = "1=1"
+#MRR01 ini.AUREN
+#Infbox 'WFIL2: ' + WFIL2
+WFIL2="[F:SQD]ZLINOCU<>2"
+#Infbox 'WFIL2: ' + WFIL2
+#MRR01 fin.AUREN
+
+If [M:CSL1]SALFCY <> ""
+    WFIL += "&[F:SQD]SALFCY=[M:CSL1]SALFCY"
+Endif
+#    Autorisation site
+#MAE, habilitation utilisateur même si le site est vide
+#If GUSRFCY(1)<>"\" & [M:CSL1]SALFCY <> "" & GNBAUZ<>GNBSITE
+If GUSRFCY(1)<>"\" & GNBAUZ<>GNBSITE
+ WFIL += "& find([F:SQD]SALFCY,GUSRFCY(1..GNBAUZ))"
+Endif
+
+If [M:CSL1]ITMREF <> ""
+   WFIL += "&[F:SQD]ITMREF =[M:CSL1]ITMREF"
+Endif
+
+If [M:CSL1]BPCORD <> ""
+   WFIL += "&[F:SQH]BPCORD =[M:CSL1]BPCORD"
+Endif
+
+
+# Prise en compte des devis commandé
+## --> Si 1 (Non) On exclut les devis Partiellement ou totalement commandé (valeur 2 et 3)
+# --> Si 1 (Non) On exclut les devis totalement commandé (valeur 3)
+If [M:CSL1]QUOSTAO = 1
+#   WFIL += "&[F:SQD]QUOSTA=1"
+   WFIL += '&[F:SQD]SOHNUM = ""'
+Endif
+# Prise en compte ou pas des devis non commandé
+# --> Si 1 (Non) On exclut les devis non commandés
+If [M:CSL1]QUOSTAN = 1
+   WFIL += '&[F:SQD]SOHNUM<>""'
+Endif
+
+# Issue X3-232677 - 2021-01-25 by MUARN : take into account the filter VLYSTAO and VLYSTAN
+# Prise en compte des devis valides
+# --> Si 1 (Non) On exclut les devis dt date validité non renseignée ou renseignée et >= date du jour
+If [M:CSL1]VLYSTAO = 1
+   WFIL2 += "& !([F:SQH]VLYDAT = [0/0/0] | ([F:SQH]VLYDAT <> [0/0/0] & [F:SQH]VLYDAT>=date$))"
+Endif
+# Prise en compte des devis non valides
+# --> Si 1 (Non) On exclut les devis dt date validité < date du jour
+If [M:CSL1]VLYSTAN = 1
+  WFIL2 += "& !([F:SQH]VLYDAT <> [0/0/0] & [F:SQH]VLYDAT<date$)"
+Endif
+# End issue X3-232677
+
+# Prise en compte des devis signés
+# --> Si 1 (Non) On exclut les devis totalement signés (valeur 3), pas de gestion (valeur 4), oui automatique (valeur 5)
+If [M:CSL1]APPFLGO = 1
+   WFIL += "&[F:SQH]APPFLG<3"
+Endif
+# Prise en compte ou pas des devis non signés
+# --> Si 1 (Non) On exclut les devis non signés (valeur 1)
+If [M:CSL1]APPFLGN = 1
+   WFIL += "&[F:SQH]APPFLG<>1"
+Endif
+
+If [M:CCSL]SQHNUMDEB <> ""
+   WFIL1 += "&[F:SQD]SQHNUM>=[M:CCSL]SQHNUMDEB"
+Endif
+If [M:CCSL]SQHNUMFIN <> ""
+   WFIL1 += "&[F:SQD]SQHNUM<=[M:CCSL]SQHNUMFIN"
+Endif
+
+If [M:CCSL]QUODATDEB <> [0/0/0]
+   WFIL1 += "&[F:SQD]QUODAT>=[M:CCSL]QUODATDEB"
+Endif
+If [M:CCSL]QUODATFIN <> [0/0/0]
+   WFIL1 += "&[F:SQD]QUODAT<=[M:CCSL]QUODATFIN"
+Endif
+
+# FGR 23/02/2015 : X3SUIVI104383 (début)
+If [M:CCSL]SQHTYP <> "" Then
+  WFIL1 += "&[F:SQH]SQHTYP=[M:CCSL]SQHTYP"
+Endif
+# FGR 23/02/2015 : X3SUIVI104383 (fin)
+
+# Issue X3-25731 - 2017-02-24 by FGR : BEGIN
+# 71065 : PJT
+#If [M:CCSL]PJTDEB <> ""
+#   WFIL1 += "&[F:SQD]PJT>=[M:CCSL]PJTDEB"
+#Endif
+#If [M:CCSL]PJTFIN <> ""
+#   WFIL1 += "&[F:SQD]PJT<=[M:CCSL]PJTFIN"
+#Endif
+# 71065 : PJT
+If dim([M:CCSL]PJTDSPALL) >= 0 and [M:CCSL]PJTDSPALL = [V]CST_AYES and [M:CCSL]PJTDEB <> "" Then
+  Local Char SPJT(GLONPIM)
+  Local Char SBUDGET(GLONTAC)
+  Local Char STASK(GLONPBU)
+  Local Integer IRET
+
+  IRET = func PIMPL_CSTD_PROGS.PJM_KEY_SPLIT(GACTX, [M:CCSL]PJTDEB, SPJT, SBUDGET, STASK)
+  # Issue X3-232677 - 2021-01-25 by MUARN : WFIL1 replace by WFIL2
+  WFIL2 += "&pat([F:SQD]PJT,'" + SPJT + "*')<>0"
+Else
+  If [M:CCSL]PJTDEB <> ""
+     # Issue X3-232677 - 2021-01-25 by MUARN : WFIL1 replace by WFIL2
+     WFIL2 += "&[F:SQD]PJT>=[M:CCSL]PJTDEB"
+  Endif
+  If [M:CCSL]PJTFIN <> ""
+     # Issue X3-232677 - 2021-01-25 by MUARN : WFIL1 replace by WFIL2
+     WFIL2 += "&[F:SQD]PJT<=[M:CCSL]PJTFIN"
+  Endif
+Endif
+# Issue X3-25731 - 2017-02-24 by FGR : END
+
+Case CHGPAG
+   When 3 : # rafraichissement
+     Case [M:CCSL]TRI
+       When 1 : # tri par numéro
+           WFIL1 += "&[F:SQD]SQHNUM>=DEBNUM"
+       When 2 : # tri par date
+           WFIL1 += "&([F:SQD]QUODAT>DEBDAT | ([F:SQD]QUODAT=DEBDAT & [F:SQD]SQHNUM>=DEBNUM))"
+     Endcase
+   When 2 : # suite
+     Case [M:CCSL]TRI
+       When 1 : # tri par numéro
+           #WFIL1 += "&[F:SQD]SQHNUM>FINNUM"
+           WFIL1 += "&[F:SQD]SQHNUM>=FINNUM" :# 69747
+       When 2 : # tri par date
+           #WFIL1 += "&([F:SQD]QUODAT>FINDAT | ([F:SQD]QUODAT=FINDAT & [F:SQD]SQHNUM>FINNUM))"
+           WFIL1 += "&([F:SQD]QUODAT>FINDAT | ([F:SQD]QUODAT=FINDAT & [F:SQD]SQHNUM>=FINNUM))" # 69747
+     Endcase
+   When -2 : # retour
+     Case [M:CCSL]TRI
+       When 1 : # tri par numéro
+           #WFIL1 += "&[F:SQD]SQHNUM<DEBNUM"
+           WFIL1 += "&[F:SQD]SQHNUM<=DEBNUM" :# 69747
+       When 2 : # tri par date
+           #WFIL1 += "& ([F:SQD]QUODAT<DEBDAT | ([F:SQD]QUODAT=DEBDAT & [F:SQD]SQHNUM<DEBNUM))"
+           WFIL1 += "& ([F:SQD]QUODAT<DEBDAT | ([F:SQD]QUODAT=DEBDAT & [F:SQD]SQHNUM<=DEBNUM))" # 69747
+     Endcase
+Endcase
+
+Return
+
+############################################################################
+#    Avant de fermer la fenetre critère et de revenir à fenetre principale #
+############################################################################
+$FIN_CRIT
+Return
+
+#############################################################################
+##     Etiquettes masques CONSCSL1 & CONSCSL2 & CRITCSH                    ##
+#############################################################################
+############################################################
+Subprog C_CPY(VALEUR)
+Variable Char    VALEUR()
+End
+###########################################################
+Subprog AM_CPY(VALEUR)
+Variable Char    VALEUR()
+Affzo ZCPY
+Raz [M]SALFCY, ZSALFCY
+Affzo SALFCY,ZSALFCY
+If VALEUR<>"" : GSOCIETE=VALEUR : Endif
+End
+############################################################
+Subprog C_SALFCY(VALEUR)
+Variable Char    VALEUR()
+
+If VALEUR <> ""
+# -- Controle autorisation sur le site
+    If GUSRFCY(1)<>"\" & !find(VALEUR,GUSRFCY(1..GNBAUZ))
+        GMESSAGE=VALEUR-mess(2,104,1)   : # Vous n'avez pas les droits sur ce site
+        mkstat=2 : End
+    Endif
+#-----------------------------------#
+# Alimentation site fin.(GFINRSP)   #
+#              soc. (GSOCIETE)      #
+#              dev.soc. (GLOCALDEV) #
+#-----------------------------------#
+    Call GETDEV(VALEUR) From DEVSUB
+    [M]CPY = GSOCIETE
+    Affzo [M]CPY, ZCPY
+Elsif [M]CPY = ""
+    GSOCIETE="" : GLOCALDEV=""
+Else
+    Call CONTALLFCY([M]CPY) From CPTSUB : # Accès à tous les sites de la société ?
+Endif
+End
+########################################
+Subprog AM_SALFCY(VALEUR)
+Variable Char    VALEUR()
+If VALEUR<>""
+   Affzo CPY, ZCPY
+Endif
+End
+########################################
+Subprog IB_NBLIG
+GBOUT1 = mess(121, 198,1)-[M:CSL2]SQHNUM(nolign-1)
+If [M:CSL2]SOHNUM(nolign-1) <> ""
+    GBOUT2 = mess(10,159,1)-[M:CSL2]SOHNUM(nolign-1)
+Else
+    Raz GBOUT2
+Endif
+End
+########################################
+Subprog AM_SQHNUMDEB(VALEUR)
+Variable Char    VALEUR()
+If VALEUR <> "" : [M]SQHNUMFIN= VALEUR : Endif
+End
+# 71065 : PJT
+######################################################################################
+Subprog AM_PJTDEB(VALEUR)
+Variable Char    VALEUR()
+If VALEUR <> "" : [M]PJTFIN= VALEUR : Affzo [M]PJTFIN Endif
+End
+# 71065 : PJT
+########################################
+Subprog AM_QUODATDEB(VALEUR)
+Variable Date    VALEUR
+If VALEUR <> [0/0/0] : [M]QUODATFIN= VALEUR : Endif
+End
+
+
+
+######################################################################################
+## Etiquette ajoutée par le superviseur (écran CONSCSL1) 28/10/2008 13:48:18 (MAE)
+######################################################################################
+Subprog AV_CPY(VALEUR)
+Variable Char    VALEUR()
+If GNBAUZ = 1 : Diszo [M]CPY,SALFCY : Endif
+End
+
+
+#########################################################################
+# Pour éxécution validation écrans de consultation en gestion de patch  #
+#########################################################################
+Subprog PATCH(APPLI)
+Value Char APPLI
+
+If APPLI="X3" End Endif
+If !clalev([F:ADS]) Local File ADOSSIER [ADS] Endif
+Read [ADS]DOSSIER=APPLI
+If !fstat & [F:ADS]MODULE(4)<>2 End Endif
+
+Call VALGTC(APPLI,"CSL") From SUBGTC
+
+End
+######################################################################################

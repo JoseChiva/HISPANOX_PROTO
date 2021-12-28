@@ -1,0 +1,350 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara SHIP1 (Especifico)
+#MLGA ZEXPORT 13/05/20
+#ASR COMP-51 campo Arancel
+#<AdxTL>@(#)8.0.0.0 $Revision$
+#DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
+
+$ACTION
+#If GUSER="ADMIN" Then : Infbox ACTION : Endif
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "APRES_CRE" : Gosub APRES_MOD
+  When "APRES_MOD" : Gosub APRES_MOD
+  When "VERIF_MOD" : Gosub VERIF_MOD
+  #MODIF AFVI COMP-015 Lotes y estado en contenedor y expedición
+  When "LIENS"       : Gosub LIENS From SPESHIPA
+  When "OUVRE"       : Gosub OUVRE From SPESHIPA
+  When "CREATION"    : Gosub CREATION From SPESHIPA
+  When "MODIF"       : Gosub MODIF From SPESHIPA
+  When "ANNULE"      : Gosub ANNULE From SPESHIPA
+  When "PICKE"       : Gosub PICKE From SPESHIPA
+  When "DEPICK"       : Gosub DEPICK From SPESHIPA
+  When "SETBOUT"      : Gosub SETBOUT From SPESHIPA
+  When "APRES_MODIF"  : Gosub APRES_MODIF From SPESHIPA
+  When "STYLE"      : #Gosub STYLE From SPESHIPA
+
+
+#FIN MODIF AFVI
+  When Default
+Endcase
+Return
+
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$APRES_MOD
+#WVALORSHH=[M:SHIP0]SHIPNUM
+If !GIMPORT
+  If [M:SHIP0]SHIPSTAT = 3 Then
+    Call ZSGAROR([M:SHIP0]SHIPNUM,'') From ZSGAROR # Parece que esto es desde prerecepcion
+  Endif
+Endif
+
+Return
+
+##############################################################
+$VERIF_MOD
+  If !clalev([F:ZSHD]) Then : Local File SHIPMENTD [F:ZSHD] : Endif
+  Local Integer LCON
+  For LCON=0 To [M:SHIP1]NBLIG-1
+    Read [F:ZSHD]SHD0 = [M:SHIP0]SHIPNUM;[M:SHIP1]SHIPLIN(LCON)
+    If !fstat Then
+      [F:ZSHD]ZEXPORT = [M:SHIP1]ZEXPORT(LCON)
+      Trbegin [F:ZSHD]
+      Rewrite [F:ZSHD]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+  If dim(LCON)>0 Then : Kill LCON : Endif
+  Close Local File [ZSHD]
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP1) 13/05/2020 17:53:26 (MLGA)
+######################################################################################
+Subprog APRES_NBLIG
+#  If [M:SHIP1]ZEXPORT(nolign-1)=0
+#    [M:SHIP1]ZEXPORT(nolign-1)=1
+#  Endif
+#  If [M:SHIP1]ZEXPORT(nolign-1)=2
+#    [M:SHIP1]ZEXPORT(nolign-1)=3
+#  Endif
+#  Affzo [M:SHIP1]ZEXPORT(nolign-1)
+#########
+
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP0) 26/05/2020 09:20:50 (MLGA)
+######################################################################################
+Subprog AS_ZUPDATE(VALEUR)
+Variable Datetime    VALEUR
+[M:SHIP0]ZUPDATE=datetime$
+Affzo [M:SHIP0]ZUPDATE
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP2) 05/06/2020 12:16:01 (ADMIN)
+######################################################################################
+Subprog AM_ZCPRCOE(VALEUR)
+Variable Decimal VALEUR
+If [M:SHIP1]NBLIG > 0
+  Call OUINON("Repercutir el valor Arancel al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+  For I = 0 To [M:SHIP1]NBLIG-1
+      [M:SHIP1]CPRCOE(I) = VALEUR
+      [M:SHIP1]UPDFLG(I) = 2
+      Affzo [M:SHIP1]CPRCOE(I)
+  Next
+
+  Endif
+Endif
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP0) 05/06/2020 12:17:15 (ADMIN)
+######################################################################################
+Subprog AM_BPSNUM(VALEUR)
+Variable Char    VALEUR()
+If GFONCTION = "GESSHIP"
+   [M:SHIP2]ZCPRCOE = [F:BPS]ZCPRCOE
+  Affzo [M:SHIP2]ZCPRCOE
+  Call AM_ZCPRCOE([M:SHIP2]ZCPRCOE)
+Endif
+End
+
+
+######################################################################################
+
+######################################################################################
+Subprog AVANT_NBLIG
+For X = 0 To [M:SHIP1]NBLIG2-1
+  Raz [M:SHIP1]ZLOTEAUX(X),[M:SHIP1]ZQTYLINAUX(X),[M:SHIP1]ZPALETPAUX(X)
+Next
+
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Grizo [M:SHIP1]NBLIG2
+
+If [M:SHIP1]LOT(nolign-1) = "" and [M:SHIP1]ZPALET(nolign-1) = "" and ZDEL = 0
+  Actzo [M:SHIP1]NBLIG2
+  Local Integer K :Raz K
+  For I=0 To [M:SHIP1]NBLIG3-1
+    If [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]POPLIN(nolign-1) and [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]POHNUM(nolign-1)
+      K= [M:SHIP1]NBLIG2
+      [M:SHIP1]ZLOTEAUX(K) = [M:SHIP1]ZLOTE(I)
+      [M:SHIP1]ZQTYLINAUX(K) = [M:SHIP1]ZQTYLIN(I)
+      [M:SHIP1]ZPALETPAUX(K) = [M:SHIP1]ZPALETP(I)
+      [M:SHIP1]NBLIG2+=1
+    Endif
+  Next
+  [M:SHIP1]ZITMSUP = [M:SHIP1]ITMREF(nolign-1)
+  [M:SHIP1]ZPOHSUP = [M:SHIP1]POHNUM(nolign-1)
+  [M:SHIP1]ZQTYSUP = [M:SHIP1]SHIQTY(nolign-1)
+  [M:SHIP1]ZVCRLINSUP = [M:SHIP1]POPLIN(nolign-1)
+Endif
+
+Affzo [M:SHIP1]10
+Affzo [M:SHIP1]15
+
+End
+
+
+######################################################################################
+
+Subprog C_ZPALETPAUX(VALEUR)
+Variable Char VALEUR
+Local Integer I_DUP
+For I=0 To [M:SHIP1]NBLIG2-1
+  If I <> nolign-1 Then
+    If VALEUR = [M:SHIP1]ZPALETPAUX(I) and [M:SHIP1]ZLOTEAUX(I) = [M:SHIP1]ZLOTEAUX(nolign-1) Then
+      [L]I_DUP = 1
+      Break
+    Endif
+  Endif
+Next
+
+If [L]I_DUP Then
+  mkstat = 2
+Endif
+
+End
+
+
+######################################################################################
+
+Subprog C_ZQTYLINAUX(VALEUR)
+Variable Decimal VALEUR
+Local Integer I_COUNT
+
+For I=0 To [M:SHIP1]NBLIG2-1
+  If I <> nolign-1 Then
+    [L]I_COUNT += [M:SHIP1]ZQTYLINAUX(I)
+  Endif
+Next
+[L]I_COUNT += VALEUR
+
+If [L]I_COUNT > [M:SHIP1]ZQTYSUP Then
+  mkstat = 2
+  Call ERREUR ("Cantidad total excedida") From GESECRAN
+Endif
+
+End
+
+
+######################################################################################
+
+
+#FIN MODIF AFVI
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP1) 10/11/2021 07:18:18 (ADMIN)
+######################################################################################
+Subprog AVANT_NBLIG2
+For I=0 To [M:SHIP1]NBLIG3-1
+  If [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]ZVCRLINSUP and [M:SHIP1]ZPALETP(I) = [M:SHIP1]ZPALETPAUX(nolign-1) and [M:SHIP1]ZLOTE(I) = [M:SHIP1]ZLOTEAUX(nolign-1)
+&   and [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]ZPOHSUP
+    Dela I, 1, [M:SHIP1]NBLIG3-1 [M:SHIP1]NBLIG3
+    [M:SHIP1]NBLIG3 -= 1
+    I -= 1
+  Endif
+Next
+Affzo [M:SHIP1]20
+End
+
+Subprog APRES_NBLIG2
+If [M:SHIP1]ZPALETPAUX(nolign-1) <> "" and [M:SHIP1]ZLOTEAUX(nolign-1) <> "" and [M:SHIP1]ZQTYLINAUX(nolign-1)<>0
+& and [M:SHIP1]ZITMSUP<> "" and [M:SHIP1]ZVCRLINSUP <> 0
+  I = [M:SHIP1]NBLIG3
+  [M:SHIP1]ZPALETP(I) = [M:SHIP1]ZPALETPAUX(nolign-1)
+  [M:SHIP1]ZLOTE(I) = [M:SHIP1]ZLOTEAUX(nolign-1)
+  [M:SHIP1]ZQTYLIN(I) = [M:SHIP1]ZQTYLINAUX(nolign-1)
+  [M:SHIP1]ZITMREF(I) = [M:SHIP1]ZITMSUP
+  [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]ZPOHSUP
+  [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]ZVCRLINSUP
+  [M:SHIP1]NBLIG3 += 1
+  Affzo [M:SHIP1]20
+Endif
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP1) 12/11/2021 06:42:06 (ADMIN)
+######################################################################################
+Subprog B4_NBLIG
+Local Integer I
+Local Char WCTRNUMSAV (GLONVCR)
+I = 0
+WCTRNUMSAV = AVOID.ACHAR
+WCTRNUMSAV = [M:SHIP1]CTRNUM(nolign-1)
+While I<[M:SHIP1]NBLIG
+  If [M:SHIP1]CTRNUM(I)= WCTRNUMSAV
+    For M=0 To [M:SHIP1]NBLIG3-1
+      If [M:SHIP1]ZVCRLIN(M) = [M:SHIP1]POPLIN(I) and [M:SHIP1]ZPOHNUM(M) = [M:SHIP1]POHNUM(I)
+        Dela M, 1, [M:SHIP1]NBLIG3-1 [M:SHIP1]NBLIG3
+        [M:SHIP1]NBLIG3 -= 1
+        M -= 1
+      Endif
+    Next
+    Dela I,1 [M:SHIP1]NBLIG
+    [M:SHIP1]NBLIG-=1
+
+  Else
+    I+=1
+  Endif
+Wend
+
+ZDEL = 1
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Grizo [M:SHIP1]NBLIG2
+
+
+Affzo [M:SHIP1]
+mkstat = 4
+
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP1) 17/11/2021 08:55:08 (ADMIN)
+######################################################################################
+Subprog C_STA(VALEUR)
+Variable Char    VALEUR()
+If clalev([F:TST])=0: Local File TABSTASTO [TST]: Endif
+Read [F:TST]TST0 = VALEUR
+If fstat
+  Errbox "Valor incorrecto"
+  mkstat = 2
+Endif
+End
+
+Subprog S_STA(VALEUR)
+Variable Char    VALEUR()
+If clalev([F:ZAXX])=0: Local File ATEXTRA [ZAXX]: Endif
+
+Filter [F:ZAXX] Where [F:ZAXX]CODFIC = "TABSTASTO" and [F:ZAXX]ZONE = "STAAXX" and [F:ZAXX]LANGUE = "SPA"
+ Choose [F:ZAXX]
+& Using [F:ZAXX]IDENT1 Titled "Estado",
+&[F:ZAXX]TEXTE Titled "Descripción" Titled "Selección estado de stock"
+Filter [F:ZAXX]
+Case status
+  When 0       : Call MESSAGE(mess(99,100,1)) From GESECRAN
+  When 7
+  When Default : VALEUR = [F:ZAXX]IDENT1
+Endcase
+End
+
+
+######################################################################################
+## Después de modificar el campo 'Exportada' (pantalla SHIP0) 24/11/2021 06:54:22 (ADEV)
+######################################################################################
+Subprog AM_ZEXPORT(VALEUR)
+Variable Integer VALEUR
+Local Integer LCON
+  If VALEUR = 3 Then
+    Call ERREUR("La opción seleccionada no es válida") From GESECRAN
+    mkstat=2
+  Else
+    For LCON = 0 To [M:SHIP1]NBLIG-1
+      [M:SHIP1]ZEXPORT(LCON) = VALEUR
+    Next
+  Endif
+  Affzo [M:SHIP1]5
+  If dim(LCON)>0 Then : Kill LCON : Endif
+
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP2) 27/11/2021 00:28:38 (ADMIN)
+######################################################################################
+Subprog AM_ZFILITM(VALEUR)
+Variable Char    VALEUR()
+[M:PLCW]WITMREF = VALEUR
+End

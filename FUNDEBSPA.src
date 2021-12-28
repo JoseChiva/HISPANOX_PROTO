@@ -1,0 +1,589 @@
+#<AdxTL>@(#)11.0.0.0 $Revision$
+# Mask Management DDEBSPA
+
+################################################################################
+Local Char PARAM(10)(1..3) , VALEUR(250)
+Call TRAITE_CHAR(VALEUR,PARAM,"","FUNDEBSPA","DDEBSPA",3,"") From GTRAITE
+End
+
+################################################################################
+$ACTION
+
+Case ACTION
+ When "OUVRE_BATCH"  : Gosub INIT
+ When "INIT"         : Gosub INIT
+ When "INIT_DIA"     : Gosub INIT_DIA
+ When "EXEC"         : Gosub EXEC
+ When "TERMINE"      : Gosub TERMINE
+Endcase
+
+Return
+
+#############################
+$INIT
+
+If !clalev([F:DEB])  Local File DEB        [DEB]  Endif
+If !clalev([F:DER])  Local File DEBPAR     [DER]  Endif
+If !clalev([F:CPY])  Local File COMPANY    [CPY]  Endif
+If !clalev([F:TCY])  Local File TABCOUNTRY [TCY]  Endif
+
+If GSERVEUR
+  Onerrgo ERRBATCH
+Endif
+Return
+
+#############################
+$INIT_DIA
+Raz [DIA]
+
+Return
+
+#############################
+$EXEC
+
+Local Char    CRITERE(255), CRITERE2(255), DIC(100)
+Local Char    SAVIFS(5) , SAVIRS(5),LEG(3)
+Local Integer SAVIUM
+Local Integer I, ERR
+Raz LEG, DIC
+adxirs=chr$(13)+chr$(10)
+adxifs=";"
+
+# If other legislations use it in the future LEG, could will be change
+LEG="SPA"
+ERR=0
+
+Gosub CREREP
+If ERR<>0:  Gosub CONTROLDIR: Goto TERMINE:  Endif
+
+If EECNUMDEB<>0
+  CRITERE = 'CPY="' + [M:DIA]CPY + '"'
+  CRITERE-= '& DEBDAT=[' + format$(GFMD,[M:DIA]DATINI) + ']'
+  CRITERE-= '& EECNUMDEB=' -num$([M:DIA]EECNUMDEB)
+Else
+  CRITERE = 'CPY="' + [M:DIA]CPY + '"'
+  CRITERE-= '& DEBDAT>=[' + format$(GFMD,[M:DIA]DATINI) + ']'
+  CRITERE-= '& DEBDAT<=[' + format$(GFMD,[M:DIA]DATEND) + ']'
+Endif
+
+If !GSERVEUR
+    Call OUVRE_TRACE(mess(29,7711 ,1)) From LECFIC
+Endif
+Call ECR_TRACE(mess(30,7711,1),0) From GESECRAN
+Call ECR_TRACE(string$(70,"-"),0) From GESECRAN
+
+If [M:DIA]EECNUMDEB =0
+  Call ECR_TRACE(mess(31,7711,1),0) From GESECRAN
+  Call ECR_TRACE(string$(70,""),0) From GESECRAN
+  Call ECR_TRACE(mess(1,138,1)+":"-format$(GFMD,[M:DIA]DATINI),0) From GESECRAN
+  Call ECR_TRACE(mess(3,138,1)+":"-format$(GFMD,[M:DIA]DATEND),0) From GESECRAN
+  Call ECR_TRACE(string$(70,""),0) From GESECRAN
+Endif
+Read [CPY]CPY0=[M:DIA]CPY
+If !fstat and [F:CPY]LEG<>"SPA"
+    Call ECR_TRACE([M:DIA]CPY- mess(15,8290,1),0) From GESECRAN
+Else
+    Gosub TRT_DEB_I
+    Gosub TRT_DEB_E
+Endif
+If !GSERVEUR : Call FERME_TRACE From LECFIC : Endif
+Call LEC_TRACE From LECFIC
+
+End
+################################################
+$CREREP
+
+#If changed, consider changing also FUNDEBPOR
+
+If GOS(1)="unix"   # Need to create one to one the directories
+
+  DIC="DEC"
+  If filinfo(filpath(DIC,"","",nomap),0)<0
+  # the directory doesn’t exist
+    Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+    If ERR<>0:  Return : Endif
+  Endif
+  DIC="DEC/INTRASTAT"
+  If filinfo(filpath(DIC,"","",nomap),0)<0
+  # the directory doesn’t exist
+    Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+    If ERR<>0:  Return : Endif
+  Endif
+  DIC ="DEC/INTRASTAT/"+LEG
+  If filinfo(filpath(DIC,"","",nomap),0)<0
+  # the directory doesn’t exist
+    Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+    If ERR<>0:  Return : Endif
+  Endif
+  DIC="DEC/INTRASTAT/"+LEG+"/"+ [M:DIA]CPY+ "_"+ num$(year([M:DIA]DATINI))
+  If filinfo(filpath(DIC,"","",nomap),0)<0
+  # the directory doesn’t exist
+    Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+    If ERR<>0:  Return : Endif
+  Endif
+  DIC="DEC/INTRASTAT/"+LEG+"/"+ [M:DIA]CPY+ "_"+ num$(year([M:DIA]DATINI))+"/"+num$(month([M:DIA]DATINI))
+  If filinfo(filpath(DIC,"","",nomap),0)<0
+  # the directory doesn’t exist
+    Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+    If ERR<>0:  Return : Endif
+  Endif
+
+Else
+    DIC="DEC\INTRASTAT\"+LEG+"\"+ [M:DIA]CPY +"\" +num$(year([M:DIA]DATINI))+"\"+num$(month([M:DIA]DATINI))
+    If filinfo(filpath(DIC,"","",nomap),0)<0
+      Call CREREP(filpath(DIC,"","",nomap),ERR) From DOSAPL
+      If ERR<>0:  Return : Endif
+    Endif
+Endif
+
+Return
+################################################
+$CONTROLDIR
+ If filinfo(DIC,0)<0
+     Call ERREUR(mess(144,9137,1) +":" - DIC) From GESECRAN
+     FIC_OK = 0
+ Endif
+Return
+
+################################################
+$TRT_DEB_I
+
+SAVIFS = adxifs
+SAVIRS = adxirs
+SAVIUM = adxium
+adxium = GASCII
+# Ini X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+#Iomode adxifs "" Using [DEBSP]
+#Iomode adxirs chr$(13)+chr$(10) Using [DEBSP]
+#Iomode adxium GASCII Using [DEBSP]
+# End X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+
+CRITERE2=CRITERE  + " & FLO=1"
+FIC_OK=1
+
+Filter [F:DEB] Where evalue(CRITERE2)
+
+If FIC_OK
+  Case GOS(1)
+    When "unix"  : FIC = filpath(DIC,"","") + "/" + "INTRASTIN"
+    When Default : FIC = filpath(DIC,"","") + "\" + "INTRASTIN"
+  Endcase
+
+  If [M:DIA]EECNUMDEB=0: FIC=FIC+"_"+num$(day([M:DIA]DATINI))+"_"+num$(day([M:DIA]DATEND))+".txt"
+  Else                   FIC=FIC+".txt"
+  Endif
+
+  Onerrgo ERROR_FIC
+    Openo FIC,0 Using [DEBSP]
+    # Ini X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+    Iomode adxifs ";" Using [DEBSP]
+    Iomode adxirs chr$(13)+chr$(10) Using [DEBSP]
+    Iomode adxium GASCII Using [DEBSP]
+    # End X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+  Onerrgo
+Endif
+
+If !FIC_OK
+   Call ERREUR(FIC-mess(26,125,1)) From GESECRAN # Error de escritura
+   Goto ERROR_FIC
+Endif
+
+
+Call ECR_TRACE(mess(47,127,1)-"DEC",0) From GESECRAN
+
+
+Gosub DETALLE
+
+Call ECR_TRACE(num$(I)- mess(33,7711,1) ,0) From GESECRAN
+Call ECR_TRACE(string$(70,""),0) From GESECRAN
+
+
+Return
+
+
+###################################################################
+
+$TRT_DEB_E
+
+SAVIFS = adxifs
+SAVIRS = adxirs
+SAVIUM = adxium
+adxium = GASCII
+# Ini X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+#Iomode adxifs "" Using [DEBSP]
+#Iomode adxirs chr$(13)+chr$(10) Using [DEBSP]
+#Iomode adxium GASCII Using [DEBSP]
+# End X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+
+CRITERE2=CRITERE  + " & FLO=2"
+FIC_OK=1
+
+Filter [F:DEB] Where evalue(CRITERE2)
+
+
+If FIC_OK
+  Case GOS(1)
+    When "unix"  : FIC = filpath(DIC,"","") + "/" + "INTRASTEX"
+    When Default : FIC = filpath(DIC,"","") + "\" + "INTRASTEX"
+  Endcase
+
+  If [M:DIA]EECNUMDEB=0: FIC=FIC+"_"+num$(day([M:DIA]DATINI))+"_"+num$(day([M:DIA]DATEND))+".txt"
+  Else                   FIC=FIC+".txt"
+  Endif
+
+  Onerrgo ERROR_FIC
+    Openo FIC,0 Using [DEBSP]
+    # Ini X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+    Iomode adxifs ";" Using [DEBSP]
+    Iomode adxirs chr$(13)+chr$(10) Using [DEBSP]
+    Iomode adxium GASCII Using [DEBSP]
+    # End X3-224119 Intrastat file SPA: no file is generated JUCON 2020-11-18
+  Onerrgo
+Endif
+
+If !FIC_OK
+   Call ERREUR(FIC-mess(26,125,1)) From GESECRAN # Error de escritura
+   Goto ERROR_FIC
+Endif
+
+Call ECR_TRACE(mess(47,127,1)-"DEC",0) From GESECRAN
+
+Gosub DETALLE
+
+Call ECR_TRACE(num$(I)- mess(34,7711,1) ,0) From GESECRAN
+Call ECR_TRACE(string$(70,""),0) From GESECRAN
+
+Return
+
+################################################
+$ERROR_FIC
+    FIC_OK = 0
+Resume
+
+################################################
+$DETALLE
+Local Integer L, N
+Local Char SEP (1)
+L=999 : N=1
+Raz  I
+If GOS(1)="unix"
+  SEP="/"
+Else
+  SEP="\"
+Endif
+
+For [DEB]DEB0
+  If I=N*L : Openo Using [DEBSP]
+      If    [F:DEB]FLO=1
+        If [M:DIA]EECNUMDEB<>0  #SAM 121999 JUCON 15/03/2017
+          Openo filpath(DIC,"","")+SEP+"INTRASTIN"+num$(N)+".txt",0 Using [DEBSP]
+        Else
+          Openo filpath(DIC,"","")+SEP+"INTRASTIN"+num$(N)+"_"+num$(day([M:DIA]DATINI))+"_"+num$(day([M:DIA]DATEND))+".txt",0 Using [DEBSP]
+        Endif
+      Elsif [F:DEB]FLO=2
+        If [M:DIA]EECNUMDEB<>0  #SAM 121999 JUCON 15/03/2017
+          Openo filpath(DIC,"","")+SEP+"INTRASTEX"+num$(N)+".txt",0 Using [DEBSP]
+        Else
+          Openo filpath(DIC,"","")+SEP+"INTRASTEX"+num$(N)+"_"+num$(day([M:DIA]DATINI))+"_"+num$(day([M:DIA]DATEND))+".txt",0 Using [DEBSP]
+        Endif
+      Endif
+      N+=1
+  Endif
+  Wrseq [F:DEB]DESCRY; Using [DEBSP]                                                # 1 Receiving/issuing country
+  Wrseq [F:DEB]REG ;Using [DEBSP]                                                   # 2 Department
+  Wrseq [F:DEB]EECICT ;Using [DEBSP]                                                # 3 Freight terms
+  If [F:DEB]EECNAT<>""
+    Wrseq format$("N0:2#",right$([F:DEB]EECNAT,len([F:DEB]EECNAT)-1));Using [DEBSP] # 4 Transaction nature
+  Else
+    Wrseq ""; Using [DEBSP]
+  Endif
+  Wrseq format$("N0:1#",[F:DEB]EECTRN) ;Using [DEBSP]                               # 5 EEC transport mode
+  Wrseq [F:DEB]PORT ;Using [DEBSP]                                                  # 6 Port
+  If len([F:DEB]CUSREF)<9                                                           # 7 Customs reference
+      Wrseq format$("8X",[F:DEB]CUSREF);Using [DEBSP]
+  Else
+      Wrseq format$("12X",[F:DEB]CUSREF);Using [DEBSP]
+  Endif
+  ## X3-250305 Update of the INTRASTAT file for Spain (JUCON 2021-07-05)
+  If [F:DEB]FLO=1                                                                   # 8 Country of origin
+    If [F:DEB]ORICRY<>""                                                            #   only for import
+      Wrseq [F:DEB]ORICRY ;Using [DEBSP]
+    Else
+      Wrseq "ES" ; Using [DEBSP]
+    Endif
+  Else
+    If [DEB]DEBDAT<[01/01/2022]
+      Wrseq "" ; Using [DEBSP]
+    Else
+      If [F:DEB]ORICRY<>""
+        Wrseq [F:DEB]ORICRY ;Using [DEBSP]
+      Else
+        Wrseq "ES" ; Using [DEBSP]
+      Endif
+    Endif
+  Endif
+  ## X3-250305 Update of the INTRASTAT file for Spain (JUCON 2021-07-05)
+  If [F:DEB]EECSCH<>""
+    Wrseq format$("N:1#",right$([F:DEB]EECSCH,len([F:DEB]EECSCH))) ;Using [DEBSP]   # 9 EEC rule
+  Else
+    Wrseq ""; Using [DEBSP]
+  Endif
+  Wrseq ctrans(num$([F:DEB]NETMAS),".",",") ;Using [DEBSP]                          # 10 EEC net weight
+  Wrseq ctrans(num$([F:DEB]EECUNT),".",",") ;Using [DEBSP]                          # 11 EEC units
+# Ini X3-145852 Values in the Spanish Intrastat file with 3 decimals (2019-06-21 JUCON)
+#  Wrseq ctrans(num$([F:DEB]FISAMT),".",",") ;Using [DEBSP]                          # 12 EEC fiscal value
+#  Wrseq ctrans(num$([F:DEB]STAAMT),".",",")  Using [DEBSP]                          # 13 Statistic value
+  Wrseq ctrans(num$(ar2([F:DEB]FISAMT)),".",",") ;Using [DEBSP]                      # 12 EEC fiscal value
+  ## X3-250305 Update of the INTRASTAT file for Spain (JUCON 2021-07-05)
+  If [DEB]DEBDAT<[01/01/2022]
+    Wrseq ctrans(num$(ar2([F:DEB]STAAMT)),".",",")  Using [DEBSP]                    # 13 Statistic value
+    # End X3-145852 Values in the Spanish Intrastat file with 3 decimals (2019-06-21 JUCON)
+  Else
+    Wrseq ctrans(num$(ar2([F:DEB]STAAMT)),".",",") ;Using [DEBSP]                    # 13 Statistic value
+    If [F:DEB]FLO=2
+      Wrseq [F:DEB]EECNUM     Using [DEBSP]                                          # 14 EU number identification
+    Else
+      Wrseq ""                Using [DEBSP]
+    Endif
+  Endif
+  ## X3-250305 Update of the INTRASTAT file for Spain (JUCON 2021-07-05)
+  I+=1
+Next
+
+Openo Using [DEBSP]
+
+adxifs = SAVIFS
+adxirs = SAVIRS
+adxium = SAVIUM
+
+Return
+
+#######################################################################
+$TERMINE
+If !GSERVEUR
+  Call FERME_TRACE From LECFIC
+  TRA=1
+Endif
+
+Return
+#######################################################################
+$ERRBATCH
+Call ECR_TRACE(errmes$(errn)-num$(errl)-errm,1) From GESECRAN
+End
+
+
+######################################################################################
+## Section automatically added (screen DDEBSPA) 27/06/2012 11:29:10 (JUCON)
+######################################################################################
+
+Subprog S_EECNUMDEB(VALEUR)
+Variable Decimal VALEUR
+
+Link [DER] With [CPY]CPY0=CPY As [DERX] Where [CPY]LEG="SPA"
+
+Choose [DERX]
+&  Using  [F:DER]EECNUMDEB Titled mess(1,218,1) , [F:DER]CPY Titled mess(2,45,1), [F:DER]DEBDAT Titled mess(3,11,1)
+&  Sized(100,120)
+&  Titled " "
+
+If find (status,0,7)
+   End
+Else
+   VALEUR = [F:DERX]EECNUMDEB
+Endif
+Filter [DERX]
+
+
+End
+
+######################################################################################
+
+Subprog AM_EECNUMDEB(VALEUR)
+Variable Decimal VALEUR
+
+Read [DER]DER0=VALEUR
+If fstat and VALEUR<>0: mkstat=2  : End
+Else
+    [M]CPY    = [F:DER]CPY
+    [M]DATINI = [F:DER]DEBDAT
+    Raz [M]DATEND
+    Grizo [M]CPY, DATINI, DATEND
+ Endif
+
+Read [CPY]CPY0=[M]CPY
+If [F:CPY]LEG<>"SPA":  GMESSAGE= mess(249,107,1)
+    mkstat=2
+Endif
+
+If VALEUR=0: Actzo [M]CPY, DATINI, DATEND: Endif
+
+End
+
+######################################################################################
+Subprog AP_DATEND(VALEUR)
+Variable Date    VALEUR
+
+If VALEUR<[M]DATINI: GMESSAGE= mess(90,121,1): mkstat=2: Endif
+If month(VALEUR) <> month([M]DATINI): GMESSAGE= mess(32,7711,1): mkstat=2: Endif
+If VALEUR=[00/00/00] and [M]EECNUMDEB=0 : GMESSAGE=mess(197,193,1) : mkstat=2: Endif
+
+End
+
+#######################################################################
+# Call from FUNDEB to populate the field PORT                         #
+#######################################################################
+
+$PORT
+Read [CPY]CPY0=[M:DEBG]CPY
+
+#If !fstat and [F:CPY]LEG="SPA"
+If !fstat and find([F:CPY]LEG,"SPA","POR") #RM * SAM 88323 * used for Portugal also
+
+  If !clalev([F:PIX]): Local File PINVOICED  [PIX]: Endif
+  If !clalev([F:PTX]): Local File PRECEIPT   [PTX]: Endif
+  If !clalev([F:PNX]): Local File PRETURN    [PNX]: Endif
+  If !clalev([F:SIX]): Local File SINVOICED  [SIX]: Endif
+  If !clalev([F:SDX]): Local File SDELIVERY  [SDX]: Endif
+  If !clalev([F:SRX]): Local File SRETURN    [SRX]: Endif
+  If !clalev([F:TMX])  Local File TABMODELIV [TMX]  Endif
+  If !clalev([F:BPX])  Local File BPDLVCUST  [BPX]  Endif
+
+  If [M:DEBG]FLO=1
+    Case [F:DEB]VCRTYP
+        When 6 : Gosub DEB_TYP6                 # Reception
+        When 13: Gosub DEB_TYP13                # Customer return
+        When 17: Gosub DEB_TYP17                # Purchase invoice
+        When 18: Gosub DEB_TYP5                 # Sales credit note
+    Endcase
+  Elsif [M:DEBG]FLO=2
+     Case [F:DEB]VCRTYP
+        When 4 :  Gosub DEB_TYP4                # Delivery
+        When 5 :  Gosub DEB_TYP5                # Sales invoice
+        When 8 :  Gosub DEB_TYP8                # Supplier Return
+        When 18:  Gosub DEB_TYP5                # Sales credit note
+     Endcase
+  Endif
+Endif
+
+Return
+
+###############################
+$DEB_TYP4
+Read[SDX]SDH0=[M:DEBG]VCRNUM
+If !fstat and [F:SDX]MDL<>""
+    Read [TMX]TMD0=[F:SDX]MDL
+    If !fstat and [F:TMX]PORT<>""
+        [F:DEB]PORT=[F:TMX]PORT
+    Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+        Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+    Endif
+Else
+    Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+Endif
+
+Return
+
+###############################
+$DEB_TYP5
+Read [SIX]SID0=[M:DEBG]VCRNUM;[M:DEBG]VCRLIN(nolign-1)
+If !fstat and [F:SIX]SDHNUM<>""
+    Read[SDX]SDH0=[F:SIX]SDHNUM
+    If !fstat and [F:SDX]MDL<>""
+      Read [TMX]TMD0=[F:SDX]MDL
+      If !fstat and [F:TMX]PORT<>""
+        [F:DEB]PORT=[F:TMX]PORT
+      Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+        Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+      Endif
+    Else
+      Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+    Endif
+Elsif !fstat
+     Filter [BPX] Where BPCNUM=[F:SIX]BPCINV
+     Read[BPX]BPD0 First
+     If !fstat and [F:BPX]MDL<>""
+         Read [TMX]TMD0=[F:BPX]MDL
+         If !fstat and [F:TMX]PORT<>""
+             [F:DEB]PORT=[F:TMX]PORT
+         Endif
+     Endif
+Endif
+
+Return
+
+###############################
+$DEB_TYP6
+Read[PTX]PTH0=[M:DEBG]VCRNUM
+If !fstat and [F:PTX]MDL<>""
+    Read [TMX]TMD0=[F:PTX]MDL
+    If !fstat and [F:TMX]PORT<>""
+        [F:DEB]PORT=[F:TMX]PORT
+    Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+        Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+    Endif
+Else
+    Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+Endif
+
+Return
+
+###############################
+$DEB_TYP8
+Read[PNX]PNH0=[M:DEBG]VCRNUM
+If !fstat and [F:PNX]MDL<>""
+    Read [TMX]TMD0=[F:PNX]MDL
+    If !fstat and [F:TMX]PORT<>""
+        [F:DEB]PORT=[F:TMX]PORT
+    Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+        Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+    Endif
+Else
+    Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+Endif
+
+Return
+
+
+###############################
+$DEB_TYP13
+Read[SRX]SRH0=[M:DEBG]VCRNUM
+If !fstat and [F:SRX]SDHNUM<>""
+#    Read [SDX]SDXO= [F:SRX]SDHNUM
+    Read [SDX]SDHO= [F:SRX]SDHNUM #X3-185570 (JUCON 2020-03-05)
+    If !fstat and [F:SDX]MDL<>""
+        Read [TMX]TMD0=[F:SDX]MDL
+        If !fstat and [F:TMX]PORT<>""
+            [F:DEB]PORT=[F:TMX]PORT
+        Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+            Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+        Endif
+    Else
+        Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+    Endif
+Endif
+
+Return
+
+###############################
+$DEB_TYP17
+Read [PIX]PID0=[M:DEBG]VCRNUM;[M:DEBG]VCRLIN(nolign-1)
+If !fstat and [F:PIX]NUMORI<>""
+    Read[PTX]PTH0=[F:PIX]NUMORI
+    If !fstat and [F:PTX]MDL<>""
+      Read [TMX]TMD0=[F:PTX]MDL
+      If !fstat and [F:TMX]XPORT<>""
+        [F:DEB]PORT=[F:TMX]PORT
+      Elsif [F:TMX]EECTRN=1 or [F:TMX]EECTRN=4
+        Call ECR_TRACE(mess(241,183,1)-[F:TMX]MDL-":"-mess(28,7711,1),-1) From GESECRAN
+      Endif
+    Else
+      Call ECR_TRACE(mess(735,197,1)-[M:DEBG]VCRNUM-num$([M:DEBG]VCRLIN(nolign-1))-num$(I)-num$(nolign)-":"-mess(2,58,1),-1) From GESECRAN
+    Endif
+Endif
+
+Return
+
+
+
+
+######################################################################################

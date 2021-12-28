@@ -1,0 +1,140 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGAENTERR From ZSGAENTERR
+
+End
+
+Subprog ZSGAENTERR
+
+WTRAZA=1
+If GTRACE=''
+  WTRAZA=2
+  Call OUVRE_TRACE ("Imp. ERR") From LECFIC
+Endif
+#Declaración de variables
+Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
+Local Char WFICINP1(250), FICH2(250)
+Local Integer NFICHEROS, WNESTADO, NFICH2, I, M
+Local Char FICHEROS(250)(1..1000)
+
+Local Char FICHEROIMP(250), FICHEROEXP(250)
+Local Char WMSGTYPE(250), WSITE(250), WBATCH(250), WERRDATE(250), WERRDESC(250), WERREXCEPTION(250), WCHECKNEXTMSGTYPE(250)
+Local Clbfile WERRDESC, WERREXCEPTION
+
+Local Integer A, LFSTATFICHERO, NFICHEROS
+Local Clbfile XDATA (10)
+
+If !clalev([F:ZZERR]) : Local File ZERRORES    [ZZERR] : Endif
+
+Call ECR_TRACE('ERR* - Mensajes de Error',0) From GESECRAN
+
+WFICHEROIMP='ERR01*'
+Raz NFICHEROS
+
+WSGATMP       = "ZSGA\SGA\IMPORTX3"
+WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
+WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed"
+
+CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
+ORDSYS = "dir "+CFILE+" /A-d /b"
+Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+LFSTATFICHERO=0
+
+If instr(1,FICHEROS(1),'xml')=0
+ # Call ECR_TRACE('No existe ERR0*',1) From GESECRAN
+  End
+Endif
+Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
+
+For A=1 To NFICHEROS
+  LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+  WFICINP1=LNOMFICHERO
+  LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+  Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
+
+  #Abrimos y leemos el fichero
+
+  Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
+
+  Iomode adxifs  ""                 Using [ZZZ]
+  Iomode adxirs  ""                 Using [ZZZ]
+  Iomode adxium  50                 Using [ZZZ]
+
+  Rdseq XDATA Using [ZZZ]
+
+  I=1
+  WVECES=0
+  WDENTRO=2
+  If GUSER="MLGA" : Dbgaff : Endif
+  While WDENTRO=2
+    WVECES+=1
+    [L]WMSGTYPE         =func GET_PROPXML(XDATA,"MsgType",I)
+ #   [L]WSITE            =func GET_PROPXML(XDATA,"Site",I)
+    [L]WBATCH           =func GET_PROPXML(XDATA,"Batch",I)
+    [L]WERRDATE         =func GET_PROPXML(XDATA,"ErrDate",I)
+    [L]WERRDESC         =func GET_PROPXML(XDATA,"ErrDesc",I)
+    [L]WERREXCEPTION    =func GET_PROPXML(XDATA,"ErrException",I)
+
+
+    [F:ZZERR]NUMERROR=WVECES
+    [F:ZZERR]STA=1
+    [F:ZZERR]MSGTYPE=WMSGTYPE
+    [F:ZZERR]SITE='WH_HISPANOX'
+    [F:ZZERR]BATCH=WBATCH
+    [F:ZZERR]ERRDATE=gdatetime$(WERRDATE)
+    [F:ZZERR]ERRDESC=WERRDESC
+    [F:ZZERR]ERREXCEPTION=WERREXCEPTION
+
+    Write [F:ZZERR]
+
+    M=I
+    [L]WCHECKNEXTMSGTYPE   =func GET_PROPXML(XDATA,"MsgType",M)
+    If [L]WCHECKNEXTMSGTYPE=''
+      Break
+    Endif
+
+  Wend
+
+  Openi Using [ZZZ]
+  Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
+  Gosub MUEVE_FILE
+ Next
+ If WTRAZA=2
+  Call FERME_TRACE From LECFIC
+ Endif
+End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGATRATADOS,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+$RESU_WESTADOS
+WNESTADO=0
+For N=1 To 8
+  If WESTADOS(N)=WSTATUS
+    WNESTADO=N
+    Break
+  Endif
+Next
+Return
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+ # I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

@@ -1,0 +1,20 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Gosub EXEC
+End
+
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+########################################################################
+## Exportación de los ficheros hacia la PRESTASHOP. La peridicidad viene
+## marcada por la tarea batch que se parametrice
+########################################################################
+$EXEC
+  Call CLIENTES   From ZCLIPRESTASHOP
+  Call ARTICULOS  From ZITMPRESTASHOP
+  Call PRECIONETO From ZNETPRESTASHOP
+  Call TARIFAS    From ZTARPRESTASHOP
+  Call DIRAUX     From ZDIRPRESTASHOP
+Return

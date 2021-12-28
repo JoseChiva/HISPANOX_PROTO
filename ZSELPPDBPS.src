@@ -1,0 +1,498 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)7.0.0.0 $Revision$
+###########################################################################
+# TRTACHAOF1           Traitements liés aux AOF              Module ACHAT #
+# ----------------------------------------------------------------------- #
+# ACTIONS modélisation WEB (Sélection dans une table GACTION)             #
+#   - SELPPDBPS  : Sélection des demandes d'appel d'offre fournisseur     #
+#   - SELPPDLIG  : Sélection de la ligne de la demande                    #
+#                                                                         #
+# ACTIONS modélisation WEB (Saisie de fenêtre GSAISIE)                    #
+#   - SELPPDBPS  : Sélection des demandes d'appel d'offre fournisseur     #
+#   - SELPPDLIG  : Sélection de la ligne de la demande                    #
+#   - VISUPPRLIG : Visu des réponses                                      #
+#   - SAICRITPSD : Saisie des critères de besoin en demande aof           #
+###########################################################################
+
+
+$ACTION
+#Infbox GACTION
+Case ACTION
+ When "SEL_TABLE"
+  #--------------------------------------------#
+  # Avant ouverture de la fenêtre de sélection #
+  #--------------------------------------------#
+  Case TABLE
+   When "SELPPDBPS"    : Gosub SEL_SELPPDBPS
+   When "SELPPDLIG"    : Gosub SEL_SELPPDLIG
+  Endcase
+ When "VERF_TABLE"
+  #-------------------------------#
+  # Après sélection dans la table #
+  #-------------------------------#
+  Case TABLE
+   When "SELPPDBPS"    : Gosub VERF_SELPPDBPS
+   When "SELPPDLIG"    : Gosub VERF_SELPPDLIG
+  Endcase
+ When "FIN_TABLE"
+  #------------------------------------------#
+  # Avant de revenir à la fenêtre précédente #
+  #------------------------------------------#
+  Case TABLE
+   When "SELPPDBPS"    : Gosub FINT_SELPPDBPS
+   When "SELPPDLIG"    : Gosub FINT_SELPPDLIG
+  Endcase
+ When "OUVRE"
+  #--------------------------------------------------------------#
+  # Avant la définition des boutons et l'ouverture de la fenêtre #
+  #--------------------------------------------------------------#
+  Case GACTION
+   When  "ZSELPPDBPS"   : Gosub OUV_SELPPDBPS
+   When  "SELPPDLIG"   : Gosub OUV_SELPPDLIG
+  Endcase
+ When "TITRE"
+  #-------------------------------------------#
+  # Titre juste avant ouverture de la fenêtre #
+  #-------------------------------------------#
+  Case GACTION
+   When "ZSELPPDBPS"    : TIT=mess(5,195,1)
+  Endcase
+ When "DEBUT"
+  #---------------------------------#
+  # Après l'ouverture de la fenêtre #
+  #---------------------------------#
+  Case GACTION
+   When  "ZSELPPDBPS"   : Gosub DEB_SELPPDBPS
+   When  "SELPPDLIG"   : Gosub DEB_SELPPDLIG
+   When  "SAICRITPSD"  : Gosub DEB_SAICRITPSD
+  Endcase
+ When "OK"
+  #--------------------------------#
+  # Après l'exécution du bouton OK #
+  #--------------------------------#
+  Case GACTION
+   When  "ZSELPPDBPS"   : Gosub OK_SELPPDBPS
+   When  "SELPPDLIG"   : Gosub OK_SELPPDLIG
+   When  "SAICRITPSD"  : Gosub OK_SAICRITPSD
+  Endcase
+ When "ABA"
+  #-------------------------------------#
+  # Après l'exécution du bouton ABANDON #
+  #-------------------------------------#
+  Case GACTION
+   When  "SAICRITPSD"  : Gosub ABA_SAICRITPSD
+                         REP=""
+  Endcase
+ When "FINSAI"
+  #------------------------------------------#
+  # Avant de revenir à la fenêtre précédente #
+  #------------------------------------------#
+  Case GACTION
+   When  "ZSELPPDBPS"   : Gosub FSA_SELPPDBPS
+   When  "SELPPDLIG"   : Gosub FSA_SELPPDLIG
+  Endcase
+ When "APRES_MODIF"
+  #------------------------#
+  # Apres modif d'un champ #
+  #------------------------#
+  Case GACTION
+   When "SAICRITPSD"  : REP="M"
+  Endcase
+Endcase
+Return
+
+
+#########################################################################
+# SAICRITPSD  Saisie des critères des DA                    HN 11/10/02 #
+#########################################################################
+$DEB_SAICRITPSD
+[M:PCP1]=[M:PCPW]
+Actzo [PCP1]1-99
+Affzo [PCP1]1-99
+Return
+#-----
+$OK_SAICRITPSD
+[M:PCP1]WBPSNUM   =vireblc([M:PCP1]WBPSNUM,2)
+[M:PCP1]WITMREF   =vireblc([M:PCP1]WITMREF,2)
+[M:PCP1]WPSHNUM   =vireblc([M:PCP1]WPSHNUM,2)
+#[M:PCP1]WDATFIN   =vireblc([M:PCP1]WDATFIN,2)
+[M:PCPW]=[M:PCP1]
+Return
+#-----
+$ABA_SAICRITPSD
+[M:PCP1]=[M:PCPW]
+Affzo [PCP1]1-99
+Return
+
+
+##########################################################################
+# SELPPDLIG : Sélection du numéro de ligne de la demande    HN  10/00    #
+#   WPQHFCY  : Site de l'appel d'offre                                   #
+#   WPQHNUM  : Numéro de l'appel d'offre                                 #
+#   WBPSNUM  : Fournisseur de l'appel d'offre                            #
+#   WPQDLIN  : Numéro de ligne de l'appel d'offre sélectionné            #
+##########################################################################
+$OUV_SELPPDLIG
+#----- Variables locales -----#
+Local Char    CRIT(250)
+Local Char    WPQHFCY(GLONFCY) : WPQHFCY =PARAM(1)
+Local Char    WPQHNUM(GLONPQH) : WPQHNUM =PARAM(2)
+Local Char    WBPSNUM(GLONBPS) : WBPSNUM =PARAM(3)
+Local Decimal WPQDLIN          : WPQDLIN =VALEUR
+Local Shortint WOK
+If clalev ([F:PQD]) <= 0 : Local File PQUOTATD [PQD] : Endif
+If clalev ([F:PPH]) <= 0 : Local File PRESP [PPH] : Endif
+Return
+#-----
+$DEB_SELPPDLIG
+Raz [PQDW]
+#Lecture des enregistrements selon paramètres passés
+CRIT= "[F:PQD]PQHFCY = WPQHFCY"
+If WPQHNUM <> "" : CRIT+= "& [F:PQD]PQHNUM = WPQHNUM" : Endif
+Filter [PQD] Where evalue(CRIT)
+nolign = 1
+For [PQD] PQD0
+#En création ou duplication de réponses ne proposer que les articles
+#pour lesquels le fournisseur n'a pas encore répondu
+    Filter [PPH] Where BPSNUM = WBPSNUM
+&                    & PQHNUM = WPQHNUM
+&                    & PQDLIN = [F:PQD]PQDLIN
+    Read [PPH] PPH0 First
+    If fstat
+         [M:PQDW]ITMREF(nolign-1) = [F:PQD]ITMREF
+         [M:PQDW]PQDLIN(nolign-1) = [F:PQD]PQDLIN
+         [M:PQDW]PQHNUM(nolign-1) = [F:PQD]PQHNUM
+         nolign += 1
+         If nolign =100 : Break: Endif
+    Endif
+Next
+Filter [PPH]
+Filter [PQD]
+[M:PQDW]NBART = nolign-1
+If [M:PQDW]NBART = 0
+   GERR = 2 : GMESSAGE = mess(99,100,1) : FIN = 1: Return : Endif
+Affzo [PQDW]1-99
+Return
+#-----
+$OK_SELPPDLIG
+VALEUR  =  [M:PQDW]PQDLIN(nolign-1)
+WOK = 1
+Return
+#-----
+$FSA_SELPPDLIG
+If WOK = 1
+  mkstat = 0
+Else
+  mkstat = 1
+Endif
+Return
+
+
+##########################################################################
+# SELPPDBPS : Sélection sur le fichier PQUOTATF des fournisseurs         #
+#   PARAM(1) = BPSNUM : Fournisseur sélectionné                          #
+#   PARAM(2) = FCY    : Site de l'appel d'offre                          #
+#   PARAM(3) = NUM    : Numéro de l'appel d'offre sélectionné            #
+#   PARAM(4) = REF    : Référence interne de l'appel d'offre sélectionné #
+#   PARAM(5) = ZONCOU : Nom de la zone courante              HN    10/00 #
+##########################################################################
+$OUV_SELPPDBPS
+#----- Variables locales -----#
+Local Char  CRIT(250), WX(2)
+Local Char  WBPSNUM(GLONBPS) : WBPSNUM =PARAM(1)
+Local Char  WPQHFCY(GLONFCY) : WPQHFCY =PARAM(2)
+Local Char  WPQHNUM(GLONPQH) : WPQHNUM =PARAM(3)
+Local Char  WPQHREF(20)      : WPQHREF =PARAM(4)
+Local Char  WZONCOU(GLONAVA) : WZONCOU =PARAM(5)
+Local Shortint WOK
+If clalev ([F:PQF])<=0 Local File PQUOTATF [PQF] : Endif
+If clalev ([F:PQH])<=0 Local File PQUOTAT  [PQH] : Endif
+Return
+#-----
+$DEB_SELPPDBPS
+If WZONCOU="BPSNUM" Raz WPQHNUM : Endif
+Raz [PQFW]
+WX=">="
+#--- Contrôle si critère fournisseur existe en tant que fournisseur -----#
+If WBPSNUM<>""
+  For [PQF] PQF1 Where BPSNUM=WBPSNUM
+    WX="="
+  Next
+Endif
+#----- Chargement des critères de sélection -----#
+CRIT="[F:PQF]PQHFCY=WPQHFCY"
+If WBPSNUM<>"" CRIT+=" & [F:PQF]BPSNUM"+WX+"WBPSNUM" : Endif
+If WPQHNUM<>"" CRIT+=" & [F:PQF]PQHNUM=WPQHNUM" : Endif
+Filter [PQF] Where evalue(CRIT)
+#Infbox PQHFCY
+Raz I
+For [PQF] PQF1
+  #Infbox "Encuentra"-[F:PQF]PQHNUM
+  For [PQD] PQD0 Where PQHNUM=[F:PQF]PQHNUM
+  #Infbox "Encuentra"-[F:PQF]PQHNUM-[F:PQF]BPSNUM-num$([F:PQD]PQDLIN)
+    Raz J
+    For [PPH] PPH0 Where BPSNUM=[F:PQF]BPSNUM & PQHNUM=[F:PQF]PQHNUM & PQDLIN=[F:PQD]PQDLIN
+#    Infbox "ya hay respuesta"-[F:PQF]PQHNUM-[F:PQF]BPSNUM-num$([F:PQD]PQDLIN)
+#      J=1 : Break
+    Next
+    If J=0 Break : Endif
+  Next
+  If J=0
+    If [F:PQH]PQHNUM<>[F:PQF]PQHNUM
+      Read [PQH] PQH0=[F:PQF]PQHNUM : If fstat Raz [F:PQH] : Endif
+    Endif
+    [M:PQFW]BPSNUM(I)=[F:PQF]BPSNUM
+    [M:PQFW]PQHNUM(I)=[F:PQF]PQHNUM
+    [M:PQFW]PQHREF(I)=[F:PQH]PQHREF
+    I+=1
+    If I>dim([M:PQFW]BPSNUM)-1
+      GERR = 2 : GMESSAGE =mess(26,100,1) : Break
+    Endif
+  Endif
+Next
+[M:PQFW]NBFOU=I
+If [M:PQFW]NBFOU=0 : GERR = 2 : GMESSAGE =mess(99,100,1) : FIN = 1 : Endif
+Affzo [PQFW]1-99
+Return
+#-----
+$OK_SELPPDBPS
+WOK = 1
+PARAM(1) = [M:PQFW]BPSNUM(nolign-1)
+PARAM(3) = [M:PQFW]PQHNUM(nolign-1)
+PARAM(4) = [M:PQFW]PQHREF(nolign-1)
+Return
+#-----
+$FSA_SELPPDBPS
+If WOK = 1
+  #----- Déblocage logique d'une entête précédente si nécessaire -----#
+  If GPQH_SYMBOL<>"" & GPQH_SYMBOL<>"PQH"+PARAM(3)
+    Unlock=GPQH_SYMBOL : Raz GPQH_SYMBOL
+  Endif
+  #----- Si entête appel d'offre bloquée logiquement --> Abandon -----#
+  If GPQH_SYMBOL=""
+    Lock="PQH"+PARAM(3)
+    If fstat
+      Call ERREUR ("$PQUOTAT"-PARAM(3)-mess(10,100,1)) From GESECRAN
+      mkstat=1 : Return
+    Else
+      GPQH_SYMBOL="PQH"+PARAM(3)
+    Endif
+  Endif
+  #-----
+  #[M:PPD0]BPSNUM=PARAM(1)
+  #[M:PPD0]PQHNUM=PARAM(3)
+  #[M:PPD1]PQHREF=PARAM(4)
+  mkstat = 99
+Else
+  mkstat = 2
+Endif
+Return
+
+
+##########################################################################
+# PQUOTATF : S/P de sélection d'un appel d'offre    Modifié MBT 04/03/99 #
+# Les sélections ne fonctionnent pas en WEB sur table temporaire         #
+# ---------------------------------------------------------------------- #
+#   WBPSNUM  : Fournisseur sélectionné                                   #
+#   WPQHFCY  : Site de l'appel d'offre                                   #
+#   WPQHNUM  : Numéro de l'appel d'offre sélectionné                     #
+#   WPQHREF  : Référence interne de l'appel d'offre sélectionné          #
+# Remarques  : Ce sous-programme est utilisé en création de réponse      #
+#              aux appels d'offres. Il est utilisé en action de          #
+#              sélection sur les champs S_BPSNUM et S_PQHNUM             #
+# ---------------------------------------------------------------------- #
+# Remplacé par l'action SELPPDBPS avec paramètres           MBT 15/01/01 #
+#   PARAM(1) = BPSNUM : Fournisseur sélectionné                          #
+#   PARAM(2) = FCY    : Site de l'appel d'offre                          #
+#   PARAM(3) = NUM    : Numéro de l'appel d'offre sélectionné            #
+#   PARAM(4) = REF    : Référence interne de l'appel d'offre sélectionné #
+##########################################################################
+#ACTION NON UTILISEE CREEE POUR TEST
+#--------------------------------------------#
+# Avant ouverture de la fenêtre de sélection #
+#--------------------------------------------#
+$SEL_SELPPDBPS
+Local Char     WBPSNUM(GLONBPS) : WBPSNUM=PARAM(1)
+Local Char     WPQHFCY(GLONFCY) : WPQHFCY=PARAM(2)
+Local Char     WPQHNUM(GLONPQH) : WPQHNUM=PARAM(3)
+Local Char     WPQHREF(20)      : WPQHREF=PARAM(4)
+Local Integer  SAVNOLIGN        : SAVNOLIGN=nolign
+Local Libelle  FLAGSEL          : FLAGSEL=0
+Local Char     CRIT(250), WX(2)
+Local Shortint I, J
+Local Char     WFOU(GLONBPS)(200)
+Local Char     WNUM(GLONVCR)(200)
+Local Char     WREF(20)(200)
+#----- Ouverture tables si nécessaire -----#
+If clalev([F:ATZ])=0  Local File ATABZON   [ATZ] : Endif
+If clalev([F:PQF])=0  Local File PQUOTATF  [PQF] : Endif
+If clalev([F:PQH])=0  Local File PQUOTAT   [PQH] : Endif
+#----- Définition table temporaire en mémoire -----#                      hcb V6
+Local File (Char BPSNUM(GLONBPS),Char PQHNUM(GLONPQH),Char PQHREF(20))
+&           From Variable [L]WFOU,[L]WNUM,[L]WREF As [SEL]
+#----- Contrôle si critère fournisseur existe en tant que fournisseur -----#
+WX=">="
+If WBPSNUM<>""
+  Filter [PQF] Where BPSNUM=WBPSNUM
+  Read [PQF] PQF1 First
+  If !fstat  WX="=" : Endif
+  Filter [PQF]
+Endif
+#----- Chargement des critères de sélection -----#
+CRIT="[F:PQF]PQHFCY=WPQHFCY"
+If WBPSNUM<>"" CRIT+=" & [F:PQF]BPSNUM"+WX+"WBPSNUM" : Endif
+If WPQHNUM<>"" CRIT+=" & [F:PQF]PQHNUM=WPQHNUM"      : Endif
+#----- Chargement des lignes de de sélection -----#
+Filter [PQF] Where evalue(CRIT)
+Raz I
+For [PQF] PQF1
+  For [PQD] PQD0 Where PQHNUM=[F:PQF]PQHNUM
+    Raz J
+    For [PPH] PPH0 Where BPSNUM=[F:PQF]BPSNUM & PQHNUM=[F:PQF]PQHNUM & PQDLIN=[F:PQD]PQDLIN
+      J=1 : Break
+    Next
+    If J=0 Break : Endif
+  Next
+  If J=0
+    If [F:PQH]PQHNUM<>[F:PQF]PQHNUM
+      Read [PQH] PQH0=[F:PQF]PQHNUM : If fstat Raz [F:PQH] : Endif
+    Endif
+    [L]WFOU(I)=[F:PQF]BPSNUM
+    [L]WNUM(I)=[F:PQF]PQHNUM
+    [L]WREF(I)=[F:PQH]PQHREF
+    I+=1
+    If I>dim([L]WFOU)-1
+      GERR=2 : GMESSAGE=mess(26,100,1) : Break
+    Endif
+  Endif
+Next
+If I=0 GERR=2 : GMESSAGE=mess(99,100,1) : OK=0 : Return : Endif
+#-----
+TIT(0)=mess(5,195,1)
+CRITERE(1)='BPSNUM<>""'
+ORDRE="BPSNUM"
+COL(1)="BPSNUM" : Call TEXTFIC("PQUOTATF","BPSNUM",1,TIT(1)) From OBJDIV
+COL(2)="PQHNUM" : Call TEXTFIC("PQUOTATF","PQHNUM",1,TIT(2)) From OBJDIV
+COL(3)="PQHREF" : Call TEXTFIC("PQUOTAT" ,"PQHREF",1,TIT(3)) From OBJDIV
+NBCOL=3
+START="BPSNUM"
+SIZLIG=160 : SIZCOL=160
+Default File [SEL]
+Return
+#-------------------------------#
+# Après sélection dans la liste #
+#-------------------------------#
+$VERF_SELPPDBPS
+WBPSNUM=[F:SEL]BPSNUM
+WPQHNUM=[F:SEL]PQHNUM
+WPQHREF=[F:SEL]PQHREF
+FLAGSEL=1
+Return
+#------------------------------------------#
+# Avant de revenir à la fenêtre précédente #
+#------------------------------------------#
+$FINT_SELPPDBPS
+If FLAGSEL=1
+  PARAM(1)=WBPSNUM : PARAM(3)=WPQHNUM : PARAM(4)=WPQHREF
+  VALEUR=WPQHNUM
+  mkstat=99
+Else
+  mkstat=1
+Endif
+nolign=SAVNOLIGN
+Return
+
+
+##########################################################################
+# PQUOTATD: S/P utilisé en création/duplication de réponses aux appels   #
+# Les sélections ne fonctionnent pas en WEB sur table temporaire         #
+# ---------------------------------------------------------------------- #
+#   WPQDLIN  : Numéro de ligne de l'appel d'offre sélectionné            #
+#   WPQHFCY  : Site de l'appel d'offre                                   #
+#   WPQHNUM  : Numéro de l'appel d'offre                                 #
+#   WBPSNUM  : Fournisseur de l'appel d'offre                            #
+# Remarques  : Ce sous-programme est utilisé en création de réponse      #
+# ---------------------------------------------------------------------- #
+# Remplacé par l'action SELPPDLIG avec paramètres           MBT 15/01/01 #
+#   Zone courante AZC : Numéro de ligne de l'appel d'offre sélectionné   #
+#   PARAM(1) = FCY    : Site de l'appel d'offre                          #
+#   PARAM(2) = NUM    : Numéro de l'appel d'offre                        #
+#   PARAM(3) = BPSNUM : Fournisseur                                      #
+##########################################################################
+#ACTION NON UTILISEE CREEE POUR TEST
+#--------------------------------------------#
+# Avant ouverture de la fenêtre de sélection #
+#--------------------------------------------#
+$SEL_SELPPDLIG
+Local Integer  WPQDLIN          : WPQDLIN=VALEUR
+Local Char     WPQHFCY(GLONFCY) : WPQHFCY=PARAM(1)
+Local Char     WPQHNUM(GLONPQH) : WPQHNUM=PARAM(2)
+Local Char     WBPSNUM(GLONBPS) : WBPSNUM=PARAM(3)
+Local Integer  SAVNOLIGN        : SAVNOLIGN=nolign
+Local Libelle  FLAGSEL          : FLAGSEL=0
+Local Char     CRIT(250)
+Local Char     WART(GLONITM)(200)
+Local Integer  WLIN         (200)
+Local Char     WNUM(GLONVCR)(200)
+#----- Ouverture tables si nécessaire -----#
+If clalev([F:ATZ])=0  Local File ATABZON   [ATZ] : Endif
+If clalev([F:PQD])=0  Local File PQUOTATD  [PQD] : Endif
+If clalev([F:PPH])=0  Local File PRESP     [PPH] : Endif
+#----- Définition table temporaire en mémoire -----#
+Local File (Char ITMREF(GLONITM),Integer PQDLIN,Char PQHNUM(GLONPQH))
+&           From Variable [L]WART,[L]WLIN,[L]WNUM As [SEL]
+#----- En création ou duplication ne proposer que les articles sans réponse -----#
+CRIT="[F:PQD]PQHFCY=WPQHFCY"
+If WPQHNUM<>""  CRIT+=" & [F:PQD]PQHNUM=WPQHNUM" : Endif
+Filter [PQD] Where evalue(CRIT)
+nolign=1
+For [PQD]
+  Filter [PPH] Where BPSNUM=WBPSNUM & PQHNUM=[F:PQD]PQHNUM & PQDLIN=[F:PQD]PQDLIN
+  Read [PPH] PPH0 First
+  If fstat
+    [L]WART(nolign-1)=[F:PQD]ITMREF
+    [L]WLIN(nolign-1)=[F:PQD]PQDLIN
+    [L]WNUM(nolign-1)=[F:PQD]PQHNUM
+    nolign+=1
+    If nolign=dim([L]WART) : Break : Endif
+  Endif
+Next
+Filter [PPH] : Filter [PQD]
+If nolign=1  GERR=2 : GMESSAGE=mess(99,100,1) : OK=0 : Return : Endif
+#-----
+TIT(0)=mess(14,195,1)
+CRITERE(1)='ITMREF<>""'
+ORDRE="ITMREF"
+COL(1)="ITMREF" : Call TEXTFIC("PQUOTATD","ITMREF",1,TIT(1)) From OBJDIV
+COL(2)="PQDLIN" : Call TEXTFIC("PQUOTATD","PQDLIN",1,TIT(2)) From OBJDIV
+COL(3)="PQHNUM" : Call TEXTFIC("PQUOTATD","PQHNUM",1,TIT(3)) From OBJDIV
+NBCOL=3
+START="PQDLIN"
+SIZLIG=160 : SIZCOL=160
+Default File [SEL]
+Return
+#-------------------------------#
+# Après sélection dans la liste #
+#-------------------------------#
+$VERF_SELPPDLIG
+WPQDLIN=[F:SEL]PQDLIN
+WPQHNUM=[F:SEL]PQHNUM
+Read [PQD] PQD0=WPOHNUM;WPQDLIN
+If fstat Raz [F:PPD]
+ Else
+VALEUR  =  [F:PQDW]PQDLIN
+FLAGSEL=1
+Endif
+Return
+#------------------------------------------#
+# Avant de revenir à la fenêtre précédente #
+#------------------------------------------#
+$FINT_SELPPDLIG
+If FLAGSEL=1
+  PARAM(2)=WPQHNUM
+Else
+  mkstat=1
+Endif
+nolign=SAVNOLIGN
+Return
+

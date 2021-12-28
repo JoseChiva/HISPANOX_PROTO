@@ -1,0 +1,272 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#####################################################################################
+# Src: SPECTRHA
+#-------------------------------------------------------------------------------------
+# (Contenedores - Acciones)
+#-------------------------------------------------------------------------------------
+# Proyecto: HISPANOX
+#-------------------------------------------------------------------------------------
+# Version: v12
+#-------------------------------------------------------------------------------------
+# Fecha:21-08-2020
+#-------------------------------------------------------------------------------------
+# Desarrollador: RPES
+# Codigo Actividad: ZC061
+#######################################################################################
+#DEV: RPES	21-08-2020 COMP-061 Importación contenedor
+#DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
+
+$VALLIG
+
+Gosub ACTION From SUBCTRH
+GPE=1
+
+#En la actualizacion ya no se usa esto
+#Case TRTLIG
+#  When  "C"   Gosub VALLIG_CRE
+#  When  "M"   Gosub VALLIG_UPD
+#Endcase
+
+Return
+
+#############################################################################
+$SETBOUT
+
+Gosub ACTION From SUBCTRH
+GPE=1
+If [M:CTRH1]ZVCRLINSUP = 0 and [M:CTRH1]NBLIG>0
+  Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+  Grizo [M:CTRH1]NBLIG2
+Endif
+
+Return
+#############################################################################
+$APRES_MODIF
+ZDEL = 0
+If status = 65 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una linea de una grilla
+  ZDEL = 1
+  Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+  Grizo [M:CTRH1]NBLIG2
+  Affzo [M:CTRH1]10
+  Affzo [M:CTRH1]15
+  For I=0 To [M:CTRH1]NBLIG3-1
+    If [M:CTRH1]ZVCRLIN(I) = [M:CTRH1]POPLIN(nolign-1) and [M:CTRH1]ZPOHNUM(I) = [M:CTRH1]POHNUM(nolign-1)
+      Dela I, 1, [M:CTRH1]NBLIG3-1 [M:CTRH1]NBLIG3
+      [M:CTRH1]NBLIG3 -= 1
+      I -= 1
+    Endif
+  Next
+  Affzo [M:CTRH1]20
+Endif
+
+If status = 83 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una grilla
+  ZDEL = 1
+  Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+  Affzo [M:CTRH1]10
+  Affzo [M:CTRH1]15
+  Grizo [M:CTRH1]NBLIG2
+  Raz [M:CTRH1]NBLIG3
+  Affzo [M:CTRH1]20
+Endif
+
+Return
+
+#############################################################################
+
+$VALLIG_CRE
+#If WPOS <> [V]CST_ANOTDEFINED
+#  WCONTAINER.CTRD(WPOS).ZCCAJA = [M:CTRH1]ZCCAJA(nolign-1)
+#  WCONTAINER.CTRD(WPOS).ZCCARTON = [M:CTRH1]ZCCARTON(nolign-1)
+#  WCONTAINER.CTRD(WPOS).ZCPALET = [M:CTRH1]ZCPALET(nolign-1)
+#  WCONTAINER.CTRD(WPOS).STA = [M:CTRH1]STA(nolign-1)
+#  WCONTAINER.CTRD(WPOS).ZPALET = [M:CTRH1]ZPALET(nolign-1)
+#  WCONTAINER.CTRD(WPOS).LOT = [M:CTRH1]LOT(nolign-1)
+#  WCONTAINER.CTRD(WPOS).ZPALENT = [M:CTRH1]ZPALENT(nolign-1)
+#Endif
+
+Return
+
+#############################################################################
+
+$VALLIG_UPD
+
+#If WIND <> 0 Then
+#  WCONTAINER.CTRD(WIND).ZCCAJA = [M:CTRH1]ZCCAJA(nolign-1)
+#  WCONTAINER.CTRD(WIND).ZCCARTON = [M:CTRH1]ZCCARTON(nolign-1)
+#  WCONTAINER.CTRD(WIND).ZCPALET = [M:CTRH1]ZCPALET(nolign-1)
+#  WCONTAINER.CTRD(WIND).STA = [M:CTRH1]STA(nolign-1)
+#  WCONTAINER.CTRD(WIND).ZPALET = [M:CTRH1]ZPALET(nolign-1)
+#  WCONTAINER.CTRD(WIND).LOT = [M:CTRH1]LOT(nolign-1)
+#  WCONTAINER.CTRD(WIND).ZPALENT = [M:CTRH1]ZPALENT(nolign-1)
+#Endif
+
+Return
+
+#############################################################################
+
+#MODIF AFVI COMP-015 Lotes y estado en contenedor y expedición
+
+$OUVRE
+
+If clalev([ZOR])<=0  :  Local File ZORIG [ZOR]  :  Endif
+Global Integer ZDEL :Raz ZDEL
+adxsca = "...,**$_"
+Return
+
+#############################################################################
+
+$LIENS
+Gosub ACTION From SUBCTRH
+GPE=1
+
+Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+
+Grizo [M:CTRH1]NBLIG2
+nolign = 0
+Raz [M:CTRH1]NBLIG3
+
+For [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:CTRH]CTRNUM
+  [M:CTRH1]ZITMREF(nolign) = [F:ZOR]ZITMREF
+  [M:CTRH1]ZPOHNUM(nolign) = [F:ZOR]ZPOHNUM
+  [M:CTRH1]ZLOTE(nolign) = [F:ZOR]ZLOTE
+  [M:CTRH1]ZQTYLIN(nolign) = [F:ZOR]ZQTYLIN
+  [M:CTRH1]ZPALETP(nolign) = [F:ZOR]ZPALETP
+  [M:CTRH1]ZVCRLIN(nolign) = [F:ZOR]ZVCRLIN
+  [M:CTRH1]NBLIG3 += 1
+  nolign+=1
+Next
+
+Return
+
+
+#############################################################################
+$DEPICK
+Case currbox
+  When GBOXPO6:
+    Gosub DEPICK_PO6
+
+Endcase
+
+Return
+
+#############################################################################
+$DEPICK_PO6
+Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+Grizo [M:CTRH1]NBLIG2
+Affzo [M:CTRH1]10
+Affzo [M:CTRH1]15
+
+For I=0 To [M:CTRH1]NBLIG3-1
+  If [M:CTRH1]ZVCRLIN(I) = [F:POQ]POPLIN and [M:CTRH1]ZPOHNUM(I) = [F:POQ]POHNUM
+    Dela I, 1, [M:CTRH1]NBLIG3-1 [M:CTRH1]NBLIG3
+    [M:CTRH1]NBLIG3 -= 1
+    I -= 1
+  Endif
+Next
+Affzo [M:CTRH1]20
+Return
+
+#############################################################################
+
+$CREATION
+If !(func VERIF_QTY)
+  GERR = 1 : GOK = 0 :GPE = 1 :Return
+Endif
+Gosub ACTION From SUBCTRH
+GPE = 1
+For I=0 To [M:CTRH1]NBLIG3-1
+  If [M:CTRH1]ZVCRLIN(I)<> 0
+    Raz [F:ZOR]
+    [F:ZOR]ZVCRNUM = [M:CTRH]CTRNUM
+    [F:ZOR]ZVCRLIN = [M:CTRH1]ZVCRLIN(I)
+    [F:ZOR]ZLIN = I+1
+    [F:ZOR]ZITMREF = [M:CTRH1]ZITMREF(I)
+    [F:ZOR]ZPOHNUM = [M:CTRH1]ZPOHNUM(I)
+    [F:ZOR]ZLOTE = [M:CTRH1]ZLOTE(I)
+    [F:ZOR]ZQTYLIN = [M:CTRH1]ZQTYLIN(I)
+    [F:ZOR]ZPALETP = [M:CTRH1]ZPALETP(I)
+    Write [F:ZOR]
+    If fstat :Call FSTA('ZORIG') From GLOCK Endif
+  Endif
+Next
+Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+Affzo [M:CTRH1]10
+Affzo [M:CTRH1]15
+Grizo [M:CTRH1]NBLIG2
+Return
+
+#############################################################################
+$FILGAUCHE
+Gosub ACTION From SUBCTRH
+GPE = 1
+If  [CTRH2]ZFILITM <> "" : FILGAUSUP(2) -= "& [F:POQ]ITMREF = [CTRH2]ZFILITM" Endif
+
+Return
+
+#############################################################################
+$MODIF
+If !(func VERIF_QTY)
+  GERR = 1 : GOK = 0 :GPE = 1 :Return
+Endif
+Gosub ACTION From SUBCTRH
+GPE = 1
+
+Delete [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:CTRH]CTRNUM
+
+For I=0 To [M:CTRH1]NBLIG3-1
+  If [M:CTRH1]ZVCRLIN(I)<> 0
+    Raz [F:ZOR]
+    [F:ZOR]ZVCRNUM = [M:CTRH]CTRNUM
+    [F:ZOR]ZVCRLIN = [M:CTRH1]ZVCRLIN(I)
+    [F:ZOR]ZLIN = I+1
+    [F:ZOR]ZITMREF = [M:CTRH1]ZITMREF(I)
+    [F:ZOR]ZPOHNUM = [M:CTRH1]ZPOHNUM(I)
+    [F:ZOR]ZLOTE = [M:CTRH1]ZLOTE(I)
+    [F:ZOR]ZQTYLIN = [M:CTRH1]ZQTYLIN(I)
+    [F:ZOR]ZPALETP = [M:CTRH1]ZPALETP(I)
+    Write [F:ZOR]
+    If fstat :Call FSTA('ZORIG') From GLOCK Endif
+  Endif
+Next
+#For X = 0 To [M:CTRH1]NBLIG2-1
+#  Raz [M:CTRH1]ZLOTEAUX(X),[M:CTRH1]ZQTYLINAUX(X),[M:CTRH1]ZPALETPAUX(X)
+#Next
+Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+Affzo [M:CTRH1]10
+Affzo [M:CTRH1]15
+Grizo [M:CTRH1]NBLIG2
+
+Return
+
+#############################################################################
+
+$ANNULE
+
+Delete [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:CTRH]CTRNUM
+
+Return
+
+#############################################################################
+Funprog VERIF_QTY()
+Local Integer FTOT : FTOT = 1
+Local Integer FQTY,TMPLIN : Raz TMPLIN
+Local Decimal TMPTOT
+Local Char TMPPOH(20) : Raz TMPPOH
+For K = 0 To [M:CTRH1]NBLIG-1
+  Raz TMPTOT
+  For I=0 To [M:CTRH1]NBLIG3-1
+    If [M:CTRH1]ZPOHNUM(I) = [M:CTRH1]POHNUM(K) and [M:CTRH1]ZVCRLIN(I) = [M:CTRH1]POPLIN(K)
+      TMPTOT+=[M:CTRH1]ZQTYLIN(I)
+    Endif
+  Next
+  If TMPTOT <> [M:CTRH1]QTYUOM(K) and TMPTOT<> 0
+    Errbox "Cantidad total en detalle distinta a la cantidad de línea, Pedido: " +[M:CTRH1]POHNUM(K) +", línea: "+num$([M:CTRH1]POPLIN(K))
+&   +", Artículo: " +[M:CTRH1]ITMREF(K)
+    FTOT = 0
+    Break
+  Endif
+Next
+End FTOT
+
+
+#FIN MODIF AFVI

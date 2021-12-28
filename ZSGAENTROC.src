@@ -1,0 +1,162 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#If GUSER="ADEV" Then
+Call ZSGAENTROC From ZSGAENTROC
+#Endif
+
+End
+
+###########################################################################
+Subprog ZSGAENTROC
+
+  Call OUVRE_TRACE ("Imp. ROC") From LECFIC
+
+#Declaración de variables
+Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
+Local Char WFICINP1(250), FICH2(250)
+Local Integer NFICHEROS, WNESTADO, NFICH2, I, M
+Local Char FICHEROS(250)(1..1000)
+Local Char WESTADOS(20)(1..8)
+
+WESTADOS(1)='Waiting'
+WESTADOS(2)='ReceptionPending'
+WESTADOS(3)='Receiving'
+WESTADOS(4)='PartiallyReceived'
+WESTADOS(5)='Completed'
+WESTADOS(6)='Expired'
+WESTADOS(7)='Cancelled'
+WESTADOS(8)='Closing'
+
+Local Char FICHEROIMP(250), FICHEROEXP(250)
+Local Char WSITE(250), WRORCODE(250), WSTATUS(250), WUPDATEDATE(250), WCHECKNEXTSITE(250)
+
+Local Integer A, LFSTATFICHERO, NFICHEROS
+Local Clbfile XDATA (10)
+
+If !clalev([F:ZSHH]) : Local File SHIPMENT    [ZSHH] : Endif
+If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
+
+Call ECR_TRACE('ROC* - Cambio de estado',0) From GESECRAN
+
+WFICHEROIMP='ROC01*'
+Raz NFICHEROS
+
+WSGATMP       = "ZSGA\SGA\IMPORTX3"
+WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
+WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\ROC"
+
+CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
+ORDSYS = "dir "+CFILE+" /A-d /b"
+Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+LFSTATFICHERO=0
+
+If instr(1,FICHEROS(1),'xml')=0
+ # Call ECR_TRACE('No existe ROC0*',1) From GESECRAN
+  End
+Endif
+Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
+
+For A=1 To NFICHEROS
+  LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+  WFICINP1=LNOMFICHERO
+  LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+  Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
+
+  #Abrimos y leemos el fichero
+
+  Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
+
+  Iomode adxifs  ""                 Using [ZZZ]
+  Iomode adxirs  ""                 Using [ZZZ]
+  Iomode adxium  50                 Using [ZZZ]
+
+  Rdseq XDATA Using [ZZZ]
+
+  I=1
+  WDENTRO=2
+  While WDENTRO=2
+    [L]WSITE            =func GET_PROPXML(XDATA,"Site",I)
+    [L]WRORCODE         =func GET_PROPXML(XDATA,"RorCode",I)
+    [L]WSTATUS          =func GET_PROPXML(XDATA,"Status",I)
+    [L]WUPDATEDATE      =func GET_PROPXML(XDATA,"UpdateDate",I)
+
+
+    Gosub RESU_WESTADOS
+    Read [ZSHH]SHH0=WRORCODE
+    If !fstat
+      Gosub RESU_SHH
+    Else
+      Read [ZSRH]SRH0=WRORCODE
+      If !fstat Then
+        Gosub RESU_SRH
+      Endif
+    Endif
+    M=I
+    [L]WCHECKNEXTSITE   =func GET_PROPXML(XDATA,"Site",M)
+    If [L]WCHECKNEXTSITE=''
+      Break
+    Endif
+
+  Wend
+
+  Openi Using [ZZZ]
+  Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
+  Gosub MUEVE_FILE
+Next
+
+Call FERME_TRACE From LECFIC
+If !GSERVEUR Then
+    Call LEC_TRACE From LECFIC
+Endif
+
+End
+
+$RESU_SHH
+   [F:ZSHH]ZSTATUS=WNESTADO
+   #[F:ZSHH]ZUPDATE=format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
+   [F:ZSHH]ZUPDATE=WUPDATEDATE
+   Rewrite [ZSHH]
+   Call ECR_TRACE("SHH: "+WRORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
+Return
+
+$RESU_SRH
+   [F:ZSRH]ZSTATUS=WNESTADO
+   #[F:ZSRH]ZUPDATE=format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
+   [F:ZSRH]ZUPDATE=WUPDATEDATE
+   Rewrite [ZSRH]
+   Call ECR_TRACE("SRH: "+WRORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
+Return
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGATRATADOS,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+$RESU_WESTADOS
+WNESTADO=0
+For N=1 To 8
+  If WESTADOS(N)=WSTATUS
+    WNESTADO=N
+    Break
+  Endif
+Next
+Return
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+ # I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""

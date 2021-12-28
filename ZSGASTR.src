@@ -1,0 +1,166 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+    When "EXEC"   : Call ZSGASTR
+Endcase
+Return
+
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGASTR From ZSGASTR
+
+End
+
+
+Subprog ZSGASTR
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULT(250)
+Local Char WTIPOMENSAJE(250), WSHIPNUM(250), WTIPOOPER(1), FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, WSUPPLIER, WABRIRFICHERO, NFICH2
+Raz LNGTH
+Raz I
+
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+
+If !clalev([F:ZSTJ])  : Local File STOJOU      [ZSTJ]  : Endif
+If !clalev([F:ZSTJ2]) : Local File STOJOU      [ZSTJ2] : Endif
+
+WABRIRFICHERO=1
+
+WTRAZA=1
+If GTRACE=''
+  WTRAZA=2
+  Call OUVRE_TRACE ("Generacion STR") From LECFIC
+Endif
+
+
+For [ZSTJ] Where (TRSTYP=8 or TRSTYP=9) and QTYSTU>0 and ZSGA<>2
+  WTIPOMENSAJE='UPDATE'
+  WAUUID=[F:ZSTJ]AUUID
+  Gosub CREAHTMLSTJ
+Next
+
+If WABRIRFICHERO=2
+  AA=func PUT_PROPXML('/StockStatusChangeRequests','',0,1)
+  Openo Using [ZECO]
+Endif
+Call ECR_TRACE("Fichero STR Generado "+CNOMBREFILE+".xml",0) From GESECRAN
+
+Gosub MUEVE_FILE
+Call FERME_TRACE From LECFIC
+Call LEC_TRACE From LECFIC
+End
+
+$CREAHTMLSTJ
+  If WABRIRFICHERO=1
+    Gosub ABRIRFICHERO
+  Endif
+  For [ZSTJ2] Where AUUID=WAUUID
+   Call ECR_TRACE("Cambio stock: "+[F:ZSTJ2]CTRNUM+' '+[F:ZSTJ2]LOT,0) From GESECRAN
+   #StockStatusChangeRequestsType -------------------------------------------
+   AA=func PUT_PROPXML('StockStatusChangeRequest','',1,1)
+     #ReceiptOrder ----------------------------------------------------------
+       If WTIPOMENSAJE='UPDATE'
+        WTIPOOPER='S'
+       Else
+        WTIPOOPER='D'
+       Endif
+       AA=func PUT_PROPXML('Operation',WTIPOOPER, 2,2)
+       AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+       #ItemCode
+       AA=func PUT_PROPXML('ItemCode',[F:ZSTJ2]ITMREF,2,2)
+       #Filter --------------------------------------------------------------
+       AA=func PUT_PROPXML('Filter','',2,1)
+         AA=func PUT_PROPXML('FltContainerCode',[F:ZSTJ2]CTRNUM,3,2)
+          #FltAttributes -------------------------------------------------------
+           AA=func PUT_PROPXML('FltAttributes','',3,1)
+            #FltAttLot
+            AA=func PUT_PROPXML('FltAttLot',[F:ZSTJ2]LOT,4,2)
+           AA=func PUT_PROPXML('/FltAttributes','',3,1)
+          #FltAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        AA=func PUT_PROPXML('/Filter','',2,1)
+        #Filter +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+       #Status --------------------------------------------------------------
+       AA=func PUT_PROPXML('Status','',2,1)
+         #StaCode
+         AA=func PUT_PROPXML('StaCode',[F:ZSTJ2]STA,3,2)
+       AA=func PUT_PROPXML('/Status','',2,1)
+       #Status --------------------------------------------------------------
+  AA=func PUT_PROPXML('/StockStatusChangeRequest','',1,1)
+  [ZSTJ2]ZSGA=2
+  Rewrite [ZSTJ2]
+  Next
+Return
+
+$ABRIRFICHERO
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSEQ=1
+CNOMBREFILE='STR01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium GASCII                                    Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('StockStatusChangeRequests xmlns="urn:wms-schema"','',0,1)
+  WABRIRFICHERO=2
+Return
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

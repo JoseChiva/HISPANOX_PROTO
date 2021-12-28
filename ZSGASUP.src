@@ -1,0 +1,186 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGASUP('') From ZSGASUP
+
+End
+
+
+Subprog ZSGASUP(WVALORBPS)
+Value Char WVALORBPS
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULTADO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+If !clalev([F:ZBPS]) : Local File BPSUPPLIER  [ZBPS] : Endif
+If !clalev([F:ZBPR]) : Local File BPARTNER    [ZBPR] : Endif
+If !clalev([F:ZBCG]) : Local File BPCCATEG    [ZBCG] : Endif
+If !clalev([F:ZBPD]) : Local File BPDLVCUST   [ZBPD] : Endif
+If !clalev([F:ZBPA]) : Local File BPADDRESS   [ZBPA] : Endif
+If !clalev([F:ZTCY]) : Local File TABCOUNTRY  [ZTCY] : Endif
+If !clalev([F:ZCNT]) : Local File CONTACT     [ZCNT] : Endif
+If !clalev([F:ZAIN]) : Local File CONTACTCRM  [ZAIN] : Endif
+If !clalev([F:ZAXX]) : Local File ATEXTRA     [ZAXX] : Endif
+
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+WSEQ=1
+CNOMBREFILE='SUP01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium 0                                         Using [ZECO]
+WTRAZA=1
+If GTRACE=''
+  WTRAZA=2
+  Call OUVRE_TRACE('SGA Proveedores') From LECFIC
+Endif
+Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('Suppliers xmlns="urn:wms-schema"','',0,1)
+
+WFILTERBPS='1=1'
+If WVALORBPS<>''
+  Call OUVRE_TRACE('Proveedor:'+WVALORBPS) From LECFIC
+  WFILTERBPS+=' & BPSNUM=WVALORBPS'
+Endif
+For [ZBPS] Where evalue(WFILTERBPS)
+  Read [ZBPR]BPR0=[ZBPS]BPSNUM
+  If [ZBPR]BPRSHO<>''
+   Call ECR_TRACE("Proveedor: "+[F:ZBPS]BPSNUM+' '+[F:ZBPR]BPRSHO,0) From GESECRAN
+
+   AA=func PUT_PROPXML('Supplier ignoreNull="1"','',1,1)
+     AA=func PUT_PROPXML('Operation','S', 2,2)
+     AA=func PUT_PROPXML('SupplierCode',[F:ZBPS]BPSNUM,2,2)
+     CSUPPLIERNAME=func REPLACESTR([F:ZBPR]BPRSHO,'&','&amp;')
+     AA=func PUT_PROPXML('SupplierName',CSUPPLIERNAME,2,2)
+     CDESCRIPTION=func REPLACESTR([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1),'&','&amp;')
+     AA=func PUT_PROPXML('Description',CDESCRIPTION,2,2)
+    AA=func PUT_PROPXML('/Supplier','',1,1)
+  Endif
+  Next
+   AA=func PUT_PROPXML('/Suppliers','',0,1)
+  Openo Using [ZECO]
+  Gosub MUEVE_FILE
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+
+Funprog REPLACE(STR, OLD, NEW)
+    Value Clbfile STR()
+    Value Char OLD()
+    Value Char NEW()
+    Local Integer LENOLD
+    Local Integer LENNEW
+
+    #length of string to substitute
+    LENOLD= len(OLD)
+    #length of string that will substitute OLD string
+    LENNEW= len(NEW)
+
+    If LENOLD<=0 or LENOLD>len(STR)
+        #the string to substitute is empty or it is longer than initial string, so we do nothing
+        End STR
+    Endif
+
+    Local Integer INDEX
+    Local Integer INDEXSTART
+
+    #We search the string to substitute
+    INDEX=instr(1,STR,OLD)
+
+    While INDEX>0
+        #INDEX>0 this means that we have found an occurrence of OLD
+        #We substitute OLD occurrence with the NEW string
+        STR =left$(STR, INDEX-1) + NEW + right$(STR, INDEX+LENOLD)
+
+        #We calc the index to which the NEW string just inserted ends
+        INDEXSTART=INDEX+LENNEW
+
+        #We search the string to substitute starting from the end of last found occurrence
+        INDEX=instr(INDEXSTART,STR,OLD)
+    Wend
+End STR
+#############################################################################
+
+#############################################################################
+# Author: SageDev.it
+# Wrapper of REPLACE(STR, OLD, NEW)
+# It substitutes all OLD occurrence with NEW
+# the STR parameter is a CHAR(), not a clob
+#############################################################################
+Funprog REPLACESTR(STR, OLD, NEW)
+    Value Char STR()
+    Value Char OLD()
+    Value Char NEW()
+
+    Local Char RET(250)
+    Local Clbfile STRCLB(1)
+    STRCLB = STR
+    RET = func REPLACE(STRCLB, OLD, NEW)
+End RET
+#############################################################################
+

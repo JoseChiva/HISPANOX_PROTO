@@ -1,0 +1,31 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+  When "SEL_TABLE"      : Gosub SEL_TABLE
+#  When "VERF_TABLE"     : Gosub VERF_TABLE
+  When Default
+Endcase
+Return
+
+$SEL_TABLE
+  Case TABLE
+    When "ZSELPPD"    : Gosub ZSELPPD
+  Endcase
+
+Return
+
+$ZSELPPD
+
+If clalev([F:PQF])= 0: Local File PQUOTATF[PQF]:Endif
+Default File [F:PQF]
+TIT(0) = "Seleccion"
+START = ""
+CODFIC = "PQF"
+
+CRITERE(1) += 'PQHFCY="'+[M:ZPPH0]PQHFCY+'"'
+NBCOL += 1 : COL(NBCOL) = "BPSNUM" : TIT(NBCOL)= "Proveedor"
+NBCOL += 1 : COL(NBCOL) = "PQHNUM" : TIT(NBCOL)= "NºSolicitud"
+NBCOL += 1 : COL(NBCOL) = "PQHREF" : TIT(NBCOL)= "Referencia"
+
+Return
+

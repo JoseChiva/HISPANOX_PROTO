@@ -1,0 +1,51 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+  When "LIENS": Gosub LIENS
+  When "INICRE": Gosub INIMOD
+  When "INIMOD": Gosub INIMOD
+  When "ANNULE": Gosub ANNULE
+Endcase
+Return
+
+$ANNULE
+If !clalev([ZMBED]): Local File ZMBEXTRAD[ZMBED]: Endif
+Delete [ZMBED] Where CLI_1=[M:ZMBE]CLI_1
+Return
+
+$LIENS
+NBLIG = 0
+Effzo [M:ZMBE]10
+If !clalev([ADI]): Local File ATABDIV: Endif
+If !clalev([ZMBED]): Local File ZMBEXTRAD[ZMBED]: Endif
+Filter [F:ADI]Where NUMTAB=33
+X=0
+[M:ZMBE]TSCCOD(X)=""
+Read [ZMBED]ZMBED0=[M:ZMBE]CLI_1;""
+If !fstat
+    [M:ZMBE]MBEXTRA(X)=[F:ZMBED]MBEXTRA
+Endif
+  X+=1
+For [F:ADI]CODE
+  [M:ZMBE]TSCCOD(X)=[F:ADI]CODE
+  Read [ZMBED]ZMBED0=[M:ZMBE]CLI_1;[M:ZMBE]TSCCOD(X)
+  If !fstat
+    [M:ZMBE]MBEXTRA(X)=[F:ZMBED]MBEXTRA
+  Endif
+  X+=1
+Next
+NBLIG=X
+Return
+
+$INIMOD
+If !GIMPORT Then    # JC.29062021.NEW
+  If !clalev([ZMBED]): Local File ZMBEXTRAD[ZMBED]: Endif
+  Delete [ZMBED] Where CLI_1=[M:ZMBE]CLI_1
+  For X=0 To [M:ZMBE]NBLIG-1
+    [F:ZMBED]CLI_1=[M:ZMBE]CLI_1
+    [F:ZMBED]TSCCOD=[M:ZMBE]TSCCOD(X)
+    [F:ZMBED]MBEXTRA=[M:ZMBE]MBEXTRA(X)
+    Write [F:ZMBED]
+  Next
+Endif               # JC.29062021.NEW
+Return

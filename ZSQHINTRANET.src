@@ -1,0 +1,1137 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Local Char NUM
+NUM = "OF2100434"
+#Call LINPRESUPUESTOS(NUM)
+#Call CABPRESUPUESTOS(NUM)
+Call PRESUPUESTOS(NUM)
+End
+#------------------------------------------------------
+Subprog LINPRESUPUESTOS(WSQH)
+Variable Char WSQH
+
+
+  Gosub OPEN_TABLAS
+# JC.09072021.ddf.intranet.STR
+#  Filter [SQH] Where (WSQH="" or SQHNUM=WSQH)
+  If WSQH <> "" Then
+    Filter [SQH] Where (SQHNUM=WSQH)
+  Else
+    Local Integer LMONTH
+    LMONTH = month(date$)
+    Filter [SQH] Where (month(QUODAT) = LMONTH) or (month(QUODAT)+1 = LMONTH) or (month(QUODAT)+2 = LMONTH) or (month(QUODAT)+3 = LMONTH)
+  Endif
+# JC.09072021.ddf.intranet.END
+  Read [SQH] First
+  If rowcount([SQH])>0
+    Gosub CREAR_FICHERO_LIN
+    Gosub CABECERA_LIN
+    For [SQH]SQH0
+      Filter [SQD] Where SQHNUM=[F:SQH]SQHNUM
+      For [SQD]
+# JC.09072021.ddf.intranet.STR
+#        Read [SOP]SOP3 = [SQD]SOHNUM;[SQD]SOPLIN
+#        If !fstat Then
+#          # si la línea del pedido no está saldada, introduce la información de la línea
+#          If [SOP]SOQSTA <> 3 Then
+# JC.09072021.ddf.intranet.END
+            Gosub ARTICULO_LIN
+            Gosub OCULTA
+            Gosub DESC_VENTAS
+            Gosub TEXTO_LINEA_LIN
+            Gosub TIPO_PRECIO_LIN
+            Gosub UNIDAD_PRECIO_LIN
+            Gosub ESC_REGISTRO_LIN
+# JC.09072021.ddf.intranet.STR
+#          Endif
+#        Endif
+# JC.09072021.ddf.intranet.END
+      Next
+    Next
+    Openo Using [IMP_SQH]
+  Endif
+End
+
+###################################################################
+$CREAR_FICHERO_LIN
+
+# JC.09072021.ddf.intranet.STR
+Local Char LFILE(250)
+
+#  If WSQH=""
+#   Openo filpath("ZINT\ERP_to_intranet","ofertas_lin","csv"),0          Using [IMP_SQH]
+#  Else
+#   Openo filpath("ZINT\ERP_to_intranet","oferta_lin"+"_"+WSQH,"csv"),0  Using [IMP_SQH]
+#  Endif
+#  Iomode adxifs ";"        Using [IMP_SQH]
+#  #Iomode adxirs "\013\010" Using [IMP_SQH]
+#  Iomode adxium 50         Using [IMP_SQH]
+
+  If WSQH=""
+   LFILE = filpath("ZINT\ERP_to_intranet","ofertas_lin","csv")
+  Else
+   LFILE = filpath("ZINT\ERP_to_intranet","oferta_lin_"+WSQH,"csv")
+  Endif
+
+  # borramos el fichero si existe...
+  If filinfo(LFILE, 7) > 0 Then
+    System "ae_rm " + LFILE
+  Endif
+
+  If WSQH=""
+   Openo LFILE,0          Using [IMP_SQH]
+  Else
+   Openo LFILE,0          Using [IMP_SQH]
+  Endif
+  Iomode adxifs ";"       Using [IMP_SQH]
+  #Iomode adxirs "\013\010" Using [IMP_SQH]
+  Iomode adxium 50        Using [IMP_SQH]
+
+# JC.09072021.ddf.intranet.END
+Return
+
+###################################################################
+$CABECERA_LIN
+
+  Wrseq "Oferta";                               Using [IMP_SQH]
+  Wrseq "Línea";                                Using [IMP_SQH]
+  Wrseq "Oculta";                               Using [IMP_SQH]
+  Wrseq "N_inv";                                Using [IMP_SQH]
+  Wrseq "Referencia";                           Using [IMP_SQH]
+  Wrseq "Familia";                              Using [IMP_SQH]
+  Wrseq "Norma";                                Using [IMP_SQH]
+  #Wrseq "Clase";                                Using [IMP_SQH]
+  #Wrseq "Medida";                               Using [IMP_SQH]
+  Wrseq "Uni_Oferta";                           Using [IMP_SQH]
+  Wrseq "Uni_Vend";                             Using [IMP_SQH]
+  Wrseq "Precio";                               Using [IMP_SQH]
+  Wrseq "Coste";                                Using [IMP_SQH]
+  Wrseq "Margen";                               Using [IMP_SQH]
+  Wrseq "Base";                                 Using [IMP_SQH]
+  #Wrseq "Dto/Tar";                              Using [IMP_SQH]
+  Wrseq "Plazo";                                Using [IMP_SQH]
+  Wrseq "Unidad Precio";                        Using [IMP_SQH]
+  Wrseq "Precio Cliente";                       Using [IMP_SQH]
+  Wrseq "Dto_cli";                              Using [IMP_SQH]
+  Wrseq "Importe_cli";                          Using [IMP_SQH]
+  Wrseq "Art_esp";                              Using [IMP_SQH]
+  Wrseq "Texto línea";                          Using [IMP_SQH]
+  Wrseq "Descripción artículo cliente";         Using [IMP_SQH]
+  Wrseq "Descripción ventas"                    Using [IMP_SQH]
+
+Return
+
+##########################################################################
+$ARTICULO_LIN
+Local Char REFERENCIA(20),DESCRIPCION2(50),DESCRIPCION3(50), DESCARTCLI(50),TEXTO(1)
+Local Char MASCARA(50), CATARTIC(5)
+
+#  Read [F:ITM]ITM0=[F:SQD]ITMREF
+  Filter [F:ITU] Where ITMREF = [F:SQD]ITMREF and BPCNUM = [F:SQD]BPCORD
+  Read [F:ITU] First
+  If !fstat Then
+    REFERENCIA = [F:ITU]ITMREFBPC
+    DESCARTCLI = [F:ITU]ITMDESBPC
+  Endif
+
+  Filter [F:ITM] Where ITMREF = [F:SQD]ITMREF
+  Read [F:ITM] First
+  If !fstat Then
+    DESCRIPCION2 = [F:ITM]ITMDES2
+    DESCRIPCION3 = [F:ITM]ITMDES3
+    CATARTIC     = [F:ITM]TCLCOD
+    If [F:ITM]ZMASK <> "" Then
+      MASCARA      = [F:ITM]ZMASK
+    Endif
+    If [F:ITM]TCLCOD = "TEXTO"
+      TEXTO = "S"
+    Else
+      TEXTO = "N"
+    Endif
+  Endif
+Return
+
+###################################################################
+$OCULTA
+Local Char OCULTA(2)
+
+  If [F:SQD]ZLINOCU = 2 Then
+# JC.09072021.ddf.intranet.END
+#    OCULTA = 'Si'
+    OCULTA = 'S'
+# JC.09072021.ddf.intranet.END
+  Else
+# JC.09072021.ddf.intranet.END
+#    OCULTA = 'No'
+    OCULTA = 'N'
+# JC.09072021.ddf.intranet.END
+  Endif
+
+Return
+
+###################################################################
+$DESC_VENTAS
+Local Char LZMASCARA(250)
+  Filter [F:ZMAS] Where ZMASCARA = MASCARA
+  Read [F:ZMAS] First
+  If !fstat Then
+    LZMASCARA = [F:ZMAS]ZDESMAS1
+  Else
+    Raz LZMASCARA
+  Endif
+
+Return
+
+##################################################################
+$TEXTO_LINEA_LIN
+Local Char TEXTOLINEA(250)
+
+  Filter [F:TXC] Where CODE = [F:SQD]SQDTEX
+  Read  [F:TXC] First
+  If !fstat Then
+    TEXTOLINEA = func F_RTF2TEXT([F:TXC]TEXTE)
+  Endif
+
+Return
+
+##################################################################
+$TIPO_PRECIO_LIN
+Local Char LTIPOPRECIO(250)
+
+  If !clalev([F:ZAST]) Then : Local File APLSTD [F:ZAST] : Endif
+  Read [F:ZAST]CLE = 6011;[F:SQD]ZTIPOPRECIO;"SPA"
+  If !fstat Then
+    LTIPOPRECIO = [F:ZAST]LANMES
+  Endif
+  Close Local File [ZAST]
+Return
+
+##################################################################
+$UNIDAD_PRECIO_LIN
+Local Char LUNIDADPRECIO(5)
+
+  Case [F:SQD]ZUNPRE
+    When "UN"     : LUNIDADPRECIO = "u"
+    When "CEN"    : LUNIDADPRECIO = "%"
+    When "MIL"    : LUNIDADPRECIO = "m"
+    When Default  : LUNIDADPRECIO = ""
+  Endcase
+
+Return
+
+##################################################################
+$ESC_REGISTRO_LIN
+
+  Wrseq [F:SQH]SQHNUM;                              Using [IMP_SQH]                # Oferta
+  Wrseq num$([F:SQD]SQDLIN);                        Using [IMP_SQH]                # Línea
+  Wrseq OCULTA;                                     Using [IMP_SQH]                # Oculta
+  Wrseq [F:SQD]ITMREF;                              Using [IMP_SQH]                # N_inv
+  Wrseq REFERENCIA;                                 Using [IMP_SQH]                # Referencia
+  Wrseq [F:SQD]ZITMDES2;                            Using [IMP_SQH]                # Familia
+  Wrseq DESCRIPCION3;                               Using [IMP_SQH]                # Norma
+  Wrseq num$([F:SQD]QTY);                           Using [IMP_SQH]                # Uni_oferta
+  Wrseq num$([F:SQD]ORDQTY);                        Using [IMP_SQH]                # Uni_Vend
+  Wrseq ctrans(num$(([F:SQD]NETPRI*100)),".",",");  Using [IMP_SQH]                # Precio
+  Wrseq ctrans(num$([F:SQD]ZPORCOSTE),".",",");     Using [IMP_SQH]                # Coste
+  Wrseq ctrans(num$([F:SQD]ZPFM),".",",");          Using [IMP_SQH]                # Margen
+  Wrseq LTIPOPRECIO;                                Using [IMP_SQH]                # Base
+  Wrseq num$([F:SQD]DAYLTI);                        Using [IMP_SQH]                # Plazo
+# JC.09072021.ddf.intranet.STR
+  Wrseq LUNIDADPRECIO;                              Using [IMP_SQH]                # Unidad Precio
+  Wrseq ctrans(num$([F:SQD]ZPRECLI),".",",");       Using [IMP_SQH]                # Precio Cliente
+# JC.09072021.ddf.intranet.END
+  Wrseq ctrans(num$([F:SQD]DISCRGVAL1),".",",");    Using [IMP_SQH]                # Dto_cli
+  Wrseq ctrans(num$([F:SQD]NETPRINOT*[F:SQD]QTY),".",",");    Using [IMP_SQH]      # Importe_cli
+# JC.09072021.ddf.intranet.STR
+#  Wrseq TEXTO;                                 Using [IMP_SQH]
+  Wrseq CATARTIC;                                   Using [IMP_SQH]                # Art_esp
+#  Wrseq TEXTOLINEA;                                 Using [IMP_SQH]                # Texto línea
+  Wrseq '';                                         Using [IMP_SQH]                # Texto línea
+# JC.09072021.ddf.intranet.END
+  Wrseq DESCARTCLI;                                 Using [IMP_SQH]                # Descripción artículo cliente
+  Wrseq LZMASCARA                                   Using [IMP_SQH]                # Descripción ventas
+
+Return
+
+##################################################################
+Subprog CABPRESUPUESTOS(WSQH)
+Variable Char WSQH
+
+  Gosub OPEN_TABLAS
+# JC.09072021.ddf.intranet.STR
+#  Filter [SQH] Where (WSQH="" or SQHNUM=WSQH)
+  If WSQH <> "" Then
+    Filter [SQH] Where (SQHNUM=WSQH)
+  Else
+    Local Integer LMONTH
+    LMONTH = month(date$)
+    Filter [SQH] Where (month(QUODAT) = LMONTH) or (month(QUODAT)+1 = LMONTH) or (month(QUODAT)+2 = LMONTH) or (month(QUODAT)+3 = LMONTH)
+  Endif
+# JC.09072021.ddf.intranet.END
+  Read [SQH] First
+  If rowcount([SQH])>0
+    Gosub CREAR_FICHERO_CAB
+    Gosub CABECERA_CAB
+    For [SQH]SQH0
+# JC.09072021.ddf.intranet.STR
+#      Read [SOH]SOH0 = [SQD]SOHNUM
+#      If !fstat Then
+#        # si el pedido no está saldado, introduce la información de cabecera
+#        If [SOH]ORDSTA <> 2 Then
+# JC.09072021.ddf.intranet.END
+          Gosub PROVEEDOR
+          Gosub RAZSOCIAL_DIRECCION_CAB
+          Gosub CONTACTO_CAB
+          Gosub CLASE_OFERTA_CLIENTE_CAB
+          Gosub TEXTO_CABECERA_CAB
+          Gosub ELEMFACT_CABECERA_CAB
+          Gosub IVA_CABECERA_CAB
+          Gosub NETPRI_CABECERA_CAB
+          Gosub CALC_BLOQUE_INF_CAB
+          Gosub PESO_LINEAS_NO_OCULTAS_CAB
+          Gosub ESC_REGISTRO_CAB
+# JC.09072021.ddf.intranet.STR
+#        Endif
+#      Endif
+# JC.09072021.ddf.intranet.END
+    Next
+    Openo Using [IMP_SQH]
+  Endif
+End
+
+###################################################################
+$CREAR_FICHERO_CAB
+
+# JC.09072021.ddf.intranet.STR
+Local Char LFILE(250)
+
+#  Openo filpath("ZINT\ERP_to_intranet","ofertas_cab","csv"),0 Using [IMP_SQH]
+#
+#  Iomode adxifs ";"        Using [IMP_SQH]
+#  #Iomode adxirs "\013\010" Using [IMP_SQH]
+#  Iomode adxium 50         Using [IMP_SQH]
+
+  If WSQH=""
+   LFILE = filpath("ZINT\ERP_to_intranet","ofertas_cab","csv")
+  Else
+   LFILE = filpath("ZINT\ERP_to_intranet","oferta_cab_"+WSQH,"csv")
+  Endif
+
+  # borramos el fichero si existe...
+  If filinfo(LFILE, 7) > 0 Then
+    System "ae_rm " + LFILE
+  Endif
+
+  If WSQH=""
+   Openo LFILE,0          Using [IMP_SQH]
+  Else
+   Openo LFILE,0          Using [IMP_SQH]
+  Endif
+  Iomode adxifs ";"       Using [IMP_SQH]
+  #Iomode adxirs "\013\010" Using [IMP_SQH]
+  Iomode adxium 50        Using [IMP_SQH]
+
+# JC.09072021.ddf.intranet.END
+
+Return
+
+###################################################################
+$CABECERA_CAB
+
+  Wrseq "Oferta";                                           Using [IMP_SQH]
+  Wrseq "Fecha";                                            Using [IMP_SQH]
+  Wrseq "Validez";                                          Using [IMP_SQH]
+  Wrseq "Cliente";                                          Using [IMP_SQH]
+  Wrseq "Proveedor";                                        Using [IMP_SQH]
+  Wrseq "Rsoc";                                             Using [IMP_SQH]
+  Wrseq "Nom";                                              Using [IMP_SQH]
+  Wrseq "Dir";                                              Using [IMP_SQH]
+  Wrseq "Descripción dirección";                            Using [IMP_SQH]
+  Wrseq "Descripción dirección";                            Using [IMP_SQH]
+  Wrseq "CP";                                               Using [IMP_SQH]
+  Wrseq "Pob";                                              Using [IMP_SQH]
+  Wrseq "Pro";                                              Using [IMP_SQH]
+  Wrseq "Tel";                                              Using [IMP_SQH]
+  Wrseq "Fax";                                              Using [IMP_SQH]
+  Wrseq "Email 1";                                          Using [IMP_SQH]
+  Wrseq "Moneda";                                           Using [IMP_SQH]
+  Wrseq "Peso";                                             Using [IMP_SQH]
+  Wrseq "Portes";                                           Using [IMP_SQH]
+  Wrseq "Import_ portes";                                   Using [IMP_SQH]
+  Wrseq "Total bruto";                                      Using [IMP_SQH]
+  Wrseq "DTOPP";                                            Using [IMP_SQH]
+  Wrseq "Importe PP";                                       Using [IMP_SQH]
+  #Wrseq "DTO";                                  Using [IMP_SQH]
+  Wrseq "DTO";                                              Using [IMP_SQH]
+  Wrseq "Importe DTO";                                      Using [IMP_SQH]
+  Wrseq "Base imp";                                         Using [IMP_SQH]
+  Wrseq "IVA";                                              Using [IMP_SQH]
+  Wrseq "Importe IVA";                                      Using [IMP_SQH]
+  Wrseq "RECEQUI";                                          Using [IMP_SQH]
+  Wrseq "Importe recequi";                                  Using [IMP_SQH]
+  Wrseq "Total neto";                                       Using [IMP_SQH]
+  Wrseq "Contacto";                                         Using [IMP_SQH]
+  Wrseq "Clase Oferta Cliente";                             Using [IMP_SQH]
+  Wrseq "Lin_esp (Cantidad líneas de artículos=texto)";     Using [IMP_SQH]
+  Wrseq "Lin_art (Cantidad líneas de artículos normales)";  Using [IMP_SQH]
+  Wrseq "Valor_ofe";                                        Using [IMP_SQH]
+  Wrseq "Margen_ofe";                                       Using [IMP_SQH]
+  Wrseq "Lin_ven";                                          Using [IMP_SQH]
+  Wrseq "Valor_ven";                                        Using [IMP_SQH]
+  Wrseq "Margen_ven";                                       Using [IMP_SQH]
+  Wrseq "Usuario";                                          Using [IMP_SQH]
+  Wrseq "Cabecera 1"                                        Using [IMP_SQH]
+
+Return
+
+###################################################################
+$PROVEEDOR
+  Filter [F:BPC] Where BPCNUM = [F:SQH]BPCORD
+  Read [F:BPC] First
+Return
+
+###################################################################
+$RAZSOCIAL_DIRECCION_CAB
+Local Char RSOC(50), NOM(50), DIR(100), DESCDIR1(100), DESCDIR2(100), CP(10), POB(50), PRO(50)
+Local Char TEL(15), FAX(15), MAIL(100)
+
+  Filter [F:BPR] Where BPRNUM = [F:SQH]BPCORD
+  Read  [F:BPR] First
+  If !fstat Then
+    RSOC = [F:BPR]BPRNAM(0)
+    NOM  = [F:BPR]BPRNAM(1)
+  Endif
+
+  Filter [F:BPA] Where BPANUM = [F:SQH]BPCORD and BPAADD = [F:SQH]BPAADD
+  Read  [F:BPA] First
+  If !fstat Then
+    DIR      = [F:BPA]BPAADD
+    DESCDIR1 = [F:BPA]BPAADDLIG(0)
+    DESCDIR2 = [F:BPA]BPAADDLIG(1)
+    CP       = [F:BPA]POSCOD
+    POB      = [F:BPA]CTY
+    PRO      = [F:BPA]SAT
+    TEL      = [F:BPA]TEL(0)
+    FAX      = [F:BPA]TEL(1)
+    MAIL     = [F:BPA]WEB(0)
+  Endif
+Return
+
+###################################################################
+$CONTACTO_CAB
+Local Char CONTACTO(100)
+
+  Filter [F:CNT] Where BPANUM = [F:SQH]BPCORD and CCNCRM = [F:SQH]CNCNAM
+  Read  [F:CNT] First
+  If !fstat Then
+    CONTACTO = [F:CNT]WEB(0)
+  Endif
+
+Return
+
+###################################################################
+$CLASE_OFERTA_CLIENTE_CAB
+Local Char CLASEOFECLI(80)
+
+  Filter [F:BPC] Where BPCNUM = [F:SQH]BPCORD
+  Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '33' and IDENT2 = [F:BPC]TSCCOD(3)
+  Read  [F:AXX] First
+  If !fstat Then
+    CLASEOFECLI = [F:AXX]TEXTE
+  Endif
+
+Return
+
+###################################################################
+$TEXTO_CABECERA_CAB
+Local Char TEXTOCABECERA(100)
+
+  Filter [F:TXC] Where CODE = [F:SQH]SQHTEX1
+  Read  [F:TXC] First
+  If !fstat Then
+    TEXTOCABECERA = func F_RTF2TEXT([F:TXC]TEXTE)
+  Endif
+
+Return
+
+##################################################################
+$ELEMFACT_CABECERA_CAB
+Local Decimal DTOPOR,DTOIMP,TRAPOR,TRAIMP,DPPPOR,DPPIMP,DFAPOR,DFAIMP
+
+  If !clalev([F:ZSVF]) Then : Local File SVCRFOOT [F:ZSVF] : Endif
+  # dto
+  Read [F:ZSVF]SVF0 = [F:SQH]SQHNUM;1;1
+  If !fstat Then
+    DTOPOR = [F:ZSVF]DTAAMT
+    DTOIMP = [F:ZSVF]DTANOT
+  Endif
+  # transporte
+  Read [F:ZSVF]SVF0 = [F:SQH]SQHNUM;1;2
+  If !fstat Then
+    TRAPOR = [F:ZSVF]DTAAMT
+    TRAIMP = [F:ZSVF]DTANOT
+  Endif
+  # dto pp
+  Read [F:ZSVF]SVF0 = [F:SQH]SQHNUM;1;3
+  If !fstat Then
+    DPPPOR = [F:ZSVF]DTAAMT
+    DPPIMP = [F:ZSVF]DTANOT
+  Endif
+  # fac.anticipo
+  Read [F:ZSVF]SVF0 = [F:SQH]SQHNUM;1;4
+  If !fstat Then
+    DFAPOR = [F:ZSVF]DTAAMT
+    DFAIMP = [F:ZSVF]DTANOT
+  Endif
+  Close Local File [ZSVF]
+Return
+
+##################################################################
+$IVA_CABECERA_CAB
+Local Decimal BIMP,IVAPOR,IVAIMP
+Local Decimal RECPOR,RECIMP
+
+  If !clalev([F:ZSVV]) Then : Local File SVCRVAT [F:ZSVV] : Endif
+
+  # iva
+  Filter [F:ZSVV] Where VCRTYP = 1 and VCRNUM = [F:SQH]SQHNUM and VATTYP = 1
+  Read [F:ZSVV] First
+  If !fstat Then
+    BIMP    = [F:ZSVV]BASTAX
+    IVAPOR  = [F:ZSVV]VATRAT
+    IVAIMP  = [F:ZSVV]AMTTAX
+  Endif
+  Filter [F:ZSVV]
+
+  # recargo equivalencia
+  Filter [F:ZSVV] Where VCRTYP = 1 and VCRNUM = [F:SQH]SQHNUM and VATTYP = 2
+  Read [F:ZSVV] First
+  If !fstat Then
+    RECPOR  = [F:ZSVV]VATRAT
+    RECIMP  = [F:ZSVV]AMTTAX
+  Endif
+  Filter [F:ZSVV]
+
+  Close Local File [ZSVV]
+Return
+
+##################################################################
+$NETPRI_CABECERA_CAB
+Local Decimal PRINET
+Local Integer LINESP,LINART
+
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED    [F:ZSQD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+
+  Filter [F:ZSQD] Where SQHNUM = [F:SQH]SQHNUM
+  For [F:ZSQD]
+    # precio neto
+    PRINET += [F:ZSQD]QTY * [F:ZSQD]NETPRI
+    Read [F:ZITM]ITM0 = [F:ZSQD]ITMREF
+    If!fstat Then
+      If [F:ZITM]TCLCOD = "TEXTO" Then
+        # cantidad de líneas de artículos = texto
+        LINESP += 1
+      Else
+        # cantidad de líneas de artículos normales
+        LINART += 1
+      Endif
+    Endif
+  Next
+  Filter [F:ZSQD]
+  Close Local File [ZSQD],[ZITM]
+Return
+
+##################################################################
+$CALC_BLOQUE_INF_CAB
+Local Decimal LVALOROFE,LMARGENOFE,LLINVEN,LVALORVEN,LMARGENVEN
+Local Decimal LMARGIMP,LIMPLINAI,LMARGVEN,LIMPLINPE
+Local Integer LNUMREGS
+
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED    [F:ZSQD] : Endif
+
+  Filter [F:ZSQD] Where SQHNUM = [F:SQH]SQHNUM
+  LNUMREGS = rowcount([F:ZSQD])
+  For [F:ZSQD]
+    LVALOROFE     += [F:ZSQD]NETPRI * [F:ZSQD]QTY
+#    LMARGENOFE    += [F:ZSQD]ZPFM
+    If [F:ZSQD]SOHNUM <> "" Then
+      LVALORVEN   += [F:ZSQD]NETPRI * [F:ZSQD]ORDQTY
+#      LMARGENVEN  += [F:ZSQD]ZPFM
+#      LLINVEN     += 1
+    Endif
+
+    If [F:ZSQD]ZLINOCU <> 2 Then
+      LMARGIMP    += ([F:ZSQD]NETPRI - [F:ZSQD]ZCOSOFER) * [F:ZSQD]QTY
+      LIMPLINAI   += [F:ZSQD]NETPRI * [F:ZSQD]QTY
+      LNUMREGS    += 1
+      If [F:ZSQD]SOHNUM <> "" Then
+        LMARGVEN  += ([F:ZSQD]NETPRI - [F:ZSQD]ZCOSOFER) * [F:ZSQD]ORDQTY
+        LIMPLINPE += [F:ZSQD]NETPRI * [F:ZSQD]ORDQTY
+      Endif
+    Endif
+  Next
+  Filter [F:ZSQD]
+
+#  If LNUMREGS > 0 Then
+#    LMARGENOFE    = LMARGENOFE / LNUMREGS
+  If LIMPLINAI > 0 Then
+    LMARGENOFE    = ar2((LMARGIMP / LIMPLINAI) * 100)
+  Endif
+#  If LLINVEN > 0 Then
+#    LMARGENVEN    = LMARGENVEN / LLINVEN
+  If LIMPLINPE > 0 Then
+    LMARGENVEN    = ar2((LMARGVEN / LIMPLINPE) * 100)
+  Endif
+
+  Close Local File [ZSQD]
+
+Return
+
+##################################################################
+$PESO_LINEAS_NO_OCULTAS_CAB
+Local Decimal LTOTWEILINNOOCU
+
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED    [F:ZSQD] : Endif
+
+  Filter [F:ZSQD] Where SQHNUM = [F:SQH]SQHNUM and ZLINOCU <> 2
+  For [F:ZSQD]
+    LTOTWEILINNOOCU += [F:ZSQD]DSPLINWEI
+  Next
+  Filter [F:ZSQD]
+
+  Close Local File [ZSQD]
+
+Return
+
+##################################################################
+$ESC_REGISTRO_CAB
+  Wrseq [F:SQH]SQHNUM;                         Using [IMP_SQH]                # Oferta
+  If [F:SQH]QUODAT <> [00/00/0000] Then
+    Wrseq format$("DZ:DD[/]MM[/]YY",[F:SQH]QUODAT);   Using [IMP_SQH]         # Fecha
+  Else
+    Wrseq "";                                  Using [IMP_SQH]                # Fecha
+  Endif
+  If [F:SQH]VLYDAT <> [00/00/0000] Then
+    Wrseq format$("DZ:DD[/]MM[/]YY",[F:SQH]VLYDAT);   Using [IMP_SQH]         # Validez
+  Else
+    Wrseq "";                                  Using [IMP_SQH]                # Validez
+  Endif
+  Wrseq [F:SQH]BPCORD;                         Using [IMP_SQH]                # Cliente
+  Wrseq [F:BPC]BPCBPSNUM;                      Using [IMP_SQH]                # Proveedor
+  Wrseq RSOC;                                  Using [IMP_SQH]                # Rsoc
+  Wrseq NOM;                                   Using [IMP_SQH]                # Nom
+  Wrseq DIR;                                   Using [IMP_SQH]                # Dir
+  Wrseq DESCDIR1;                              Using [IMP_SQH]                # Descripción dirección
+  Wrseq DESCDIR2;                              Using [IMP_SQH]                # Descripción dirección
+  Wrseq CP;                                    Using [IMP_SQH]                # CP
+  Wrseq POB;                                   Using [IMP_SQH]                # Pob
+  Wrseq PRO;                                   Using [IMP_SQH]                # Pro
+  Wrseq TEL;                                   Using [IMP_SQH]                # Tel
+  Wrseq FAX;                                   Using [IMP_SQH]                # Fax
+  Wrseq CONTACTO;                              Using [IMP_SQH]                # Email 1 -> correo electrónico del contacto del presupuesto
+  Wrseq [F:SQH]CUR;                            Using [IMP_SQH]                # Moneda
+  Wrseq ctrans(num$(LTOTWEILINNOOCU),".",","); Using [IMP_SQH]                # Peso
+  Wrseq ctrans(num$([F:SQH]ZFREINV),".",",");  Using [IMP_SQH]                # Portes
+  Wrseq ctrans(num$(TRAIMP),".",",");          Using [IMP_SQH]                # Portes (importe)
+  Wrseq ctrans(num$([F:SQH]QUONOT),".",",");   Using [IMP_SQH]                # Total bruto
+  Wrseq ctrans(num$(DPPPOR),".",",");          Using [IMP_SQH]                # DTOPP
+  Wrseq ctrans(num$(DPPIMP),".",",");          Using [IMP_SQH]                # Importe PP
+  Wrseq ctrans(num$(DTOPOR),".",",");          Using [IMP_SQH]                # DTO
+  Wrseq ctrans(num$(DTOIMP),".",",");          Using [IMP_SQH]                # Importe DTO
+  Wrseq ctrans(num$(BIMP),".",",");            Using [IMP_SQH]                # Base imp
+  Wrseq ctrans(num$(IVAPOR),".",",");          Using [IMP_SQH]                # IVA
+  Wrseq ctrans(num$(IVAIMP),".",",");          Using [IMP_SQH]                # Importe IVA
+  Wrseq ctrans(num$(RECPOR),".",",");          Using [IMP_SQH]                # RECEQUI
+  Wrseq ctrans(num$(RECIMP),".",",");          Using [IMP_SQH]                # Importe recequi
+  Wrseq ctrans(num$([F:SQH]QUOINVATI),".",",");Using [IMP_SQH]                # Total neto
+  Wrseq [F:SQH]CNCNAM;                         Using [IMP_SQH]                # Contacto
+  Wrseq [F:SQH]ZCLAOFER;                       Using [IMP_SQH]                # Clase Oferta Cliente
+  Wrseq num$(LINESP);                          Using [IMP_SQH]                # Lin_esp
+  Wrseq num$(LINART);                          Using [IMP_SQH]                # Lin_art
+  Wrseq ctrans(num$(LVALOROFE),".",",");       Using [IMP_SQH]                # Valor_ofe
+  Wrseq ctrans(num$(LMARGENOFE),".",",");      Using [IMP_SQH]                # Margen_Ofe
+  Wrseq num$(LLINVEN);                         Using [IMP_SQH]                # Lin_ven
+  Wrseq ctrans(num$(LVALORVEN),".",",");       Using [IMP_SQH]                # Valor_ven
+  Wrseq ctrans(num$(LMARGENVEN),".",",");      Using [IMP_SQH]                # Margen_ven
+  Wrseq [F:SQH]CREUSR;                         Using [IMP_SQH]                # Usuario
+#  Wrseq TEXTOCABECERA                          Using [IMP_SQH] # sin ;        # Cabecera 1
+  Wrseq ''                                     Using [IMP_SQH] # sin ;        # Cabecera 1
+
+Return
+
+##################################################################
+Subprog PRESUPUESTOS(WSQH)
+Variable Char WSQH
+
+  Gosub OPEN_TABLAS
+  Filter [SQH] Where SQHNUM=WSQH
+  Read [SQH] First
+  If rowcount([SQH])>0
+    Gosub CREAR_FICHERO
+    Gosub CABECERA
+    For [SQH]SQH0
+      Gosub PROVEEDOR
+      Gosub RAZSOCIAL_DIRECCION_CAB
+      Gosub CONTACTO_CAB
+      Gosub CLASE_OFERTA_CLIENTE_CAB
+      Gosub TEXTO_CABECERA_CAB
+      Gosub ELEMFACT_CABECERA_CAB
+      Gosub IVA_CABECERA_CAB
+      Gosub NETPRI_CABECERA_CAB
+      Gosub CALC_BLOQUE_INF_CAB
+      Gosub PESO_LINEAS_NO_OCULTAS_CAB
+      Filter [SQD] Where SQHNUM=[F:SQH]SQHNUM
+      Gosub ESC_REGISTRO_CAB
+      Gosub LINEAS
+      For [SQD]
+        Gosub ARTICULO_LIN
+        Gosub OCULTA
+        Gosub TEXTO_LINEA_LIN
+        Gosub TIPO_PRECIO_LIN
+        Gosub UNIDAD_PRECIO_LIN
+        Gosub DESC_VENTAS
+        Gosub ESC_REGISTRO_LIN
+      Next
+    Next
+    Openo Using [IMP_SQH]
+  Endif
+End
+
+###################################################################
+$CREAR_FICHERO
+
+# JC.09072021.ddf.intranet.STR
+Local Char LFILE(250)
+
+#  Openo filpath("ZINT\ERP_to_intranet","ofe_"+"_"+WSQH,"csv"),0 Using [IMP_SQH]
+#
+#  Iomode adxifs ";"        Using [IMP_SQH]
+#  #Iomode adxirs "\013\010" Using [IMP_SQH]
+#  Iomode adxium 50         Using [IMP_SQH]
+
+  LFILE = filpath("ZINT\ERP_to_intranet","ofe_"+WSQH,"csv")
+
+  # borramos el fichero si existe...
+  If filinfo(LFILE, 7) > 0 Then
+    System "ae_rm " + LFILE
+  Endif
+
+  If WSQH=""
+   Openo LFILE,0          Using [IMP_SQH]
+  Else
+   Openo LFILE,0          Using [IMP_SQH]
+  Endif
+  Iomode adxifs ";"       Using [IMP_SQH]
+  #Iomode adxirs "\013\010" Using [IMP_SQH]
+  Iomode adxium 50        Using [IMP_SQH]
+
+# JC.09072021.ddf.intranet.END
+
+Return
+
+###################################################################
+$CABECERA
+
+  #cabecera
+  Wrseq "Oferta";                               Using [IMP_SQH]
+  Wrseq "Fecha";                                Using [IMP_SQH]
+  Wrseq "Validez";                              Using [IMP_SQH]
+  Wrseq "Cliente";                              Using [IMP_SQH]
+  Wrseq "Proveedor";                            Using [IMP_SQH]
+  Wrseq "Rsoc";                                 Using [IMP_SQH]
+  Wrseq "Nom";                                  Using [IMP_SQH]
+  Wrseq "Dir";                                  Using [IMP_SQH]
+  Wrseq "Descripción dirección";                Using [IMP_SQH]
+  Wrseq "Descripción dirección";                Using [IMP_SQH]
+  Wrseq "CP";                                   Using [IMP_SQH]
+  Wrseq "Pob";                                  Using [IMP_SQH]
+  Wrseq "Pro";                                  Using [IMP_SQH]
+  Wrseq "Tel";                                  Using [IMP_SQH]
+  Wrseq "Fax";                                  Using [IMP_SQH]
+  Wrseq "Email 1";                              Using [IMP_SQH]
+  Wrseq "Moneda";                               Using [IMP_SQH]
+  Wrseq "Peso";                                 Using [IMP_SQH]
+  Wrseq "Portes";                               Using [IMP_SQH]
+  Wrseq "Import_ portes";                       Using [IMP_SQH]
+  Wrseq "Total bruto";                          Using [IMP_SQH]
+  Wrseq "DTOPP";                                Using [IMP_SQH]
+  Wrseq "Importe PP";                           Using [IMP_SQH]
+  Wrseq "DTO";                                  Using [IMP_SQH]
+  Wrseq "Importe DTO";                          Using [IMP_SQH]
+  Wrseq "Base imp";                             Using [IMP_SQH]
+  Wrseq "IVA";                                  Using [IMP_SQH]
+  Wrseq "Importe IVA";                          Using [IMP_SQH]
+  Wrseq "RECEQUI";                              Using [IMP_SQH]
+  Wrseq "Importe recequi";                      Using [IMP_SQH]
+  Wrseq "Total neto";                           Using [IMP_SQH]
+  Wrseq "Contacto";                             Using [IMP_SQH]
+  Wrseq "Clase Oferta Cliente";                 Using [IMP_SQH]
+  Wrseq "Lin_esp (Cantidad líneas de artículos=texto)";     Using [IMP_SQH]
+  Wrseq "Lin_art (Cantidad líneas de artículos normales)";  Using [IMP_SQH]
+  Wrseq "Valor_ofe";                            Using [IMP_SQH]
+  Wrseq "Margen_ofe";                           Using [IMP_SQH]
+  Wrseq "Lin_ven";                              Using [IMP_SQH]
+  Wrseq "Valor_ven";                            Using [IMP_SQH]
+  Wrseq "Margen_ven";                           Using [IMP_SQH]
+  Wrseq "Usuario";                              Using [IMP_SQH]
+  Wrseq "Cabecera 1"                            Using [IMP_SQH]
+Return
+
+###################################################################
+$LINEAS
+
+  #lineas
+  Wrseq "Oferta";                               Using [IMP_SQH] # está en la cabecera ya
+  Wrseq "Línea";                                Using [IMP_SQH]
+  Wrseq "Oculta";                               Using [IMP_SQH]
+  Wrseq "N_inv";                                Using [IMP_SQH]
+  Wrseq "Referencia";                           Using [IMP_SQH]
+  Wrseq "Familia";                              Using [IMP_SQH]
+  Wrseq "Norma";                                Using [IMP_SQH]
+  #Wrseq "Clase";                                Using [IMP_SQH]
+  #Wrseq "Medida";                               Using [IMP_SQH]
+  Wrseq "Uni_Oferta";                           Using [IMP_SQH]
+  Wrseq "Uni_Vend";                             Using [IMP_SQH]
+  Wrseq "Precio";                               Using [IMP_SQH]
+  Wrseq "Coste";                                Using [IMP_SQH]
+  Wrseq "Margen";                               Using [IMP_SQH]
+  Wrseq "Base";                                 Using [IMP_SQH]
+  #Wrseq "Dto/Tar";                              Using [IMP_SQH]
+  Wrseq "Plazo";                                Using [IMP_SQH]
+  Wrseq "Unidad Precio";                        Using [IMP_SQH]
+  Wrseq "Precio Cliente";                       Using [IMP_SQH]
+  Wrseq "Dto_cli";                              Using [IMP_SQH]
+  Wrseq "Importe_cli";                          Using [IMP_SQH]
+  Wrseq "Art_esp";                              Using [IMP_SQH]
+  Wrseq "Texto línea";                          Using [IMP_SQH]
+  Wrseq "Descripción artículo cliente";         Using [IMP_SQH]
+  Wrseq "Descripción ventas"                    Using [IMP_SQH]
+Return
+
+##################################################################
+$ESC_REGISTRO
+
+  Wrseq [F:SQH]SQHNUM;                              Using [IMP_SQH]                # Oferta
+  If [F:SQH]QUODAT <> [00/00/0000] Then
+    Wrseq format$("DZ:DD[/]MM[/]YY",[F:SQH]QUODAT); Using [IMP_SQH]                # Fecha
+  Else
+    Wrseq "";                                       Using [IMP_SQH]                # Fecha
+  Endif
+  If [F:SQH]VLYDAT <> [00/00/0000] Then
+    Wrseq format$("DZ:DD[/]MM[/]YY",[F:SQH]VLYDAT); Using [IMP_SQH]                # Validez
+  Else
+    Wrseq "";                                       Using [IMP_SQH]                # Validez
+  Endif
+  Wrseq [F:SQH]BPCORD;                              Using [IMP_SQH]                # Cliente
+  Wrseq [F:BPC]BPCBPSNUM;                           Using [IMP_SQH]                # Proveedor
+  Wrseq RSOC;                                       Using [IMP_SQH]                # Rsoc
+  Wrseq NOM;                                        Using [IMP_SQH]                # Nom
+  Wrseq DIR;                                        Using [IMP_SQH]                # Dir
+  Wrseq DESCDIR1;                                   Using [IMP_SQH]                # Descripción dirección
+  Wrseq DESCDIR2;                                   Using [IMP_SQH]                # Descripción dirección
+  Wrseq CP;                                         Using [IMP_SQH]                # CP
+  Wrseq POB;                                        Using [IMP_SQH]                # Pob
+  Wrseq PRO;                                        Using [IMP_SQH]                # Pro
+  Wrseq TEL;                                        Using [IMP_SQH]                # Tel
+  Wrseq FAX;                                        Using [IMP_SQH]                # Fax
+  Wrseq CONTACTO;                                   Using [IMP_SQH]                # Email 1 -> correo electrónico del contacto del presupuesto
+  Wrseq [F:SQH]CUR;                                 Using [IMP_SQH]                # Moneda
+  Wrseq ctrans(num$(LTOTWEILINNOOCU),".",",");      Using [IMP_SQH]                # Peso
+  Wrseq ctrans(num$([F:SQH]ZFREINV),".",",");       Using [IMP_SQH]                # Portes
+  Wrseq ctrans(num$(TRAIMP),".",",");               Using [IMP_SQH]                # Portes (importe)
+  Wrseq ctrans(num$([F:SQH]QUONOT),".",",");        Using [IMP_SQH]                # Total bruto
+  Wrseq ctrans(num$(DPPPOR),".",",");               Using [IMP_SQH]                # DTOPP
+  Wrseq ctrans(num$(DPPIMP),".",",");               Using [IMP_SQH]                # Importe PP
+  Wrseq ctrans(num$(DTOPOR),".",",");               Using [IMP_SQH]                # DTO
+  Wrseq ctrans(num$(DTOIMP),".",",");               Using [IMP_SQH]                # Importe DTO
+  Wrseq ctrans(num$(BIMP),".",",");                 Using [IMP_SQH]                # Base imp
+  Wrseq ctrans(num$(IVAPOR),".",",");               Using [IMP_SQH]                # IVA
+  Wrseq ctrans(num$(IVAIMP),".",",");               Using [IMP_SQH]                # Importe IVA
+  Wrseq ctrans(num$(RECPOR),".",",");               Using [IMP_SQH]                # RECEQUI
+  Wrseq ctrans(num$(RECIMP),".",",");               Using [IMP_SQH]                # Importe recequi
+  Wrseq ctrans(num$([F:SQH]QUOINVATI),".",",");     Using [IMP_SQH]                # Total neto
+  Wrseq [F:SQH]CNCNAM;                              Using [IMP_SQH]                # Contacto
+  Wrseq [F:SQH]ZCLAOFER;                            Using [IMP_SQH]                # Clase Oferta Cliente
+  Wrseq num$(LINESP);                               Using [IMP_SQH]                # Lin_esp
+  Wrseq num$(LINART);                               Using [IMP_SQH]                # Lin_art
+  Wrseq ctrans(num$(LVALOROFE),".",",");            Using [IMP_SQH]                # Valor_ofe
+  Wrseq ctrans(num$(LMARGENOFE),".",",");           Using [IMP_SQH]                # Margen_Ofe
+  Wrseq num$(LLINVEN);                              Using [IMP_SQH]                # Lin_ven
+  Wrseq ctrans(num$(LVALORVEN),".",",");            Using [IMP_SQH]                # Valor_ven
+  Wrseq ctrans(num$(LMARGENVEN),".",",");           Using [IMP_SQH]                # Margen_ven
+  Wrseq [F:SQH]CREUSR;                              Using [IMP_SQH]                # Usuario
+#  Wrseq TEXTOCABECERA;                              Using [IMP_SQH]                # Cabecera 1
+  Wrseq '';                                         Using [IMP_SQH]                # Cabecera 1
+  #lineas
+  Wrseq [F:SQH]SQHNUM;                              Using [IMP_SQH]                # Oferta
+  Wrseq num$([F:SQD]SQDLIN);                        Using [IMP_SQH]                # Línea
+  Wrseq OCULTA;                                     Using [IMP_SQH]                # Oculta
+  Wrseq [F:SQD]ITMREF;                              Using [IMP_SQH]                # N_inv
+  Wrseq REFERENCIA;                                 Using [IMP_SQH]                # Referencia
+  Wrseq [F:SQD]ZITMDES2;                            Using [IMP_SQH]                # Familia
+  Wrseq DESCRIPCION3;                               Using [IMP_SQH]                # Norma
+  Wrseq num$([F:SQD]QTY);                           Using [IMP_SQH]                # Uni_oferta
+  Wrseq num$([F:SQD]ORDQTY);                        Using [IMP_SQH]                # Uni_Vend
+  Wrseq ctrans(num$(([F:SQD]NETPRI*100)),".",",");  Using [IMP_SQH]                # Precio
+  Wrseq ctrans(num$([F:SQD]CPRPRI*100),".",",");    Using [IMP_SQH]                # Coste
+  Wrseq ctrans(num$([F:SQD]ZPFM),".",",");          Using [IMP_SQH]                # Margen
+  Wrseq LTIPOPRECIO;                                Using [IMP_SQH]                # Base
+  Wrseq num$([F:SQD]DAYLTI);                        Using [IMP_SQH]                # Plazo
+# JC.09072021.ddf.intranet.STR
+  Wrseq LUNIDADPRECIO;                              Using [IMP_SQH]                # Unidad Precio
+  Wrseq ctrans(num$([F:SQD]ZPRECLI),".",",");       Using [IMP_SQH]                # Precio Cliente
+# JC.09072021.ddf.intranet.END
+  Wrseq ctrans(num$([F:SQD]DISCRGVAL1),".",",");    Using [IMP_SQH]                # Dto_cli
+  Wrseq ctrans(num$([F:SQD]NETPRINOT*[F:SQD]QTY),".",",");  Using [IMP_SQH]        # Importe_cli
+# JC.09072021.ddf.intranet.STR
+#  Wrseq TEXTO;                                 Using [IMP_SQH]
+  Wrseq CATARTIC;                                   Using [IMP_SQH]                # Art_esp
+#  Wrseq TEXTOLINEA;                                 Using [IMP_SQH]                # Texto línea
+  Wrseq '';                                         Using [IMP_SQH]                # Texto línea
+# JC.09072021.ddf.intranet.END
+  Wrseq DESCARTCLI;                                 Using [IMP_SQH]                # Descripción artículo cliente
+  Wrseq LZMASCARA                                   Using [IMP_SQH]                # Descripción ventas
+
+Return
+
+##################################################################
+$OPEN_TABLAS
+#Local File PORDER
+#Local File PORDERQ
+#Local File PORDERP
+Local File ITMMASTER
+Local File ZMASCARA
+Local File SQUOTE
+Local File SQUOTED
+Local File ITMBPC
+Local File BPADDRESS
+Local File BPARTNER
+Local File CONTACT
+Local File BPCUSTOMER
+Local File ATEXTRA
+Local File TEXCLOB
+Local File SORDERP
+Local File SORDER
+
+Return
+
+###################################################################
+# Todo esto es funcion cogida de internet para transformar el texto
+# rtf de la texclob
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+Funprog F_RTF2TEXT(CLOB)
+Variable Clbfile CLOB
+  Local Integer LENTXMT : LENTXMT = 250
+  Local Integer NRIGHE : NRIGHE = 4 # 4 = 250x4 char
+  Local Char XOUT(LENTXMT)(NRIGHE)
+  Call S_RTF2TEXT(LENTXMT,CLOB,XOUT,NRIGHE)
+  #Concatenate the row with plain text, by removing the empty space
+  Local Char XRET(250) : Raz XRET
+  For XI = 0 To NRIGHE-1
+    XRET += vireblc(XOUT(XI),2)
+  Next
+End XRET
+
+###############################################################################
+Subprog S_RTF2TEXT(PLENRIGAOUT,CLOB,PTXTOUT,PNRIGEOUT)
+Value Integer PLENRIGAOUT
+Variable Clbfile CLOB
+Variable Char PTXTOUT
+Variable Integer PNRIGEOUT
+
+    Local Integer XRIGHE
+    Local Integer XNOL
+    Local Integer XNCH
+    Local Char XCH(1)
+    Local Char XCHPREV(1)
+    Local Integer XSTRTAG1 : XSTRTAG1 = 0
+    Local Integer XSTRTAG2 : XSTRTAG2 = 0
+
+    Local Integer LENGHT : LENGHT = len(CLOB)
+    Local Integer CLOTAI : CLOTAI = int(LENGHT/GCLOLNG)+1
+
+    Local  Char    PRTFIN   (GCLOLNG)(CLOTAI)
+
+    Setlob PRTFIN With CLOB
+
+
+    XRIGHE = dim(PRTFIN,1)
+
+    Local Char XOUT(250)(XRIGHE)
+    Local Integer XOUTRLEN(XRIGHE)
+    Local Char RIGA(250)
+    Local Integer XESCAPE
+
+
+
+    #Toglie i tag RTF
+
+    For XNOL = 0 To XRIGHE - 1
+        Raz RIGA
+        RIGA = PRTFIN(XNOL)
+        XOUTRLEN(XNOL) = 0
+        For XNCH = 1 To len(RIGA)
+            XCHPREV = XCH
+
+            XCH = mid$(RIGA,XNCH,1)
+            If XCH = "\" Then
+                XESCAPE = -1
+                If func F_GETNEXTCHR(PRTFIN,1,XNCH,XNOL,XRIGHE)= "}" Then
+                    XCHPREV = XCH
+                    XNCH = XNCH + 1
+                    XCH = "}"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,1,XNCH,XNOL,XRIGHE)= "{" Then
+                    XCHPREV = XCH
+                    XNCH = XNCH + 1
+                    XCH = "{"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,4,XNCH,XNOL,XRIGHE)= "pard" Then
+                    XNCH = XNCH + 4
+                    XCH = " "
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "par" Then
+                    XNCH = XNCH + 3
+                    XCH = " "
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'e0" Then
+                    XNCH = XNCH + 3
+                    XCH = "a"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'e9" Then
+                    XNCH = XNCH + 3
+                    XCH = "e"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'e8" Then
+                    XNCH = XNCH + 3
+                    XCH = "e"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'b0" Then
+                    XNCH = XNCH + 3
+                    XCH = "°"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'ec" Then
+                    XNCH = XNCH + 3
+                    XCH = "i"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'f2" Then
+                    XNCH = XNCH + 3
+                    XCH = "o"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "'f9" Then
+                    XNCH = XNCH + 3
+                    XCH = "u"
+                    XESCAPE = 1
+                Endif
+                If func F_GETNEXTCHR(PRTFIN,2,XNCH,XNOL,XRIGHE)= "fs" Then   #Font size
+                    XNCH = XNCH + 2
+                    XCH = ""
+                    XESCAPE = -1
+                Endif
+                If XESCAPE = -1 Then
+                        XSTRTAG1 = 1
+                        XNCH = XNCH + 1
+                Endif
+
+            Endif
+
+            If XCH = "{" and XCHPREV <> "\" Then XSTRTAG2 = XSTRTAG2 + 1 : Endif
+
+            If XSTRTAG1 = 0 and XSTRTAG2 <= 1  Then
+                XOUT(XNOL) += XCH
+                XOUTRLEN(XNOL) += 1
+            Endif
+            If XCH = " " or find(func F_GETNEXTCHR(PRTFIN,2,XNCH-1,XNOL,XRIGHE) ,'\}','\{','\\') > 0 Then XSTRTAG1 = 0 : Endif
+            If XCH = "}" and XCHPREV <> "\" Then XSTRTAG2 = XSTRTAG2 - 1 : Endif
+        Next
+    Next
+
+
+    Local Integer XNOL2
+    Local Integer XCONTA2
+
+    XNOL2 = 0
+    XCONTA2 = PLENRIGAOUT
+    For XNOL = 0 To XRIGHE - 1
+        Raz RIGA
+        RIGA = XOUT(XNOL)
+        If XNOL = XRIGHE : RIGA = vireblc(RIGA,1) : Endif
+        If len(RIGA) > 0 Then
+            For XNCH = 1 To len(RIGA)
+                XCH = mid$(RIGA,XNCH,1)
+                If XCH = chr$(13) Then
+                    XCH = " "
+                    If func F_GETNEXTCHR(XOUT,1,XNCH,XNOL,XRIGHE)= chr$(10) Then
+                        XNCH = XNCH + 1
+                    Endif
+                Endif
+                If XCH = chr$(10) Then
+                    XCH = " "
+                    If func F_GETNEXTCHR(XOUT,1,XNCH,XNOL,XRIGHE)= chr$(13) Then
+                        XNCH = XNCH + 1
+                    Endif
+                Endif
+                If XNCH = 1 and XNOL = 0 and XCH = "{" Then XCH = "" : Endif
+                PNRIGEOUT = XNOL2 + 1
+                PTXTOUT(XNOL2) += XCH
+                XCONTA2 = XCONTA2 - 1
+                If XCONTA2 = 0 Then
+                    XNOL2 = XNOL2 + 1
+                    XCONTA2 = PLENRIGAOUT
+                Endif
+            Next
+        Endif
+    Next
+
+    #tolgo la graffa finale
+    RIGA = vireblc(PTXTOUT(XNOL2),1)
+    If mid$(RIGA,len(RIGA),1) = "}" Then
+        PTXTOUT(XNOL2) =  mid$(RIGA,1,len(RIGA)-1)
+    Endif
+
+
+End
+
+############################
+Funprog F_GETNEXTCHR(PARRIN,NCHNEXT,NCURPOS,NCURNOL,NTOTRIGHE)
+Value Char PARRIN
+Value Integer NCHNEXT
+Value Integer NCURPOS
+Value Integer NCURNOL
+Value Integer NTOTRIGHE
+
+    Local Char XRET(NCHNEXT) : XRET = ""
+
+    Local Integer XNCH
+    Local Char RIGA(250)
+    Local Integer XCONTA
+
+    For XNOL = NCURNOL To NTOTRIGHE - 1
+        RIGA = PARRIN(NCURNOL)
+        For XNCH = NCURPOS + 1 To len(RIGA) - 1
+            XRET += mid$(RIGA,XNCH,1)
+            XCONTA += 1
+            If XCONTA = NCHNEXT Then
+                Break
+            Endif
+        Next
+        If XCONTA = NCHNEXT Then
+            Break
+        Endif
+        NCURPOS = 0
+    Next
+End XRET
+###################################################################
+# Todo esto es funcion cogida de internet para transformar el texto
+# rtf de la texclob
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

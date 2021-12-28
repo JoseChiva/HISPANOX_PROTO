@@ -1,0 +1,377 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara POH2 (Especifico)
+#ASR COMP-51 campo arancel
+#MRR01 - 24/08/2020 - Cod. act. ZQ020 - Campo Fecha EXTRCPDAT del pedido en cabecera y líneas
+#MRR02 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH2) 20/02/2020 16:33:52 (ADMIN)
+######################################################################################
+$ACTION
+#If GUSER = 'ADEV' Then : Infbox ACTION : Endif
+Case ACTION
+  When "EXEBOUT"  : Gosub EXEBOUT
+  When "APRES_CRE": Gosub APRES_CRE
+  When "APRES_MOD": Gosub APRES_MOD
+  When "AP_ANNULE": Gosub AP_ANNULE
+  When Default
+Endcase
+Return
+
+#######################################################
+$EXEBOUT
+  Case BOUT
+    When "2"
+      # JC.05102021.COST-004.INI
+      Local Integer LCON
+        For LCON = 0 To [M:POH2]NBLIG-1
+          Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
+        Next
+      # JC.05102021.COST-004.FIN
+    When Default
+  Endcase
+Return
+
+#######################################################
+$APRES_CRE
+  Call PEDIDOSPROV([F:POH]POHNUM) From ZPOHINTRANET
+
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:POH2]NBLIG-1
+    Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+
+Return
+
+#######################################################
+$APRES_MOD
+  Call PEDIDOSPROV([F:POH]POHNUM) From ZPOHINTRANET
+
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:POH2]NBLIG-1
+    Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+Return
+
+#######################################################
+$AP_ANNULE
+# JC.05102021.COST-004.INI
+Local Integer LCON
+  For LCON = 0 To [M:POH2]NBLIG-1
+    Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
+  Next
+# JC.05102021.COST-004.FIN
+Return
+
+#######################################################
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If !clalev([F:ITM1])   : Local File ITMMASTER[ITM1]    : Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  If [F:ITM1]ZPALENT = 2 Then
+    [M:POH2]ZPALENT(nolign-1) = 2
+  Else
+    [M:POH2]ZPALENT(nolign-1) = 1
+  Endif
+  Affzo [M:POH2]ZPALENT
+Endif
+
+#ASR COMP-51
+[M:POH2]CPRCOE(nolign-1) = [M:POH1]ZCPRCOE
+Affzo [M:POH2]CPRCOE(nolign-1)
+#ASR
+
+#MRR02 ini
+If clalev([F:ITM2])=0:  Local File ITMMASTER[ITM2]: Endif
+
+Filter [F:ITM2] Where ITMREF = VALEUR
+Read [F:ITM2] First
+If !fstat Then
+  [M:POH2]ZITMDES2(nolign-1) = [F:ITM2]ITMDES2
+  Affzo [M:POH2]ZITMDES2(nolign-1)
+Endif
+#MRR02 fin
+
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH0) 05/06/2020 09:54:57 (ADMIN)
+######################################################################################
+Subprog AM_BPSNUM(VALEUR)
+Variable Char    VALEUR()
+[M:POH1]ZCPRCOE = [F:BPS]ZCPRCOE
+Affzo [M:POH1]ZCPRCOE
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH1) 05/06/2020 09:56:02 (ADMIN)
+######################################################################################
+Subprog AM_ZCPRCOE(VALEUR)
+Variable Decimal VALEUR
+
+If [M:POH2]NBLIG > 0
+  Call OUINON("Repercutir el valor Arancel al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+  For I = 0 To NBLIG-1
+      [M:POH2]CPRCOE(I) = VALEUR
+      [M:POH2]UPDFLG = 2
+      Affzo [M:POH2]CPRCOE(I)
+  Next
+
+  Endif
+Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH2) 05/06/2020 09:58:21 (ADMIN)
+######################################################################################
+Subprog AVANT_NBLIG
+If [M:POH2]ITMREF(nolign-1)<> ""
+  If clalev([F:ZPPD])=0: Local File ZPRESPD [ZPPD]: Endif
+  Filter [F:ZPPD] Where [F:ZPPD]ITMREF = [M:POH2]ITMREF(nolign-1) and [F:ZPPD]BPSNUM = [M:POH0]BPSNUM Order By
+&       [F:ZPPD]LINRSPDAT Desc
+  Raz [M:POH2]NBLIG2
+  For [F:ZPPD]
+    I = [M:POH2]NBLIG2
+    [M:POH2]ZBPSPRI(I) = [F:ZPPD]BPSPRI
+    [M:POH2]NBLIG2+=1
+    If I = 15 :Break Endif
+  Next
+  Affzo [M:POH2]10
+  Filter [F:ZPPD]
+Endif
+
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH1) 17/06/2020 09:51:16 (ADMIN)
+######################################################################################
+Subprog AM_ZDISCRGVAL1(VALEUR)
+Variable Decimal VALEUR
+If [M:POH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    For Z = 0 To [M:POH2]NBLIG-1
+        #Dbgaff
+        Call PAMAPPFLG("POH2",Z,"DISCRGVAL1")
+        Call PAMDISCRG(VALEUR,"POH2",1,Z,[M:POH1]CUR)
+        Call PAMVATFLG("POH2",Z,"DISCRGVAL1") From TRTACHFAC1
+        [M:POH2]DISCRGVAL1(Z)= VALEUR
+        [M:POH2]UPDFLG(Z) = 2
+
+    Next
+    Affzo [M:POH2]
+  Endif
+Endif
+End
+
+######################################################################################
+Subprog PAMAPPFLG (WABMSK,NOLIG,NOMZON)
+Value  Char     WABMSK
+Value  Integer  NOLIG
+Value  Char     NOMZON
+Local  Shortint FLAG : FLAG=1
+# Issue 88103 - 2013-02-25 by SR : Ajout de zone pour exploitation du P.E en D.A
+If NOMZON = "CUR"        |
+&  NOMZON = "CHGCOE"     |
+&  NOMZON = "UOM"        |
+&  NOMZON = "QTYUOM"     |
+&  NOMZON = "UOMPUUCOE"  |
+&  NOMZON = "PUU"        |
+&  NOMZON = "QTYPUU"     |
+&  NOMZON = "QTYSTU"     |
+&  NOMZON = "GROPRI"     |
+&  NOMZON = "DISCRGVAL1" |
+&  NOMZON = "DISCRGVAL2" |
+&  NOMZON = "DISCRGVAL3" |
+&  NOMZON = "DISCRGVAL4" |
+&  NOMZON = "DISCRGVAL5" |
+&  NOMZON = "DISCRGVAL6" |
+&  NOMZON = "DISCRGVAL7" |
+&  NOMZON = "DISCRGVAL8" |
+&  NOMZON = "DISCRGVAL9" |
+&  NOMZON = "INVDTAAMT"  |
+&  NOMZON = "BPSNUM"     |
+&  NOMZON = "NETPRI"     |
+&  NOMZON = "PRHFCY"     |
+&  NOMZON = "EXTRCPDAT"  |
+&  NOMZON = "EXTORDDAT"  : FLAG=2 : Endif
+
+#Infbox num$(FLAG)
+#######################################################
+# Appel du point d'entrée PAMAPPFLG :                 #
+# --------------------------------------------------- #
+# FLAG  Indicateur rubrique majeure                   #
+#       pour reprise du cycle de signature            #
+#      1 = Rubrique non majeure                       #
+#      2 = Rubrique majeure                           #
+#######################################################
+#VPO 25/02/11 71885 ajout PE
+#GPOINT="PAMAPPFLG" : Gosub ENTREE From EXEFNC
+# Issue 88103 - 2013-02-25 by SR : exploitation du P.E en D.A
+If WABMSK = "PSH1"
+   Infbox "PSH1"
+   Assign "[M:"+WABMSK+"]WAPPFLG(NOLIG)"  With FLAG
+   End
+Endif
+If FLAG=2
+  If WABMSK=""
+    GAPPFLG=2
+  Else
+    #Infbox "WMASK"
+    Assign "[M:"+WABMSK+"]WAPPFLG(NOLIG)"  With 2
+  Endif
+Endif
+
+End
+
+#########################################################
+
+Subprog PAMDISCRG (VALEUR,WABMSK,DISCRGNUM,NOLIG,WCUR)
+Value  Decimal  VALEUR
+Value  Char     WABMSK
+Value  Integer  DISCRGNUM
+Value  Integer  NOLIG
+Value  Char     WCUR
+#Dbgaff
+#----- CHARGEMENT MOTIF MANUEL PAR DéFAUT -----#
+If DISCRGNUM>0 & DISCRGNUM<10
+   If !GIMPORT & VALEUR=evalue("[M:"+WABMSK+"]DISCRGVAL"+num$(DISCRGNUM)+"(NOLIG)") End : Endif
+   Assign "[M:"+WABMSK+"]DISCRGREN"+num$(DISCRGNUM)+"(NOLIG)" With GDACMANPUR
+Elsif DISCRGNUM=0
+   If !GIMPORT & VALEUR=evalue("[M:"+WABMSK+"]GROPRI(NOLIG)") End : Endif
+   Assign "[M:"+WABMSK+"]PRIREN(NOLIG)" With GDACMANPUR
+Endif
+If evalue("dim([M:"+WABMSK+"]GROPRI(NOLIG))")<1 End : Endif
+#----- CALCUL ET AFFICHAGE DU PRIX NET -----#
+Local  Decimal  GROPRI, DISCRGVAL(0..8), NETPRI
+Local  Shortint I
+If DISCRGNUM<1 GROPRI=VALEUR
+          Else GROPRI=evalue("[M:"+WABMSK+"]GROPRI(NOLIG)")
+Endif
+For I=1 To 9
+    If evalue("DIM([M:"+WABMSK+"]DISCRGVAL"+num$(I)+"(NOLIG))")>0
+       DISCRGVAL(I-1)=evalue("[M:"+WABMSK+"]DISCRGVAL"+num$(I)+"(NOLIG)")
+    Endif
+Next I
+Case DISCRGNUM
+  When 1 DISCRGVAL(0)=VALEUR
+  When 2 DISCRGVAL(1)=VALEUR
+  When 3 DISCRGVAL(2)=VALEUR
+  When 4 DISCRGVAL(3)=VALEUR
+  When 5 DISCRGVAL(4)=VALEUR
+  When 6 DISCRGVAL(5)=VALEUR
+  When 7 DISCRGVAL(6)=VALEUR
+  When 8 DISCRGVAL(7)=VALEUR
+  When 9 DISCRGVAL(8)=VALEUR
+Endcase
+Local Decimal QTY
+If evalue("dim([M:"+WABMSK+"]QTYUOM(NOLIG))")>0
+  QTY=evalue("[M:"+WABMSK+"]QTYUOM(NOLIG)")
+Elsif evalue("dim([M:"+WABMSK+"]QTYPUU(NOLIG))")>0
+  QTY=evalue("[M:"+WABMSK+"]QTYPUU(NOLIG)")
+Else
+  QTY=1
+Endif
+If dim(GPURNEGPRI)<0  Global Libelle GPURNEGPRI : Endif
+Raz GPURNEGPRI
+If evalue("dim([M:"+WABMSK+"]ITMREF)")>0
+  If WABMSK="POC2" I=0 Else I=NOLIG : Endif
+  If evalue("[M:"+WABMSK+"]ITMREF(I)")<>[F:ITM]ITMREF
+    Read [ITM] ITM0=evalue("[M:"+WABMSK+"]ITMREF(I)")
+    If fstat  Raz [F:ITM] : Endif
+  Endif
+  If [F:ITM]STOMGTCOD=1  GPURNEGPRI=2 : Endif
+Endif
+If dim(GCALNETLIN)>0  GCALNETLIN=NOLIG+1          : Endif
+If dim(GCALNETABR)>0  GCALNETABR="[M:"+WABMSK+"]" : Endif
+Call CALNET(2,[F:BPS]PLISTC,GROPRI,DISCRGVAL,QTY,NETPRI,WCUR) From TRTPRICE
+If GMESSAGE<>"" Call MESSAGE(GMESSAGE) From GESECRAN : Raz GMESSAGE : Endif
+Assign "[M:"+WABMSK+"]NETPRI(NOLIG)" With NETPRI
+If !GIMPORT Affzo [M:POH2]NETPRI(NOLIG) : Endif
+#----- calcul et affichage du montant ligne -----#
+If WABMSK="POI1"
+  [M:POI1]LINAMT(NOLIG)=[M:POI1]NETPRI(NOLIG)*[M:POI1]QTYUOM(NOLIG)
+  Call ARRDEV([M:POI1]LINAMT(NOLIG),[M:POI1]CUR(NOLIG)) From TRTDIV
+  If !GIMPORT Affzo [POI1]LINAMT(NOLIG) : Endif
+Elsif WABMSK="POH2"
+  [M:POH2]LINAMT(NOLIG)=[M:POH2]NETPRI(NOLIG)*[M:POH2]QTYUOM(NOLIG)
+  Call ARRDEV([M:POH2]LINAMT(NOLIG),GCUR) From TRTDIV
+  If !GIMPORT Affzo [POH2]LINAMT(NOLIG) : Endif
+Elsif WABMSK="PTH1"
+  [M:PTH1]LINAMT(NOLIG)=[M:PTH1]NETPRI(NOLIG)*[M:PTH1]QTYUOM(NOLIG)
+  Call ARRDEV([M:PTH1]LINAMT(NOLIG),GCUR) From TRTDIV
+  If !GIMPORT Affzo [PTH1]LINAMT(NOLIG) : Endif
+Elsif WABMSK="PNH1"
+  [M:PNH1]LINAMT(NOLIG)=[M:PNH1]NETPRI(NOLIG)*[M:PNH1]QTYUOM(NOLIG)
+  Call ARRDEV([M:PNH1]LINAMT(NOLIG),[M:PNH1]NETCUR(NOLIG)) From TRTDIV
+  If !GIMPORT Affzo [PNH1]LINAMT(NOLIG) : Endif
+Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH0) 24/08/2020 11:16:38 (ADMIN)
+######################################################################################
+#MRR01 ini
+Subprog AM_ZDEMRCPDAT(VALEUR)
+Variable Date    VALEUR
+
+Local Integer YN: YN = 2
+Local Integer I : I  = 0
+Call OUINON("Se van a actualizar las fechas de todas las líneas (SI/NO)",YN) From GESECRAN
+If YN = 2 Then
+  For I = 0 To [M:POH2]NBLIG-1
+    If [M:POH2]LINCLEFLG(I) <> 2
+      [M:POH2]DEMRCPDAT(I) = VALEUR
+      [M:POH2]UPDFLG(I) = 2
+      Affzo [M:POH2]DEMRCPDAT(I)
+    Endif
+  Next
+Endif
+
+End
+
+######################################################################################
+Subprog AM_ZEXTRCPDAT(VALEUR)
+Variable Date    VALEUR
+
+Local Integer YN: YN = 2
+Local Integer I : I  = 0
+Call OUINON("Se van a actualizar las fechas de todas las líneas (SI/NO)",YN) From GESECRAN
+If YN = 2 Then
+  For I = 0 To [M:POH2]NBLIG-1
+    If [M:POH2]LINCLEFLG(I) <> 2
+      [M:POH2]EXTRCPDAT(I) = VALEUR
+      [M:POH2]UPDFLG(I) = 2
+      Affzo [M:POH2]EXTRCPDAT(I)
+    Endif
+  Next
+Endif
+
+End
+
+#MRR01 fin
+
+######################################################################################
+
+
+Subprog AS_NBLIG1
+End
+
+
+######################################################################################
+Subprog CL_ZSEL(VALEUR)
+Variable Char    VALEUR()
+End
+
+
+######################################################################################

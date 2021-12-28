@@ -1,0 +1,133 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGACAR('') From ZSGACAR
+
+End
+
+
+Subprog ZSGACAR(WVALORBPT)
+Value Char WVALORBPT
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULTADO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+#If !clalev([F:ZBPS]) : Local File BPSUPPLIER  [ZBPS] : Endif
+#If !clalev([F:ZBCG]) : Local File BPCCATEG    [ZBCG] : Endif
+#If !clalev([F:ZBPD]) : Local File BPDLVCUST   [ZBPD] : Endif
+#If !clalev([F:ZBPA]) : Local File BPADDRESS   [ZBPA] : Endif
+#If !clalev([F:ZTCY]) : Local File TABCOUNTRY  [ZTCY] : Endif
+#If !clalev([F:ZCNT]) : Local File CONTACT     [ZCNT] : Endif
+#If !clalev([F:ZAIN]) : Local File CONTACTCRM  [ZAIN] : Endif
+#If !clalev([F:ZAXX]) : Local File ATEXTRA     [ZAXX] : Endif
+#
+If !clalev([F:ZBPT]) : Local File BPCARRIER   [ZBPT] : Endif
+If !clalev([F:ZBPR]) : Local File BPARTNER    [ZBPR] : Endif
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+WSEQ=1
+CNOMBREFILE='CAR01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium GASCII                                    Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('Carriers xmlns="urn:wms-schema"','',0,1)
+
+WFILTERBPT='1=1'
+WTRAZA=1
+If WVALORBPT<>''
+  If GTRACE=''
+    WTRAZA=2
+    Call OUVRE_TRACE('Transportista:'+WVALORBPT) From LECFIC
+  Else
+    Call ECR_TRACE('Transportista:'+WVALORBPT,0) From GESECRAN
+  Endif
+  WFILTERBPT+=' & BPTNUM=WVALORBPT'
+Endif
+For [ZBPT] Where evalue(WFILTERBPT)
+  Read [ZBPR]BPR0=[ZBPT]BPTNUM
+  If [ZBPR]BPRSHO<>''
+   Call ECR_TRACE("Transportista: "+[F:ZBPT]BPTNUM+' '+[F:ZBPT]BPTSHO,0) From GESECRAN
+   AA=func PUT_PROPXML('Carrier ignoreNull="1"','',1,1)
+     AA=func PUT_PROPXML('Operation','S', 2,2)
+     AA=func PUT_PROPXML('CarrierCode',[F:ZBPT]BPTNUM,2,2)
+     AA=func PUT_PROPXML('Name',[F:ZBPT]BPTSHO,2,2)
+     AA=func PUT_PROPXML('CustomAttributes','',2,1)
+     AA=func PUT_PROPXML('CstAtt01','',3,2)
+     AA=func PUT_PROPXML('CstAtt02','',3,2)
+     AA=func PUT_PROPXML('/CustomAttributes','',2,1)
+    AA=func PUT_PROPXML('/Carrier','',1,1)
+  Endif
+  Next
+   AA=func PUT_PROPXML('/Carriers','',0,1)
+  Openo Using [ZECO]
+  Gosub MUEVE_FILE
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

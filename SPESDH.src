@@ -1,0 +1,431 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ Entregas
+#MRR03 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+#DEV: RPES 20201217 Tarifas transportistas
+#DEV: JESP 20210121 Tarifas transportistas
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SDH1) 12/11/2020 12:36:50 (ADMIN)
+######################################################################################
+
+######################################################################################
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+#MODIF JESP 20210121 Tarifas transportistas
+Case ACTION
+  When "OUVRE"       : Gosub OUVRE
+  When "VERIF_CRE"   : Gosub VERIF_CRE
+  When "VERIF_MOD"   : Gosub VERIF_MOD
+  When "APRES_CRE"   : Gosub APRES_CRE
+  When "APRES_MOD"   : Gosub APRES_MOD
+  When "APRES_MODIF" : Gosub APRES_MODIF
+  When "FIN"         : Gosub FIN
+Endcase
+#FIN JESP
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$OUVRE
+  Global Integer GDACDLV
+Return
+
+##############################################################
+#MODIF JESP 20210121 Tarifas transportistas
+$APRES_CRE
+  Call ACTUALIZAR_TIPO_PORTE_LINEAS([M:SDH0]SDHNUM)
+  Call ALBARAN([M:SDH0]SDHNUM) From ZSDHINTRANET
+
+  # JC.14102021.ZQAVI.Aviso generación entrega desde pedido.INI
+  Call LANZA_WORKFLOW_AVISO
+  # JC.14102021.ZQAVI.Aviso generación entrega desde pedido.FIN
+
+Return
+#FIN JESP
+
+##############################################################
+$APRES_MOD
+  Call ALBARAN([M:SDH0]SDHNUM) From ZSDHINTRANET
+Return
+
+##############################################################
+#MODIF JESP 20210121 Tarifas transportistas
+$APRES_MODIF
+  Call ACTUALIZAR_TIPO_PORTE_LINEAS([M:SDH0]SDHNUM)
+#  Call ALBARAN([M:SDH0]SDHNUM) From ZSDHINTRANET
+Return
+#FIN JESP
+
+##############################################################
+$VERIF_CRE
+
+# JC.150921.VTAS054.calculo porte en entregas.INI
+  # añado el siguiente código para que no me aparezca el mensaje del
+  # estándar sobre los transportes
+  If !clalev([F:ZSFI0]) Then : Local File SFOOTINV   [F:ZSFI0] : Endif
+  Read [F:ZSFI0]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI0]DACDLV <> 0 Then
+    GDACDLV = [F:ZSFI0]DACDLV-1
+  Endif
+  Close Local File [ZSFI0]
+  [M:SDH2]INVDTAAMT(GDACDLV) = 0
+  Affzo [M:SDH2]INVDTAAMT(GDACDLV)
+
+  Gosub VERIF_CRE    From SUBSDHA
+
+  Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO
+  Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO_MANUAL
+  [M:SDH2]INVDTAAMT(GDACDLV) = [M:SDH1]ZIMPTRFACT+[M:SDH1]ZIMPTRFACMAN
+  Affzo [M:SDH2]
+  Call AM_INVDTAAMT([M:SDH2]INVDTAAMT(GDACDLV)) From W2SDH2
+
+  GPE=1
+# JC.150921.VTAS054.calculo porte en entregas.FIN
+Return
+
+##############################################################
+$VERIF_MOD
+
+# JC.150921.VTAS054.calculo porte en entregas.INI
+  # añado el siguiente código para que no me aparezca el mensaje del
+  # estándar sobre los transportes
+  If !clalev([F:ZSFI0]) Then : Local File SFOOTINV   [F:ZSFI0] : Endif
+  Read [F:ZSFI0]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI0]DACDLV <> 0 Then
+    GDACDLV = [F:ZSFI0]DACDLV-1
+  Endif
+  Close Local File [ZSFI0]
+  [M:SDH2]INVDTAAMT(GDACDLV) = 0
+  Affzo [M:SDH2]INVDTAAMT(GDACDLV)
+
+  Gosub VERIF_MOD    From SUBSDHA
+  Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO
+  Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO_MANUAL
+  [M:SDH2]INVDTAAMT(GDACDLV) = [M:SDH1]ZIMPTRFACT+[M:SDH1]ZIMPTRFACMAN
+  Affzo [M:SDH2]
+  Call AM_INVDTAAMT([M:SDH2]INVDTAAMT(GDACDLV)) From W2SDH2
+
+  GPE=1
+# JC.150921.VTAS054.calculo porte en entregas.FIN
+Return
+
+##############################################################
+$FIN
+  If dim(GDACDLV) > 0 Then : Kill GDACDLV : Endif
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+#MODIF JESP 20210121 Tarifas transportistas
+Subprog ACTUALIZAR_TIPO_PORTE_LINEAS (PS_SDHNUM)
+Value Char PS_SDHNUM
+
+  If !clalev([F:ZSDD]) Then : Local File SDELIVERYD [F:ZSDD] : Endif
+  If !clalev([F:ZSOH]) Then : Local File SORDER     [F:ZSOH] : Endif
+
+  Filter [F:ZSDD] Where SDHNUM = PS_SDHNUM
+  For [F:ZSDD]
+    Read [F:ZSOH]SOH0 = [F:ZSDD]SOHNUM
+    If !fstat Then
+      Trbegin [F:ZSDD]
+      [F:ZSDD]ZFREINV = [F:ZSOH]ZFREINV
+      Rewrite [F:ZSDD]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+  Filter [F:ZSDD]
+
+Close Local File [ZSDD],[ZSOH]
+
+End
+#FIN JESP
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Después de modificar el campo 'Artículo' (pantalla SDH1) 17/12/2020 17:24:48 (RPES)
+######################################################################################
+#-------------------------------------------------------------------------------------
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If clalev([F:ITM1])=0:  Local File ITMMASTER[ITM1]: Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  [M:SDH1]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+  Affzo [M:SDH1]ZITMDES2(nolign-1)
+Endif
+
+End
+
+######################################################################################
+## Después de modificar el campo 'Cliente entrega' (pantalla SDH0) 17/12/2020 17:24:48 (RPES)
+######################################################################################
+Subprog AM_BPCORD(VALEUR)
+Variable Char    VALEUR()
+
+#MODIF RPES 20201217 Tarifas transportistas
+Local Integer I_ZFREINV
+[L]I_ZFREINV = func SPESQH.GET_ZFREINV(VALEUR)
+
+For I= 0 To [M:SDH1]NBLIG-1
+  [M:SDH1]ZFREINV(I) = [L]I_ZFREINV
+Next
+
+Affzo [M:SDH1]
+#FIN MODIF RPES 20201217 Tarifas transportistas
+
+End
+
+######################################################################################
+## Después de modificar el campo 'Tipo portes' (pantalla SDH1) 15/09/2021 13:19:26 (ADEV)
+######################################################################################
+Subprog AM_ZFREINV(VALEUR)
+Variable Integer VALEUR
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################
+##############################################################
+# JC.150921.VTAS054.calculo porte en entregas
+Subprog CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO()
+
+Local Integer LCON
+Local Char    S_PAIS(250)
+Local Char    S_CIUDAD(250)
+Local Char    S_CODIGO_POSTAL(250)
+Local Char    S_REGION(5)
+Local Char    S_TRANSPORTISTA(250)
+Local Decimal F_PESOS, F_PESOLIN
+Local Decimal F_VOLUMEN, F_VOLUMENLIN
+Local Decimal F_IMPORTEAI
+Local Decimal F_IMPORTE_TRANSPORTE
+Local Char    S_EXPLICACION_CALCULO (1)
+Local Integer I_STAT
+Local Char    S_UNIWEI(10)
+Local Char    S_UNIVOL(10)
+Local Integer LENTRA
+
+  If !clalev([F:ZSFI]) Then : Local File SFOOTINV   [F:ZSFI] : Endif
+  If !clalev([F:ZBPA]) Then : Local File BPADDRESS  [F:ZBPA] : Endif
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+
+  Read [F:ZSFI]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
+    GDACDLV = [F:ZSFI]DACDLV-1
+    Read [F:ZBPA]BPA0=1;[M:SDH0]BPCORD;[M:SDH0]BPAADD
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA]CRY
+      S_CIUDAD        = [F:ZBPA]CTY
+      S_CODIGO_POSTAL = [F:ZBPA]POSCOD
+    Endif
+  Endif
+
+  S_TRANSPORTISTA    = [M:SDH2]BPTNUM
+
+#  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+#    If [M:SDH1]ZFREINV(LCON) = 1 Then
+#        #Facturados, calculo de la tarifa de transporte
+#        If S_TRANSPORTISTA <> "" Then
+#          For I = 0 To [M:SDH1]NBLIG-1
+#            Raz F_IMPORTE_TRANSPORTE
+#            If left$([M:SDH1]ITMREF(I),4) <> "CERT" Then
+#              #Me sitúo en el artículo
+#              Read [F:ZITM]ITM0 = [M:SDH1]ITMREF(I)
+#              If !fstat Then
+#                S_UNIWEI = [F:ZITM]WEU
+#                S_UNIVOL = [F:ZITM]VOU
+#              Endif
+#              # pesos totales de las líneas. Paso todo a KG
+#              F_PESOS    += func ZAULIB01.CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SDH1]DSPLINWEI(I))
+#              # volúmenes totales de las líneas. Paso todo a M3
+#              F_VOLUMEN  += func ZAULIB01.CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SDH1]DSPLINVOL(I))
+#            Endif
+#          Next
+#          Raz F_IMPORTE_TRANSPORTE
+#          Call TRANSPORT(S_TRANSPORTISTA,[M:SDH0]BPCORD,[M:SDH0]SALFCY,S_PAIS,S_CIUDAD,
+#&                        S_CODIGO_POSTAL,[M:SDH1]CUR,[M:SDH0]CHGTYP,date$,[M:SDH1]DLVNOT,
+#&                        S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+#&                        F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From TRTPRICE
+#
+#          [M:SDH1]ZIMPTRFACT += F_IMPORTE_TRANSPORTE
+#          Affzo [M:SDH1]ZIMPTRFACT
+#      Endif
+#    Endif
+#  Endif
+  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+    #Facturados, calculo de la tarifa de transporte
+    If S_TRANSPORTISTA <> "" Then
+      For I = 0 To [M:SDH1]NBLIG-1
+        If [M:SDH1]ZFREINV(I) = 1 Then
+          Raz F_IMPORTE_TRANSPORTE
+          LENTRA = 1
+          If left$([M:SDH1]ITMREF(I),4) <> "CERT" Then
+            #Me sitúo en el artículo
+            Read [F:ZITM]ITM0 = [M:SDH1]ITMREF(I)
+            If !fstat Then
+              S_UNIWEI = [F:ZITM]WEU
+              S_UNIVOL = [F:ZITM]VOU
+            Endif
+            # pesos totales de las líneas. Paso todo a KG
+            F_PESOS     += func ZAULIB01.CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SDH1]DSPLINWEI(I))
+            # volúmenes totales de las líneas. Paso todo a M3
+            F_VOLUMEN   += func ZAULIB01.CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SDH1]DSPLINVOL(I))
+            # importe ai
+            F_IMPORTEAI += ([M:SDH1]NETPRINOT(I) * [M:SDH1]QTY(I))
+          Endif
+        Endif
+      Next
+      If LENTRA = 1 Then
+        Raz F_IMPORTE_TRANSPORTE
+        Call TRANSPORT(S_TRANSPORTISTA,[M:SDH0]BPCORD,[M:SDH1]ZFREINV,[M:SDH0]SALFCY,S_PAIS,S_CIUDAD,
+&                      S_CODIGO_POSTAL,[M:SDH1]CUR,[M:SDH0]CHGTYP,date$,F_IMPORTEAI,
+&                      S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                      F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+        [M:SDH1]ZIMPTRFACT = F_IMPORTE_TRANSPORTE
+        Affzo [M:SDH1]ZIMPTRFACT
+      Endif
+    Endif
+  Endif
+
+  Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM]
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+End
+
+##############################################################
+# JC.150921.VTAS054.calculo porte en entregas
+Subprog CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO_MANUAL
+
+Local Integer LCON, LSTAT
+
+  If !clalev([F:SOH0]) Then : Local File SORDER [F:SOH0] : Endif
+  # búsqueda de los distintos pedidos origen de esta entrega con facturación porte = facturado manual
+  For LCON=0 To [M:SDH1]NBLIG-1
+    If [M:SDH1]ZFREINV(LCON) = 8 Then
+      Read [F:SOH0]SOH0 = [M:SDH1]XSOHNUM(LCON)
+      If !fstat Then
+        If [F:SOH0]DLVSTA <> 1 Then
+          LSTAT = 1
+          Break
+        Endif
+      Endif
+    Endif
+  Next
+
+  If LSTAT = 0 Then
+    [M:SDH1]ZIMPTRFACMAN = [F:SOH0]INVDTAAMT(1)
+    Affzo [M:SDH1]ZIMPTRFACMAN
+  Endif
+
+  Close Local File [SOH0]
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+End
+
+###############################################################
+# JC.14102021.ZQAVI.Aviso generación entrega desde pedido.NEW
+#**
+#* envía correo cuando la entrega viene de pedido con aviso
+#*
+#*!
+Subprog LANZA_WORKFLOW_AVISO()
+
+Global Char GCORREO(250),GENTREGA(250),GPEDIDO(250),GTEXTO(250)
+
+  # lanza un workflow para avisar de que la importación ha fallado
+
+  If !clalev([F:SDD0]) Then : Local File SDELIVERYD   [F:SDD0] : Endif
+  If !clalev([F:SOH0]) Then : Local File SORDER       [F:SOH0] : Endif
+  If !clalev([F:DEE0]) Then : Local File ZDATOSENVENT [F:DEE0] : Endif
+  If !clalev([F:DEE1]) Then : Local File ZDATOSENVENT [F:DEE1] : Endif
+  If !clalev([F:DEE2]) Then : Local File ZDATOSENVENT [F:DEE2] : Endif
+  If !clalev([F:VDM0]) Then : Local File ZVDISTMAIL   [F:VDM0] : Endif
+
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZDATOSENVENT"
+
+  # busca todas las líneas de la entrega
+  Filter [F:SDD0] Where SDHNUM = [F:SDH]SDHNUM
+  For [F:SDD0]
+    # busca todos los pedidos de las líneas de la entrega
+    Read [F:SOH0]SOH0 = [F:SDD0]SOHNUM
+    If !fstat Then
+      # si el pedido tiene dirección de aviso, lo guarda en una tabla temporal
+      # de donde cogerá los datos, a continuación, para realizar el envío
+      If [F:SOH0]ZAVISOENTR <> "" Then
+        Trbegin [F:DEE0]
+        [F:DEE0]ADDEML      = [F:SOH0]ZAVISOENTR
+        [F:DEE0]ZTEXTOAVISO = [F:SOH0]ZTEXTOAVISO
+        [F:DEE0]SOHNUM      = [F:SOH0]SOHNUM
+        Write [F:DEE0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Endif
+    Endif
+  Next
+  Filter [F:SDD0]
+
+  # guarda en la variable global GCORREO las distintas direcciónes de envío
+  Read [F:VDM0] First
+  If !fstat Then
+    GCORREO = [F:VDM0]ADDEML
+    Read [F:VDM0] Next
+    If !fstat Then
+      For [F:VDM0]
+        GCORREO += ";"+[F:VDM0]ADDEML
+      Next
+    Endif
+  Endif
+
+  # guarda en la variable global GENTREGA el número de la entrega generada
+  GENTREGA = [F:SDH]SDHNUM
+
+  # guarda en la variable global GPEDIDO los distintos pedidos que han generado la entrega
+  Read [F:DEE1] First
+  If !fstat Then
+    GPEDIDO = [F:DEE1]SOHNUM
+    Read [F:DEE1] Next
+    If !fstat Then
+      For [DEE1]
+        GPEDIDO += ", "+[F:DEE1]SOHNUM
+      Next
+    Endif
+  Endif
+
+  # guarda en la variable global GTEXTO los comentarios de cada pedido
+  Read [F:DEE2] First
+  If !fstat Then
+    GTEXTO = [F:DEE2]ZTEXTOAVISO
+    Read [F:DEE2] Next
+    If !fstat Then
+      For [DEE2]
+        GTEXTO += ". "+[F:DEE2]ZTEXTOAVISO
+      Next
+    Endif
+  Endif
+
+  # lanza el workflow
+  Call WORKFLOW (1,"ZAS","",GUSER) From AWRK
+
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GENTREGA)  > 0 Then : Kill GENTREGA  : Endif
+  If dim(GPEDIDO)   > 0 Then : Kill GPEDIDO   : Endif
+  If dim(GTEXTO)    > 0 Then : Kill GTEXTO    : Endif
+
+  Close Local File [SDD0],[SOH0],[DEE0],[DEE1],[DEE2],[VDM0]
+End

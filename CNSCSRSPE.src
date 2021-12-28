@@ -1,0 +1,45 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "CLECUR"   : Gosub CLECUR
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$CLECUR
+  Gosub MUESTRA_INCIDENCIA
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$MUESTRA_INCIDENCIA
+Local Integer LCON
+
+  If !clalev([F:ZSRH]) Then : Local File SRETURN [F:ZSRH] : Endif
+  For LCON=0 To [M:CSR2]NBLIG-1
+    Read [F:ZSRH]SRH0 = [M:CSR2]SRHNUM(LCON)
+    If !fstat Then
+      [M:CSR2]ZNUMINC(LCON) = [F:ZSRH]ZNUMINC
+      Affzo [M:CSR2]ZNUMINC(LCON)
+    Endif
+  Next
+  Close Local File [ZSRH]
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

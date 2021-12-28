@@ -1,0 +1,156 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Subprog PEDIDOSPROV(WPOH)
+Variable Char WPOH
+Gosub OPEN_TABLAS
+Filter [POH] Where (WPOH = "" or  POHNUM = WPOH) and CLEFLG <> 2
+Read [POH] First
+If rowcount([POH])>0
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+  For [POH]POH0
+    Filter [POQ] Where POHNUM=[F:POH]POHNUM and [POQ]LINCLEFLG<>2
+    For [POQ]
+      Read [POP]POP0=[F:POH]POHNUM;[F:POQ]POPLIN;[F:POQ]POQSEQ
+      Gosub ARTICULO
+      Gosub PALET
+      Gosub ESC_REGISTRO
+    Next
+  Next
+  Openo Using [POH]
+Endif
+
+End
+##################################################################
+$ESC_REGISTRO
+Wrseq [F:POH]POHNUM;                          Using [POH]
+Wrseq num$([F:POQ]POPLIN);                    Using [POH]
+Wrseq format$("D:DD[/]MM[/]YYYY",[F:POH]ORDDAT);    Using [POH]
+If [F:POQ]DEMRCPDAT = [0/0/0]
+  Wrseq ""; Using [POH]
+Else
+  Wrseq format$("D:DD[/]MM[/]YYYY",[F:POQ]DEMRCPDAT); Using [POH]
+Endif
+Wrseq [F:POH]BPSNUM;                          Using [POH]
+Wrseq [F:POQ]ITMREF;                          Using [POH]
+#Wrseq [F:ITM]TSICOD(1);                      Using [POH] # Pendiente
+#Wrseq [F:ZMAS]ZNORMA;                        Using [POH]
+#Wrseq "CLASE";                               Using [POH] # Pendiente
+#Wrseq [F:ITM]ZMEDIDA1;                       Using [POH] # Pendiente
+Wrseq num$([F:POQ]QTYUOM);                    Using [POH]
+Local Char DIV(1)
+Case [F:POP]ZLPRIDIV
+  When "UN": DIV = "u"
+  When "CEN": DIV = "%"
+  When "MIL": DIV = "m"
+Endcase
+Wrseq DIV;                                    Using [POH]
+
+Wrseq ctrans(num$([F:POP]ZLBPSPRI),".",",");  Using [POH]
+Wrseq ctrans(num$([F:POP]DISCRGVAL1),".",",");Using [POH]
+Wrseq ctrans(num$([F:POQ]LINAMT),".",",");    Using [POH]
+
+Wrseq [F:POH]CUR;                             Using [POH]
+
+If [F:POQ]LINTEX<>""
+  Read [F:ZTXC]TXC0 = [F:POQ]LINTEX
+  If !fstat
+    Wrseq ctrans([F:ZTXC]TEXTE,chr$(010),"/");                          Using [POH]
+  Else
+    Wrseq "";                          Using [POH]
+  Endif
+Else
+  Wrseq "";                          Using [POH]
+Endif
+
+Wrseq num$([F:POQ]RCPQTYPUU);                 Using [POH]
+Wrseq num$([F:POQ]SHIQTYPUU);                 Using [POH]
+#Wrseq num$([F:POQ]QTYPUU-[F:POQ]RCPQTYPUU);   Using [POH]
+#Wrseq num$([F:POQ]RCPQTYPUU-[F:POQ]SHIQTYPUU);Using [POH]
+Wrseq num$([F:POQ]LINCLEFLG);                 Using [POH]
+Wrseq ctrans(num$([F:POQ]QTYWEU),".",",");    Using [POH]
+Local Decimal TMPCPR:Raz TMPCPR
+TMPCPR = [F:POQ]CPR*100
+Wrseq ctrans(num$(TMPCPR),".",",");           Using [POH]
+Wrseq ctrans(num$([F:POQ]LINAMTCPR),".",","); Using [POH]
+
+#Wrseq num$([F:POQ]CPRAMT);                   Using [POH]
+#Wrseq num$([F:POQ]CPRAMT*[F:POQ]QTYSTU/100); Using [POH]
+If [F:POQ]EXTRCPDAT = [0/0/0]
+  Wrseq ""; Using [POH]
+Else
+  Wrseq format$("D:DD[/]MM[/]YYYY",[F:POQ]EXTRCPDAT); Using [POH]
+Endif
+Wrseq [F:POH]CREUSR;                          Using [POH]
+Wrseq ctrans(num$([F:POQ]CPRCOE),".",",");    Using [POH]
+#Wrseq [F:POP]VAT(0);                         Using [POH]
+#Wrseq [F:POP]VAT(1);                         Using [POH]
+Wrseq PALETENTERO                             Using [POH]
+
+Return
+##################################################################
+$ARTICULO
+  Read [F:ITM]ITM0=[F:POQ]ITMREF
+  Raz [F:ZMAS]
+  Read [ZMAS]ZMA0=[F:ITM]ZMASK
+Return
+##################################################################
+$OPEN_TABLAS
+If clalev([F:ZTXC])=0: Local File TEXCLOB[ZTXC]: Endif
+Local File PORDER
+Local File PORDERQ
+Local File PORDERP
+Local File ITMMASTER
+Local File ZMASCARA
+Return
+###################################################################
+$CABECERA
+Wrseq "Pedido"; Using [POH]
+Wrseq "N_lin"; Using [POH]
+Wrseq "Fecha"; Using [POH]
+Wrseq "Entrega"; Using [POH]
+Wrseq "Proveedor"; Using [POH]
+Wrseq "Inventario"; Using [POH]
+Wrseq "Cantidad"; Using [POH]
+Wrseq "Unidad_precio"; Using [POH]
+Wrseq "Precio Proveedor"; Using [POH]
+Wrseq "Dto"; Using [POH]
+Wrseq "Importe"; Using [POH]
+Wrseq "Moneda"; Using [POH]
+Wrseq "Obs"; Using [POH]
+Wrseq "Cantidad total recepcionada"; Using [POH]
+Wrseq "Cantidad total enviada (en expediciones)"; Using [POH]
+Wrseq "Flag línea saldada"; Using [POH]
+Wrseq "Peso"; Using [POH]
+Wrseq "Coste_empresa"; Using [POH]
+Wrseq "Importe_empresa"; Using [POH]
+Wrseq "Fecha_Art"; Using [POH]
+Wrseq "Usuario"; Using [POH]
+Wrseq "Arancel_1_base"; Using [POH]
+#Wrseq "Arancel_2_base"; Using [POH]
+Wrseq "Pallet entero" Using [POH]
+Return
+###################################################################3
+$CREAR_FICHERO
+If WPOH=""
+# Openo filpath("ZINT\para_bmitz","pedidos_pro","csv"),0 Using [POH]
+ Openo filpath("ZINT\ERP_to_intranet","pedidos_pro","csv"),0 Using [POH]
+Else
+# Openo filpath("ZINT\para_bmitz","PEDP"+"_"+WPOH,"csv"),0 Using [POH]
+ Openo filpath("ZINT\ERP_to_intranet","PEDP"+"_"+WPOH,"csv"),0 Using [POH]
+Endif
+Iomode adxifs ";"        Using [POH]
+#Iomode adxirs "\013\010" Using [BPS]
+Iomode adxium 50         Using [POH]
+Return
+
+###################################################################3
+$PALET
+Local Char PALETENTERO(2)
+
+If [F:POQ]ZPALENT = 2 Then
+ PALETENTERO = 'P'
+Else
+ PALETENTERO = ''
+Endif
+
+Return

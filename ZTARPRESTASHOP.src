@@ -1,0 +1,61 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+If GUSER="ADEV" Then
+  Call TARIFAS()
+Endif
+
+Subprog TARIFAS()
+
+  Gosub OPEN_TABLAS
+  Filter [F:ZSPL] Where (PLI="T10" or PLI="T20" or PLI="T30" or PLI="T40") and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+#  Filter [F:ZSPL] Where PLI="T10" and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  If rowcount([F:ZSPL])>0
+    Gosub CREAR_FICHERO
+    For [ZSPL]
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [TAR]
+  Endif
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$ESC_REGISTRO
+  If [F:ZSPL]PLI = 'T10' Then
+    Wrseq [F:ZSPL]PLICRD;                                               Using [TAR]
+  Else
+    Wrseq [F:ZSPL]PLICRI1;                                              Using [TAR]
+  Endif
+  Wrseq ctrans(space$(6-len([F:ZSPL]PLICRI2))+[F:ZSPL]PLICRI2,' ','0'); Using [TAR]
+  Wrseq ctrans(num$(format$("N0:6.3#",[F:ZSPL]PRI*100)),".",",");       Using [TAR]
+  Wrseq format$("N0:2#",[F:ZSPL]DCGVAL(0));                             Using [TAR]
+  Wrseq [F:ZSPL]CUR;                                                    Using [TAR]
+  Local Decimal MNTCNS: MNTCNS=1
+  Local Integer OKC
+  If [F:ZSPL]CUR<>"EUR"
+    Call CONVERT([F:ZSPL]CUR,"EUR","EUR",1,date$,1,MNTCNS,OKC) From TRTDEV
+  Endif
+  Wrseq ctrans(num$(format$("N0:6.5#",MNTCNS)),".",",")                 Using [TAR]
+Return
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZSPL]) Then : Local File SPRICLIST  [F:ZSPL] : Endif
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ZSPL]
+Return
+
+##################################################################
+$CREAR_FICHERO
+  # borramos el fichero si existe...
+  If filinfo(filpath("ZPSHOP\ERP_to_WEB\TAR","WTARESP","txt"), 7) > 0 Then
+    System "ae_rm " + filpath("ZPSHOP\ERP_to_WEB\TAR","WTARESP","txt")
+  Endif
+
+  Openo filpath("ZPSHOP\ERP_to_WEB\TAR","WTARESP","txt"),0 Using [TAR]
+  Iomode adxifs ";"        Using [TAR]
+  #Iomode adxirs "\013\010" Using [BPS]
+  Iomode adxium 50         Using [TAR]
+Return

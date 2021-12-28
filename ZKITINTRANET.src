@@ -1,0 +1,87 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+##################################################################
+Subprog KIT(WKIT)
+Variable Char WKIT
+Gosub OPEN_TABLAS
+Filter [F:BOH] Where (WKIT="" or ITMREF=WKIT)
+Read [F:BOH] First
+If rowcount([F:BOH])>0
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+    For [F:BOH]
+     #abraham
+     #Filter [F:BOD] Where ITMREF=[F:BOH]ITMREF
+      Filter [F:BOD] Where ITMREF=[F:BOH]ITMREF and CPNTYP=1 and BOMENDDAT=gdatetime$('0000-00-00')
+      Read [F:BOD] First
+      If !fstat Then
+        For [F:BOD]
+        Gosub DESCRIPCIONES
+        Gosub ESC_REGISTRO
+        Next
+      Endif
+    Next
+  Openo Using [BOH]
+Endif
+ Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+Local File BOM
+Local File BOMD
+Local File ATEXTRA
+
+Return
+
+###################################################################
+$CREAR_FICHERO
+If WKIT=""
+ #abraham
+ #Openo filpath("ZINT\ERP_to_intranet","KITS","csv"),0 Using [BOH]
+ Openo filpath("ZINT\ERP_to_intranet","conjuntos","csv"),0 Using [BOH]
+Else
+ #abraham
+ #Openo filpath("ZINT\ERP_to_intranet","KIT"+"_"+WKIT,"csv"),0 Using [BOH]
+ Openo filpath("ZINT\ERP_to_intranet","conjuntos"+"_"+WKIT,"csv"),0 Using [BOH]
+Endif
+
+Iomode adxifs ";"        Using [BOH]
+#Iomode adxirs "\013\010" Using [BOH]
+Iomode adxium 50         Using [BOH]
+
+Return
+
+##########################################################################
+$CABECERA
+Wrseq "n_inv_cjto"; Using [BOH]
+Wrseq "desc_cjto"; Using [BOH]
+Wrseq "n_inv_comp"; Using [BOH]
+Wrseq "desc_comp"; Using [BOH]
+Wrseq "cant_comp" Using [BOH]
+
+Return
+
+##################################################################
+$ESC_REGISTRO
+Wrseq [F:BOD]ITMREF;                           Using [BOH]
+Wrseq [F:AXX]TEXTE;                            Using [BOH]
+Wrseq [F:BOD]CPNITMREF;                        Using [BOH]
+Wrseq [F:AXX1]TEXTE;                           Using [BOH]
+Wrseq num$([F:BOD]LIKQTY)                      Using [BOH]
+
+Return
+
+###################################################################
+$DESCRIPCIONES
+If !clalev([F:AXX1]): Local File ATEXTRA[AXX1]: Endif
+
+Filter [F:AXX] Where CODFIC = 'ITMMASTER' and ZONE = 'DES1AXX' and LANGUE = 'SPA' and IDENT1 = [F:BOD]ITMREF
+Read  [F:AXX] First
+
+Filter [F:AXX1] Where CODFIC = 'ITMMASTER' and ZONE = 'DES1AXX' and LANGUE = 'SPA' and IDENT1 = [F:BOD]CPNITMREF
+Read  [F:AXX1] First
+
+Return
+$CLOSE_TABLAS
+Close Local File [F:AXX],[F:AXX1],[F:BOD],[F:BOH]
+Return

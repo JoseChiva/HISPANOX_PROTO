@@ -1,0 +1,559 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+############################################################################
+# Script name : SPEZEF
+# Description : Envio de facturas
+# Module      : Ventas
+# Version     : 1
+# Created by  : Miguel Llaja
+# Company     : Auren España
+# Created date: 30/09/2021
+############################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 23/02/2021 16:39:34 (DEVAU)
+######################################################################################
+$ACTION
+#Infbox ACTION
+Case ACTION
+  When "OUVRE"  : Gosub OUVRE
+  When "DEBUT"  : Gosub DEBUT
+  When "BOUTON" : Gosub BOUTON
+  When "SETBOUT" : Gosub SETBOUT
+  When Default
+Endcase
+Return
+
+######################################################################################
+$SETBOUT
+
+Return
+
+######################################################################################
+$COLOR_LIN
+For I = 0 To [M:ZEF]NBLIG-1
+  If ([M:ZEF]ZKCNTWEB(I) = "" or [M:ZEF]ZSALINV(I) = "") and [M:ZEF]ZMAIL = 2
+    [M:ZEF]ZSEL(I) = 1
+    Chgstl [M:ZEF]NBLIG(I)  With "MTC1"
+   Else
+    [M:ZEF]ZSEL(I) = 2
+    Chgstl [M:ZEF]NBLIG(I) With ""
+   Endif
+ Next
+Affzo [M:ZEF]
+Return
+
+######################################################################################
+$OUVRE
+Global Char GZNOMFIC(250)
+Return
+
+######################################################################################
+$DEBUT
+[M:ZEF]ZMAIL = 2
+Affzo [M:ZEF]ZMAIL
+Grizo [M:ZEF]ZDEST
+Return
+######################################################################################
+$BOUTON
+  Local Integer I,YN : YN = 1
+  Local Char ZENVIO(10) : Raz ZENVIO
+  Local Integer FSTA
+  Case BOUT
+    When "1" :
+      If   [M:ZEF]ZIMP <> 2 and [M:ZEF]ZMAIL <> 2
+        Errbox "falta tipo de emisión"
+      Else
+        Call BUSCAR()
+        Gosub COLOR_LIN
+      Endif
+    When "2" :
+      If [M:ZEF]NBLIG>0
+       If [M:ZEF]ZIMP = 2 Then
+         ZENVIO = [M:ZEF]ZDEST
+         Call OUINON("¿Deseas imprimir estas facturas?",YN) From GESECRAN
+       Endif
+       If [M:ZEF]ZMAIL = 2 Then
+         ZENVIO = "FILE"
+         Call OUINON("¿Deseas enviar esta factura por correo electrónico?",YN) From GESECRAN
+       Endif
+       If YN = 2 Then
+           For I= 0 To [M:ZEF]NBLIG - 1
+             GZNOMFIC = filpath("tmp",[M:ZEF]ZNUM(I)+"_"+[M:ZEF]ZBPCINV(I),"pdf")
+             If [M:ZEF]ZSEL(I) = 2 and [M:ZEF]ZSALINV(I) <> ""
+                Call SENDMAIL([M:ZEF]ZNUM(I),ZENVIO,[M:ZEF]ZSALINV(I),[M:ZEF]ZSALINVNBE(I),[M:ZEF]ZKCNTWEB(I))
+             Endif
+           Next
+       Endif
+      Endif
+  Endcase
+  ACTION=""
+Return
+######################################################################################
+
+######################################################################################
+#Muestra facturas no contabilizadas
+######################################################################################
+Subprog BUSCAR()
+   If !clalev([F:ZSIV1]) : Local File SINVOICEV [F:ZSIV1] : Endif
+   If !clalev([F:ZSIH1]) : Local File SINVOICE [F:ZSIH1] : Endif
+   If !clalev([F:ZBPC]) : Local File BPCUSTOMER [F:ZBPC] : Endif
+   If !clalev([F:ZTPM]) : Local File TABPRTMOD[F:ZTPM] : Endif
+   If !clalev([F:ZCNT]) : Local File CONTACT[F:ZCNT] : Endif
+   If !clalev([F:ZBPR]) : Local File BPARTNER [F:ZBPR] : Endif
+
+
+   Local Char CRITERE(250) :
+   CRITERE = "(INVSTA=3) "
+   Local Integer I : Raz I
+
+   #Planta
+   If [M:ZEF]ZFCY <> ''    :  [L]CRITERE -= "&SALFCY=[M:ZEF]ZFCY"     : Endif
+   #Factura/Abono
+   If ([M:ZEF]ZFAC = 2 and [M:ZEF]ZABO = 2) or ([M:ZEF]ZFAC <> 2 and [M:ZEF]ZABO <> 2)
+    [L]CRITERE -= "& (INVTYP=2 or INVTYP=1)"
+   Elsif [M:ZEF]ZFAC = 2 and [M:ZEF]ZABO <> 2
+    [L]CRITERE -= "& (INVTYP=1)"
+   Elsif [M:ZEF]ZFAC <> 2 and [M:ZEF]ZABO = 2
+    [L]CRITERE -= "& (INVTYP=2)"
+   Endif
+
+   #Facturas
+   If [M:ZEF]ZFACINI <> ''  :  [L]CRITERE -= "& NUM>=[M:ZEF]ZFACINI"    : Endif
+   If [M:ZEF]ZFACFIN <> ''  :  [L]CRITERE -= "& NUM<=[M:ZEF]ZFACFIN"    : Endif
+   #Clientes
+   If [M:ZEF]ZCLIINI <> ''  :  [L]CRITERE -= "& BPCINV>=[M:ZEF]ZCLIINI" : Endif
+   If [M:ZEF]ZCLIFIN <> ''  :  [L]CRITERE -= "& BPCINV<=[M:ZEF]ZCLIFIN" : Endif
+   #Fechas
+   If [M:ZEF]ZFECHAINI<> [0/0/0]  :  [L]CRITERE -= "& INVDAT>=[M:ZEF]ZFECHAINI" : Endif
+   If [M:ZEF]ZFECHAFIN<> [0/0/0]  :  [L]CRITERE -= "& INVDAT<=[M:ZEF]ZFECHAFIN" : Endif
+
+   Filter [F:ZSIV1] Where  evalue(CRITERE) Order By INVDAT Desc
+
+   For [F:ZSIV1]
+     If func STA_FAC([F:ZSIV1]NUM) = 1 and func TYP_EMI_FAC([F:ZSIV1]NUM) = 1
+       Read [F:ZSIH1]SIH0 = [F:ZSIV1]NUM
+       #[M:ZEF]ZSEL(I) = 2
+       [M:ZEF]ZTYP    (I) = [F:ZSIV1]SIVTYP
+       [M:ZEF]ZNUM       (I) = [F:ZSIV1]NUM
+       [M:ZEF]ZREF       (I) = [F:ZSIV1]INVREF
+       [M:ZEF]ZINVDAT    (I) = [F:ZSIV1]INVDAT
+       [M:ZEF]ZBPCINV    (I) = [F:ZSIV1]BPCINV
+       [M:ZEF]ZAMTNOT    (I) = [F:ZSIH1]AMTNOT
+       [M:ZEF]ZAMTATI    (I) = [F:ZSIH1]AMTATI
+       Read [F:ZBPC] = [F:ZSIV1]BPCINV
+       If !fstat
+        Read [F:ZBPR]BPR0 = [F:ZSIV1]BPCINV
+        [M:ZEF]ZBPCSHO(I) = [F:ZBPC]BPCSHO
+        [M:ZEF]ZRAZSO(I) = [F:ZBPR]BPRNAM(0)+" "+[F:ZBPR]BPRNAM(1)
+        Read [F:ZTPM]TPM0 = [F:ZBPC]TPMCOD
+        If !fstat
+          [M:ZEF]ZSALINV(I) = [F:ZTPM]SALINV
+          [M:ZEF]ZSALINVNBE(I) = [F:ZTPM]SALINVNBE
+        Endif
+       Endif
+       Filter [F:ZCNT] Where [F:ZCNT]BPATYP = 1 and [F:ZCNT]BPANUM = [F:ZSIV1]BPCINV and [F:ZCNT]CNTFNC = 15
+#       Read [F:ZCNT] First
+#       If !fstat
+#        [M:ZEF]ZKCNTWEB(I) = [F:ZCNT]WEB
+#       Else
+#        [M:ZEF]ZKCNTWEB(I) = ""
+#       Endif
+       [M:ZEF]ZKCNTWEB(I) = ""
+       Local Integer NEMAIL: Raz NEMAIL
+       For [F:ZCNT]
+        If NEMAIL=0
+          [M:ZEF]ZKCNTWEB(I) = [F:ZCNT]WEB
+        Else
+          If NEMAIL<5
+            [M:ZEF]ZKCNTWEB(I) += ","+[F:ZCNT]WEB
+          Endif
+        Endif
+        NEMAIL+=1
+       Next
+       Filter [F:ZCNT]
+
+       I+=1
+     Endif
+   Next
+   Filter [F:ZSIV1]
+   [M:ZEF]NBLIG = I
+
+   Affzo [M:ZEF]
+
+End
+
+######################################################################################
+#Marca o desmarca todos los checks
+#Parámetros P_VALOR:
+#                    1- Desmarca
+#                    2- Marca
+######################################################################################
+
+Subprog MARCAR(P_VALOR)
+  Value Integer P_VALOR
+  Local Integer J
+
+  For J=0 To [M:ZEF]NBLIG - 1
+   [M:ZEF]ZSEL (J) = P_VALOR
+   If ([M:ZEF]ZKCNTWEB(J) = "" or [M:ZEF]ZSALINV(J) = "") and [M:ZEF]ZMAIL = 2 and P_VALOR = 2
+    [M:ZEF]ZSEL (J) = 1
+   Endif
+  Next
+  Affzo [M:ZEF]
+End
+
+Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
+  Value Char P_NUM,P_ENVIO,ZMODEL,ZCORREO
+  Value Integer ZCOP
+  Local Integer YN : YN = 1
+  Local Integer NBPAR_MAX : NBPAR_MAX = 20
+  Local Char TBPAR(20)(1..NBPAR_MAX)
+  Local Char TBVAL(250)(1..NBPAR_MAX)
+  #Local Char FONCTION
+  Local Char ZINFORME(50), ZDESTINO(50)
+  Local Integer NBPAR
+  #El alias de la tabal debe ser el estándar para que lo reconozca el WF
+  If clalev([F:SIV])=0 : Local File SINVOICEV [F:SIV] : Endif
+  If clalev([F:ZSIH1])=0 : Local File SINVOICE  [F:ZSIH1] : Endif
+  If clalev([F:ARP])=0 : Local File AREPORT  [F:ARP] : Endif
+  Read [F:ARP]ARP0 = ZMODEL
+  Read [F:SIV]SIV0 = P_NUM
+  Read [F:ZSIH1]SIH0 = P_NUM
+  If !fstat  Then
+
+
+      ZINFORME = ZMODEL
+      ZDESTINO = P_ENVIO
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "sitedeb"
+      TBVAL(NBPAR) = [F:SIV]SALFCY
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "sitefin"
+      TBVAL(NBPAR) = [F:SIV]SALFCY
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "facturedeb"
+      TBVAL(NBPAR) = [F:SIV]NUM
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "facturefin"
+      TBVAL(NBPAR) = [F:SIV]NUM
+
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "clientdeb"
+      TBVAL(NBPAR) = [F:SIV]BPCINV
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "clientfin"
+      TBVAL(NBPAR) = [F:SIV]BPCINV
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "datedeb"
+      TBVAL(NBPAR) = [F:ZSIH1]ACCDAT
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "datefin"
+      TBVAL(NBPAR) = [F:ZSIH1]ACCDAT
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "typedeb"
+      TBVAL(NBPAR) = "1"
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "typefin"
+      TBVAL(NBPAR) = "5"
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "codimp"
+      If [F:SIV]STARPT = 2
+        TBVAL(NBPAR) = 'Reimpresión'#num$([F:SIV]STARPT) #vireblc(num$([F:SIV]STARPT),4)
+      Else
+        TBVAL(NBPAR) = "Impresión" #num$([F:SIV]STARPT)
+      Endif
+      NBPAR += 1
+      TBPAR(NBPAR) = "usr"
+      TBVAL(NBPAR) = GUSER
+
+      NBPAR += 1
+      TBPAR(NBPAR) = "nadxuid"
+      TBVAL(NBPAR) = vireblc(num$(adxuid(1)),4)
+
+      NBPAR+=1
+      TBPAR(NBPAR) = "ncopias"
+      #Esto varia
+      If ZDESTINO = "FILE"
+        TBVAL(NBPAR) = "0"
+      Else
+        TBVAL(NBPAR) = num$(ZCOP)
+      Endif
+      NBPAR+=1
+      TBPAR(NBPAR) = "etat"
+      TBVAL(NBPAR) = [F:ARP]RPTCOD
+
+      #The Subprog ETAT needs these parameters:
+      #1 -  Name of the report (is not the name of the rpt Crystal file)
+      #2 -  Name of the destination
+      #3 - Language, leave this blanc to use the default language
+      #4 - 0 or 1 it shows or not the info message 'print executed'
+      #5 - TBPAR_BP
+      #6 - TBVAL_BP
+
+      Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
+      If ZDESTINO = "FILE"
+        Call MRK_FAC(P_NUM,1)
+      Else
+        Call MRK_FAC(P_NUM,0)
+      Endif
+      Sleep 5
+      If ZDESTINO = "FILE" :Gosub LANZA_WORKFLOW Endif
+
+
+
+
+    Endif
+
+
+End
+
+########################################################################################################
+$LANZA_WORKFLOW
+########################################################################################################
+If !clalev([F:ZBPR2]) : Local File BPARTNER [F:ZBPR2] : Endif
+If !clalev([F:ZTCU]) : Local File TABCUR [F:ZTCU] : Endif
+# lanza un workflow para avisar de que la importación ha fallado
+Global Char GCORREO(250),GFICHERO(250),GASUNTO(250),GMENSAJE(250)
+Global Char GLINEA1(250),GLINEA2(250),GLINEA3(250),GLINEA4(250),GLINEA5(250)
+Local Char ZGUSER(10)
+Local Char TMPCORREO(50)(6) :Raz TMPCORREO
+Global Char GCORREO2(50),GCORREO3(50),GCORREO4(50),GCORREO5(50)
+Raz GCORREO,GCORREO2,GCORREO3,GCORREO4,GCORREO5
+# "contabilidad@hispanox.com"   jespert@hotmail.com
+
+ZGUSER = GUSER
+GUSER = "INVOI"
+I = func F_SPLIT(ZCORREO,",",TMPCORREO)
+#GCORREO = ZCORREO
+GCORREO =TMPCORREO(0)
+GCORREO2 =TMPCORREO(1)
+GCORREO3 =TMPCORREO(2)
+GCORREO4 =TMPCORREO(3)
+GCORREO5 =TMPCORREO(4)
+Gosub ENV_CORREO
+GUSER = ZGUSER
+If dim(GCORREO) > 0 Then : Kill GCORREO : Endif
+If dim(GCORREO2) > 0 Then : Kill GCORREO2 : Endif
+If dim(GCORREO3) > 0 Then : Kill GCORREO3 : Endif
+If dim(GCORREO4) > 0 Then : Kill GCORREO4 : Endif
+If dim(GCORREO5) > 0 Then : Kill GCORREO5 : Endif
+If dim(GFICHERO) > 0 Then : Kill GFICHERO : Endif
+If dim(GASUNTO) > 0 Then : Kill GASUNTO : Endif
+If dim(GMENSAJE) > 0 Then : Kill GMENSAJE : Endif
+If dim(GLINEA1) > 0 Then : Kill GLINEA1 : Endif
+If dim(GLINEA2) > 0 Then : Kill GLINEA2 : Endif
+If dim(GLINEA3) > 0 Then : Kill GLINEA3 : Endif
+If dim(GLINEA4) > 0 Then : Kill GLINEA4 : Endif
+If dim(GLINEA5) > 0 Then : Kill GLINEA5 : Endif
+Return
+
+########################################################################################################
+$ENV_CORREO
+########################################################################################################
+Read [F:ZBPR2]BPR0 = [F:SIV]BPCINV
+Read [F:ZTCU]TCU0 = [F:SIV]CUR
+adxsca = "...,**$_"
+# contabilidad@hispanox.com
+GFILPATH = GZNOMFIC
+If [F:ZBPR2]LAN = "SPA"
+  GASUNTO = "HX Factura "+[F:SIV]NUM+" "+[F:ZBPR2]BPRSHO
+  GLINEA1 = "Estimado cliente,"
+  GLINEA2 =  "Adjuntamos nuestra factura nº " +[F:SIV]NUM + " de fecha "+format$("D:DD[/]MM[/]YY", [F:SIV]INVDAT)+" e importe "+
+&  format$("N3vF:9.2",[F:ZSIH1]AMTNOTL)+" "+[F:ZTCU]CURSYM
+  GLINEA3 =  "Saludos cordiales,"
+  GLINEA4 = "DPTO.ADMINISTRACIÓN"
+  GLINEA5 = "HISPANOX S.A"
+Else
+  GASUNTO = "HX Invoice "+[F:SIV]NUM+" "+[F:ZBPR2]BPRSHO
+  GLINEA1 = "Dear customer,"
+  GLINEA2 =  "Please find enclosed our invoice nº " +[F:SIV]NUM + " dated "+format$("D:MM[/]DD[/]YY", [F:SIV]INVDAT)+" and amount "+
+&  format$("N3vF:9.2",[F:ZSIH1]AMTNOTL)+" "+[F:ZTCU]CURSYM
+  GLINEA3 =  "Best regards,"
+  GLINEA4 = "Administration Department"
+  GLINEA5 = "HISPANOX S.A"
+Endif
+adxsca = "....**$_"
+Call WORKFLOW (1,"ZEF","",GUSER) From AWRK
+Return
+########################################################################################################
+#Túnel factura
+Subprog B1_NBLIG
+  Local Char PARBOUT(250)(1..20)
+
+  PARBOUT(1) = [M:ZEF]ZNUM (nolign-1)
+  PARBOUT(2) = "SIH"
+  PARBOUT(3) = ""
+  GACTION    = "GOBJETC1"
+  Call OBJET_CHAR(PARBOUT(1),PARBOUT(2),PARBOUT(3)) From GOBJET
+End
+########################################################################################################
+
+#Marcar todas
+Subprog B2_NBLIG
+  Call MARCAR(2)
+End
+########################################################################################################
+
+#Desmarcar todas
+Subprog B3_NBLIG
+ Call MARCAR(1)
+End
+######################################################################################
+
+Subprog AM_ZMAIL(VALEUR)
+Variable Integer VALEUR
+If VALEUR = 2 Then
+  [M:ZEF]ZDEST = ""
+  Affzo [M:ZEF]ZDEST
+  Grizo [M:ZEF]ZDEST
+  [M:ZEF]ZIMP = 1
+  Affzo [M:ZEF]ZIMP
+  Raz [M:ZEF]NBLIG
+  Affzo [M:ZEF]15
+Endif
+
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 30/09/2021 01:27:54 (ADMIN)
+######################################################################################
+Subprog C_ZDEST(VALEUR)
+Variable Char    VALEUR()
+If VALEUR = ""
+  Errbox "Destino obligatorio"
+  mkstat = 2
+Endif
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 30/09/2021 01:31:03 (ADMIN)
+######################################################################################
+Subprog AM_ZIMP(VALEUR)
+Variable Integer VALEUR
+[M:ZEF]ZDEST = ""
+If VALEUR = 2 Then
+  [M:ZEF]ZMAIL = 1
+  Actzo [M:ZEF]ZDEST
+  Affzo [M:ZEF]ZMAIL
+  Raz [M:ZEF]NBLIG
+  Affzo [M:ZEF]15
+Else
+  Grizo [M:ZEF]ZDEST
+Endif
+Affzo [M:ZEF]ZDEST
+
+End
+
+
+######################################################################################
+Subprog MRK_FAC(ZNUM,ZMOD)
+Value Char ZNUM
+Value Integer ZMOD
+If clalev([F:ZSIH2])=0 : Local File SINVOICE  [F:ZSIH2] : Endif
+Read [F:ZSIH2]SIH0 = ZNUM
+If !fstat
+  If ZMOD = 1
+    [F:ZSIH2]ZFACM = 2
+  Else
+    [F:ZSIH2]ZFACP = 2
+  Endif
+  Rewrite [F:ZSIH2]
+Endif
+End
+
+######################################################################################
+
+Funprog STA_FAC(ZNUM)
+Value Char ZNUM
+If clalev([F:ZSIH2])=0 : Local File SINVOICE  [F:ZSIH2] : Endif
+Local Integer ZSTA : Raz ZSTA
+If [M:ZEF]ZREMI = 2
+  ZSTA = 1
+Else
+  Read [F:ZSIH2]SIH0 = ZNUM
+  If !fstat
+    If [M:ZEF]ZMAIL = 2 and [F:ZSIH2]ZFACM <> 2 : ZSTA = 1 Endif
+    If [M:ZEF]ZIMP = 2 and [F:ZSIH2]ZFACP <> 2 : ZSTA = 1 Endif
+  Endif
+Endif
+End ZSTA
+
+######################################################################################
+
+Funprog TYP_EMI_FAC(ZNUM)
+Value Char ZNUM
+If !clalev([F:ZSIV2]) : Local File SINVOICEV [F:ZSIV2] : Endif
+If clalev([F:ZBPC])=0 : Local File BPCUSTOMER[F:ZBPC] : Endif
+Local Integer ZEMI : Raz ZEMI
+
+Read [F:ZSIV2]SIV0 = ZNUM
+If !fstat
+  Read [F:ZBPC]BPC0 = [F:ZSIV2]BPCINV
+  If !fstat
+    If [F:ZBPC]ZFACM = 2 and [M:ZEF]ZMAIL = 2 : ZEMI = 1 Endif
+    If [F:ZBPC]ZFACP = 2 and [M:ZEF]ZIMP = 2 : ZEMI = 1 Endif
+  Endif
+Endif
+
+End ZEMI
+
+######################################################################################
+
+#**
+#* Split a string into an array of string
+#* Parameters:
+#* PPSTR: The complete string to split
+#* PDELIMITER: The string defined as content separator / delimiter of the string
+#* XXTMP: The array that will contains the separated strings
+#* Returned value: Number of separated elements
+#*!
+Funprog F_SPLIT(PPSTR,PDELIMITER,XXTMP)
+Value Char PPSTR
+Value Char PDELIMITER
+Variable Char XXTMP
+    Local Integer XCONTA
+    Local Integer XSTART
+    XCONTA = 0
+    XSTART = 1
+    If instr(XSTART,PPSTR,PDELIMITER) > 0 Then
+        Repeat
+            XXTMP(XCONTA) = mid$(PPSTR,XSTART,instr(XSTART,PPSTR,PDELIMITER)-XSTART)
+            XSTART = instr(XSTART,PPSTR,PDELIMITER)+1
+            XCONTA += 1
+        Until instr(XSTART,PPSTR,PDELIMITER) = 0
+    Endif
+    If XSTART <= len(PPSTR) Then
+        XXTMP(XCONTA) = mid$(PPSTR,XSTART,len(PPSTR)-XSTART+1)
+    Else
+        XCONTA = XCONTA - 1
+    Endif
+End XCONTA
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 06/10/2021 23:05:04 (ADMIN)
+######################################################################################
+Subprog C_ZSEL(VALEUR)
+Variable Integer VALEUR
+If ([M:ZEF]ZKCNTWEB(nolign-1) = "" or [M:ZEF]ZSALINV(nolign-1) = "") and [M:ZEF]ZMAIL = 2 and VALEUR = 2
+  VALEUR = 1
+  Errbox "Faltan datos"
+Endif
+End
+
+
+######################################################################################

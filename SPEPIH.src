@@ -1,0 +1,29 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara PIH3 (Especifico)
+#MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla PIH3) 12/11/2020 16:20:40 (ADMIN)
+######################################################################################
+$ACTION
+Case ACTION
+ When Default
+Endcase
+Return
+
+#------------------------------------------------------------------------------------
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If clalev([F:ITM1])=0:  Local File ITMMASTER[ITM1]: Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  [M:PIH3]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+  Affzo [M:PIH3]ZITMDES2(nolign-1)
+Endif
+
+End
+
+######################################################################################
+

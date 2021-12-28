@@ -1,0 +1,67 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+    When "EXEC"   : Call ZSGAENVIO
+Endcase
+Return
+
+Subprog ZSGAENVIO
+Local Char ZOBS (100)
+Local Integer ZID
+#creamos un registro para indicar el inicio de envio
+#Call OUVRE_TRACE(time$-"Inicio Envio",0) From LECFIC
+#ZID es la clave primaria en la tabla que lo usaremos para modificar al acabar
+
+If 1=1 Then
+If GUSER="MLGA" : Dbgaff : Endif
+#Call ZSGAITM            From ZSGAITM           #Fichero de artículos
+# Call ZSGAACC("")            From ZSGAACC           #Fichero de clientes
+#If GUSER="MLGA" : Dbgaff : Endif
+# Call ZSGASUP("")            From ZSGASUP           #Fichero de proveedores
+
+# Call ZSGAROR            From ZSGAROR           #Ordenes de entrada
+# Call ZSGASTR            From ZSGASTR           #Peticion de cada de estado de Stock
+# Call ZSGACAR            From ZSGACAR           #Agencias de Transporte
+# Call ZSGASCR            From ZSGASCR           #Petición de recuento de stock
+# Call ZSGASOR            From ZSGASOR          #Órdenes de salida
+# RECIBIDOS ----------------------------------------------------------------------------
+#
+#Call ZSGAENTROC           From ZSGAENTROC        #Cambio de estado de Ordenes de entrada
+#Call ZSGAENTREF           From ZSGAENTREF        #Finalización de Recepciones
+#Call ZSGAENTROF           From ZSGAENTROF        #Recepciones o finalización de órdenes de entrada
+#Call ZSGAENTSOF           From ZSGAENTSOF        #Finalización o cierre de órdenes de salida
+#Call ZSG#AENTERR           From ZSGAENTERR        #Errores
+#Call ZSGAENTSOC           From ZSGAENTSOC        #Cambio de estado de órdenes de salida
+#Call ZSGAENTSTV            From ZSGAENTSTV        #Variaciones de STOCK
+#Call ZSGAENTSTC            From ZSGAENTSTC        #Cambios de status
+#Call ZSGAKIT('',0)           From ZSGAKIT        #kits
+ #
+ # Call ZUNIRECEIVEFTP    From ZUNIRECEIVEFTP    #Recepcion Ficheros Ftp
+ # Call ZUNISENDFTP       From ZUNISENDFTP       #Envio Ficheros Ftp
+Endif
+#avisamos que la tarea ha acabado
+Local Char ZOK(5) : ZOK= 'OK'
+#Call ZWEBERECFIN(ZID,ZOK) From ZWEBREC
+#Infbox 'SGA-ITM'
+Call ECR_TRACE(time$-"Fin Envio",0) From GESECRAN
+
+End
+
+$ERRBATCH
+#Call ECR_TRACE(errmes$(errn)-num$(errl)-errm,1) From GESECRAN
+##Call ZMELADX(filpath("tmp","error_recarga",""),"info@fdelmoral.com","silviadelmoral@fdelmoral.com","Fallo del batch ZRECARGA",errmes$(errn)-num$(errl)-errm,"") From ZMELADX
+#If !clalev([F:ZTAR]) : Local File ZENVIOREC    [ZTAR] : Endif
+#
+#Read [ZTAR]ZTAR0= ZID
+#If fstat=0
+# Trbegin [ZTAR]
+#    [ZTAR]TREFFS= [ZTAR]TREFIS
+#    [ZTAR]TREFIO= [ZTAR]TREFIS
+#    [ZTAR]TREFFO= [ZTAR]TREFIS
+#    [ZTAR]TRERES= "ERR"
+#    Rewrite [ZTAR]
+# Commit
+#Endif
+
+End

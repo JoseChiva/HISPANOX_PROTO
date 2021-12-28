@@ -1,0 +1,282 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGAITM('') From ZSGAITM
+
+End
+
+
+Subprog ZSGAITM(WVALORITM)
+Value Char WVALORITM
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WRETORNO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+If !clalev([F:ZITM]) : Local File ITMMASTER   [ZITM] : Endif
+If !clalev([F:ZCPY]) : Local File COMPANY     [ZCPY] : Endif
+If !clalev([F:ZFCY]) : Local File FACILITY    [ZFCY] : Endif
+If !clalev([F:ZITF]) : Local File ITMFACILIT  [ZITF] : Endif
+
+If !clalev([F:ZTVC]) : Local File TABVAC      [ZTVC] : Endif
+If !clalev([F:ZTVT]) : Local File TABVAT      [ZTVT] : Endif
+
+If !clalev([F:ZITP]) : Local File ITMBPS      [ZITP] : Endif
+
+If !clalev([F:ZTUN]) : Local File TABUNIT     [ZTUN] : Endif
+If !clalev([F:ZAXX]) : Local File ATEXTRA     [ZAXX] : Endif
+
+If !clalev([F:ZITP]) : Local File ITMBPS      [ZITP] : Endif
+If !clalev([F:ZBPS]) : Local File BPSUPPLIER  [ZBPS] : Endif
+
+If !clalev([F:ZTLO]) : Local File TABLOCTYP   [ZTLO] : Endif
+If !clalev([F:ZITG]) : Local File ITMCATEG    [ZITG] : Endif
+If !clalev([F:ZNTS]) : Local File NOTE        [ZNTS] : Endif
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+WSEQ=1
+CNOMBREFILE='ITM01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+#ZSGA\SGA\ERP_to_SGA\processed
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0      Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium 0                                    Using [ZECO]
+
+WTRAZA=1
+If GTRACE=''
+  WTRAZA=2
+  Call OUVRE_TRACE('SGA Articulos') From LECFIC
+Endif
+Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('Items xmlns="urn:wms-schema"','',0,1)
+
+WFILTERITM='1=1'
+If WVALORITM<>''
+  Call OUVRE_TRACE('Articulo:'+WVALORITM) From LECFIC
+  WFILTERITM+=' & ITMREF=WVALORITM'
+Endif
+WDENTRO=1
+For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
+   WDENTRO=2
+   Call ECR_TRACE("Articulo: "+[F:ZITM]ITMREF+' '+[F:ZITM]ITMDES1,0) From GESECRAN
+     If [F:ZITM]TCLCOD='FCAD'
+      AA=func PUT_PROPXML('Item ignoreNull="1"','',1,1)
+     Else
+      AA=func PUT_PROPXML('Item ignoreNull="0"','',1,1)
+     Endif
+     AA=func PUT_PROPXML('Operation','S', 2,2)
+     AA=func PUT_PROPXML('ItemCode',[F:ZITM]ITMREF,2,2)
+     AA=func PUT_PROPXML('Owner','',2,1)
+     AA=func PUT_PROPXML('OwnerCode','OWN_HISPANOX',3,2)
+     AA=func PUT_PROPXML('/Owner','',2,1)
+     AA=func PUT_PROPXML('Description',[F:ZITM]ITMDES2, 2,2)
+     AA=func PUT_PROPXML('AltDesc',[F:ZITM]ITMDES3, 2,2)
+     AA=func PUT_PROPXML('HandlingDesc',[F:ZITM]ITMDES3, 2,2)
+     AA=func PUT_PROPXML('ShortDesc',[F:ZITM]ITMDES1, 2,2)
+
+     Filter [ZNTS] Where NTGCOD='ARTA' and ITMREF=[F:ZITM]ITMREF
+     WRETORNO=''
+     For [ZNTS]
+      WRETORNO=[F:ZNTS]NOTE
+      Break
+     Next
+
+     AA=func PUT_PROPXML('PickingMessage',WRETORNO, 2,2)
+##     AA=func PUT_PROPXML('ImageName',[F:ZITM]ITMREF+'.jpg', 2,2)
+     #AA=func PUT_PROPXML('StockLabeled','0', 2,2)
+     #UoMBase
+     AA=func PUT_PROPXML('UoMBase','',2,1)
+       AA=func PUT_PROPXML('UoMCode',[F:ZITM]STU,3,2)
+       Read [ZTUN]TUN0=[F:ZITM]STU
+       Read [ZAXX]AXX0='TABUNIT';'DES';'SPA';[F:ZITM]STU
+       AA=func PUT_PROPXML('UoMDesc',[F:ZAXX]TEXTE,3,2)
+     AA=func PUT_PROPXML('/UoMBase','',2,1)
+     #ABCClassification
+     AA=func PUT_PROPXML('ABCClassification','',2,1)
+     WCRETORNO='CONVENCIONAL'
+     If [F:ZITM]ZTUBICML<>''
+      WCRETORNO=[F:ZITM]ZTUBICML
+     Endif
+     AA=func PUT_PROPXML('ABCCode',WCRETORNO,3,2)
+     AA=func PUT_PROPXML('/ABCClassification','',2,1)
+
+     #ItmType
+     AA=func PUT_PROPXML('ItmType','',2,1)
+     AA=func PUT_PROPXML('ItmTypeCode',[F:ZITM]ZPERFIL,3,2)
+     AA=func PUT_PROPXML('/ItmType','',2,1)
+
+     #Profiles
+     AA=func PUT_PROPXML('Profiles','',2,1)
+      #LogisticPrf
+      AA=func PUT_PROPXML('LogisticPrf','',3,1)
+        WLOGPRFCODE='Normal'
+        Case [F:ZITM]TCLCOD
+          When 'FCAD' : WLOGPRFCODE='FechaCaducidad'
+          When 'KIT'  : WLOGPRFCODE='KIT'
+        Endcase
+        AA=func PUT_PROPXML('LogPrfCode',WLOGPRFCODE,4,2)
+      AA=func PUT_PROPXML('/LogisticPrf','',3,1)
+      #PutAwayPrf
+      AA=func PUT_PROPXML('PutAwayPrf','',3,1)
+        AA=func PUT_PROPXML('PutPrfCode',[F:ZITM]ZPERFIL,4,2)
+      AA=func PUT_PROPXML('/PutAwayPrf','',3,1)
+     AA=func PUT_PROPXML('/Profiles','',2,1)
+
+
+#     AA=func PUT_PROPXML('MinWarningQuantity',num$([F:ZITF]SAFSTO),2,2)
+#     If [F:ZITF]SAFSTO<>0
+#      AA=func PUT_PROPXML('MaxWarningQuantity',[F:ZITF]MAXSTO,2,2)
+#     Endif
+#     AA=func PUT_PROPXML('IsPacking','0',2,2)
+#     AA=func PUT_PROPXML('IsBulky','0',2,2)
+#     AA=func PUT_PROPXML('AllowCrossdocking','0',2,2)
+     AA=func PUT_PROPXML('AllowMixing','1',2,2)
+     #Aliases
+     AA=func PUT_PROPXML('Aliases complete="1" transactional="1"','',2,1)
+       #Alias
+       AA=func PUT_PROPXML('Alias','',3,1)
+         AA=func PUT_PROPXML('Operation','S',4,2)
+         AA=func PUT_PROPXML('AliCode',[F:ZITM]ITMDES1,4,2)
+       AA=func PUT_PROPXML('/Alias','',3,1)
+      AA=func PUT_PROPXML('Alias','',3,1)
+         AA=func PUT_PROPXML('Operation','S',4,2)
+         AA=func PUT_PROPXML('AliCode',[F:ZITM]EANCOD,4,2)
+       AA=func PUT_PROPXML('/Alias','',3,1)
+     AA=func PUT_PROPXML('/Aliases','',2,1)
+     #Conversions
+     AA=func PUT_PROPXML('Conversions complete="1" transactional="1"','',2,1)
+       #UN
+       AA=func PUT_PROPXML('Conversion','',3,1)
+       AA=func PUT_PROPXML('Operation','S',4,2)
+       AA=func PUT_PROPXML('CnvUoMCode',[F:ZITM]STU,4,2)
+       AA=func PUT_PROPXML('CnvQuantity','1',4,2)
+       If [F:ZITM]ITMWEI<>0
+         AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000),4,2)
+       Endif
+       AA=func PUT_PROPXML('/Conversion','',3,1)
+       #CAJ
+       If [F:ZITM]PCUSTUCOE<>1
+         AA=func PUT_PROPXML('Conversion','',3,1)
+         AA=func PUT_PROPXML('Operation','S',4,2)
+         Read [ZAXX]AXX0='TABUNIT';'DESSHO';'SPA';[F:ZITM]PCU
+         AA=func PUT_PROPXML('CnvUoMCode',[F:ZAXX]TEXTE,4,2)
+         AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE),4,2)
+         If [F:ZITM]ITMWEI<>0
+           AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000*[F:ZITM]PCUSTUCOE),4,2)
+         Endif
+         AA=func PUT_PROPXML('/Conversion','',3,1)
+       Endif
+
+       #Pack
+       If [F:ZITM]PCU(1)<>''
+         If [F:ZITM]PCUSTUCOE(1)<>1
+           AA=func PUT_PROPXML('Conversion','',3,1)
+           AA=func PUT_PROPXML('Operation','S',4,2)
+             AA=func PUT_PROPXML('CnvUoMCode','Pack',4,2)
+             AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE(1)),4,2)
+           If [F:ZITM]ITMWEI<>0
+             AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000*[F:ZITM]PCUSTUCOE(1)),4,2)
+           Endif
+           AA=func PUT_PROPXML('/Conversion','',3,1)
+        Endif
+       Endif
+       AA=func PUT_PROPXML('/Conversions','',2,1)
+     #CustomAttributes
+     AA=func PUT_PROPXML('CustomAttributes','',2,1)
+       CVALOR='0'
+       If [F:ZITM]ZGRAAPA=2
+        CVALOR='1'
+       Endif
+       AA=func PUT_PROPXML('CstAtt01',CVALOR,3,2)
+       CVALOR='0'
+       If [F:ZITM]ZRECML=2
+        CVALOR='1'
+       Endif
+       AA=func PUT_PROPXML('CstAtt02',CVALOR,3,2)
+       AA=func PUT_PROPXML('CstAtt03',[F:ZITM]EANCOD,3,2)
+#       AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE),3,2)
+     AA=func PUT_PROPXML('/CustomAttributes','',2,1)
+    AA=func PUT_PROPXML('/Item','',1,1)
+
+  Next
+   AA=func PUT_PROPXML('/Items','',0,1)
+  Openo Using [ZECO]
+
+  If WDENTRO<>2
+    Local Integer NFICH2
+    Local Char FICH2(250)
+    ORDSYS = "ae_rm " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml"
+    Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+    Call ECR_TRACE(CNOMBREFILE+'.xml - No Generado - No hay documntos ITM - Ficha Articulo',1) From GESECRAN
+  Else
+    Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+  Endif
+
+  Gosub MUEVE_FILE
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+  End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

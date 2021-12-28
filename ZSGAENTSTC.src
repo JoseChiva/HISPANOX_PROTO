@@ -1,0 +1,784 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#If GUSER="ADEV"
+Call ZSGAENTSTC From ZSGAENTSTC
+#Endif
+End
+
+##############################################################
+Subprog ZSGAENTSTC
+
+#Declaración de variables
+Local Char    WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
+Local Char    WFICINP1(250), FICH2(250)
+Local Integer NFICHEROS, WNESTADO, NFICH2, I
+Local Char    FICHEROS(250)(1..1000)
+Local Char    FICHEROIMP(250), FICHEROEXP(250)
+Local Integer A, LFSTATFICHERO, NFICHEROS
+Local Clbfile XDATA (10)
+
+  If !clalev([F:ZFCY]) : Local File FACILITY    [ZFCY] : Endif
+  If !clalev([F:ZITM]) : Local File ITMMASTER   [ZITM] : Endif
+  If !clalev([F:ZSTO]) : Local File STOCK       [ZSTO] : Endif
+  If !clalev([F:ZQLD]) : Local File STOQLYD     [ZQLD] : Endif
+  If !clalev([F:ZQLH]) : Local File STOQLYH     [ZQLH] : Endif
+  If !clalev([F:ZITV]) : Local File ITMMVT      [ZITV] : Endif
+
+  WFICHEROIMP='STC0*'
+#  WFICHEROIMP='ABCSTC0120200928105644000'
+  Raz NFICHEROS
+
+  WSGATMP       = "ZSGA\SGA\IMPORTX3"
+  WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
+  WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\STC"
+  WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"
+
+  CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+  LFSTATFICHERO=0
+
+  WTRAZA=1
+  For A=1 To NFICHEROS
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+
+    If instr(1,FICHEROS(1),'xml')=0
+      #Call ECR_TRACE('No existe STC0*',0) From GESECRAN
+      End
+    Endif
+
+    #Abrimos y leemos el fichero
+    Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
+    Iomode adxifs  ""                 Using [ZZZ]
+    Iomode adxirs  ""                 Using [ZZZ]
+    Iomode adxium  50                 Using [ZZZ]
+
+    Rdseq XDATA Using [ZZZ]
+#    Local Char WSITE(250), WRECCODE(250), WRORCODE(250), WSTATUS(250), WRECDATCONTAINERS(250), WRECDATDATE(250)
+#    Local Char WLNECSTATT03(250), WRECCODE(250), WRECDATCONTAINERS(250), WRECDATDATE(250), WLNENUMBER(250)
+#    Local Char WLNEITEMCODE(250), WLNEQTYRECEIVED(250), WLNEQTYUOMCODE(250), WLNEATTSOURCE(250), WLNEATTLOT(250)
+#    Local Char WLNESTOCKSTATUS(250), WLNEATTEXPDATE(250)
+#    Local Integer WM, WNLIN, WFINLIN, WFINSTO
+    Local Char    WSTATUS(250)
+    Local Char    WSITE(250),WOPERATIONACT(250),WSITEACT(250),WITEMCODE(250),WOWNERCODE(250),WQUANTITY(250)
+    Local Char    WFLTCSTATT01(250),WFLTCSTATT05(250),WSTAUSREMPTY(250),WSTAUSRPREVCODE(250),WSTAUSRCODE(250)
+    Local Char    WCFILE(250),WPREF(250),WUOMCODE(250)
+    Local Integer WNLIN,LERROR
+
+    If GTRACE=''
+      WTRAZA=2
+      Call OUVRE_TRACE ("Imp. STC - "+LNOMFICHERO) From LECFIC
+    Else
+      Call ECR_TRACE("Imp. STC - "+LNOMFICHERO,0) From GESECRAN
+    Endif
+    I=1
+    WNLIN=0
+    WOPERATIONACT=''
+    While 1=1
+      WNLIN+=1
+      WSITE =""
+      WSITE =func GET_PROPXML(XDATA,"Site",I)
+      If WSITE=''
+        Break
+      Endif
+      WSITEACT          = WSITE
+      WITEMCODE         = func GET_PROPXML(XDATA,"ItemCode",I)
+      WOWNERCODE        = func GET_PROPXML(XDATA,"OwnerCode",I)
+      WQUANTITY         = func GET_PROPXML(XDATA,"Quantity",I)
+      WUOMCODE          = func GET_PROPXML(XDATA,"UoMCode",I)
+# JC.06102021.INI
+#      WLOCATIONCODE     = func GET_PROPXML(XDATA,"LocationCode",I)
+#      WFLTCSTATT01      = func GET_PROPXML(XDATA,"FltCstAtt01",I)
+#      WFLTCSTATT05      = func GET_PROPXML(XDATA,"FltCstAtt05",I)
+#      WSTAUSRPREVCODE   = func GET_PROPXML(XDATA,"StaUsrPrevCode",I)
+#      WSTAUSRCODE       = func GET_PROPXML(XDATA,"StaUsrCode",I)
+#      WCOMMENT          = func GET_PROPXML(XDATA,"Comment",I)
+#      WCSTATT01         = func GET_PROPXML(XDATA,"CstAtt01",I)
+#      WCSTATT02         = func GET_PROPXML(XDATA,"CstAtt02",I)
+#      WCSTATT03         = func GET_PROPXML(XDATA,"CstAtt03",I)
+#      WCSTATT04         = func GET_PROPXML(XDATA,"CstAtt04",I)
+#      WCSTATT05         = func GET_PROPXML(XDATA,"CstAtt05",I)
+      WFLTCSTATT01      = func GET_PROPXML(XDATA,"FltCstAtt01",I)
+      WFLTCSTATT05      = func GET_PROPXML(XDATA,"FltCstAtt05",I)
+      WSTAUSREMPTY      = func GET_PROPXML(XDATA,"StaUsrEmpty",I)
+      WSTAUSRPREVCODE   = func GET_PROPXML(XDATA,"StaUsrPrevCode",I)
+      WSTAUSRCODE       = func GET_PROPXML(XDATA,"StaUsrCode",I)
+# JC.06102021.FIN
+
+# JC.06102021.INI
+#      Filter [ZSTO] Where ITMREF = WITEMCODE and LOT = WFLTCSTATT01 and STA = WSTAUSRPREVCODE
+#      Read [ZSTO] First
+#      If !fstat
+#        Call ECR_TRACE("No hay movimiento STOCK: ItemCode: "+WITEMCODE+' Lot:'+WFLTCSTATT01+' Quantity: '+WQUANTITY,0) From GESECRAN
+#        Filter [ZSTO]
+#      Else
+#        If [F:ZSTO]QLYCTLDEM <> ''
+#          Filter [ZQLD] Where VCRTYP = 28 and VCRNUM = [F:ZSTO]QLYCTLDEM and LOT = [F:ZSTO]LOT
+#          For [ZQLD]
+#            Delete [ZQLD]
+#          Next
+#          Rewrite [ZQLD]
+#          Filter [ZQLH] Where VCRNUM = [F:ZSTO]QLYCTLDEM
+#          For [ZQLH]
+#            Delete [ZQLH]
+#          Next
+#          Rewrite [ZQLH]
+#          [F:ZSTO]QLYCTLDEM = ''
+#          Rewrite [ZSTO]
+#        Endif
+#
+#        Openi Using [ZECO]
+#
+#        WPREF='ZSMR'
+#        Gosub OPEN_WRITE
+#        Call ECR_TRACE("Ent. Stock SGA: ItemCode: "+WITEMCODE+' Quantity: '+WQUANTITY,0) From GESECRAN
+#        Gosub CREA_EXPORT_ZSMR
+#        Sleep 1
+#        Openi Using [ZECO]
+#        WCFILE=WFICINP1+WPREF
+#        Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
+#
+#        WPREF='ZSMO'
+#        Gosub OPEN_WRITE
+#        Call ECR_TRACE("Sal. Stock SGA: ItemCode: "+WITEMCODE+' Quantity: '+WQUANTITY,0) From GESECRAN
+#        Gosub CREA_EXPORT_ZSMO
+#        Sleep 1
+#        Openi Using [ZECO]
+#        WCFILE=WFICINP1+WPREF
+#        Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
+#      Endif
+
+        mkstat = 0 : fstat = 0 : GERRTRACE = 0  # JC.06102021.NEW
+
+        WPREF='ZSCS'
+        Gosub OPEN_WRITE
+        Call ECR_TRACE("Cambio estado Stock SGA: ItemCode: "+WITEMCODE+" STA ori: "+WSTAUSRPREVCODE+" STA dest:"+WSTAUSRCODE,0) From GESECRAN
+        Gosub CREA_EXPORT_ZSCS
+        Sleep 1
+        Openi Using [ZECO]
+        WCFILE=WFICINP1+WPREF
+        Call IMPORTSIL ("ZSCS",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
+
+        If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se producen errores
+          Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
+          LERROR = 1
+        Endif
+
+# JC.06102021.FIN
+
+    Wend
+
+    Openi Using [ZZZ]
+
+    Sleep 1
+
+    # JC.06102021.INI
+    If LERROR = 1 Then
+      Gosub MUEVE_FILE_ERR
+    Else
+      Gosub MUEVE_FILE
+    Endif
+    # JC.06102021.FIN
+
+  Next
+
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+
+End
+
+##############################################################
+$OPEN_WRITE
+  Openo   filpath(WSGATMP,WFICINP1+WPREF,''),0  Using [ZECO]
+  Iomode  adxifs ""                             Using [ZECO]
+  Iomode  adxirs chr$(13) + chr$(10)            Using [ZECO]
+  Iomode  adxium 0                              Using [ZECO]
+Return
+
+##############################################################
+$CREA_EXPORT_ZSMR
+# JC.06102021.INI
+
+##ENTRADAS VARIAS
+#  Local Integer WLONG
+#  WLCOMILLAS='"'
+#  WLCOMA=';'
+#
+######### CABECERA
+# #E
+#  WLONG=1
+#  RESULT='E'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRTYP
+#  WLONG=2
+#  RESULT='19'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRNUM
+#  WLONG=1
+#  RESULT=''
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #STOFCY
+#  WLONG=5
+#  Filter [ZFCY] Where ZFCYMECALUX=WSITEACT
+#  Read [ZFCY] First
+#  RESULT=[F:ZFCY]FCY
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #IPTDAT
+#  WLONG=8
+#  RESULT= format$("YYYYMMDD",date$)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRDES
+#  WLONG=250
+#  RESULT=WCOMMENT-"SGA DOCUMENTO STC"
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #TRSCOD
+#  WLONG=1
+#  RESULT='REG'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT Using [ZECO]
+#
+######### LÍNEAS
+# #L
+#  WLONG=1
+#  RESULT='L'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRLIN
+#  WLONG=6
+#  RESULT=num$(WNLIN)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #ITMREF
+#  WLONG=250
+#  RESULT=WITEMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #STU
+#  Read [ZITM]ITM0=WUOMCODE
+#  WLONG=50
+#  RESULT=[F:ZITM]STU
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #QTYSTU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #PRI
+#  Filter [ZFCY] Where ZFCYMECALUX=WSITEACT
+#  Read [ZFCY] First
+#  Read [ZITV]ITV0=WITEMCODE;[F:ZFCY]FCY
+#  WLONG=250
+#  RESULT=num$([ZITV]AVC)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT Using [ZECO]
+#
+######### STOCK
+# #S
+#  WLONG=1
+#  RESULT='S'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #BPSLOT
+#  WLONG=250
+#  RESULT=WFLTCSTATT01
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #LOT
+#  WLONG=250
+#  RESULT=WFLTCSTATT05
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #LOC
+#  WLONG=250
+#  RESULT='SGA'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #STA
+#  WLONG=250
+#  RESULT=WSTAUSRCODE
+#  If RESULT=''
+#    RESULT='Q'
+#  Endif
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #MTVDES
+#  WLONG=250
+#  RESULT='Cambio estado STC'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT Using [ZECO]
+
+# JC.06102021.FIN
+Return
+
+
+##############################################################
+$CREA_EXPORT_ZSMO
+# JC.06102021.INI
+
+##SALIDAS VARIAS
+#  Local Integer WLONG
+#  WLCOMILLAS='"'
+#  WLCOMA=','
+#
+######### CABECERA
+# #E
+#  WLONG=1
+#  RESULT='E'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #VCRTYP
+#  WLONG=2
+#  RESULT='20'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRNUM
+#  WLONG=1
+#  RESULT=''
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #STOFCY
+#  WLONG=5
+#  Filter [ZFCY] Where ZFCYMECALUX=WSITEACT
+#  Read [ZFCY] First
+#  RESULT=[F:ZFCY]FCY
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #IPTDAT
+#  WLONG=8
+#  RESULT= format$("YYYYMMDD",date$)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #VCRDES
+#  WLONG=250
+#  RESULT=WCOMMENT-"SGA DOCUMENTO STC"
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #TRSCOD
+#  WLONG=1
+#  RESULT='REG'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+#
+######### LÍNEAS
+# #L
+#  WLONG=1
+#  RESULT='L'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #VCRLIN
+#  WLONG=6
+#  RESULT=num$(WNLIN)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #ITMREF
+#  WLONG=250
+#  RESULT=WITEMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #STU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #QTYSTU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT Using [ZECO]
+#
+######### STOCK
+# #S
+#  WLONG=1
+#  RESULT='S'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
+# #BPSLOT
+#  WLONG=250
+#  RESULT=WFLTCSTATT01
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #LOT
+#  WLONG=250
+#  RESULT=WFLTCSTATT05
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #LOC
+#  WLONG=250
+#  RESULT='SGA'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #STA
+#  WLONG=250
+#  RESULT=WSTAUSRPREVCODE
+#  If RESULT=''
+#    RESULT='Q'
+#  Endif
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #MTVDES
+#  WLONG=250
+#  RESULT='Cambio estado STC'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+
+# JC.06102021.FIN
+Return
+
+##############################################################
+# JC.06102021.NEW
+$CREA_EXPORT_ZSCS
+  Local Integer WLONG
+  Local Char    WLCOMILLAS(5),WLCOMA(5),RESULT(250)
+  WLCOMILLAS='"'
+  WLCOMA=','
+
+######## CABECERA
+ #E
+  WLONG=1
+  RESULT='E'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #VCRNUM
+  WLONG=1
+  RESULT=''
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #STOFCY
+  WLONG=5
+  Filter [ZFCY] Where ZFCYMECALUX=WSITEACT
+  Read [ZFCY] First
+  RESULT=[F:ZFCY]FCY
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #IPTDAT
+  WLONG=8
+  RESULT= format$("YYYYMMDD",date$)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRDES
+  WLONG=250
+  RESULT='Cambio estado STC'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #TRSFAM
+  WLONG=3
+  RESULT=''        # interno
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+
+######## LÍNEAS
+ #L
+  WLONG=1
+  RESULT='L'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #VCRLIN
+  WLONG=6
+  RESULT=num$(WNLIN)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #ITMREF
+  WLONG=250
+  RESULT=WITEMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #PCUSTUCOE
+  WLONG=1
+  RESULT=num$(1)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #STA
+  WLONG=5
+  RESULT=WSTAUSRPREVCODE
+  If RESULT=''
+    RESULT='Q'
+  Endif
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #LOCTYP
+  WLONG=3
+  RESULT='SGA'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #LOC
+  WLONG=3
+  RESULT='SGA'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #LOT
+  WLONG=250
+  RESULT=WFLTCSTATT05
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #OWNER
+  WLONG=5
+  Filter [ZFCY] Where ZFCYMECALUX=WSITEACT
+  Read [ZFCY] First
+  RESULT=[F:ZFCY]FCY
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+
+######## STOCK
+# #S
+#  WLONG=1
+#  RESULT='S'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
+# #QTYSTU
+#  WLONG=250
+#  RESULT=num$(WQUANTITY)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
+# #LOC
+#  WLONG=3
+#  RESULT='SGA'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #STA
+#  WLONG=250
+#  RESULT=WSTAUSRPREVCODE
+#  If RESULT=''
+#    RESULT='Q'
+#  Endif
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+# #MTVDES
+#  WLONG=250
+#  RESULT='Cambio estado STC'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+
+ #S
+  WLONG=1
+  RESULT='S'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #QTYPCU
+  WLONG=250
+  RESULT=num$(WQUANTITY)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #QTYSTU
+  WLONG=250
+  RESULT=num$(WQUANTITY)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #LOC
+  WLONG=3
+  RESULT='SGA'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #STA
+  WLONG=250
+  RESULT=WSTAUSRCODE
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #MTVDES
+  WLONG=250
+  RESULT='Cambio estado STC'
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+Return
+
+##############################################################
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGATRATADOS,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+##############################################################
+$MUEVE_FILE_ERR
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGAERROR,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+##############################################################
+$RESU_WESTADOS
+  WNESTADO=0
+  For N=1 To 8
+    If WESTADOS(N)=WSTATUS
+      WNESTADO=N
+      Break
+    Endif
+  Next
+Return
+
+##############################################################
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+Local Integer J, OLDI
+
+  OLDI=I
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          CRETORNO=seg$(XMLSTRING,I+1,J-1)
+          I+=len("\"+VARNAME)
+          End CRETORNO
+        Endif
+    Endif
+  Else
+    I=OLDI
+  Endif
+End ""
+
+###############################################################
+# JC.06102021.NEW
+#**
+#* envía correo con la traza y el fichero que ha generado el error
+#*
+#* @param PNOMFICH  > nombre del fichero STC
+#*!
+Subprog LANZA_WORKFLOW_ERRORES(PNOMFICH)
+Value Char  PNOMFICH
+  # lanza un workflow para avisar de que la importación ha fallado
+  Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+  GASUNTO   = "Error en la importación STC del fichero"-PNOMFICH
+  GCORREO   = "sergi.cunill@hispanox.com"
+#  GCORREO   = "joseluis.chiva@auren.es"
+  GFICHERO  = PNOMFICH
+  GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
+  GTEXTO2   = "Documento adjunto con la traza."
+  Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+  If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+  If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+End

@@ -1,0 +1,74 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Gosub EXEC
+End
+
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+
+##################################################################
+$EXEC
+  Gosub OPEN_TABLAS
+  Filter [F:ZITM] Where ZWEB=2
+  If rowcount([F:ZITM])>0
+    Gosub CREAR_FICHERO
+    For [ZITM]
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [STO]
+  Endif
+  Gosub CLOSE_TABLAS
+Return
+
+##################################################################
+$ESC_REGISTRO
+  Wrseq [F:ZITM]ITMREF;                   Using [STO]
+  #  Stock disponible
+  Read [F:ITG]ITG1=[F:ZITM]TCLCOD;""
+  Read [F:ITV]ITV0=[F:ZITM]ITMREF;"PHISP"
+  Raz WDISPO
+  Call STODISPO("",[F:ITV]STOFCY,[F:ZITM]ITMREF,"*","*",1,WSTA,"","","","",WDISPO) From STKLIB
+  If WDISPO*[F:ITV]AVC<1000
+   Wrseq num$(WDISPO);                    Using [STO]
+#   Wrseq "L";                             Using [STO]
+   Wrseq "T";                             Using [STO]
+  Else
+   WDISPO=arr(1000/[F:ITV]AVC,1)
+   I=find("CAJ",[F:ZITM]PCU)
+   If I
+     WCOEF=[F:ZITM]PCUSTUCOE
+   Else
+     WCOEF=1
+   Endif
+     WDISPO=[F:ZITM]PCUSTUCOE*(int(WDISPO/[F:ZITM]PCUSTUCOE))
+     Wrseq num$(WDISPO);                  Using [STO]
+     Wrseq "L";                           Using [STO]
+  Endif
+  Wrseq "EUR";                            Using [STO]
+  Wrseq "1"                               Using [STO]
+Return
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZITM])  Then : Local File ITMMASTER  [F:ZITM] : Endif
+  If !clalev([F:ITV])   Then : Local File ITMMVT     [F:ITV]  : Endif
+  If !clalev([F:ITG])   Then : Local File ITMCATEG   [F:ITG]  : Endif
+  Local Decimal WDISPO
+  Local Integer WSTA
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ZITM],[ITV],[ITG]
+Return
+
+
+##################################################################
+$CREAR_FICHERO
+  Openo filpath("ZPSHOP\ERP_to_WEB\STO","WSTOCK","txt"),0 Using [STO]
+  Iomode adxifs ";"        Using [STO]
+  #Iomode adxirs "\013\010" Using [BPS]
+  Iomode adxium 50         Using [STO]
+Return

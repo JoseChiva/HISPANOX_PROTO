@@ -1,0 +1,98 @@
+#<AdxTL>@(#)%I% Importación de datos ZMBE (WWI66884)
+$INI_IMPORT
+GERREUR = 0
+Onerrgo ERREUR From SUBIMPOBJ
+Local Date     DAT
+Local Integer  DEBUT,NUMFLD,NBL,ANOWRITE
+Local Integer  A_LIBEL, A_ER , OK_IMPRIME
+Local Char     IMPFIC(GLONABR)
+Local Integer  IMPFIN, RUPT, NBCRE, NBMOD, NBENR, NBERR, EGAL
+Local Integer  IMPFINS, SEPNUMS, INDTRT
+Local Integer  SEPNUM, DEBENR, WDEBENR
+Local Integer  SAVSTA
+Local Integer  K, IMPSTA , SAVLIG , IMPORTYP, LIGIMP
+Local Char     VALIMP(255)(500), LIGNE(255)
+Local UUident  AUUID
+Local Datetime DATTIME
+Local Blbfile  BLBIMP(1)(0..0)
+Local Clbfile  CLBIMP(1)(0..0)
+Local Char     NOMTRT(GLONADC) , TRTMSK(GLONADC) , TRTIMPORT(GLONADC)
+Local Char     NOMVAR(200)
+# Pour Setmode
+Local Shortint IADIME : IADIME = 30    : # Taille pour le Setmode
+Local Integer  INBAFF                  : # Pile/Indice
+Local Integer  IAFFCOD(0..IADIME)      : # Code instruction
+Local Char     IAFFMASK(GLONABR)(0..IADIME)  : # Abréviation écran
+Local Char     IAFFCHP(50)(0..IADIME)        : # Zone écran
+Local Integer  IAFFIND(0..IADIME)            : # Indice de la zone
+Local Char     IAFFTXT(250)(0..IADIME) : # Texte
+Local Integer  IAFFRANG(0..IADIME)     : # Rang
+Local Integer  IAFFOPT1(0..IADIME)     : # Option1 Ex: Status, premier rang affzo 10-20
+Local Integer  IAFFOPT2(0..IADIME)     : # Option2 Ex: Raccourci clavier, dernier rang affzo 10-20
+
+OK = 1
+IMPORTYP = 1
+TRTIMPORT = ""
+NOMTRT="WWI66884"
+Gosub OUVRE From SUBIMPOBJ
+If OK=0 : Return : Endif
+If OK=0 : Return : Endif
+Openi "D:\Sage\SAGEX3\folders\X3_PUB\PROTO\TMP\F1625470038886" Using [IMP]
+Raz IMPFIN, GREP, RUPT, DEBENR, NBCRE, NBMOD, NBENR, NBERR
+Raz GNBIMP, GERIMP,GNUMAOW,GNUMAOV,GMESSIMP
+OK_IMPRIME = 0
+Return
+
+$IMPORT
+WDEBENR = adxseek("IMP")
+NBENR += 1
+SAVIRS = adxirs : SAVIFS = adxifs : SAVIUM = adxium
+adxirs = IMPIRS : adxifs = IMPIFS : adxium = IMPIUM
+Call RD_SEQ(VALIMP,BLBIMP,CLBIMP,IMPFIC,SEPNUM,IMPFIN,WDEBENR) From SUBIMPOBJ
+adxirs = SAVIRS : adxifs = SAVIFS : adxium = SAVIUM
+If IMPFIN : Return : Endif
+Case SEPNUM
+ When 1 : Gosub IMPORT0
+ When 2 : Gosub IMPORT1
+Endcase
+Call AFFICHE("D:\Sage\SAGEX3\folders\X3_PUB\PROTO\TMP\F1625470038886","F1625210371416",SEPNUM,IMPFIN,NBENR) From SUBIMPOBJ
+Return
+
+$FERME
+Gosub FERME From SUBIMPOBJ
+Onerrgo
+Return
+
+$DEFAUT
+Default File [ZMBE]
+Return
+
+$IMPORT0
+Raz [F:ZMBE]
+LIGNE = VALIMP(1)
+ # Numérique: CLI_1
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBE]CLI_1 = val(LIGNE)
+ACTION='AP_IMPORT' : Gosub ACTION From SUBIMPOBJ
+Return
+
+$IMPORT1
+Raz [F:ZMBED]
+LIGNE = VALIMP(1)
+ # Numérique: CLI_1
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBED]CLI_1 = val(LIGNE)
+LIGNE = VALIMP(2)
+ # Alphanumérique: TSCCOD
+[F:ZMBED]TSCCOD = vireblc(LIGNE,2)
+If vireblc(LIGNE,2)<>vireblc(format$("K:20B",[F:ZMBED]TSCCOD),2)
+ Call TRACE2(-2,"Error formato TSCCOD K:20B"-num$(LIGNE),2) From SUBIMPOBJ
+Endif
+[F:ZMBED]TSCCOD = vireblc(format$("K:20B",[F:ZMBED]TSCCOD),1)
+LIGNE = VALIMP(3)
+ # Numérique: MBEXTRA
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBED]MBEXTRA = val(LIGNE)
+ACTION='AP_IMPORT' : Gosub ACTION From SUBIMPOBJ
+Return
+

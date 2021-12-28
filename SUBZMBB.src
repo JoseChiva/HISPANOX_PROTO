@@ -1,0 +1,51 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+#Infbox ACTION
+Case ACTION
+  When "LIENS": Gosub LIENS
+  When "INICRE": Gosub INIMOD
+  When "INIMOD": Gosub INIMOD
+  When "ANNULE": Gosub ANNULE
+Endcase
+Return
+
+$ANNULE
+If !clalev([XMBBD]): Local File ZMBBASED[XMBBD]: Endif
+Delete [XMBBD] Where TSICOD=[M:ZMBB]TSICOD
+Return
+
+$LIENS
+NBLIG = 0
+Effzo [M:ZMBB]10
+If [M:ZMBB]TSICOD="": Return: Endif
+If !clalev([ADI]): Local File ATABDIV: Endif
+If !clalev([XMBBD]): Local File ZMBBASED[XMBBD]: Endif
+Filter [F:ADI]Where NUMTAB=33
+X=0
+For [F:ADI]CODE
+  [M:ZMBB]TSCCOD2(X)=[F:ADI]CODE
+  Read [XMBBD]ZMBBD0=[M:ZMBB]TSICOD;[M:ZMBB]TSCCOD2(X)
+  If !fstat
+    [M:ZMBB]MB12(X)=[F:XMBBD]MB1
+    [M:ZMBB]MB22(X)=[F:XMBBD]MB2
+    [M:ZMBB]MB32(X)=[F:XMBBD]MB3
+  Endif
+  X+=1
+Next
+NBLIG=X
+Return
+
+$INIMOD
+If !GIMPORT Then          # JC.29062021.NEW
+  If !clalev([XMBBD]): Local File ZMBBASED[XMBBD]: Endif
+  Delete [XMBBD] Where TSICOD=[M:ZMBB]TSICOD
+  For X=0 To [M:ZMBB]NBLIG-1
+    [F:XMBBD]TSICOD=[M:ZMBB]TSICOD
+    [F:XMBBD]TSCCOD=[M:ZMBB]TSCCOD2(X)
+    [F:XMBBD]MB1=[M:ZMBB]MB12(X)
+    [F:XMBBD]MB2=[M:ZMBB]MB22(X)
+    [F:XMBBD]MB3=[M:ZMBB]MB32(X)
+    Write [F:XMBBD]
+  Next
+Endif                     # JC.29062021.NEW
+Return

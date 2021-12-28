@@ -1,0 +1,969 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#If GUSER="ADEV"
+Gosub EXEC
+#Endif
+End
+
+########################################################################
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+
+########################################################################
+$EXEC
+Global  Integer GBLOCK
+Global  Char    GBPTNUM(250),GSQHNUM(250)
+Global  Decimal GIMPPORTES
+Global  Integer GPRIORIDAD,GZFREINV
+Local   Char    LUSR(50)
+
+  LUSR  = GUSER
+  GUSER ="WEB"
+  Gosub LANZA_PROCESO
+  GUSER = LUSR
+
+  If dim(GBLOCK)      > 0 Then : Kill GBLOCK      : Endif
+  If dim(GBPTNUM)     > 0 Then : Kill GBPTNUM     : Endif
+  If dim(GSQHNUM)     > 0 Then : Kill GSQHNUM     : Endif
+  If dim(GIMPPORTES)  > 0 Then : Kill GIMPPORTES  : Endif
+  If dim(GPRIORIDAD)  > 0 Then : Kill GPRIORIDAD  : Endif
+  If dim(GZFREINV)    > 0 Then : Kill GZFREINV    : Endif
+
+Return
+
+########################################################################
+$LANZA_PROCESO
+#Declaración de variables
+Local   Char    LPSHOPRECIBIDOS(250), LPSHOPPROCESADOS(250), LPSHOPERROR(250), LPSHOPSOH(250), LFICHEROIMP(250), CFILE(250), LNOMFICHERO(250)
+Local   Integer NFICHEROS
+Local   Char    WFICINP1(250), FICHEROS(250)(1..1000), LFILE(250), LFILETMP(250)
+Local   Char    CAMPO(200)(1..7)
+Local   Integer LECOK : Raz LECOK
+Local   Integer LSTAT : Raz LSTAT
+Local   Char    LPARAMTIPODOC(20) : LPARAMTIPODOC = func AFNC.PARAM("ZTDOCWEB","")
+Local   Integer LERROR
+
+  Call OUVRE_TRACE ("Importación Pedidos PRESTASHOP")    From LECFIC
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+  WTRAZA=1
+
+  Gosub GUARDA_FICHEROSCAB_TABLA
+  Gosub GUARDA_FICHEROSLIN_TABLA
+  Gosub IDENTIFICA_PRESUPUESTOS
+  Gosub GENERA_SQH
+  Gosub GENERA_SOH
+  Gosub MUESTRA_NO_PROCESADOS
+
+  Call FERME_TRACE From LECFIC
+  If !GSERVEUR Then
+    Call LEC_TRACE From LECFIC
+  Endif
+
+  If LERROR = 1 Then
+    Call LANZA_WORKFLOW_ERRORES()
+  Endif
+
+Return
+
+########################################################
+$GUARDA_FICHEROSCAB_TABLA
+Local Char    LNUMPED(250),LCODCLI(250),LFECHA(250),LCUR(250),LCODADR(250),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO(250),LDIRENVIO2(250),LPOBENVIO(250),LPROENVIO(250),LCPENVIO(250),LPAGADO(250)
+Local Char    LZFREINV(250),LBPTNUM(250),LCUSORDREF(250),LGROPRI(250),LIMPPORTES(250),LIMPPP(250),LIMPRECFIN(250),LBASEIMP(250),LIMPIVA(250),LIMPRE(250),LTOTAL(250)
+Local Char    LIMPDESCUP(250),LCOMCLI(250),LEXTRA(250),LNOMBREENVIOCOMPLETO(250)
+
+  # tratamiento ficheros cabecera
+  LFICHEROIMP='WCPED*'
+#  LFICHEROIMP='WCPED5081083'
+  Raz NFICHEROS
+
+  LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
+  LPSHOPPROCESADOS  = "ZPSHOP\WEB_to_ERP\SOH\processed"
+  LPSHOPERROR       = "ZPSHOP\WEB_to_ERP\SOH\error"
+  LPSHOPSOH         = "ZPSHOP\WEB_to_ERP\SOH"
+
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+  CFILE=filpath(LPSHOPRECIBIDOS,LFICHEROIMP,'txt')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+
+
+  Call ECR_TRACE("Cabeceras",0) From GESECRAN
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+  WTRAZA=1
+
+  If instr(1,FICHEROS(1),'txt')=0
+    Call ECR_TRACE('No existe WCPED*',0) From GESECRAN
+    End
+  Endif
+
+  # abre tablas
+  If !clalev([F:ZOPH0]) Then : Local File ZSOHPSHOPH  [F:ZOPH0] : Endif
+  If !clalev([F:ZBPT])  Then : Local File BPCARRIER   [F:ZBPT]  : Endif
+  If !clalev([F:ZBPD])  Then : Local File BPDLVCUST   [F:ZBPD]  : Endif
+  If !clalev([F:ZBPA])  Then : Local File BPADDRESS   [F:ZBPA]  : Endif
+
+  # limpia la tabla de cabeceras
+  If !clalev([F:AXX0]) Then : Local File ZSOHPSHOPH [F:AXX0] : Endif
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZSOHPSHOPH"
+  Close Local File [AXX0]
+
+  For A=1 To NFICHEROS
+
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.txt','')
+    LFILE = filpath(LPSHOPRECIBIDOS,LNOMFICHERO,'txt')
+
+    Call ECR_TRACE("Proceso fichero"-LNOMFICHERO+".txt",0) From GESECRAN
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+    # Abre fichero original para leer
+    Openi   LFILE                     Using [ZIMPH_R]
+    Iomode  adxifs ";"                Using [ZIMPH_R]
+    Iomode  adxirs chr$(10)  Using [ZIMPH_R]
+#    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMPH_R]
+    Iomode  adxium 50                 Using [ZIMPH_R] # 50 = ASCII 0 = UTF8
+
+    LECOK = 1
+    Repeat
+      # lee el archivo
+      Rdseq LNUMPED,LCODCLI,LFECHA,LCUR,LNOMENVIO,LNOMENVIO2,LDIRENVIO,LPOBENVIO,LPROENVIO,LCPENVIO,LPAGADO,LZFREINV,
+&           LBPTNUM,LCUSORDREF,LGROPRI,LIMPPORTES,LIMPPP,LIMPRECFIN,LBASEIMP,LIMPIVA,LIMPRE,LTOTAL,LIMPDESCUP,LCODADR,LDIRENVIO2,LCOMCLI,LEXTRA     Using [ZIMPH_R]
+      If !fstat Then
+        LNUMPED     = vireblc(LNUMPED,2)    : LCODCLI   = vireblc(LCODCLI,2)    : LFECHA      = vireblc(LFECHA,2)     : LCUR        = vireblc(LCUR,2)
+        LCODADR     = vireblc(LCODADR,2)    : LNOMENVIO = vireblc(LNOMENVIO,2)  : LNOMENVIO2  = vireblc(LNOMENVIO2,2) : LDIRENVIO   = vireblc(LDIRENVIO,2)
+        LPOBENVIO   = vireblc(LPOBENVIO,2)  : LPROENVIO = vireblc(LPROENVIO,2)  : LCPENVIO    = vireblc(LCPENVIO,2)   : LPAGADO     = vireblc(LPAGADO,2)
+        LZFREINV    = vireblc(LZFREINV,2)   : LBPTNUM   = vireblc(LBPTNUM,2)    : LCUSORDREF  = vireblc(LCUSORDREF,2) : LGROPRI     = vireblc(LGROPRI,2)
+        LIMPPORTES  = vireblc(LIMPPORTES,2) : LIMPPP    = vireblc(LIMPPP,2)     : LIMPRECFIN  = vireblc(LIMPRECFIN,2) : LBASEIMP    = vireblc(LBASEIMP,2)
+        LIMPIVA     = vireblc(LIMPIVA,2)    : LIMPRE    = vireblc(LIMPRE,2)     : LTOTAL      = vireblc(LTOTAL,2)     : LIMPDESCUP  = vireblc(LIMPDESCUP,2)
+        LDIRENVIO2  = vireblc(LDIRENVIO2,2) : LCOMCLI   = vireblc(LCOMCLI,2)
+        LNOMBREENVIOCOMPLETO  = LNOMENVIO - LNOMENVIO2
+        # rellena la tabla temporal de cabeceras de pedido
+        Trbegin [F:ZOPH0]
+        [F:ZOPH0]SOHNUM     = "PW"+LNUMPED  : [F:ZOPH0]BPCORD     = LCODCLI     : [F:ZOPH0]ORDDAT     = LFECHA        : [F:ZOPH0]CUR        = LCUR
+        [F:ZOPH0]DIRENVIO   = LDIRENVIO     : [F:ZOPH0]DIRENVIO2  = LDIRENVIO2  : [F:ZOPH0]POBENVIO   = LPOBENVIO     : [F:ZOPH0]CPENVIO    = LCPENVIO
+        [F:ZOPH0]ZFREINV    = val(LZFREINV) : [F:ZOPH0]CUSORDREF  = LCUSORDREF  : [F:ZOPH0]PROENVIO   = LPROENVIO     : [F:ZOPH0]PAGADO     = val(ctrans(LPAGADO,",","."))
+        [F:ZOPH0]CODADR     = LCODADR
+        [F:ZOPH0]NOMENVIO   = left$(LNOMBREENVIOCOMPLETO,35)   : [F:ZOPH0]NOMENVIO2  = mid$(LNOMBREENVIOCOMPLETO,36,35)
+        If LCODADR = "" Then
+          [F:ZOPH0]BLOQUEO = 1
+        Else
+          [F:ZOPH0]BLOQUEO = 0
+        Endif
+
+#        # comprueba si existe la dirección del cliente, sino le pasa la primera dirección que encuentra del cliente, sino 1
+#        [F:ZOPH0]CODADR = "1"
+#        Read [F:ZBPA]BPA0 = 1;LCODCLI;LCODADR
+#        If fstat Then
+#          GBLOCK = 1
+#          Filter [F:ZBPA] Where BPANUM = LCODCLI
+#          Read [F:ZBPA] First
+#          If !fstat Then
+#            [F:ZOPH0]CODADR = [F:ZBPA]BPAADD
+#          Endif
+#          Filter [F:ZBPA]
+#        Else
+#          [F:ZOPH0]CODADR = LCODADR
+#        Endif
+        Case len(LBPTNUM)
+          When 4 : LBPTNUM  = "T"+LBPTNUM
+          When 3 : LBPTNUM  = "T0"+LBPTNUM
+          When 2 : LBPTNUM  = "T00"+LBPTNUM
+          When 1 : LBPTNUM  = "T000"+LBPTNUM
+        Endcase
+        # comprueba si existe el transportista, sino pasa el primero que encuentra para ese cliente
+        Read [F:ZBPT]BPT0 = LBPTNUM
+        If !fstat Then
+          [F:ZOPH0]BPTNUM = LBPTNUM
+        Else
+          Filter [F:ZBPD] Where BPCNUM = LCODCLI
+          Read [F:ZBPD] First
+          [F:ZOPH0]BPTNUM = [F:ZBPD]BPTNUM
+        Endif
+        [F:ZOPH0]GROPRI     = val(ctrans(LGROPRI,",","."))
+        [F:ZOPH0]IMPPORTES  = val(ctrans(LIMPPORTES,",",".")) : [F:ZOPH0]IMPPP      = val(ctrans(LIMPPP,",","."))     : [F:ZOPH0]IMPRECFIN  = val(ctrans(LIMPRECFIN,",","."))
+        [F:ZOPH0]BASEIMP    = val(ctrans(LBASEIMP,",","."))   : [F:ZOPH0]IMPIVA     = val(ctrans(LIMPIVA,",","."))    : [F:ZOPH0]IMPRE      = val(ctrans(LIMPRE,",","."))
+        [F:ZOPH0]TOTAL      = val(ctrans(LTOTAL,",","."))     : [F:ZOPH0]IMPDESCUP  = val(ctrans(LIMPDESCUP,",",".")) : [F:ZOPH0]IMPORTFLG  = "N"
+        Call LIMPIA_STR(LCOMCLI,[F:ZOPH0]COMCLI) From ZAULIB01
+
+        Write [F:ZOPH0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Else
+        LECOK = 0
+      Endif
+    Until LECOK = 0
+
+    # cierra el fichero
+    Openi Using [ZIMPH_R]
+
+    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+
+  Next
+
+  # cierra tablas
+  Close Local File [ZOPH0],[ZBPT],[ZBPD],[ZBPA]
+
+Return
+
+########################################################
+$GUARDA_FICHEROSLIN_TABLA
+Local Char    LSOHNUM(250),LITMREF(250),LQTY(250),LGROPRI(250),LDISCRGVAL1(250),LIMPORTE(250),LEXTRA(250)
+Local Integer LSOPLIN
+Local Char    LBPCORD(250)
+
+  # tratamiento ficheros líneas
+  LFICHEROIMP='WLPED*'
+#  LFICHEROIMP='WLPED5081083'
+  Raz NFICHEROS
+
+  LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
+  LPSHOPPROCESADOS  = "ZPSHOP\WEB_to_ERP\SOH\processed"
+  LPSHOPERROR       = "ZPSHOP\WEB_to_ERP\SOH\error"
+  LPSHOPSOH         = "ZPSHOP\WEB_to_ERP\SOH"
+
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+  CFILE=filpath(LPSHOPRECIBIDOS,LFICHEROIMP,'txt')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+
+  Call ECR_TRACE("Líneas",0) From GESECRAN
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+  WTRAZA=1
+
+  If instr(1,FICHEROS(1),'txt')=0
+    Call ECR_TRACE('No existe WLPED*',0) From GESECRAN
+    End
+  Endif
+
+  # abre tablas
+  If !clalev([F:ZOPD0]) Then : Local File ZSOHPSHOPD  [F:ZOPD0] : Endif
+  If !clalev([F:ZOPH0]) Then : Local File ZSOHPSHOPH  [F:ZOPH0] : Endif
+
+  # limpia la tabla de líneas
+  If !clalev([F:AXX0]) Then : Local File ZSOHPSHOPD [F:AXX0] : Endif
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZSOHPSHOPD"
+  Close Local File [AXX0]
+
+  For A=1 To NFICHEROS
+
+    Raz LSOPLIN
+
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.txt','')
+    LFILE = filpath(LPSHOPRECIBIDOS,LNOMFICHERO,'txt')
+
+    Call ECR_TRACE("Proceso fichero"-LNOMFICHERO+".txt",0) From GESECRAN
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+    # Abre fichero original para leer
+    Openi   LFILE                     Using [ZIMPD_R]
+    Iomode  adxifs ";"                Using [ZIMPD_R]
+    Iomode  adxirs chr$(10)  Using [ZIMPD_R]
+#    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMPD_R]
+    Iomode  adxium 50                 Using [ZIMPD_R] # 50 = ASCII 0 = UTF8
+
+    LECOK = 1
+    Repeat
+      LSOPLIN += 1000
+      # lee el archivo
+      Rdseq LSOHNUM,LITMREF,LQTY,LGROPRI,LDISCRGVAL1,LIMPORTE,LEXTRA     Using [ZIMPD_R]
+      If !fstat Then
+        LSOHNUM = vireblc(LSOHNUM,2)  : LITMREF     = vireblc(LITMREF,2)      : LQTY      = vireblc(LQTY,2)
+        LGROPRI = vireblc(LGROPRI,2)  : LDISCRGVAL1 = vireblc(LDISCRGVAL1,2)  : LIMPORTE  = vireblc(LIMPORTE,2)
+        LITMREF = func ZAULIB01.DEL_LEFT_CHARS(LITMREF,"0")
+
+        # busca cliente en la tabla de cabeceras
+        Read [F:ZOPH0]ZOPH0 = "PW"+LSOHNUM
+        If !fstat Then
+          LBPCORD = [F:ZOPH0]BPCORD
+        Endif
+
+        Gosub AJUSTES_CANTIDAD
+
+        # rellena la tabla temporal de líneas de pedido
+        Trbegin [F:ZOPD0]
+#        [F:ZOPD0]SOHNUM = "PW"+LSOHNUM                  : [F:ZOPD0]ITMREF     = LITMREF                           : [F:ZOPD0]QTY        = val(ctrans(LQTY,",","."))
+#        [F:ZOPD0]GROPRI = val(ctrans(LGROPRI,",","."))  : [F:ZOPD0]DISCRGVAL1 = val(ctrans(LDISCRGVAL1,",","."))  : [F:ZOPD0]IMPORTE    = val(ctrans(LIMPORTE,",","."))
+#        [F:ZOPD0]SOPLIN = LSOPLIN                       : [F:ZOPD0]BPCORD     = LBPCORD                           : [F:ZOPD0]IMPORTFLG  = "N"
+        [F:ZOPD0]SOHNUM     = "PW"+LSOHNUM                  : [F:ZOPD0]ITMREF     = LITMREF                           : [F:ZOPD0]QTY        = val(ctrans(num$(LQTYAJ),",","."))
+        [F:ZOPD0]GROPRI     = val(ctrans(LGROPRI,",","."))  : [F:ZOPD0]DISCRGVAL1 = val(ctrans(LDISCRGVAL1,",","."))  : [F:ZOPD0]IMPORTE    = val(ctrans(LIMPORTE,",","."))
+        [F:ZOPD0]SOPLIN     = LSOPLIN                       : [F:ZOPD0]BPCORD     = LBPCORD                           : [F:ZOPD0]IMPORTFLG  = "N"
+        [F:ZOPD0]ZCANTJUSTA = LCANTJUSTAAJ                  : [F:ZOPD0]SAU        = LSAU
+        Write [F:ZOPD0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Else
+        LECOK = 0
+      Endif
+    Until LECOK = 0
+
+    # cierra el fichero
+    Openi Using [ZIMPD_R]
+
+    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+
+  Next
+
+  # cierra tablas
+  Close Local File [ZOPD0],[ZOPH0]
+
+Return
+
+########################################################
+$IDENTIFICA_PRESUPUESTOS
+Local Integer LNUMLINSOH,LNUMLINIMPORT
+Local Char    LSQHNUM(250)
+
+  If !clalev([F:ZOPH1]) Then : Local File ZSOHPSHOPH  [F:ZOPH1] : Endif
+  If !clalev([F:ZOPD1]) Then : Local File ZSOHPSHOPD  [F:ZOPD1] : Endif
+  If !clalev([F:ZSQH])  Then : Local File SQUOTE      [F:ZSQH]  : Endif
+  If !clalev([F:ZSQD])  Then : Local File SQUOTED     [F:ZSQD]  : Endif
+
+  For [ZOPH1]
+    Filter [ZOPD1] Where SOHNUM = [F:ZOPH1]SOHNUM
+    LNUMLINSOH = rowcount([F:ZOPD1])
+    For [ZOPD1]
+      # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
+#      Filter [F:ZSQD] Where BPCORD = [F:ZOPD1]BPCORD and ITMREF = [F:ZOPD1]ITMREF and QTY = [F:ZOPD1]QTY and GROPRI = ([F:ZOPD1]GROPRI/100) and ORDQTY = 0
+      Filter [F:ZSQD] Where BPCORD = [F:ZOPD1]BPCORD and ITMREF = [F:ZOPD1]ITMREF and QTY = [F:ZOPD1]QTY and GROPRI = ([F:ZOPD1]GROPRI/100) and ORDQTY = 0
+&                     and QUODAT >= (date$-15) and QUODAT <= date$     # entre los presupuestos de los últimos 15 días
+      Read [F:ZSQD] First
+      If !fstat Then
+        # busca que ese presupuesto sea de tipo OW (web)
+        Filter [F:ZSQH] Where SQHNUM = [F:ZSQD]SQHNUM and SQHTYP = LPARAMTIPODOC
+        Read [F:ZSQH] First
+        # si encuentra un presupuesto web con la misma línea
+        If !fstat Then
+          # mira la fecha de validez
+          # si aún no se ha superado esa fecha, simplemente guarda en la tabla temporal el valor E (existe)
+          If [F:ZSQH]VLYDAT >= date$ Then
+            Trbegin [F:ZOPD1]
+            [F:ZOPD1]SQHNUM     = [F:ZSQD]SQHNUM
+            LSQHNUM             = [F:ZSQD]SQHNUM
+            [F:ZOPD1]SQDLIN     = [F:ZSQD]SQDLIN
+            [F:ZOPD1]IMPORTFLG  = "E"
+            LNUMLINIMPORT       += 1
+            Rewrite [F:ZOPD1]
+            If !fstat Then
+              Commit
+            Else
+              Rollback
+            Endif
+          Endif
+        Endif
+        Filter [F:ZSQH]
+      Endif
+      Filter [F:ZSQD]
+    Next
+    Filter [ZOPD1]
+    If LNUMLINSOH = LNUMLINIMPORT Then
+      [F:ZOPH1]IMPORTFLG = "E"
+    Endif
+    [F:ZOPH1]SQHNUM = LSQHNUM
+    Trbegin [F:ZOPH1]
+    Rewrite [F:ZOPH1]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+
+  Close Local File [ZOPH1],[ZOPD1],[ZSQD],[ZSQH]
+Return
+
+########################################################
+$GENERA_SQH
+
+  If !clalev([F:ZOPH2]) Then : Local File ZSOHPSHOPH  [F:ZOPH2] : Endif
+  If !clalev([F:ZOPD2]) Then : Local File ZSOHPSHOPD  [F:ZOPD2] : Endif
+  If !clalev([F:ZBPT2]) Then : Local File BPCARRIER   [F:ZBPT2] : Endif
+  If !clalev([F:ZBPD2]) Then : Local File BPDLVCUST   [F:ZBPD2] : Endif
+
+  Filter [F:ZOPH2] Where IMPORTFLG = "N"
+  For [ZOPH2]
+    Local Char LFECHA(10), LHORA(10)
+    LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+    LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,2)
+
+    LFILETMP = filpath(LPSHOPSOH,"","")
+    LFILETMP = LFILETMP+"\importSQH_"+[F:ZOPH2]SOHNUM+"_"+LFECHA+LHORA+".txt"
+
+    # borramos el fichero si existe...
+    If filinfo(LFILETMP, 7) > 0 Then
+      System "ae_rm " + LFILETMP
+    Endif
+
+    # abre el fichero
+    Gosub OPEN_FILEQ_W
+
+    Local Decimal LDTOPP,LPORTES
+    Gosub DIR_ENTREGA
+    Gosub TRANSPORTE
+    Gosub ELEM_FACT
+
+    # datos de cabecera de presupuesto
+    Wrseq "E" + ";" + "PHISP" + ";" + LPARAMTIPODOC + ";" + "" + ";" + [F:ZOPH2]BPCORD + ";" + num$([F:ZOPH2]ORDDAT) + ";" + [F:ZOPH2]CUSORDREF + ";" + "PHISP" + ";" +
+&         [F:ZOPH2]CUR + ";" + LCODADR + ";" + LNOMENVIO + ";" + LNOMENVIO2 + ";" + LDIRENVIO1 + ";" + LDIRENVIO2 + ";" +
+&         LPOBENVIO + ";" + LPROENVIO + ";" + LCPENVIO + ";" + GBPTNUM + ";" + num$(LPORTES) + ";" + "1" + ";" + "2" + ";" + num$(LDTOPP) + ";" + "3" + ";" + "3" +
+&         ";" + [F:ZOPH2]SOHNUM + ";" + num$(GZFREINV) + ";" + [F:ZOPH2]COMCLI Using [ZIMPQ_W]
+
+    Local Integer OK_LIN
+    # datos de las líneas de presupuesto
+    Filter [F:ZOPD2] Where IMPORTFLG = "N" and SOHNUM = [F:ZOPH2]SOHNUM
+    For [ZOPD2]
+      OK_LIN = 1
+#      Local Decimal LQTYLIN
+#      Local Integer LZCANTJUSTA
+#      Local Char    LSAU(10)
+#      Call DATOS_LINEA([F:ZOPD2]ITMREF,"PHISP",[F:ZOPD2]QTY,LZCANTJUSTA,LQTYLIN,LSAU)
+#      If LQTYLIN = 0 Then : LQTYLIN = [F:ZOPD2]QTY : Endif
+#      Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + LSAU + ";" + num$(LQTYLIN) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
+#&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$(LZCANTJUSTA) Using [ZIMPQ_W]
+      Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + [F:ZOPD2]SAU + ";" + num$([F:ZOPD2]QTY) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
+&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$([F:ZOPD2]ZCANTJUSTA) Using [ZIMPQ_W]
+      Trbegin [F:ZOPD2]
+      [F:ZOPD2]IMPORTFLG = "Q"   # línea procesada
+      Rewrite [F:ZOPD2]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Next
+    Filter [F:ZOPD2]
+    # cierra el fichero
+    Gosub CLOSE_FILEQ_W
+
+    If OK_LIN = 1 Then
+      # si se han procesado líneas para ese pedido, se actualiza el estado de la cabecera a procesado
+      Trbegin [F:ZOPH2]
+      [F:ZOPH2]IMPORTFLG = "Q"   # cabecera procesada
+      Rewrite [F:ZOPH2]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+
+      # lanza la importación
+      Call IMPORTSIL ("ZSQHPSDP",LFILETMP)From GIMPOBJ
+
+      # mueve el fichero
+      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
+        LERROR = 1
+        Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
+        If filinfo(LFILETMP+".err", 7) > 0 Then
+          Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
+        Endif
+        Call MOVE(LFILETMP,filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS                # mueve el fichero .err con errores en la importación
+        System "ae_rm " + LFILETMP                                                      # borra el fichero .txt que ha dado errores
+        Call ECR_TRACE("########################################################################",0) From GESECRAN
+        Call ECR_TRACE("Error en la importación del presupuesto " + GSQHNUM + " para el cliente"-[F:ZOPH2]BPCORD,1) From GESECRAN
+      Else
+        Call MOVE(LFILETMP,filpath(LPSHOPPROCESADOS,"",""),LSTAT) From ORDSYS           # mueve el fichero txt a la carpeta de procesados
+        Call ECR_TRACE("Presupuesto " + GSQHNUM + " creado para el cliente"-[F:ZOPH2]BPCORD,0) From GESECRAN
+      Endif
+
+      Call ECR_TRACE("########################################################################",0) From GESECRAN
+      Call ECR_TRACE("    ",0) From GESECRAN
+    Endif
+
+  Next
+  Filter [F:ZOPH2]
+
+  Close Local File [ZOPH2],[ZOPD2],[ZBPT2],[ZBPD2]
+Return
+
+########################################################
+$OPEN_FILEQ_W
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILETMP Using [ZIMPQ_W]
+
+Return
+
+########################################################
+$CLOSE_FILEQ_W
+
+Openo Using [ZIMPQ_W]
+
+Return
+
+########################################################
+$GENERA_SOH
+Local Char LPTE(250)
+
+  If !clalev([F:ZITM3]) Then : Local File ITMMASTER   [F:ZITM3] : Endif
+  If !clalev([F:ZBPC3]) Then : Local File BPCUSTOMER  [F:ZBPC3] : Endif
+  If !clalev([F:ZOPH3]) Then : Local File ZSOHPSHOPH  [F:ZOPH3] : Endif
+  If !clalev([F:ZOPD3]) Then : Local File ZSOHPSHOPD  [F:ZOPD3] : Endif
+
+#  Filter [F:ZOPH3] Where IMPORTFLG = "Q"
+  Filter [F:ZOPH3] Where IMPORTFLG = "Q" or IMPORTFLG = "E"
+  For [ZOPH3]
+    Local Char LFECHA(10), LHORA(10)
+    LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+    LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,2)
+
+    LFILETMP = filpath(LPSHOPSOH,"","")
+    LFILETMP = LFILETMP+"\importSOH_"+[F:ZOPH3]SOHNUM+"_"+LFECHA+LHORA+".txt"
+
+    # borramos el fichero si existe...
+    If filinfo(LFILETMP, 7) > 0 Then
+      System "ae_rm " + LFILETMP
+    Endif
+
+    # abre el fichero
+    Gosub OPEN_FILEO_W
+
+    # busca la condición de pago
+    Read [F:ZBPC3]BPC0 = [F:ZOPH3]BPCORD
+    If !fstat Then
+      LPTE = [F:ZBPC3]PTE
+    Endif
+
+    # datos de cabecera de pedido
+    Wrseq "E" + ";" + "PHISP" + ";" + "PW" + ";" + [F:ZOPH3]SOHNUM + ";" + [F:ZOPH3]BPCORD + ";" + num$([F:ZOPH3]ORDDAT) + ";" + [F:ZOPH3]CUSORDREF + ";" + "PHISP" + ";" +
+&         [F:ZOPH3]CUR + ";" + [F:ZOPH3]SQHNUM + ";" + LPTE + ";" + "1" + ";" + num$(GPRIORIDAD)   Using [ZIMPO_W]
+    Trbegin [F:ZOPH3]
+    [F:ZOPH3]IMPORTFLG = "P"   # cabecera procesada
+    Rewrite [F:ZOPH3]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+
+    # datos de las líneas de pedido
+#    Filter [F:ZOPD3] Where IMPORTFLG = "Q" and SOHNUM = [F:ZOPH3]SOHNUM
+    Filter [F:ZOPD3] Where (IMPORTFLG = "Q" or IMPORTFLG = "E") and SOHNUM = [F:ZOPH3]SOHNUM
+    For [ZOPD3]
+#      Local Decimal LQTYLIN
+#      Local Integer LZCANTJUSTA
+#      Local Char    LSAU(10)
+#      Call DATOS_LINEA([F:ZOPD3]ITMREF,"PHISP",[F:ZOPD3]QTY,LZCANTJUSTA,LQTYLIN,LSAU)
+#      If LQTYLIN = 0 Then : LQTYLIN = [F:ZOPD3]QTY : Endif
+#      Wrseq "L" + ";" + num$([F:ZOPD3]SOPLIN) + ";" + [F:ZOPD3]ITMREF + ";" + "PHISP" + ";" + LSAU + ";" + num$(LQTYLIN) + ";" +
+#&           num$([F:ZOPD3]GROPRI/100) + ";" + num$([F:ZOPD3]DISCRGVAL1) + ";" + "4" + ";" + [F:ZOPD3]SQHNUM + ";" + num$([F:ZOPD3]SQDLIN) + ";" + num$(LZCANTJUSTA) Using [ZIMPO_W]
+      Wrseq "L" + ";" + num$([F:ZOPD3]SOPLIN) + ";" + [F:ZOPD3]ITMREF + ";" + "PHISP" + ";" + [F:ZOPD3]SAU + ";" + num$([F:ZOPD3]QTY) + ";" +
+&           num$([F:ZOPD3]GROPRI/100) + ";" + num$([F:ZOPD3]DISCRGVAL1) + ";" + "4" + ";" + [F:ZOPD3]SQHNUM + ";" + num$([F:ZOPD3]SQDLIN) + ";" + num$([F:ZOPD3]ZCANTJUSTA) Using [ZIMPO_W]
+      Trbegin [F:ZOPD3]
+      [F:ZOPD3]IMPORTFLG = "P"   # línea procesada
+      Rewrite [F:ZOPD3]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Next
+    Filter [F:ZOPD3]
+
+    # cierra el fichero
+    Gosub CLOSE_FILEO_W
+
+    # lanza la importación
+    Call IMPORTSIL ("ZSOHPSDP",LFILETMP)From GIMPOBJ
+
+    # mueve el fichero
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
+      LERROR = 1
+      Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
+      If filinfo(LFILETMP+".err", 7) > 0 Then
+        Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
+      Endif
+      Call MOVE(LFILETMP,filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS                # mueve el fichero .err con errores en la importación
+      System "ae_rm " + LFILETMP                                                      # borra el fichero .txt que ha dado errores
+      Call ECR_TRACE("########################################################################",0) From GESECRAN
+      Call ECR_TRACE("Error en la importación del pedido " + [F:ZOPH3]SOHNUM + " para el cliente"-[F:ZOPH3]BPCORD,1) From GESECRAN
+    Else
+      Call MOVE(LFILETMP,filpath(LPSHOPPROCESADOS,"",""),LSTAT) From ORDSYS           # mueve el fichero txt a la carpeta de procesados
+      Call ECR_TRACE("Pedido " + [F:ZOPH3]SOHNUM + " creado para el cliente"-[F:ZOPH3]BPCORD,0) From GESECRAN
+    Endif
+
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+    Call ECR_TRACE("      ",0) From GESECRAN
+
+  Next
+  Filter [F:ZOPH3]
+
+  Close Local File [ZITM3],[ZOPH3],[ZOPD3],[ZBPC3]
+
+Return
+
+########################################################
+$OPEN_FILEO_W
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILETMP Using [ZIMPO_W]
+
+Return
+
+########################################################
+$CLOSE_FILEO_W
+
+Openo Using [ZIMPO_W]
+
+Return
+
+########################################################
+$MUESTRA_NO_PROCESADOS
+  If !clalev([F:ZOPH4]) Then : Local File ZSOHPSHOPH  [F:ZOPH4] : Endif
+  Filter [F:ZOPH4] Where IMPORTFLG = 'N'
+  For [ZOPH4]
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+    Call ECR_TRACE("El pedido"-[F:ZOPH4]SOHNUM-"para el cliente"-[F:ZOPH4]BPCORD-"no ha podido procesarse",1) From GESECRAN
+  Next
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+  Filter [F:ZOPH4]
+  Close Local File [ZOPH4]
+Return
+
+########################################################
+$DIR_ENTREGA
+Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2(250),LPOBENVIO(250),LPROENVIO(250),LCPENVIO(250)
+  LNOMENVIO   = [F:ZOPH2]NOMENVIO
+  LNOMENVIO2  = [F:ZOPH2]NOMENVIO2
+  LDIRENVIO1  = left$([F:ZOPH2]DIRENVIO,50)
+  LDIRENVIO2  = left$([F:ZOPH2]DIRENVIO2,50)
+  LPOBENVIO   = left$([F:ZOPH2]POBENVIO,40)
+  LPROENVIO   = left$([F:ZOPH2]PROENVIO,35)
+  LCPENVIO    = [F:ZOPH2]CPENVIO
+  If !clalev([F:BPD0]) Then : Local File BPDLVCUST [F:BPD0] : Endif
+  If !clalev([F:BPA0]) Then : Local File BPADDRESS [F:BPA0] : Endif
+  Read [F:BPD0]BPD0 = [F:ZOPH2]BPCORD;[F:ZOPH2]CODADR
+  If !fstat Then
+    Read [F:BPA0]BPA0 = 1;[F:BPD0]BPCNUM;[F:BPD0]BPAADD
+    LNOMENVIO   = [F:BPD0]BPDNAM(0)
+    LNOMENVIO2  = [F:BPD0]BPDNAM(1)
+    LDIRENVIO1  = left$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),50)
+    LDIRENVIO2  = mid$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),51,50)
+    LPOBENVIO   = left$([F:BPA0]CTY,40)
+    LPROENVIO   = left$([F:BPA0]SAT,35)
+    LCPENVIO    = [F:BPA0]POSCOD
+    LCODADR     = [F:ZOPH2]CODADR
+  Else
+    If !clalev([F:BPD1]) Then : Local File BPDLVCUST [F:BPD1] : Endif
+    Filter [F:BPD1] Where BPCNUM = [F:ZOPH2]BPCORD
+    Read [F:BPD1] First
+    If !fstat Then
+      LCODADR   = [F:BPD1]BPAADD
+    Endif
+    Filter [F:BPD1]
+    Close Local File [BPD1]
+  Endif
+  Close Local File [BPD0],[BPA0]
+Return
+
+########################################################
+$TRANSPORTE
+
+  If !clalev([F:ZBPC0]) Then : Local File BPCUSTOMER  [F:ZBPC0] : Endif
+  If !clalev([F:ZBPD0]) Then : Local File BPDLVCUST   [F:ZBPD0] : Endif
+  Read [F:ZBPC0]BPC0 = [F:ZOPH2]BPCORD
+  If [F:ZOPH2]CODADR <> "" Then
+    Read [F:ZBPD0]BPD0 = [F:ZBPC0]BPCNUM;[F:ZOPH2]CODADR
+  Else
+    Read [F:ZBPD0]BPD0 = [F:ZBPC0]BPCNUM;[F:ZBPC0]BPDADD
+  Endif
+
+  Case [F:ZOPH2]ZFREINV
+    When 0
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes
+      # si imp_portes = 0 -> freinv pedido = freinv ficha cliente
+      If [F:ZOPH2]IMPPORTES = 0 Then
+        GZFREINV  = [F:ZBPC0]FREINV
+      # si imp_portes > 0 -> freinv pedido = facturado
+      Elsif [F:ZOPH2]IMPPORTES > 0 Then
+        GZFREINV  = 1
+      Endif
+      # transportista
+      # si transportista ficha cliente <> SUS MEDIOS (T0077) -> trasnportista pedido = transportista ficha cliente
+      If [F:ZBPD0]BPTNUM <> "T0077" Then
+        GBPTNUM   = [F:ZBPD0]BPTNUM
+      # si transportista ficha cliente = SUS MEDIOS -> trasnportista pedido = en blanco
+      Else
+        GBPTNUM   = ""
+      Endif
+    When 1
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes pedido = freinv ficha cliente
+      GZFREINV    = [F:ZBPC0]FREINV
+      # trasnportista pedido = transportista ficha cliente
+      GBPTNUM     = [F:ZBPD0]BPTNUM
+    When 2
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes pedido = sus medios
+      GZFREINV    = 9
+      # trasnportista pedido = agencia pedido web
+      GBPTNUM     = [F:ZOPH2]BPTNUM
+    When 3
+      # prioridad entrega = urgente
+      GPRIORIDAD  = 2
+      # facturación portes pedido = facturado
+      GZFREINV    = 1
+      # trasnportista pedido = agencia pedido web
+      GBPTNUM     = [F:ZOPH2]BPTNUM
+  Endcase
+
+  Close Local File [ZBPC0],[ZBPD0]
+
+  Gosub CALCULA_PORTES
+
+Return
+
+########################################################
+$ELEM_FACT
+  If !clalev([F:BPC1]) Then : Local File BPCUSTOMER [F:BPC1] : Endif
+  Read [F:BPC1]BPC0 = [F:ZOPH2]BPCORD
+  If !fstat Then
+    LDTOPP = [F:BPC1]INVDTAAMT(2)
+  Endif
+  Close Local File [BPC1]
+Return
+
+########################################################
+Subprog DATOS_LINEA(PITMREF,PFCY,PQTYORI,PZCANTJUSTA,PQTYLIN,PSAU)
+#Value     Char    PITMREF,PFCY
+#Value     Decimal PQTYORI
+#Variable  Integer PZCANTJUSTA
+#Variable  Decimal PQTYLIN
+#Variable  Char    PSAU
+#
+#Local Decimal LCANTCAJA,LSTOCKREAL
+#
+#  If !clalev([F:ZITM2]) Then : Local File ITMMASTER   [F:ZITM2] : Endif
+#  Read [F:ZITM2]ITM0 = PITMREF
+#  PSAU = [F:ZITM2]SAU
+#
+#  LCANTCAJA   = func ZAULIB01.CANTIDAD_CAJA([F:ZITM2]ITMREF)
+#  LSTOCKREAL  = func ZAULIB01.GET_PHYSTO([F:ZITM2]ITMREF,PFCY)
+#  # Si la cantidad NO és multiple de caja (CAJ) y además el artículo tiene el check ZCANTJUSTA activado --> Activar campo ZCANTJUSTA en Sí
+#  If mod(PQTYORI,LCANTCAJA) <> 0 Then
+#    If [F:ZITM2]ZCANTJUSTA = 2 Then
+#      PZCANTJUSTA = 2
+#    # Si la cantidad NO és multiple de caja (CAJ) y además el artículo NO tiene el check ZCANTJUSTA activado
+#    Else
+#      # Si hay un resto de cantidad en stock real suficiente para servir la cantidad indicada --> Activar campo ZCANTJUSTA en Sí
+#      If LSTOCKREAL > 0 and (LSTOCKREAL / LCANTCAJA) <= PQTYORI Then
+#        PZCANTJUSTA = 2
+#      # Si la cantidad stock real es inferior a la caja (CAJ) --> Activar campo ZCANTJUSTA en Sí
+#      Elsif LSTOCKREAL > 0 and LSTOCKREAL < LCANTCAJA
+#        PZCANTJUSTA = 2
+#      # Si no es caso a) ni b) --> Redondear la cantidad línea a una cantidad múltiple de caja (siempre redondeo superior) En este caso el campo ZCANTJUSTA se deja en No
+#      Else
+#        If (PQTYORI / LCANTCAJA) < 0 Then
+#          PQTYLIN = LCANTCAJA
+#        Else
+#          PQTYLIN = (LCANTCAJA * (arr(PQTYORI/LCANTCAJA,1)+1))
+#        Endif
+#        PZCANTJUSTA = 1
+#      Endif
+#    Endif
+#  Endif
+#  Close Local File [ZITM2]
+End
+
+###############################################################
+$CALCULA_PORTES
+Local Integer LCON
+Local Char    LSTA(1)
+Local Char    S_PAIS(250)
+Local Char    S_CIUDAD(250)
+Local Char    S_CODIGO_POSTAL(250)
+Local Char    S_REGION(5)
+Local Char    S_TRANSPORTISTA(250)
+Local Decimal F_PESOS
+Local Decimal F_VOLUMEN
+Local Decimal F_IMPORTE_TRANSPORTE
+Local Char    S_EXPLICACION_CALCULO (1)
+Local Integer I_STAT
+Local Char    S_UNIWEI(10)
+Local Char    S_UNIVOL(10)
+Local Integer YESNO : YESNO = 1
+Local Decimal LORDNOT
+
+  If !clalev([F:ZSFI])  Then : Local File SFOOTINV    [F:ZSFI]  : Endif
+  If !clalev([F:ZBPA])  Then : Local File BPADDRESS   [F:ZBPA]  : Endif
+  If !clalev([F:ZBPD])  Then : Local File BPDLVCUST   [F:ZBPD]  : Endif
+  If !clalev([F:ZITM])  Then : Local File ITMMASTER   [F:ZITM]  : Endif
+  If !clalev([F:ZOPD4]) Then : Local File ZSOHPSHOPD  [F:ZOPD4] : Endif
+
+  Read [F:ZSFI]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
+    Read [F:ZBPA]BPA0=1;[F:ZOPH2]BPCORD;LCODADR
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA]CRY
+      S_CIUDAD        = [F:ZBPA]CTY
+      S_CODIGO_POSTAL = [F:ZBPA]POSCOD
+    Endif
+  Endif
+
+  S_TRANSPORTISTA     = GBPTNUM
+
+  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+    Case GZFREINV
+      When 1
+        #Facturados, calculo de la tarifa de transporte
+        If S_TRANSPORTISTA <> "" Then
+          Filter [F:ZOPD4] Where SOHNUM = [F:ZOPH2]SOHNUM
+          For [ZOPD4]
+            #Me sitúo en el artículo
+            Read [F:ZITM]ITM0 = [F:ZOPD4]ITMREF
+            If !fstat Then
+              S_UNIWEI = [F:ZITM]WEU
+              S_UNIVOL = [F:ZITM]VOU
+            Endif
+#            #Paso todo a KG
+            F_PESOS    += [F:ZITM]ITMWEI*[F:ZOPD4]QTY
+#            #Paso todo a M3
+            F_VOLUMEN  += [F:ZITM]ITMVOU*[F:ZOPD4]QTY
+            LORDNOT    += [F:ZOPD4]IMPORTE
+          Next
+          Filter [F:ZOPD4]
+
+          Call TRANSPORT(S_TRANSPORTISTA,[F:ZOPH2]BPCORD,GZFREINV,"PHISP",S_PAIS,S_CIUDAD,
+&                       S_CODIGO_POSTAL,[F:ZOPH2]CUR,1,[F:ZOPH2]ORDDAT,LORDNOT,
+&                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+#If GUSER="ADEV" Then
+#Infbox num$(S_TRANSPORTISTA)
+#Infbox num$([F:ZOPH2]BPCORD)
+#Infbox num$(GZFREINV)
+#Infbox num$("PHISP")
+#Infbox num$(S_PAIS)
+#Infbox num$(S_CIUDAD)
+#Infbox num$(S_CODIGO_POSTAL)
+#Infbox num$([F:ZOPH2]CUR)
+#Infbox num$(1)
+#Infbox num$([F:ZOPH2]ORDDAT)
+#Infbox num$(LORDNOT)
+#Infbox num$(S_UNIWEI)
+#Infbox num$(F_PESOS)
+#Infbox num$(S_UNIVOL)
+#Infbox num$(F_VOLUMEN)
+#Infbox num$(S_REGION)
+#Infbox num$(F_IMPORTE_TRANSPORTE)
+#Infbox num$(S_EXPLICACION_CALCULO)
+#Infbox num$(I_STAT)
+#Endif
+
+          If find(I_STAT,0,4,5) Then
+            LPORTES = F_IMPORTE_TRANSPORTE
+          Else
+            LPORTES = 0
+          Endif
+        Endif
+
+      When 8
+        #Facturación manual, no hago nada
+        LPORTES = [F:ZOPH2]IMPPORTES
+
+      When Default
+        #Todos los demás casos, no se facturan portes
+        LPORTES = 0
+    Endcase
+  Endif
+
+  Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM],[ZOPD4]
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+  If dim(LSTA) > 0 Then : Kill LSTA : Endif
+Return
+
+###############################################################
+$AJUSTES_CANTIDAD
+Local Integer LCANTJUSTAAJ
+Local Decimal LQTYAJ,LCOEF
+Local Decimal LSTK,LTOT,LDEC
+Local Integer LENT
+Local Char    LSAU(50)
+
+  If !clalev([F:ZITM4]) Then : Local File ITMMASTER [F:ZITM4] : Endif
+  If !clalev([F:ZITV4]) Then : Local File ITMMVT    [F:ZITV4] : Endif
+
+  LCANTJUSTAAJ  = 1
+  LQTYAJ        = val(LQTY)
+
+
+  Read [F:ZITM4]ITM0 = LITMREF
+  If !fstat Then
+    LSAU = [F:ZITM4]SAU
+    If func ZAULIB01.NO_MULTIPLO_CAJA(LITMREF,val(LQTY),LCOEF) = 1 Then
+      # si la cantidad no es múltiple de caja y el artículo acepta cantidad justa
+      If [F:ZITM4]ZCANTJUSTA = 2 Then
+        LCANTJUSTAAJ  = 2
+      # si la cantidad no es múltiple de caja y el artículo no acepta cantidad justa
+      Else
+        Read [F:ZITV4]ITV0 = LITMREF;"PHISP"
+        LSTK = [F:ZITV4]PHYSTO
+        If LCOEF > 0 Then
+          LTOT = LSTK / LCOEF
+          LENT = LSTK / LCOEF
+        Endif
+        LDEC = LTOT - LENT
+        LRES = LDEC * LCOEF
+        # a) si hay un resto de cantidad en stock real suficiente para servir la cantidad indicada
+        If LRES >= val(LQTY) Then
+          LCANTJUSTAAJ  = 2
+        Else
+          # b) si la cantidad de stock real es inferior a la caja
+          If LSTK < LCOEF Then
+            ZCANTJUSTAAJ  = 2
+            LQTYAJ        = val(LQTY)
+          # si no es a) ni b)
+          Else
+            LCANTJUSTAAJ  = 1
+            If LCOEF > 0 Then
+              LENT      = val(LQTY) / LCOEF
+            Endif
+            LQTYAJ      = LCOEF * (LENT+1)
+          Endif
+        Endif
+      Endif
+    Endif
+  Endif
+
+  Close Local File [ZITM4],[ZITV4]
+Return
+
+###############################################################
+#**
+#* envía correo con la traza y el fichero que ha generado el error
+#*
+#* @param PNUMPED  > número del pedido
+#*!
+Subprog LANZA_WORKFLOW_ERRORES()
+  # lanza un workflow para avisar de que la importación ha fallado
+  Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+  GASUNTO   = "Error en la importación de pedido desde Prestashop"
+  GCORREO   = "sergi.cunill@hispanox.com"
+#  GCORREO   = "joseluis.chiva@auren.es"
+  GTEXTO1   = "Errores producidos en el tratamiento de pedidos desde Prestashop"
+  GTEXTO2   = "Documento adjunto con la traza."
+  Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+  If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+  If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+End

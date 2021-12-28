@@ -1,0 +1,100 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+##################################################################
+Subprog NOTAS(WNTS)
+Variable Char WNTS
+Gosub OPEN_TABLAS
+Filter [F:NTS] Where (WNTS="" or CODE=WNTS)
+Read [F:NTS] First
+If rowcount([F:NTS])>0
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+    For [F:NTS]
+      Gosub DESCRIPCIONES
+      Gosub ESC_REGISTRO
+    Next
+  Openo Using [NTS]
+Endif
+Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+Local File NOTE
+
+Return
+
+###################################################################
+$CREAR_FICHERO
+If WNTS=""
+ Openo filpath("ZINT\ERP_to_intranet","NOTAS","csv"),0 Using [NTS]
+Else
+ Openo filpath("ZINT\ERP_to_intranet","NOTA"+"_"+WNTS,"csv"),0 Using [NTS]
+Endif
+
+Iomode adxifs ";"        Using [NTS]
+#Iomode adxirs "\013\010" Using NTS
+Iomode adxium 50         Using [NTS]
+
+Return
+
+##########################################################################
+$CABECERA
+Wrseq "Nota código"; Using [NTS]
+Wrseq "Clave"; Using [NTS]
+Wrseq "Categoría"; Using [NTS]
+Wrseq "Descripción"; Using [NTS]
+Wrseq "Artículo"; Using [NTS]
+Wrseq "Cliente"; Using [NTS]
+Wrseq "Código"; Using [NTS]
+Wrseq "Nota"; Using [NTS]
+Wrseq "Fecha modificación" Using [NTS]
+
+Return
+
+##################################################################
+$ESC_REGISTRO
+
+####AMG.STR 31/08/2021 AUREN
+Local Clbfile CADENA(200)(10)
+CADENA=[F:NTS]NOTE
+CADENA=func REPLACE(CADENA,chr$(13),"\r")
+CADENA= func REPLACE(CADENA,chr$(10),"\n ")
+###AMG.FIN
+
+Wrseq [F:NTS]NTSCOD;                            Using [NTS]
+Wrseq [F:NTS]NTSCOD2;                           Using [NTS]
+Wrseq [F:NTS]NTGCOD;                            Using [NTS]
+Wrseq [F:AXX]TEXTE;                             Using [NTS]
+Wrseq [F:NTS]ITMREF;                            Using [NTS]
+Wrseq [F:NTS]BPCNUM;                            Using [NTS]
+Wrseq [F:NTS]CODE;                              Using [NTS]
+##AMG.STR 31/08/2021
+#Wrseq [F:NTS]NOTE;                             Using [NTS]
+Wrseq CADENA;                                   Using [NTS]
+##AMG.FIN
+Wrseq num$([F:NTS]UPDDAT)                       Using [NTS]
+
+Return
+
+###################################################################
+$DESCRIPCIONES
+Filter [F:AXX] Where CODFIC = 'NOTCATEG' and ZONE = 'NTGDESAXX' and LANGUE = 'SPA' and IDENT1 = num$([F:NTS]NTGTYP) and IDENT2 = [F:NTS]NTGCOD
+Read  [F:AXX] First
+
+Return
+
+####AMG.STR 31/08/2021
+Funprog REPLACE(TEXTO,CADB,CADR)
+Value Char TEXTO, CADB, CADR
+    Local Integer WPE
+    WPE=instr (1,TEXTO,CADB)
+    While WPE<>0
+        TEXTO=left$(TEXTO,WPE-1)+CADR+right$(TEXTO,WPE+len(CADB))
+        WPE=instr(WPE+len(CADR),TEXTO,CADB)
+    Wend
+End TEXTO
+####AMG.FIN 31/08/2021
+
+$CLOSE_TABLAS
+Close Local File [F:AXX],[F:NTS]
+Return

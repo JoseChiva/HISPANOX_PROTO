@@ -1,0 +1,248 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGAACC('') From ZSGAACC
+
+End
+
+
+Subprog ZSGAACC(WVALORBPC)
+Value Char WVALORBPC
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULTADO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+If !clalev([F:ZBPC]) : Local File BPCUSTOMER  [ZBPC] : Endif
+If !clalev([F:ZBPR]) : Local File BPARTNER    [ZBPR] : Endif
+If !clalev([F:ZBCG]) : Local File BPCCATEG    [ZBCG] : Endif
+If !clalev([F:ZBPD]) : Local File BPDLVCUST   [ZBPD] : Endif
+If !clalev([F:ZBPA]) : Local File BPADDRESS   [ZBPA] : Endif
+If !clalev([F:ZTCY]) : Local File TABCOUNTRY  [ZTCY] : Endif
+If !clalev([F:ZCNT]) : Local File CONTACT     [ZCNT] : Endif
+If !clalev([F:ZAIN]) : Local File CONTACTCRM  [ZAIN] : Endif
+If !clalev([F:ZAXX]) : Local File ATEXTRA     [ZAXX] : Endif
+If !clalev([F:ZNTS]) : Local File NOTE        [ZNTS] : Endif
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+WSEQ=1
+CNOMBREFILE='ACC01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0  Using [ZECO]
+Iomode adxifs chr$(9)                                     Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                         Using [ZECO]
+Iomode adxium 0                                           Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('Accounts xmlns="urn:wms-schema"','',0,1)
+
+WFILTERBPC='1=1'
+WTRAZA=1
+If GTRACE=''
+  WTRAZA=2
+  Call OUVRE_TRACE('SGA Clientes') From LECFIC
+Else
+  Call ECR_TRACE('SGA Clientes',0) From GESECRAN
+Endif
+Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+If WVALORBPC<>''
+
+  WFILTERBPC+=' & BPCNUM=WVALORBPC'
+Endif
+For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
+  Read [ZBPR]BPR0=[ZBPC]BPCNUM
+   Call ECR_TRACE("Cliente: "+[F:ZBPC]BPCNUM+' '+[F:ZBPR]BPRNAM,0) From GESECRAN
+
+   AA=func PUT_PROPXML('Account ignoreNull="0"','',1,1)
+     AA=func PUT_PROPXML('Operation','S', 2,2)
+     AA=func PUT_PROPXML('AccountCode',[F:ZBPC]BPCNUM,2,2)
+     CNAME=func REPLACE([F:ZBPR]BPRSHO, '&', '&amp;')
+     AA=func PUT_PROPXML('Name',CNAME,2,2)
+     CDESCRIPTION=func REPLACE([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1), '&', '&amp;')
+     AA=func PUT_PROPXML('Description',CDESCRIPTION,2,2)
+     #AccountType
+#     AA=func PUT_PROPXML('AccountType','',2,1)
+#     AA=func PUT_PROPXML('AccCode',[F:ZBPC]BCGCOD,3,2)
+#   #  Read [ZBCG]BCG0=[F:ZBPC]BCGCOD
+#     Read [ZAXX]AXX0='BPCCATEG';'DESAXX';'SPA';[F:ZBPC]BCGCOD
+#     AA=func PUT_PROPXML('AccDesc',[F:ZAXX]TEXTE,3,2)
+#     AA=func PUT_PROPXML('/AccountType','',2,1)
+#     #PreferredCarrier
+#     AA=func PUT_PROPXML('PreferredCarrier','',2,1)
+#     Read [F:ZBPD]BPD0=[F:ZBPC]BPCNUM;[F:ZBPC]BPDADD
+#     AA=func PUT_PROPXML('PrfCarrierCode',[F:ZBPD]BPTNUM,3,2)
+#     AA=func PUT_PROPXML('/PreferredCarrier','',2,1)
+     #Address
+     AA=func PUT_PROPXML('Address','',2,1)
+       Read [ZBPA]BPA0=1;[F:ZBPC]BPCNUM;[F:ZBPC]BPAADD
+       CTEXTO=[F:ZBPA]BPAADDLIG(0)
+       CADDLINE01=func REPLACE(CTEXTO,'&','&amp;')
+       AA=func PUT_PROPXML('AddLine01',CADDLINE01,3,2)
+       CTEXTO=[F:ZBPA]BPAADDLIG(1)
+       CADDLINE02=func REPLACE(CTEXTO,'&','&amp;')
+       AA=func PUT_PROPXML('AddLine02',CADDLINE02,3,2)
+       AA=func PUT_PROPXML('AddZipCode',[F:ZBPA]POSCOD,3,2)
+       AA=func PUT_PROPXML('AddCity',[F:ZBPA]CTY,3,2)
+       AA=func PUT_PROPXML('AddState',[F:ZBPA]SAT,3,2)
+       Read [ZAXX]AXX0='TABCOUNTRY';'CRYDES';'SPA';[F:ZBPA]CRY
+       AA=func PUT_PROPXML('AddCountry',[F:ZAXX]TEXTE,3,2)
+    AA=func PUT_PROPXML('/Address','',2,1)
+    #Contact
+    AA=func PUT_PROPXML('Contact','',2,1)
+    Read [ZCNT]CNT0=1;[F:ZBPC]BPCNUM;[F:ZBPR]CNTNAM
+    If !fstat
+      Read First
+    Endif
+    Read [ZAIN]AIN0=[F:ZBPR]CNTNAM
+    If [F:ZBPR]CNTNAM<>''
+       AA=func PUT_PROPXML('CntName',[F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,3,2)
+       AA=func PUT_PROPXML('CntPhone',[F:ZCNT]TEL,3,2)
+       AA=func PUT_PROPXML('CntFax',[F:ZCNT]FAX,3,2)
+    Else
+       AA=func PUT_PROPXML('CntName','',3,2)
+       AA=func PUT_PROPXML('CntPhone','',3,2)
+       AA=func PUT_PROPXML('CntFax','',3,2)
+
+    Endif
+    AA=func PUT_PROPXML('/Contact','',2,1)
+    #CustomAttributes
+    AA=func PUT_PROPXML('CustomAttributes','',2,1)
+     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM
+     WRETORNO=''
+     For [ZNTS]
+      WRETORNO=[F:ZNTS]NOTE
+      Break
+     Next
+#     If WRETORNO<>''
+      AA=func PUT_PROPXML('CstAtt01',WRETORNO,3,2)
+#     Endif
+     WCRESULTADO='Español'
+      If [F:ZBPR]LAN<>'SPA'
+        WCRESULTADO='Ingles'
+      Endif
+      AA=func PUT_PROPXML('CstAtt02',WCRESULTADO,3,2)
+    AA=func PUT_PROPXML('/CustomAttributes','',2,1)
+   AA=func PUT_PROPXML('/Account','',1,1)
+  Next
+   AA=func PUT_PROPXML('/Accounts','',0,1)
+  Openo Using [ZECO]
+  Gosub MUEVE_FILE
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+
+Funprog REPLACE(STR, OLD, NEW)
+    Value Clbfile STR()
+    Value Char OLD()
+    Value Char NEW()
+    Local Integer LENOLD
+    Local Integer LENNEW
+
+    #length of string to substitute
+    LENOLD= len(OLD)
+    #length of string that will substitute OLD string
+    LENNEW= len(NEW)
+
+    If LENOLD<=0 or LENOLD>len(STR)
+        #the string to substitute is empty or it is longer than initial string, so we do nothing
+        End STR
+    Endif
+
+    Local Integer INDEX
+    Local Integer INDEXSTART
+
+    #We search the string to substitute
+    INDEX=instr(1,STR,OLD)
+
+    While INDEX>0
+        #INDEX>0 this means that we have found an occurrence of OLD
+        #We substitute OLD occurrence with the NEW string
+        STR =left$(STR, INDEX-1) + NEW + right$(STR, INDEX+LENOLD)
+
+        #We calc the index to which the NEW string just inserted ends
+        INDEXSTART=INDEX+LENNEW
+
+        #We search the string to substitute starting from the end of last found occurrence
+        INDEX=instr(INDEXSTART,STR,OLD)
+    Wend
+End STR
+#############################################################################
+
+#############################################################################
+# Author: SageDev.it
+# Wrapper of REPLACE(STR, OLD, NEW)
+# It substitutes all OLD occurrence with NEW
+# the STR parameter is a CHAR(), not a clob
+#############################################################################
+Funprog REPLACESTR(STR, OLD, NEW)
+    Value Char STR()
+    Value Char OLD()
+    Value Char NEW()
+
+    Local Char RET(250)
+    Local Clbfile STRCLB(1)
+    STRCLB = STR
+    RET = func REPLACE(STRCLB, OLD, NEW)
+End RET
+#############################################################################

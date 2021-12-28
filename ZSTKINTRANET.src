@@ -1,0 +1,118 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = "2128"
+#Call STOCK(NUM)
+#End
+Subprog STOCK(WSTK)
+Variable Char WSTK
+Gosub OPEN_TABLAS
+   Filter [STO] Where (WSTK="" or ITMREF=WSTK) Order By ITMREF
+   Read [STO] First
+   If rowcount([STO])>0
+     Gosub CREAR_FICHERO
+     Gosub CABECERA
+     For [STO]
+         Gosub ARTICULO
+         Gosub ESC_REGISTRO
+     Next
+     Openo Using [STO]
+   Endif
+   Gosub CLOSE_TABLAS
+End
+##################################################################
+$OPEN_TABLAS
+Local File STOCK
+Local File ITMMASTER
+Local File STOLOT
+#Local File PRESP
+#Local File PRESPD
+#Local File ZPRESP
+#Local File ZPRESPD
+
+Return
+###################################################################
+$CREAR_FICHERO
+Openo filpath("ZINT\ERP_to_intranet","inventario","csv"),0 Using [STO]
+Iomode adxifs ";"        Using [STO]
+#Iomode adxirs "\013\010" Using [SDH]
+Iomode adxium 50         Using [STO]
+
+Return
+###################################################################
+$CABECERA
+
+Wrseq "N_Inv"; Using [STO]
+Wrseq "Familia"; Using [STO]
+Wrseq "Stock"; Using [STO]
+Wrseq "Ubic"; Using [STO]
+Wrseq "Tipo"; Using [STO]
+Wrseq "Lote interno"; Using [STO]
+Wrseq "Fecha"; Using [STO]
+Wrseq "Proveedor"; Using [STO]
+Wrseq "Serie"; Using [STO]
+Wrseq "Estado Stock"; Using [STO]
+Wrseq "Unidad de stock" Using [STO]
+
+
+Return
+###################################################################
+$ARTICULO
+Local Char FAMILIA,PROVEEDOR
+Local Char SQLSENT(250)(4)
+Local Char ZITMREF(20)
+Local Decimal SDHQTY
+Local Char ZSTOCOU
+
+Read [ITM]ITM0 = [STO]ITMREF
+If !fstat Then
+   FAMILIA = [ITM]ITMDES2
+Endif
+Filter [STL] Where ITMREF = [STO]ITMREF and LOT = [STO]LOT
+Read [STL] First
+If !fstat
+  PROVEEDOR = [STL]BPSNUM
+Endif
+
+
+
+ZITMREF=[STO]ITMREF
+ZSTOCOU=num$([STO]STOCOU)
+
+SQLSENT(1) = "SELECT SUM(QTYSTUACT_0) AS SUMQTYSTU "
+SQLSENT(2) = "FROM "+nomap+".STOALL "
+SQLSENT(3) = "WHERE VCRTYP_0=4 AND ITMREF_0='" + ZITMREF + "' AND STOCOU_0='"+ZSTOCOU+"'  "
+
+For (Decimal SUMQTYSTU) From "5" Sql SQLSENT(1..3) As [Y00]
+SDHQTY = [F:Y00]SUMQTYSTU
+Next
+
+
+Return
+
+###################################################################
+$ESC_REGISTRO
+
+If [STO]QTYSTUACT-SDHQTY>0
+
+Wrseq [STO]ITMREF; Using [STO]
+Wrseq FAMILIA; Using [STO]
+#Wrseq num$([STO]QTYSTUACT); Using [STO] #stock
+Wrseq num$([STO]QTYSTUACT-SDHQTY); Using [STO] #stock
+Wrseq [STO]LOC; Using [STO]
+Wrseq [STO]LOCTYP; Using [STO]
+Wrseq [STO]LOT; Using [STO]
+#Wrseq format$("YYYYMMDD",date$); Using [STO]
+#Wrseq format$("DD/MM/AAAA",[STO]LASRCPDAT); Using [STO]
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[STO]LASRCPDAT); Using [STO]
+Wrseq PROVEEDOR; Using [STO]
+Wrseq [STO]BPSLOT; Using [STO]
+Wrseq [STO]STA; Using [STO]
+Wrseq [ITM]STU Using [STO]
+
+Endif
+
+Return
+
+$CLOSE_TABLAS
+Close Local File [F:ITM],[F:STO], [F:STL]
+Return

@@ -1,0 +1,152 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Local Char LNUM : LNUM = "020640"
+Infbox func DEL_LEFT_CHARS(LNUM,"0")
+End
+
+Funprog DEL_LEFT_CHARS(PSTRING,PCHAR)
+Value Char    PSTRING,PCHAR
+Local Integer LCON,LNUMCHARS
+Local Char    LPIECE(250)
+  For LCON=1 To len(PSTRING)
+    LPIECE = mid$(PSTRING,LCON,1)
+    If LPIECE = PCHAR Then
+      LNUMCHARS += 1
+    Else
+      Break
+    Endif
+  Next
+End mid$(PSTRING,LNUMCHARS+1,len(PSTRING))
+
+#Local Char    PPRHNUM(50),PITMREF(50)
+#Local Integer PPRELIN
+#Local Decimal PQTY
+#
+#  PPRHNUM = "VP2100203"
+#  PITMREF = "2129"
+#  PPRELIN = 1
+#  PQTY    = 300
+#  Call ELIMINA_LINEA_VP(PPRHNUM,PPRELIN,PITMREF,PQTY)
+#End
+#
+#Subprog ELIMINA_LINEA_VP(PPRHNUM,PPRELIN,PITMREF,PQTY)
+#Value Char    PPRHNUM,PITMREF
+#Value Integer PPRELIN
+#Value Decimal PQTY
+#
+#Local Integer LRET
+#Local Char    LSOHORI(50),LORDDAT(15),LSOHNUM(50)
+#Local Integer LSOPLIN,LSOPSEQ,LSOPLIN,LSOPSEQ
+#Local File ITMMASTER
+#
+## 1.- desasignar la línea del VP
+#  Call DELALL(3,PPRHNUM,PPRELIN,0,PITMREF,0,PQTY,PQTY,LRET) From STKALL
+#  If LRET<>0 Return Endif
+#
+## 2.- borrar la línea del VP
+#  If !clalev([F:ZPRE]) Then : Local File STOPRED [F:ZPRE] : Endif
+#  Read [F:ZPRE]PRE0 = PPRHNUM;PPRELIN
+#  If !fstat Then
+#    LSOHNUM = [F:ZPRE]ORINUM
+#    LSOPLIN = [F:ZPRE]ORILIN
+#    LSOPSEQ = [F:ZPRE]ORISEQ
+#    Trbegin [F:ZPRE]
+#    Delete [F:ZPRE]
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#  Endif
+#  Close Local File [ZPRE]
+#  If !clalev([F:ZSOH]) Then : Local File SORDER   [F:ZSOH] : Endif
+#  If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
+#  If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP] : Endif
+#  Read [F:ZSOH]SOH0 = LSOHNUM
+#  Read [F:ZSOQ]SOQ0 = LSOHNUM;LSOPLIN;LSOPSEQ
+#  Read [F:ZSOP]SOP0 = LSOHNUM;LSOPLIN;LSOPSEQ
+#
+## 3.- reasignar la línea del pedido
+#  Trbegin [F:ZSOQ]
+#  [F:ZSOQ]OPRQTY    = 0
+#  [F:ZSOQ]OPRQTYSTU = 0
+#  Rewrite [F:ZSOQ]
+#  If !fstat Then
+#    Commit
+#    Call UPD_ASIG_SOH(LSOHNUM,LSOPLIN,LSOPSEQ,[F:ZSOQ]STOFCY,[F:ZSOQ]SHIDAT) From ZAULIB01
+#  Else
+#    Rollback
+#  Endif
+#
+### 4.- borrar la línea del pedido lanzando el modelo de importación y poniendo la cantidad a 0
+##  LDIRIMPORTTMP = filpath("ZSGA\SGA\IMPORTX3","","")
+##
+##  mkstat = 0 : fstat = 0 : GERRTRACE = 0
+##
+##  LFILETXT = LDIRIMPORTTMP + "\tmp_del_lin_soh.txt"
+##
+##  # borramos el fichero si existe...
+##  If filinfo(LFILETXT, 7) > 0 Then
+##    System "ae_rm " + LFILETXT
+##  Endif
+##
+##  adxifs = ";"
+##  adxirs = chr$(13)+chr$(10)
+##  Openo LFILETXT Using [ZIMP]
+##
+##  Local Char LDD(2),LMM(2),LYYYY(4)
+##  LDD   = mid$([F:ZSOH]ORDDAT,7,4)
+##  LMM   = mid$([F:ZSOH]ORDDAT,5,2)
+##  LYYYY = left$([F:ZSOH]ORDDAT,4)
+##
+##  Wrseq "E" + ";" + [F:ZSOH]SALFCY + ";" + [F:ZSOH]SOHTYP + ";" + [F:ZSOH]SOHNUM + ";" + [F:ZSOH]BPCORD + ";" + num$(LYYYY+LMM+LDD) + ";" + [F:ZSOH]CUSORDREF + ";" +
+##&       [F:ZSOH]STOFCY + ";" + [F:ZSOH]CUR Using [ZIMP]
+##  Wrseq "L" + ";" + num$([F:ZSOQ]SOPLIN) + ";" + [F:ZSOQ]ITMREF + ";" + [F:ZSOP]STOFCY + ";" + [F:ZSOP]SAU + ";" + num$(0) + ";" + num$([F:ZSOQ]QTY) + ";" +
+##&       num$(0) + ";" + num$([F:ZSOP]GROPRI) + ";" + num$(0) + ";" + num$([F:ZSOQ]QTY) + ";" + num$(0) Using [ZIMP]
+##
+##  # cerramos el fichero
+##  Openo Using [ZIMP]
+##
+##  Call UPD_DEASIG_SOH(LSOHNUM,LSOPLIN,LSOPSEQ)
+##
+##  # lanzamos la importación
+##  Call IMPORTSIL ("ZSOHSOF",LFILETXT)From GIMPOBJ
+##
+##  Close Local File [ZSOH],[ZSOQ],[ZSOP]
+##
+##Infbox "paso 4"
+##Call LEC_TRACE From LECFIC
+#End
+#
+#Subprog UPD_DEASIG_SOH(NUM,LIN,SEQ,LSTOFCY,LSHIDAT)
+#Value Char NUM,LSTOFCY
+#Value Integer LIN,SEQ
+#Value Date    LSHIDAT
+#Local Integer FGSERVEUR : FGSERVEUR=GSERVEUR
+#  GSERVEUR = 1
+#  Gosub INIT From FUNDESALL
+#  [M:DIA]STOFCY = LSTOFCY
+#  [M:DIA]SHIDAT = LSHIDAT
+#  [M:DIA]SOHNUMDEB = NUM
+#  [M:DIA]SOHNUMFIN = NUM
+#  [M:DIA]ALLCRITENT = "[F:SOQ]SOPLIN="+ num$(LIN)
+#  Gosub EXEC From FUNDESALL
+#  Gosub TERMINE From FUNDESALL
+#  GSERVEUR = FGSERVEUR
+#End
+#
+#Subprog UPD_ASIG_SOH(NUM,LIN,SEQ,LSTOFCY,LSHIDAT)
+#Value Char NUM,LSTOFCY
+#Value Integer LIN,SEQ
+#Value Date    LSHIDAT
+#Local Integer FGSERVEUR : FGSERVEUR=GSERVEUR
+#Local Char PARAM(60)(7)
+#  PARAM(1) = LSTOFCY
+#  PARAM(2) = LSHIDAT
+#  PARAM(3) = NUM
+#  PARAM(6) = "[F:SOQ]SOPLIN="+ num$(LIN)
+#  GSERVEUR = 1
+#  Gosub INIT From FUNAUTALL
+#  Gosub EXEC From FUNAUTALL
+#  Gosub TERMINE From FUNAUTALL
+#  GSERVEUR = FGSERVEUR
+#End

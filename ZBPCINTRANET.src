@@ -1,0 +1,555 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = '0100004'
+#0100004
+#0100026
+#Call CLIENTES(NUM)
+#End
+##################################################################
+Subprog CLIENTES(WBPC)
+Variable Char WBPC
+Gosub OPEN_TABLAS
+Filter [F:BPC] Where (WBPC="" or BPCNUM=WBPC)
+Read [F:BPC] First
+If rowcount([F:BPC])>0
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+  For [F:BPC]
+    Gosub CLIENTE_REPRESENTANTE_TRANSPORTISTA
+    Gosub DIRECCION
+    Gosub DESCRIPCIONES
+    Gosub TARIFAS
+    Gosub NOTAS
+    Gosub RIESGO
+    Gosub ESC_REGISTRO
+    Gosub FILTROS
+  Next
+  Openo Using [BPC]
+Endif
+Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+Local File BPCUSTOMER
+Local File BPADDRESS
+Local File BPARTNER
+Local File BPDLVCUST
+Local File BPCARRIER
+Local File SPRICLIST
+Local File ATEXTRA
+Local File NOTE
+Local File BPCUSTMVT
+Local File TEXCLOB
+Local File GACCDUDATE
+Local File STAT
+
+Return
+
+###################################################################
+$CREAR_FICHERO
+If WBPC=""
+ Openo filpath("ZINT\ERP_to_intranet","clientes","csv"),0 Using [BPC]
+Else
+ Openo filpath("ZINT\ERP_to_intranet","cliente"+"_"+WBPC,"csv"),0 Using [BPC]
+Endif
+
+Iomode adxifs ";"        Using [BPC]
+#Iomode adxirs "\013\010" Using [BPC]
+Iomode adxium 50         Using [BPC]
+
+Return
+
+##########################################################################
+$CABECERA
+Wrseq "Código"; Using [BPC]
+Wrseq "Mote"; Using [BPC]
+Wrseq "Rsoc"; Using [BPC]
+Wrseq "Rsoc2"; Using [BPC]
+Wrseq "Dir_1"; Using [BPC]
+Wrseq "Dir_2"; Using [BPC]
+Wrseq "Dir_3"; Using [BPC]
+Wrseq "Cpost"; Using [BPC]
+Wrseq "Población"; Using [BPC]
+Wrseq "Provincia"; Using [BPC]
+Wrseq "NIF"; Using [BPC]
+Wrseq "Tel"; Using [BPC]
+Wrseq "Fax"; Using [BPC]
+Wrseq "Email_1"; Using [BPC]
+Wrseq "Zona (Zona geográfica)"; Using [BPC]
+Wrseq "Desc_Zona"; Using [BPC]
+Wrseq "Tipo Detallado Cliente"; Using [BPC]  #amg tsccod(1)
+Wrseq "Desc_Tipo detallado cliente"; Using [BPC] #amg lngmes
+Wrseq "Repre"; Using [BPC]
+Wrseq "Nom_Repre"; Using [BPC]
+Wrseq "Forma de pago"; Using [BPC]
+Wrseq "Desc_Forma_Pago"; Using [BPC]
+Wrseq "1er Giro"; Using [BPC]
+Wrseq "DP_1"; Using [BPC]
+Wrseq "DP_2"; Using [BPC]
+Wrseq "DP_3"; Using [BPC]
+Wrseq "Cod_Cli_fra"; Using [BPC]
+Wrseq "Portes"; Using [BPC]   #amg freinv mostrar datos menú local
+Wrseq "Imp_Portes"; Using [BPC]
+Wrseq "Ag_Portes_D"; Using [BPC]
+Wrseq "Desc_Ag_Portes_P"; Using [BPC]
+Wrseq "Notas_Entrega"; Using [BPC]
+Wrseq "Notas_VP"; Using [BPC]
+Wrseq "Tarifa_esp_a"; Using [BPC]
+Wrseq "Tarifa_esp_b"; Using [BPC]
+Wrseq "Tarifa_esp_c"; Using [BPC]
+Wrseq "Tarifa_esp_d"; Using [BPC]
+Wrseq "Tarifa_esp_e"; Using [BPC]
+Wrseq "Tarifa_esp_f"; Using [BPC]
+Wrseq "Aviso"; Using [BPC]
+Wrseq "Tipo_IVA"; Using [BPC]
+Wrseq "Dto_PP"; Using [BPC]
+#Wrseq "Rec_Fin"; Using [BPC] #ELIMINADO
+Wrseq "Moneda"; Using [BPC]
+Wrseq "Riesgo_imp"; Using [BPC]
+Wrseq "Riesgo_OK"; Using [BPC]
+Wrseq "Riesgo_fecha"; Using [BPC]
+Wrseq "Riesgo_cod"; Using [BPC]
+Wrseq "Riesgo_ocup"; Using [BPC]
+Wrseq "Riesgo_No_Fact"; Using [BPC]
+Wrseq "Riesgo_Pend_Cobro"; Using [BPC]
+Wrseq "Riesgo_Imp"; Using [BPC]
+Wrseq "Riesgo_Reme"; Using [BPC]
+Wrseq "Alb_Pre-Esta"; Using [BPC]
+Wrseq "Venta_mes_act"; Using [BPC]
+Wrseq "Margen_mes_act"; Using [BPC]
+Wrseq "Venta_año_act"; Using [BPC]
+Wrseq "Margen_año_act"; Using [BPC]
+Wrseq "Venta_año_act-1"; Using [BPC]
+Wrseq "Margen_año_act-1"; Using [BPC]
+Wrseq "Venta_año_act-2"; Using [BPC]
+Wrseq "Margen_año_act-2"; Using [BPC]
+Wrseq "Venta_año_act-3"; Using [BPC]
+Wrseq "Margen_año_act-3"; Using [BPC]
+Wrseq "Venta_año_act-4"; Using [BPC]
+Wrseq "Margen_año_act-4"; Using [BPC]
+Wrseq "Venta_año_act-5"; Using [BPC]
+Wrseq "Margen_año_act-5"; Using [BPC]
+#Wrseq "Potencial"; Using [BPC]
+#Wrseq "Competencia_1"; Using [BPC]
+Wrseq "Clase Oferta Cliente"; Using [BPC]
+Wrseq "Desc_Clase-Ofe"; Using [BPC]
+Wrseq "Idioma"; Using [BPC]
+Wrseq "Desc_Idioma"; Using [BPC]
+Wrseq "Web"; Using [BPC]
+Wrseq "Tipo_cliente"; Using [BPC]
+Wrseq "Descripción tipo cliente" Using [BPC]
+
+Return
+
+##################################################################
+$ESC_REGISTRO
+
+
+Wrseq [F:BPC]BPCNUM;                          Using [BPC]
+Wrseq [F:BPR]BPRSHO;                          Using [BPC]
+Wrseq [F:BPR]BPRNAM(0);                       Using [BPC]
+Wrseq [F:BPR]BPRNAM(1);                       Using [BPC]
+Wrseq [F:BPA]BPAADDLIG(0);                    Using [BPC]
+Wrseq [F:BPA]BPAADDLIG(1);                    Using [BPC]
+Wrseq [F:BPA]BPAADDLIG(2);                    Using [BPC]
+Wrseq [F:BPA]POSCOD;                          Using [BPC]
+Wrseq [F:BPA]CTY;                             Using [BPC]
+Wrseq [F:BPA]SAT;                             Using [BPC]
+Wrseq [F:BPR]CRN;                             Using [BPC]
+Wrseq [F:BPA]TEL(0);                          Using [BPC]
+Wrseq [F:BPA]TEL(1);                          Using [BPC]
+Wrseq [F:BPC]ZEMAIL;                          Using [BPC]
+Wrseq [F:BPC]TSCCOD(2);                       Using [BPC]
+Wrseq DESC_ZONA;                              Using [BPC]
+Wrseq [F:BPC]TSCCOD(1);                       Using [BPC] # cambios Jon
+Wrseq DESC_TIPO_DET;                          Using [BPC] # antes DESC_CLASE
+Wrseq [F:BPC]REP;                             Using [BPC]
+Wrseq [F:ZBPR1]BPRNAM;                        Using [BPC]
+Wrseq [F:BPC]PTE;                             Using [BPC]
+Wrseq DESC_FORMAPAGO;                         Using [BPC]
+Wrseq [F:BPC]PTE;                             Using [BPC] # igual que forma pago porque Marta lo dijo
+Wrseq num$([F:BPC]DAYMON(0));                 Using [BPC]
+Wrseq num$([F:BPC]DAYMON(1));                 Using [BPC]
+Wrseq num$([F:BPC]DAYMON(2));                 Using [BPC]
+Wrseq [F:BPC]BPCINV;                          Using [BPC]
+Wrseq [F:BPC]FREINV;                          Using [BPC] # antes [F:BPC]FREINV  #antes [F:AST1]LANMES
+#Wrseq num$([F:BPT]TSDFRE(0));                 Using [BPC] ## importe portes
+Wrseq ctrans(num$(format$("N:12.2",IMP_PORTES)),".",",");           Using [BPC] #si no está entre 3 y 7, ponemos 0
+Wrseq [F:BPD]BPTNUM;                          Using [BPC]
+Wrseq [F:BPR2]BPRSHO;                         Using [BPC] #antes [F:BPR2]BPRNAM, mod Jon.
+Wrseq NOTASPREPACION1;                        Using [BPC]
+Wrseq NOTASPREPACION;                         Using [BPC]
+Wrseq TARIFA(0);                              Using [BPC]
+Wrseq TARIFA(1);                              Using [BPC]
+Wrseq TARIFA(2);                              Using [BPC]
+Wrseq [F:BPC]ZTARINOX;                        Using [BPC]
+Wrseq [F:BPC]ZTARACE;                         Using [BPC]
+Wrseq [F:BPC]ZTARNEW;                         Using [BPC]
+Wrseq num$([F:BPC]OSTCTL);                    Using [BPC]
+Wrseq [F:BPC]VACBPR;                          Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",[F:BPC]INVDTAAMT(2))),".",",");  Using [BPC]
+#Wrseq num$([F:BPC]INVDTAAMT(1));              Using [BPC] #eliminado
+Wrseq [F:BPC]CUR;                             Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",CDTISR) ),".",",");                                 Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",OSTAUZ) ),".",",");                                 Using [BPC]
+Wrseq num$([F:BPC]CDTISRDAT);                 Using [BPC]
+Wrseq [F:BPC]ZCYC;                            Using [BPC]
+Wrseq RIESGO_OCUP;                            Using [BPC]
+Wrseq RIESGO_NO_FACT;                         Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",RIESGO_PEN_COBRO)),".",",");          Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",VENCIMIENTO)),".",",");          Using [BPC]
+Wrseq "Riesgo_Reme";                          Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_ALB)),".",",");                Using [BPC] #ctrans(num$([F:MVC]DLVOSTC + [F:MVC]NIVDLVC + [F:MVC]NPTINVC),".",",")
+Wrseq ctrans(num$(format$("N:12.2",V_MES_ACT)),".",",");            Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",M_MES_ACT)),".",",");            Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(0))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(0))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(1))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(1))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(2))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(2))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(3))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(3))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(4))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(4))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTASTOT(5))),".",",");       Using [BPC]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGENTOT(5))),".",",");       Using [BPC]
+#Wrseq "Potencial";                            Using [BPC]
+#Wrseq "Competencia_1";                        Using [BPC]
+Wrseq [F:BPC]TSCCOD(3);                       Using [BPC]
+Wrseq DESC_CLASE;                             Using [BPC]
+Wrseq [F:BPR]LAN;                             Using [BPC]
+Wrseq DESC_IDIOMA;                            Using [BPC]
+Wrseq WEB;                                    Using [BPC]
+Wrseq [F:BPC]TSCCOD(0);                       Using [BPC]
+Wrseq DESC_TIPO                               Using [BPC]
+
+Return
+###################################################################
+$CLIENTE_REPRESENTANTE_TRANSPORTISTA
+#cliente
+Filter [F:BPR] Where BPRNUM = [F:BPC]BPCNUM
+Read  [F:BPR] First
+
+#representante
+If !clalev([F:ZBPR1]): Local File BPARTNER[ZBPR1]: Endif
+Filter [F:ZBPR1] Where BPRNUM = [F:BPC]REP
+Read  [F:ZBPR1] First
+
+#transportista
+Filter [F:BPD] Where BPCNUM = [F:BPC]BPCNUM and BPAADD = [F:BPC]BPAADD
+Read  [F:BPD] First
+
+If !clalev([F:BPR2]): Local File BPARTNER[BPR2]: Endif
+Filter [F:BPR2] Where BPRNUM = [F:BPD]BPTNUM
+Read  [F:BPR2] First
+
+Filter [F:BPT] Where BPTNUM = [F:BPD]BPTNUM
+Read  [F:BPT] First
+
+#IMP_PORTES
+Local Decimal IMP_PORTES
+Raz IMP_PORTES
+If [F:BPC]FREINV=3
+  IMP_PORTES=[F:BPT]TSDFRE(0)
+Elsif [F:BPC]FREINV=4
+  IMP_PORTES=[F:BPT]TSDFRE(1)
+Elsif [F:BPC]FREINV=5
+  IMP_PORTES=[F:BPT]TSDFRE(2)
+Elsif [F:BPC]FREINV=6
+  IMP_PORTES=[F:BPT]TSDFRE(3)
+Elsif [F:BPC]FREINV=7
+  IMP_PORTES=[F:BPT]TSDFRE(4)
+Else
+  IMP_PORTES=0
+Endif
+
+#NOTASPREPACION
+Local Char NOTASPREPACION(250),NOTASPREPACION1(250)
+Raz NOTASPREPACION,NOTASPREPACION1
+
+Filter [F:BPD]
+Filter [F:BPD] Where BPCNUM = [F:BPC]BPCNUM and BPAADD = [F:BPC]BPDADD
+Read  [F:BPD] First
+
+Filter [F:TXC] Where CODE = [F:BPD]PRPTEX
+Read  [F:TXC] First
+If !fstat Then
+  #esta formula es para evitar que cuando en el doc pedido escriban un punto y coma lo tome como separador de campo
+  #tambien para evitar que con el salto de linea salte de linea en el csv y de problemas de formato.
+  NOTASPREPACION = ctrans([F:TXC]TEXTE,";",chr$(32)+chr$(32))
+  NOTASPREPACION=func REPLACE(NOTASPREPACION,chr$(13),"\r")
+  NOTASPREPACION= func REPLACE(NOTASPREPACION,chr$(10),"\n ")
+Endif
+Filter [F:TXC]
+Filter [F:TXC] Where CODE = [F:BPD]DLVTEX
+Read  [F:TXC] First
+If !fstat Then
+  #esta formula es para evitar que cuando en el doc pedido escriban un punto y coma lo tome como separador de campo
+  #tambien para evitar que con el salto de linea salte de linea en el csv y de problemas de formato.
+  NOTASPREPACION1 = NOTASPREPACION1+ctrans([F:TXC]TEXTE,";",chr$(32)+chr$(32))
+  NOTASPREPACION1=func REPLACE(NOTASPREPACION1,chr$(13),"\r")
+  NOTASPREPACION1= func REPLACE(NOTASPREPACION1,chr$(10),"\n ")
+Endif
+
+#VENCIMIENTO
+Local Decimal VENCIMIENTO
+Raz VENCIMIENTO
+
+VENCIMIENTO=0
+Filter [F:DUD] Where BPR=[F:BPC]BPCNUM  and DUDDAT<=date$ and (TYP ='FAC' or TYP ='ABC')
+If !fstat
+  For[F:DUD]
+      VENCIMIENTO=VENCIMIENTO+([F:DUD]SNS*([F:DUD]AMTLOC-[F:DUD]PAYLOC-[F:DUD]TMPLOC))
+  Next
+
+Endif
+
+Filter [F:DUD]
+#ESTADISTICA ALB, VENTAS MES ACTUAL V_MES_ACT,V_ALB,M_MES_ACT
+Local Decimal V_MES_ACT,V_ALB,M_MES_ACT
+Raz V_MES_ACT,V_ALB,M_MES_ACT
+Local Date WDAT
+   WDAT=gdat$(1,month(date$),year(date$))
+   Filter [F:SAT] Where COD="ZBPC0" and CRI1=[F:BPC]BPCNUM  and DAT=WDAT
+   Read [F:SAT]SAT0 First
+     If !fstat
+       V_ALB=[F:SAT]AMT(0)
+      # V_MES_ACT=[F:SAT]AMT(1)
+      ### M_MES_ACT=([F:SAT]AMT(2)/[F:SAT]AMT(1))*100
+      # M_MES_ACT=[F:SAT]AMT(2)
+     Endif
+   Filter [F:SAT]
+
+   WDAT_1=gdat$(1,month(date$)-1,year(date$))
+
+   Filter [F:SAT] Where COD="ZBPC0" and CRI1=[F:BPC]BPCNUM  and DAT=WDAT_1
+   Read [F:SAT]SAT0 First
+     If !fstat
+       #V_ALB=[F:SAT]AMT(0)
+       V_MES_ACT=[F:SAT]AMT(0)
+      # M_MES_ACT=([F:SAT]AMT(2)/[F:SAT]AMT(1))*100
+       M_MES_ACT=[F:SAT]AMT(1)
+     Endif
+   Filter [F:SAT]
+
+#ESTADISTICAS VENTAS V_MARGENTOT,V_VENTASTOT
+Local Decimal V_MARGENTOT(6),V_VENTASTOT(6)
+Raz V_MARGENTOT,V_VENTASTOT
+Local Date WDAT2
+For X=0 To 5
+   WDAT2=gdat$(1,1,year(date$)-X)
+   Filter [F:SAT] Where COD="ZBPC1" and CRI1=[F:BPC]BPCNUM  and DAT=WDAT2
+   Read [F:SAT]SAT0 First
+   If !fstat
+     V_VENTASTOT(X)=[F:SAT]AMT(0)
+     #V_MARGENTOT(X)=([F:SAT]AMT(1)/[F:SAT]AMT(0))*100
+     V_MARGENTOT(X)=[F:SAT]AMT(1)
+   Endif
+Next
+
+
+
+#WEB
+Local Char WEB(2)
+Raz WEB
+If [F:BPC]ZWEB=2
+  WEB="S"
+Elsif [F:BPC]ZWEB=1
+  WEB="N"
+Endif
+
+
+Return
+
+
+
+
+###################################################################
+$DIRECCION
+#direccion por defecto
+Filter [F:BPA] Where BPANUM = [F:BPC]BPCNUM and BPAADD = [F:BPC]BPAADD
+Read  [F:BPA] First
+
+Return
+
+###################################################################
+$DESCRIPCIONES
+Local Char DESC_ZONA(80), DESC_CLASE(80), DESC_FORMAPAGO(80), DESC_IDIOMA(80), DESC_TIPO_DET(80), DESC_TIPO(80), PORTE(5)
+Local Integer PORTEFILTRO
+Local Decimal CDTISR,OSTAUZ
+
+Raz DESC_ZONA, DESC_CLASE, DESC_FORMAPAGO, DESC_IDIOMA, DESC_TIPO_DET, DESC_TIPO, PORTE, PORTEFILTRO,CDTISR,OSTAUZ
+
+If !clalev([F:AXX1]): Local File ATEXTRA[AXX1]: Endif
+If !clalev([F:AXX2]): Local File ATEXTRA[AXX2]: Endif
+If !clalev([F:AXX3]): Local File ATEXTRA[AXX3]: Endif
+If !clalev([F:AXX4]): Local File ATEXTRA[AXX4]: Endif
+If !clalev([F:AXX5]): Local File ATEXTRA[AXX5]: Endif
+If !clalev([F:AST1]): Local File APLSTD [AST1]: Endif
+
+Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '32' and IDENT2 = [F:BPC]TSCCOD(2)
+Read  [F:AXX] First
+If !fstat Then
+  DESC_ZONA  = [F:AXX]TEXTE
+Endif
+
+Filter [F:AXX1] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '33' and IDENT2 = [F:BPC]TSCCOD(3)
+Read  [F:AXX1] First
+If !fstat Then
+  DESC_CLASE = [F:AXX1]TEXTE
+Endif
+
+Filter [F:AXX2] Where CODFIC = 'TABPAYTERM' and ZONE = 'DESAXX' and LANGUE = 'SPA' and IDENT1 = [F:BPC]PTE
+Read  [F:AXX2] First
+If !fstat Then
+  DESC_FORMAPAGO = [F:AXX2]TEXTE
+Endif
+
+Filter [F:AXX3] Where CODFIC = 'TABLAN' and ZONE = 'INTDES' and LANGUE = 'SPA' and IDENT1 = [F:BPR]LAN
+Read  [F:AXX3] First
+If !fstat Then
+  DESC_IDIOMA = [F:AXX3]TEXTE
+Endif
+
+Filter [F:AXX4] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '30' and IDENT2 = [F:BPC]TSCCOD(0)
+Read  [F:AXX4] First
+
+If !fstat Then
+  DESC_TIPO = [F:AXX4]TEXTE
+Endif
+
+Filter [F:AXX5] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '31' and IDENT2 = [F:BPC]TSCCOD(1)
+Read  [F:AXX5] First
+If !fstat Then
+  DESC_TIPO_DET = [F:AXX5]TEXTE
+Endif
+
+PORTE = num$([F:BPC]FREINV)
+PORTEFILTRO = val(PORTE)
+
+CDTISR=[F:BPC]CDTISR
+OSTAUZ=[F:BPC]OSTAUZ
+
+Filter [F:AST1] Where LANCHP = 402 and LAN = 'SPA' and LANNUM = PORTEFILTRO
+Read  [F:AST1] First
+
+Return
+
+###################################################################
+$TARIFAS
+Local Char TARIFA(20)(0..6)
+Local Char SQLSENT(250),TAR(20)
+Local Integer X
+Raz SQLSENT,TAR,X,TARIFA
+
+SQLSENT="SELECT PLICRD_0, PLI_0 FROM "+nomap+".SPRICLIST WHERE PLICRI1_0 ='" + [F:BPC]BPCNUM  + "' GROUP BY PLICRD_0, PLI_0  ORDER BY PLI_0 "
+X=0
+For (Char PLICRD, Char PLI) From "5" Sql SQLSENT As [Z00]
+TAR = [Z00]PLICRD
+If X=0 Then
+    TARIFA(X) =TAR
+    X+=1
+
+  Else
+    If TAR <> TARIFA(X-1) and X<=6
+      TARIFA(X) = TAR
+      X+=1
+
+    Endif
+Endif
+#PCPLTIM = [Z01]PLI
+Next
+
+#Filter [F:SPL] Where PLICRI1 = [F:BPC]BPCNUM Order By PLI
+#Read [F:SPL] First
+#If !fstat Then
+#  X=0
+#  For [F:SPL]
+#  If X=0 Then
+#    TARIFA(X) = [F:SPL]PLICRD
+#    X+=1
+#  Else
+#    If [F:SPL]PLICRD <> TARIFA(X-1) and X<=6
+#      TARIFA(X) = [F:SPL]PLICRD
+#      X+=1
+#    Endif
+#  Endif
+
+#  Next
+#Endif
+
+Return
+
+###################################################################
+$NOTAS
+Local Char NOTASPED(250)
+Raz NOTASPED
+
+Filter [F:NTS] Where BPCNUM = [F:BPC]BPCNUM
+Read  [F:NTS] First
+
+If !fstat Then
+  #esta formula es para evitar que cuando en el doc pedido escriban un punto y coma lo tome como separador de campo
+  #tambien para evitar que con el salto de linea salte de linea en el csv y de problemas de formato.
+  NOTASPED = ctrans([F:NTS]NOTE,";",chr$(32)+chr$(32))
+  NOTASPED = ctrans(NOTASPED,chr$(13)+chr$(10)+";"," #")
+Endif
+
+Return
+
+###################################################################
+$RIESGO
+Local Char RIESGO_OCUP(50), RIESGO_NO_FACT(50),RIESGO_PEN_COBRO(50)
+Raz RIESGO_OCUP,RIESGO_NO_FACT,RIESGO_PEN_COBRO
+
+Filter [F:MVC] Where BPCNUM = [F:BPC]BPCNUM
+Read  [F:MVC] First
+If !fstat Then
+  RIESGO_PEN_COBRO=ctrans(num$([F:MVC]BLCC),".",",")
+  RIESGO_OCUP    = ctrans(num$([F:MVC]BLCC + [F:MVC]NIVDLVC + [F:MVC]NPTINVC+[F:MVC]DLVOSTC),".",",")
+  RIESGO_NO_FACT = ctrans(num$([F:MVC]DLVOSTC + [F:MVC]NIVDLVC + [F:MVC]NPTINVC),".",",")
+Endif
+Filter [F:MVC]
+
+Return
+
+$FILTROS
+Filter [F:BPR]
+Filter [F:ZBPR1]
+Filter [F:BPD]
+Filter [F:BPR2]
+Filter [F:BPT]
+Filter [F:TXC]
+Filter [F:DUD]
+Filter [F:SAT]
+Filter [F:BPA]
+Filter [F:AXX]
+Filter [F:AXX1]
+Filter [F:AXX2]
+Filter [F:AXX3]
+Filter [F:AXX4]
+Filter [F:AXX5]
+Filter [F:AST1]
+Filter [F:SPL]
+Filter [F:NTS]
+Filter [F:MVC]
+Return
+
+$CLOSE_TABLAS
+  Close Local File [F:MVC],[F:NTS],[F:SPL],[F:AST1],[F:AXX5],[F:AXX4],[F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:BPA],[F:SAT],[F:DUD],[F:TXC],[F:BPT]
+  Close Local File [F:BPR2],[F:BPD],[F:ZBPR1],[F:BPR]
+Return
+
+####AMG.STR 31/08/2021
+Funprog REPLACE(TEXTO,CADB,CADR)
+Value Char TEXTO, CADB, CADR
+    Local Integer WPE
+    WPE=instr (1,TEXTO,CADB)
+    While WPE<>0
+        TEXTO=left$(TEXTO,WPE-1)+CADR+right$(TEXTO,WPE+len(CADB))
+        WPE=instr(WPE+len(CADR),TEXTO,CADB)
+    Wend
+End TEXTO
+####AMG.FIN 31/08/2021

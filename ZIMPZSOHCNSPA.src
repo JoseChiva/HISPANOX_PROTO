@@ -1,0 +1,120 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+#Infbox ACTION
+  Case ACTION
+    When "IMP_AVANT_MODFIC" : Gosub IMP_AVANT_MODFIC
+    When "IMP_FERME"        : Gosub IMP_FERME
+    When Default
+  Endcase
+Return
+
+########################################################
+$IMP_AVANT_MODFIC
+# el código que viene a continuación es el que hay en SPESOH.AM_ZFREINV pero adaptado
+# lo he tenido que añadir aquí porque sino no me ejecutaba el recálculo de los portes
+  Local Integer LCON
+  Local Char    LSTA(1)
+  Local Char    S_PAIS(250)
+  Local Char    S_CIUDAD(250)
+  Local Char    S_CODIGO_POSTAL(250)
+  Local Char    S_REGION(5)
+  Local Char    S_TRANSPORTISTA(250)
+  Local Decimal F_PESOS
+  Local Decimal F_VOLUMEN
+  Local Decimal F_IMPORTE_TRANSPORTE
+  Local Char    S_EXPLICACION_CALCULO (1)
+  Local Integer I_STAT
+  Local Char    S_UNIWEI(10)
+  Local Char    S_UNIVOL(10)
+  Local Integer YESNO : YESNO = 1
+
+  If !clalev([F:ZSFI]) Then : Local File SFOOTINV   [F:ZSFI] : Endif
+  If !clalev([F:ZBPA]) Then : Local File BPADDRESS  [F:ZBPA] : Endif
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+
+  Read [F:ZSFI]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
+    Read [F:ZBPA]BPA0=1;[M:SOH0]BPCORD;[M:SOH1]BPAADD
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA]CRY
+      S_CIUDAD        = [F:ZBPA]CTY
+      S_CODIGO_POSTAL = [F:ZBPA]POSCOD
+    Endif
+  Endif
+
+  S_TRANSPORTISTA = [M:SOH2]BPTNUM
+
+  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+
+#    [M:SOH1]HLDSTA  = [F:SOH]HLDSTA
+#    [M:SOH1]HLDCOD  = [F:SOH]HLDCOD
+
+    Case [M:SOH2]ZFREINV
+      When 1
+        #Facturados, calculo de la tarifa de transporte
+        If S_TRANSPORTISTA <> "" Then
+          For I = 0 To [M:SOH4]NBLIG-1
+            #Me sitúo en el artículo
+            Read [F:ZITM]ITM0 = [M:SOH4]ITMREF(I)
+            If !fstat Then
+              S_UNIWEI = [F:ZITM]WEU
+              S_UNIVOL = [F:ZITM]VOU
+            Endif
+#            #Paso todo a KG
+            F_PESOS    += func ZAULIB01.CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SOH4]DSPLINWEI(I))
+#            #Paso todo a M3
+            F_VOLUMEN  += func ZAULIB01.CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SOH4]DSPLINVOL(I))
+          Next
+
+          Call TRANSPORT(S_TRANSPORTISTA,[M:SOH0]BPCORD,[M:SOH2]ZFREINV,[M:SOH0]SALFCY,S_PAIS,S_CIUDAD,
+&                       S_CODIGO_POSTAL,[M:SOH0]CUR,[M:SOH0]CHGTYP,date$,[M:SOH4]ORDNOT,
+&                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+          If find(I_STAT,0,4,5) Then
+            [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = F_IMPORTE_TRANSPORTE
+          Else
+            [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+          Endif
+        Endif
+
+      When 8
+        #Facturación manual, no hago nada
+        [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)
+
+      When Default
+        #Todos los demás casos, no se facturan portes
+        [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+    Endcase
+  Endif
+
+  Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
+
+  Affzo [M:SOH1]
+  Affzo [M:SOH2]
+  Affzo [M:SOH3]
+
+  Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM]
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+  If dim(LSTA) > 0 Then : Kill LSTA : Endif
+
+Return
+
+########################################################
+$IMP_FERME
+
+  If !clalev([F:ZSOH]) Then : Local File SORDER     [F:ZSOH] : Endif
+  Read [F:ZSOH]SOH0 = [F:SOH]SOHNUM
+  [F:ZSOH]ZFREINV = [M:SOH2]ZFREINV
+  Trbegin [F:ZSOH]
+  Rewrite [F:ZSOH]
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+  Close Local File [ZSOH]
+
+Return

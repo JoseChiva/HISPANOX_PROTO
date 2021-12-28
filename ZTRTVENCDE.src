@@ -1,0 +1,26 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+Case ACTION
+  When "ALISQDSOH"      : Gosub ALISQDSOH
+  When Default
+Endcase
+
+Return
+
+##################################################################
+# punto de entrada para interactuar con las líneas de pedido antes de su inserción en la tabla
+$ALISQDSOH
+
+# JC.03082021.No pasar líneas ocultas de presupuesto a pedido.STR
+  # asigna a la línea de pedido el campo 'Facturación portes' de la cabecera de presupuesto
+  [M:SOH4]ZFREINV(NOL) = [F:SQH]ZFREINV
+  Affzo [M:SOH4]ZFREINV(NOL)
+  # borra las líneas ocultas o con artículo TEXTO del pedido
+  If [F:SQD]ZLINOCU = 2 or left$([F:SQD]ITMREF,4) = "TEXT" Then
+    Dela NOL,1 [M:SOH4]NBLIG
+    [M:SOH4]NBLIG -=1
+  Endif
+# JC.03082021.No pasar líneas ocultas de presupuesto a pedido.END
+
+Return

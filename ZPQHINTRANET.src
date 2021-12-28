@@ -1,0 +1,153 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Local Char NUM
+NUM = ""
+Call CONSULTAS(NUM)
+End
+
+Subprog CONSULTAS(WPQH)
+Variable Char WPQH
+Gosub OPEN_TABLAS
+Gosub CALCULARFECHA
+Filter [F:ZPPD]  Where (WPQH="" or LINNUMRESP=WPQH) and LINRSPDAT >= MESANTERIOR
+Read [F:ZPPD] First
+If !fstat Then
+   If rowcount([F:PQH])>0
+      Gosub CREAR_FICHERO
+      Gosub CABECERA
+      For [F:ZPPD]
+        Gosub ARTICULO
+        Gosub ESC_REGISTRO
+      Next
+      Openo Using [PQH]
+   Endif
+Endif
+
+End
+
+#########################################################################################
+$OPEN_TABLAS
+Local File PQUOTAT
+Local File PQUOTATD
+Local File PQUOTATF
+Local File PRESP
+Local File PRESPD
+Local File ZPRESP
+Local File ZPRESPD
+Local File ITMMASTER
+
+Return
+###################################################################
+$CREAR_FICHERO
+If WPQH = ''
+  Openo filpath("ZINT\ERP_to_intranet","consultas","csv"),0 Using [PQH]
+Else
+  Openo filpath("ZINT\ERP_to_intranet","CON_"+[F:ZPPD]LINNUMRESP,"csv"),0 Using [PQH]
+Endif
+
+Iomode adxifs ";"        Using [PQH]
+#Iomode adxirs "\013\010" Using [PQH]
+Iomode adxium 50         Using [PQH]
+
+Return
+##################################################################
+
+$CABECERA
+Wrseq "Consulta"; Using [PQH]
+Wrseq "N_Lin"; Using [PQH]
+Wrseq "Fecha"; Using [PQH]
+Wrseq "Caducidad"; Using [PQH]
+Wrseq "Proveedor"; Using [PQH]
+Wrseq "Inventario"; Using [PQH]
+Wrseq "Familia"; Using [PQH]
+Wrseq "Cantidad"; Using [PQH]
+Wrseq "Unidad_Precio"; Using [PQH]
+Wrseq "Precio"; Using [PQH]
+Wrseq "Dto"; Using [PQH]
+Wrseq "Importe"; Using [PQH]
+Wrseq "Moneda"; Using [PQH]
+Wrseq "Obs"; Using [PQH]
+Wrseq "Peso"; Using [PQH]
+Wrseq "Coste_Empresa"; Using [PQH]
+Wrseq "Importe_Empresa"; Using [PQH]
+Wrseq "Plazo"; Using [PQH]
+Wrseq "Ref_Consulta"; Using [PQH]
+Wrseq "Usuario"; Using [PQH]
+Wrseq "Arancel_1_base"; Using [PQH]
+Wrseq "Art_esp"; Using [PQH]
+#Wrseq "Cantidad_Minima"; Using [PQH]
+#Wrseq "Linea respuesta" Using [PQH]
+Wrseq "Número solicitud oferta"; Using [PQH]
+Wrseq "Unidad (UN/KG/M)"; Using [PQH]
+Wrseq "Cantidad mínima"; Using [PQH]
+Wrseq "Cantidad consultada"; Using [PQH]
+Wrseq "Usuario Modificación" Using [PQH]
+Return
+
+###################################################################
+$CALCULARFECHA
+Local Date MESANTERIOR, DIAUNOMESANT
+
+MESANTERIOR = gdat$(addmonth(date$,-3))
+#Infbox num$(MESANTERIOR)
+DIAUNOMESANT = gdat$(1,month(MESANTERIOR),year(MESANTERIOR))
+#Infbox num$(DIAUNOMESANT)
+
+Return
+
+###################################################################
+$ESC_REGISTRO
+Wrseq [F:ZPPD]LINNUMRESP; Using [PQH]
+Wrseq [F:ZPPD]PQDLIN; Using [PQH]
+Wrseq format$("D:DD[/]MM[/]YYYY",[F:ZPPD]LINRSPDAT); Using [PQH]
+Wrseq format$("D:DD[/]MM[/]YYYY",[F:ZPPD]LINPLIENDDAT); Using [PQH]
+Wrseq [F:ZPPD]BPSNUM; Using [PQH]
+Wrseq [F:ZPPD]ITMREF; Using [PQH]
+Wrseq [F:ZPPD]ZITMDES2; Using [PQH]
+Wrseq num$([F:ZPPD]OFERQTY); Using [PQH]
+Local Char DIV(1)
+Case [F:ZPPD]LINPRIDIV
+  When "UN": DIV = "u"
+  When "CEN": DIV = "%"
+  When "MIL": DIV = "m"
+Endcase
+Wrseq DIV; Using [PQH]
+Wrseq ctrans(num$([F:ZPPD]BPSPRI),".",","); Using [PQH]
+Wrseq ctrans(num$([F:ZPPD]LDISCRGVAL1),".",","); Using [PQH]
+Wrseq ctrans(num$([F:ZPPD]AMT),".",","); Using [PQH]
+
+Wrseq [F:ZPPD]LINCUR; Using [PQH]
+Wrseq [F:ZPPD]NOTA; Using [PQH]
+Wrseq ctrans(num$(PESO),".",","); Using [PQH]
+Wrseq ctrans(num$([F:ZPPD]HXCOST),".",","); Using [PQH]
+Local Decimal TMPHX : Raz TMPHX
+TMPHX = [F:ZPPD]HXCOST/100 * max([F:ZPPD]MINQTY,[F:ZPPD]OFERQTY)
+Wrseq ctrans(num$(TMPHX),".",","); Using [PQH]
+
+Wrseq num$([F:ZPPD]LINLTI); Using [PQH]
+Wrseq [F:ZPPD]LINPQHREF; Using [PQH]
+Wrseq [F:ZPPD]CREUSR; Using [PQH]
+Wrseq ctrans(num$([F:ZPPD]LINCPRCOE),".",","); Using [PQH]
+Wrseq TEXTO; Using [PQH]
+#Wrseq num$([F:ZPPD]MINQTY); Using [PQH]
+#Wrseq num$([F:ZPPD]PPDLIN) Using [PQH]
+Wrseq [F:ZPPD]PQHNUM; Using [PQH]
+Wrseq [F:ZPPD]PUU; Using [PQH]
+Wrseq num$([F:ZPPD]MINQTY); Using [PQH]
+Wrseq num$([F:ZPPD]QTYCON); Using [PQH]
+Wrseq [F:ZPPD]UPDUSR Using [PQH]
+Return
+
+###################################################################
+$ARTICULO
+Local Decimal PESO
+Local Char TEXTO(2)
+Read [ITM]ITM0 = [F:ZPPD]ITMREF
+If !fstat Then
+   PESO = [ITM]ITMWEI
+   If [ITM]TCLCOD = "TEXTO"
+      TEXTO = "S"
+   Else
+      TEXTO = "N"
+   Endif
+Endif
+Return

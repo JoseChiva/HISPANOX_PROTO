@@ -1,0 +1,231 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#####################################################################################
+# Src: ZPETRTVENTAR
+#-------------------------------------------------------------------------------------
+# (Punto entrada TRTVENTAR)
+#-------------------------------------------------------------------------------------
+# Proyecto: HISPANOX
+#-------------------------------------------------------------------------------------
+# Version: v12
+#-------------------------------------------------------------------------------------
+# Fecha:10-02-2021
+#-------------------------------------------------------------------------------------
+# Desarrollador: RPES
+# Codigo Actividad:
+#######################################################################################
+#DEV: ADMIN 03-02-2021  VTAS080
+
+End
+$ACTION
+
+Case ACTION
+  When "RECHTARIF1" : Gosub RECHTARIF1
+Endcase
+
+Return
+
+#############################################################################
+
+$RECHTARIF1
+
+Local Char    S_BPCNUM(GLONBPC)
+Local Char    S_ITMREF(GLONITM)
+Local Char    S_STOFCY(GLONFCY)
+Local Integer I_ERROR
+Local Char    S_MESSAGE(250)
+Local Integer I_RECALCULO
+Local Integer I_JUSTA
+Local Decimal F_SAUSTUCOE
+Local Char    S_ZCLAOFER(25)
+Local Decimal S_ZCOSOFER
+Local Char    S_SQHTYP(250)
+
+  Case TYPALI
+    When "SQH"
+      [L]S_BPCNUM     = [M:SQH0]BPCORD
+      [L]S_ITMREF     = [M:SQH2]ITMREF(nolign-1)
+      [L]S_STOFCY     = [M:SQH1]STOFCY
+      [L]F_SAUSTUCOE  = [M:SQH2]SAUSTUCOE(nolign-1)
+      S_ZCLAOFER      = [M:SQH1]ZCLAOFER
+      S_ZCOSOFER      = [M:SQH2]ZCOSOFER(nolign-1)
+      S_SQHTYP        = [M:SQH0]SQHTYP
+
+      If [M:SQH2]ZLINOCU(nolign-1) = 2
+        [L]I_RECALCULO = 1
+      Else
+        [L]I_RECALCULO = 2
+      Endif
+
+      If [M:SQH2]ZCANTJUSTA(nolign-1) = 2
+        [L]I_JUSTA = 2
+      Endif
+
+    When "SOH"
+      [L]S_BPCNUM     = [M:SOH0]BPCORD
+      [L]S_ITMREF     = [M:SOH4]ITMREF(nolign-1)
+      [L]S_STOFCY     = [M:SOH2]STOFCY
+      [L]F_SAUSTUCOE  = [M:SOH4]SAUSTUCOE(nolign-1)
+      S_ZCLAOFER      = [M:SOH1]ZCLAOFER
+      S_ZCOSOFER      = [M:SOH4]ZCOSOFER(nolign-1)
+      S_SQHTYP        = [M:SOH0]SOHTYP
+
+      [L]I_RECALCULO  = 2
+
+      If [M:SOH4]ZCANTJUSTA(nolign-1) = 2 Then
+        [L]I_JUSTA = 2
+      Endif
+
+  Endcase
+
+  If [L]I_RECALCULO = 1 Then
+    GROPRI = 0
+    For I = 0 To 2
+      Assign "[M]DISCRGVAL"+num$(I+1)+"(NLIG)" With 0
+      Assign "[M]DISCRGREN"+num$(I+1)+"(NLIG)" With 0
+    Next
+
+    [M]PRIREN (NLIG) = 0
+
+  Elsif [L]I_RECALCULO = 2 Then
+    If !GIMPORT Then
+      Gosub PRECIO_OFERTA
+    Endif
+  Endif
+
+Return
+
+#############################################################################
+
+$PRECIO_OFERTA
+
+Local Decimal F_NETPRI
+Local Decimal F_NETPRI_SOH
+Local Decimal F_GROPRI_SOH
+Local Decimal F_MONTANT(0..8)
+Local Char    S_VALEUR(20)
+Local Char    S_PARAM(250)(1..20)
+Local Decimal LDTO, POFERTA
+
+  For I = 0 To 8
+    [L]F_MONTANT(I) = MONTANT(I+1)
+  Next
+
+  If TYPALI = "SQH"
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,GROPRI,1,[M:SQH0]QUODAT,GROPRI) From ZAULIB01      # JC.27102021.Cambio de divisas
+  Elsif TYPALI = "SOH" Then
+    Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,GROPRI,1,[M:SOH0]ORDDAT,GROPRI) From ZAULIB01      # JC.27102021.Cambio de divisas
+  Endif
+
+  Call CALNET (1,"", GROPRI, [L]F_MONTANT, QTY, [L]F_NETPRI, LCUR) From TRTPRICE
+  If [L]F_NETPRI <> 0 and [L]I_JUSTA <> 2 Then
+# JC.14062021.vtas080.STR
+    If TYPALI = "SQH" Then
+      Call GET_POFERTA(S_ITMREF,S_STOFCY,S_ZCLAOFER,S_ZCOSOFER,QTY,S_SQHTYP,POFERTA,LDTO) From ZAULIB01
+      POFERTA = POFERTA/100
+      Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,POFERTA,1,[M:SQH0]QUODAT,POFERTA) From ZAULIB01      # JC.27102021.Cambio de divisas
+    Elsif TYPALI = "SOH" Then
+#      POFERTA = func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE)
+      Call GET_POFERTA(S_ITMREF,S_STOFCY,S_ZCLAOFER,S_ZCOSOFER,QTY,S_SQHTYP,POFERTA,LDTO) From ZAULIB01
+      POFERTA = POFERTA/100
+      Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,POFERTA,1,[M:SOH0]ORDDAT,POFERTA) From ZAULIB01      # JC.27102021.Cambio de divisas
+    Endif
+# JC.14062021.vtas080.STR
+    [L]S_PARAM(1) = num$(GROPRI)
+    [L]S_PARAM(2) = num$(F_MONTANT(0))
+    [L]S_PARAM(3) = num$(F_MONTANT(1))
+    [L]S_PARAM(4) = num$(F_MONTANT(2))
+    [L]S_PARAM(5) = num$(F_NETPRI)
+#    [L]S_PARAM(6) = num$(func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE))
+    [L]S_PARAM(6) = num$(POFERTA)   # JC.14062021.vtas080.NEW
+
+    If [L]S_MESSAGE <> "" Then
+      Call ERREUR ([L]S_MESSAGE) From GESECRAN
+    Endif
+
+    Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
+    If [L]S_VALEUR = "2" Then
+      GROPRI = val ([L]S_PARAM(6))
+      For I = 0 To 2
+        Assign "[M]DISCRGVAL"+num$(I+1)+"(NLIG)" With 0
+        Assign "[M]DISCRGREN"+num$(I+1)+"(NLIG)" With 0
+      Next
+# JC.14062021.vtas029.STR
+      If TYPALI = "SQH" Then
+        [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
+        Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+        Call CALNET (1,"", GROPRI, [L]F_MONTANT, QTY, [L]F_NETPRI, LCUR) From TRTPRICE
+        If F_NETPRI > 0 Then
+          [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA(((F_NETPRI - S_ZCOSOFER) / F_NETPRI) * 100,2)
+          Affzo [M:SQH2]ZPFM(nolign-1)
+        Endif
+      Elsif TYPALI = "SOH" Then
+        [M:SOH4]ZTIPOPRECIO(nolign-1) = 2
+        Affzo [M:SOH4]ZTIPOPRECIO(nolign-1)
+        Call CALNET (1,"", GROPRI, [L]F_MONTANT, QTY, [L]F_NETPRI, LCUR) From TRTPRICE
+        If F_NETPRI > 0 Then
+          [M:SOH4]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA(((F_NETPRI - S_ZCOSOFER) / F_NETPRI) * 100,2)
+          Affzo [M:SOH4]ZPFM(nolign-1)
+        Endif
+      Endif
+# JC.14062021.vtas029.END
+      [M]PRIREN (NLIG) = 0
+    Else
+# JC.14062021.vtas029.STR
+      If TYPALI = "SQH" Then
+        [M:SQH2]ZTIPOPRECIO(nolign-1) = 1
+        Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+        Call CALNET (1,"", GROPRI, [L]F_MONTANT, QTY, [L]F_NETPRI, LCUR) From TRTPRICE
+        If F_NETPRI > 0 Then
+          [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA(((F_NETPRI - S_ZCOSOFER) / F_NETPRI) * 100,2)
+          Affzo [M:SQH2]ZPFM(nolign-1)
+        Endif
+      Elsif TYPALI = "SOH" Then
+        [M:SOH4]ZTIPOPRECIO(nolign-1) = 1
+        Affzo [M:SOH4]ZTIPOPRECIO(nolign-1)
+        Call CALNET (1,"", GROPRI, [L]F_MONTANT, QTY, [L]F_NETPRI, LCUR) From TRTPRICE
+        If F_NETPRI > 0 Then
+          [M:SOH4]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA(((F_NETPRI - S_ZCOSOFER) / F_NETPRI) * 100,2)
+          Affzo [M:SOH4]ZPFM(nolign-1)
+        Endif
+      Endif
+# JC.14062021.vtas029.END
+    Endif
+
+  Else
+# JC.14062021.vtas080.STR
+#    GROPRI = func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE)
+#    Call GET_POFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH1]ZCLAOFER,[M:SQH2]ZCOSOFER(nolign-1),QTY,[M:SQH0]SQHTYP,GROPRI,LDTO) From ZAULIB01
+    If TYPALI = "SQH" Then
+      Call GET_POFERTA(S_ITMREF,S_STOFCY,S_ZCLAOFER,S_ZCOSOFER,QTY,S_SQHTYP,GROPRI,LDTO) From ZAULIB01
+      GROPRI = GROPRI/100
+      Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,GROPRI,1,[M:SQH0]QUODAT,GROPRI) From ZAULIB01      # JC.27102021.Cambio de divisas
+    Elsif TYPALI = "SOH" Then
+#      GROPRI = func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE)
+      Call GET_POFERTA(S_ITMREF,S_STOFCY,S_ZCLAOFER,S_ZCOSOFER,QTY,S_SQHTYP,GROPRI,LDTO) From ZAULIB01
+      GROPRI = GROPRI/100
+      Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,GROPRI,1,[M:SOH0]ORDDAT,GROPRI) From ZAULIB01      # JC.27102021.Cambio de divisas
+    Endif
+# JC.14062021.vtas080.END
+    If [L]S_MESSAGE <> "" Then
+      Call ERREUR ([L]S_MESSAGE) From GESECRAN
+    Endif
+    For I = 0 To 2
+      Assign "[M]DISCRGVAL"+num$(I+1)+"(NLIG)" With 0
+      Assign "[M]DISCRGREN"+num$(I+1)+"(NLIG)" With 0
+    Next
+
+    [M]PRIREN (NLIG) = 0
+
+# JC.14062021.vtas029.STR
+    If TYPALI = "SQH" Then
+      [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
+      Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+    Elsif TYPALI = "SOH" Then
+      [M:SOH4]ZTIPOPRECIO(nolign-1) = 2
+      Affzo [M:SOH4]ZTIPOPRECIO(nolign-1)
+    Endif
+# JC.14062021.vtas029.END
+
+  Endif
+
+Return

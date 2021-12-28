@@ -1,0 +1,237 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+######################################################################################
+# DEV: JESP 20201125 VTAS079 - Stock disponible
+######################################################################################
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+$ACTION
+
+Case ACTION
+  When "OK"    : Gosub OK
+  When "DEBUT" : Gosub DEBUT
+Endcase
+
+Return
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+$OK
+#  If [M:ZSDO0]CANCELAR = 2  : PARAM(1) = "1" : Endif
+#  If [M:ZSDO0]CONTINUAR = 2 : PARAM(1) = "2" : Endif
+#  If [M:ZSDO0]MULTIPLE = 2  : PARAM(1) = "3" : Endif
+#  If [M:ZSDO0]TOTAL = 2     : PARAM(1) = "4" : Endif
+#  If [M:ZSDO0]LINOCULTA = 2 : PARAM(1) = "5" : Endif
+
+If GFONC1 = "GESSOH" and [M:ZSDO0]YVALOR = 5 Then
+  Call MESSAGE("Opción no permitida en pedidos") From GESECRAN
+  FIN = 0
+
+Else
+
+  PARAM(1) = num$([M:ZSDO0]YVALOR)
+  If PARAM(1) = "" : FIN = 0 : Endif
+
+Endif
+
+
+
+Return
+
+#############################################################################
+
+$DEBUT
+
+[M:ZSDO0]MULTIPLE = arr(func CALC_QTYMULT(PARAM(3), val(PARAM(2))),1)
+[M:ZSDO0]TOTAL = arr(val(PARAM(2)),1)
+[M:ZSDO0]YVALOR = 1
+
+  If !clalev([F:ZSTO]) Then : Local File STOCK [F:ZSTO] : Endif
+  Filter [F:ZSTO] Where ITMREF = PARAM(3) and STA = "Q"
+  Read [F:ZSTO] First
+  If !fstat Then
+    [M:ZSDO0]STOCKQ = [F:ZSTO]QTYSTU
+  Endif
+  Filter [F:ZSTO]
+  Close Local File [ZSTO]
+
+Affzo [M:ZSDO0]
+
+Return
+
+#############################################################################
+
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Subprog AM_CANCELAR(VALEUR)
+Variable Integer VALEUR
+
+If VALEUR Then
+  Raz [M:ZSDO0]CONTINUAR
+  Raz [M:ZSDO0]LINOCULTA
+  Raz [M:ZSDO0]MULTIPLE
+  Raz [M:ZSDO0]TOTAL
+  Affzo [M:ZSDO0]
+Endif
+
+End
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Subprog AM_CONTINUAR(VALEUR)
+Variable Integer VALEUR
+
+If VALEUR Then
+  Raz [M:ZSDO0]CANCELAR
+  Raz [M:ZSDO0]LINOCULTA
+  Raz [M:ZSDO0]MULTIPLE
+  Raz [M:ZSDO0]TOTAL
+  Affzo [M:ZSDO0]
+Endif
+
+End
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Subprog AM_MULTIPLE(VALEUR)
+Variable Integer VALEUR
+
+If VALEUR Then
+  Raz [M:ZSDO0]CONTINUAR
+  Raz [M:ZSDO0]LINOCULTA
+  Raz [M:ZSDO0]CANCELAR
+  Raz [M:ZSDO0]TOTAL
+  Affzo [M:ZSDO0]
+Endif
+
+End
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Subprog AM_TOTAL(VALEUR)
+Variable Integer VALEUR
+
+If VALEUR Then
+  Raz [M:ZSDO0]CONTINUAR
+  Raz [M:ZSDO0]LINOCULTA
+  Raz [M:ZSDO0]MULTIPLE
+  Raz [M:ZSDO0]CANCELAR
+  Affzo [M:ZSDO0]
+Endif
+
+End
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Subprog AM_LINOCULTA(VALEUR)
+Variable Integer VALEUR
+
+If VALEUR Then
+  Raz [M:ZSDO0]CONTINUAR
+  Raz [M:ZSDO0]CANCELAR
+  Raz [M:ZSDO0]MULTIPLE
+  Raz [M:ZSDO0]TOTAL
+  Affzo [M:ZSDO0]
+Endif
+
+End
+
+# FIN JESP
+
+######################################################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Funprog CALC_STODISPO(PS_FCY, PS_ITM)
+Value Char PS_FCY
+Value Char PS_ITM
+
+Local File ITMMASTER [F:ITM]
+Local File ITMMVT    [F:ITV]
+Local File ITMCATEG  [F:ITG]
+
+Local Decimal F_STODISPO
+
+Read [F:ITM]ITM0 = PS_ITM
+If fstat =0 Then
+  Read [F:ITV]ITV0 = PS_ITM;PS_FCY
+  If fstat = 0 Then
+    Read [F:ITG]ITG1(1)=[F:ITM]TCLCOD
+    If fstat = 0 Then
+      Call STODISPO("",PS_FCY,PS_ITM,"*","*",0,0,"","","","",[L]F_STODISPO) From STKLIB
+    Endif
+  Endif
+Endif
+
+Close Local File [F:ITM],[F:ITV],[F:ITG]
+
+End [L]F_STODISPO
+
+# FIN JESP
+######################################################################################
+
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+
+Funprog CALC_QTYMULT(PS_ITM, PF_QTYDISPO)
+Value Char PS_ITM
+Value Decimal PF_QTYDISPO
+
+Local File ITMMASTER [F:ITM]
+
+Local Decimal F_QTYMULT
+Local Decimal F_COEF
+Local Integer I_AUX
+
+Read [F:ITM]ITM0 = PS_ITM
+If fstat = 0 and [F:ITM]TCLCOD <> "TEXTO" and [F:ITM]TCLCOD <> "EMBA" Then
+  For I=0 To 5
+    If [F:ITM]PCU(I) = 'CAJ' Then
+      [L]F_COEF = [F:ITM]PCUSTUCOE(I)
+      Break
+    Endif
+  Next
+Endif
+
+If F_COEF <> 0 Then
+  [L]I_AUX = PF_QTYDISPO / [L]F_COEF
+Endif
+[L]F_QTYMULT = [L]F_COEF * [L]I_AUX
+
+Close Local File [F:ITM]
+
+End [L]F_QTYMULT
+
+# FIN JESP
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZSTODISPOOP0) 04/12/2020 10:14:37 (RPES)
+######################################################################################
+Subprog AS_YVALOR(VALEUR)
+Variable Integer VALEUR
+
+
+
+End
+
+
+######################################################################################

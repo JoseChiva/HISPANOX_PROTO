@@ -1,0 +1,362 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#If GUSER="ADEV" Then
+Gosub EXEC
+#Endif
+End
+
+########################################################################
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+
+########################################################################
+$EXEC
+Local Char LUSR(50)
+  LUSR  = GUSER
+  GUSER ="WEB"
+  Gosub GENERA_SQH
+  GUSER = LUSR
+Return
+
+########################################################################
+$GENERA_SQH
+#Declaración de variables
+Local Char    LPSHOPRECIBIDOS(250), LPSHOPPROCESADOS(250), LPSHOPERROR(250), LPSHOPSQH(250), LFICHEROIMP(250), CFILE(250), LNOMFICHERO(250)
+Local Integer NFICHEROS
+Local Char    WFICINP1(250), FICHEROS(250)(1..1000), LFILE(250), LFILETMP(250)
+Local Char    CAMPO(200)(1..7)
+Local Integer LECOK : Raz LECOK
+Local Integer LSTAT : Raz LSTAT
+Local Char    LCODCLI(7),LFECHA(8),LCODITM(6),LQTY(8),LPRECIO(9),LDTO(2),LIMPORTE(11),LVOID(250)
+Local Char    LPARAMTIPODOC(20) : LPARAMTIPODOC = func AFNC.PARAM("ZTDOCWEB","")
+Local Decimal LZPRECLI
+Local Integer LERRIMPORT
+
+  LFICHEROIMP='WOFE*'
+#  LFICHEROIMP='WOFE20210916'
+  Raz NFICHEROS
+
+  LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
+  LPSHOPPROCESADOS  = "ZPSHOP\WEB_to_ERP\SQH\processed"
+  LPSHOPERROR       = "ZPSHOP\WEB_to_ERP\SQH\error"
+  LPSHOPSQH         = "ZPSHOP\WEB_to_ERP\SQH"
+#  LPSHOPRECIBIDOS   = "ZPSHOP\para_bmitz"
+#  LPSHOPPROCESADOS  = "ZPSHOP\para_bmitz\SQH\processed"
+#  LPSHOPERROR       = "ZPSHOP\para_bmitz\SQH\error"
+#  LPSHOPSQH         = "ZPSHOP\para_bmitz\SQH"
+
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+  CFILE=filpath(LPSHOPRECIBIDOS,LFICHEROIMP,'txt')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+
+  Call OUVRE_TRACE ("Importación Presupuestos PRESTASHOP")    From LECFIC
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  If instr(1,FICHEROS(1),'txt')=0
+    Call ECR_TRACE('No existe WOFE*',0) From GESECRAN
+    End
+  Endif
+
+  # abre tablas
+  If !clalev([F:ZQP0]) Then : Local File ZSQHPSHOP    [F:ZQP0] : Endif
+  If !clalev([F:ZQP1]) Then : Local File ZSQHPSHOP    [F:ZQP1] : Endif
+  If !clalev([F:ZQP2]) Then : Local File ZSQHPSHOP    [F:ZQP2] : Endif
+  If !clalev([F:ZQP3]) Then : Local File ZSQHPSHOP    [F:ZQP3] : Endif
+  If !clalev([F:ZQB0]) Then : Local File ZSQHBPCPSHOP [F:ZQB0] : Endif
+  If !clalev([F:ZQB1]) Then : Local File ZSQHBPCPSHOP [F:ZQB1] : Endif
+  If !clalev([F:ZSQH]) Then : Local File SQUOTE       [F:ZSQH] : Endif
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED      [F:ZSQD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER    [F:ZITM] : Endif
+  If !clalev([F:ZBPC]) Then : Local File BPCUSTOMER   [F:ZBPC] : Endif
+
+  For A=1 To NFICHEROS
+
+#    Raz [F:ZQP0],[F:ZQP1],[F:ZQP2],[F:ZQB0],[F:ZQB1],[F:ZSQH],[F:ZSQD]
+
+    Raz LERRIMPORT
+
+    # limpia las tablas
+    If !clalev([F:AXX0]) Then : Local File ZSQHPSHOP    [F:AXX0] : Endif
+    Execsql From "5" Sql "Truncate table" - nomap + ".ZSQHPSHOP"
+    If !clalev([F:AYY0]) Then : Local File ZSQHBPCPSHOP [F:AYY0] : Endif
+    Execsql From "5" Sql "Truncate table" - nomap + ".ZSQHBPCPSHOP"
+    Close Local File [AXX0],[AYY0]
+
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.txt','')
+    LFILE = filpath(LPSHOPRECIBIDOS,LNOMFICHERO,'txt')
+
+    Call ECR_TRACE("Proceso fichero"-LNOMFICHERO+".txt",0) From GESECRAN
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+    # Abre fichero original para leer
+    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMP_R]
+    Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
+    Openi   LFILE                     Using [ZIMP_R]
+    Iomode  adxifs ";"                Using [ZIMP_R]
+
+    LECOK = 1
+    Local Integer LNUMLIN
+    Repeat
+      # lee el archivo
+      Rdseq LCODCLI,LFECHA,LCODITM,LQTY,LPRECIO,LDTO,LIMPORTE,LVOID  Using [ZIMP_R]
+      If !fstat Then
+        LCODCLI   = vireblc(LCODCLI,2)  : LFECHA    = vireblc(LFECHA,2)   : LCODITM   = vireblc(LCODITM,2)
+        LQTY      = vireblc(LQTY,2)     : LPRECIO   = vireblc(LPRECIO,2)  : LDTO      = vireblc(LDTO,2)
+        LIMPORTE  = vireblc(LIMPORTE,2)
+        LNUMLIN += 1000
+        # rellena la tabla temporal de líneas de pedido
+        Trbegin [F:ZQP0]
+        [F:ZQP0]IDLIN       = getUuid
+        [F:ZQP0]BPCNUM      = LCODCLI
+        [F:ZQP0]QUODAT      = LFECHA
+        [F:ZQP0]ITMREF      = func ZAULIB01.DEL_LEFT_CHARS(LCODITM,"0")
+        [F:ZQP0]QTY         = val(ctrans(LQTY,",","."))
+        [F:ZQP0]GROPRI      = val(ctrans(LPRECIO,",","."))
+        [F:ZQP0]DISCRGVAL1  = val(ctrans(LDTO,",","."))
+        [F:ZQP0]IMPNUMLIG   = val(ctrans(LIMPORTE,",","."))
+        [F:ZQP0]SQDLIN      = LNUMLIN
+        [F:ZQP0]IMPORTFLG   = "N"
+        Write [F:ZQP0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+        # rellena la tabla temporal de clientes
+        Trbegin [F:ZQB0]
+        [F:ZQB0]BPCNUM = LCODCLI
+        [F:ZQB0]ZUNPRE = "CEN"
+        Read [F:ZBPC]BPC0 = LCODCLI
+        If !fstat and [F:ZBPC]ZUNPRE <> "" Then
+          [F:ZQB0]ZUNPRE = [F:ZBPC]ZUNPRE
+        Endif
+        Write [F:ZQB0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Else
+        LECOK = 0
+      Endif
+    Until LECOK = 0
+
+    # cierra el fichero
+    Openi Using [ZIMP_R]
+
+    # lee la tabla temporal para lanzar filtrar las líneas a procesar del presupuesto
+    Filter [F:ZQP1]
+    For [ZQP1]
+      # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
+      Filter [F:ZSQD] Where BPCORD = [F:ZQP1]BPCNUM and ITMREF = [F:ZQP1]ITMREF and QTY = [F:ZQP1]QTY and GROPRI = ([F:ZQP1]GROPRI/100) and ORDQTY = 0
+&                     and QUODAT >= (date$-15) and QUODAT <= date$     # entre los presupuestos de los últimos 15 días
+      Read [F:ZSQD] First
+      If !fstat Then
+        # busca que ese presupuesto sea de tipo OW (web)
+        Filter [F:ZSQH] Where SQHNUM = [F:ZSQD]SQHNUM and SQHTYP = LPARAMTIPODOC
+        Read [F:ZSQH] First
+        # si encuentra un presupuesto web con la misma línea
+        If !fstat Then
+          # mira la fecha de validez
+          # si aún no se ha superado esa fecha, simplemente guarda en la tabla temporal el valor E (existe)
+          If [F:ZSQH]VLYDAT > date$ Then
+            Trbegin [F:ZQP1]
+            [F:ZQP1]SQHNUM = [F:ZSQD]SQHNUM
+            [F:ZQP1]SQDLIN = [F:ZSQD]SQDLIN
+            [F:ZQP1]IMPORTFLG = "E"
+            Rewrite [F:ZQP1]
+            If !fstat Then
+              Commit
+            Else
+              Rollback
+            Endif
+          Endif
+        Endif
+        Filter [F:ZSQH]
+      Endif
+      Filter [F:ZSQD]
+    Next
+    Filter [F:ZQP1]
+
+    # recorre la tabla temporal de clientes existentes en el fichero
+    For [ZQB1]
+
+      mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+      # filtra por cliente y líneas no procesadas para ver cuantas existen
+      Filter [F:ZQP2] Where BPCNUM = [F:ZQB1]BPCNUM and IMPORTFLG = "N"
+
+      # si hay alguna línea pendiente, se empieza el proceso de importación
+      If rowcount([F:ZQP2]) > 0 Then
+
+        Read [F:ZQP2] First
+
+#        LFILETMP = filpath(LPSHOPRECIBIDOS,"importSQH",'txt')
+        Local Char LFECHA(10), LHORA(10)
+        LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+        LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,2)
+
+        LFILETMP = filpath(LPSHOPSQH,"","")
+        LFILETMP = LFILETMP+"\importSQH_"+[F:ZQP2]BPCNUM+"_"+LFECHA+LHORA+".txt"
+
+        # borramos el fichero si existe...
+        If filinfo(LFILETMP, 7) > 0 Then
+          System "ae_rm " + LFILETMP
+        Endif
+
+        # abre el fichero
+        Gosub OPEN_FILE_W
+
+        # datos de cabecera de presupuesto
+        # indicador  ; planta venta  ; tipo ppto ; nº ppto ; cliente ; fecha ppto ; planta ; cód. presupuesto ; expedición ; divisa
+        Wrseq "E" + ";" + "PHISP" + ";" + LPARAMTIPODOC + ";" + "" + ";" + [F:ZQP2]BPCNUM + ";" + [F:ZQP2]QUODAT + ";" + "" + ";" + "PHISP" + ";" + "EUR" Using [ZIMP_W]
+
+        Filter [F:ZQP3] Where BPCNUM = [F:ZQB1]BPCNUM Order By SQDLIN Asc
+        Local Integer LNUMLIN
+        For [ZQP3]
+          If [F:ZQP3]IMPORTFLG = "N" Then
+            LNUMLIN += 1000
+            Case [F:ZQB1]ZUNPRE
+              When  "UN"  : LZPRECLI = [F:ZQP3]GROPRI/100
+              When  "CEN" : LZPRECLI = [F:ZQP3]GROPRI
+              When  "MIL" : LZPRECLI = [F:ZQP3]GROPRI*10
+            Endcase
+            Read [F:ZITM]ITM0 = [F:ZQP3]ITMREF
+            # datos de línea de presupuesto
+            # indicador ; nº línea ; artículo ; unidad venta ; ctd ppto ; precio bruto (por unidad) ; dto ; tipo precio (4=importación web)
+            Wrseq "L" + ";" + num$([F:ZQP3]SQDLIN) + ";" + [F:ZQP3]ITMREF + ";" + [F:ZITM]SAU + ";" + num$([F:ZQP3]QTY) + ";" + num$([F:ZQP3]GROPRI/100) +
+&            ";" + num$([F:ZQP3]DISCRGVAL1) + ";" + [F:ZQB1]ZUNPRE + ";" + num$(LZPRECLI) + ";" + "4" Using [ZIMP_W]
+            Trbegin [F:ZQP3]
+            [F:ZQP3]IMPORTFLG = "P"   # línea procesada
+            Rewrite [F:ZQP3]
+            If !fstat Then
+              Commit
+            Else
+              Rollback
+            Endif
+          Elsif [F:ZQP3]IMPORTFLG = "E"
+            Call ECR_TRACE("La línea con cliente"-[F:ZQP2]BPCNUM-", artículo"-[F:ZQP3]ITMREF-", cantidad"-num$([F:ZQP3]QTY)-"y precio"-num$([F:ZQP3]GROPRI/100)-
+&           "ya existe en la línea"-num$([F:ZQP3]SQDLIN)-"del presupuesto"-[F:ZQP3]SQHNUM,0) From GESECRAN
+            Trbegin [F:ZQP3]
+            [F:ZQP3]IMPORTFLG = "NP"   # línea no procesada
+            Rewrite [F:ZQP3]
+            If !fstat Then
+              Commit
+            Else
+              Rollback
+            Endif
+          Endif
+        Next
+        Filter [F:ZQP3]
+
+        # cierra el fichero
+        Gosub CLOSE_FILE_W
+
+        mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+        # lanza la importación
+        Call IMPORTSIL ("ZSQHPS",LFILETMP)From GIMPOBJ
+
+#        # mueve el fichero
+        If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
+          If filinfo(LFILETMP+".err", 7) > 0 Then
+            Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
+          Endif
+          If filinfo(LFILETMP, 7) > 0 Then
+            Call MOVE(LFILETMP,filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS                # mueve el fichero .err con errores en la importación
+          Endif
+          System "ae_rm " + LFILETMP                                                      # borra el fichero .txt que ha dado errores
+          Call ECR_TRACE("########################################################################",0) From GESECRAN
+          Call ECR_TRACE("Error en la importación del presupuesto para el cliente"-[F:ZQP2]BPCNUM,1) From GESECRAN
+          LERRIMPORT = 1
+        Else
+          If filinfo(LFILETMP, 7) > 0 Then
+            Call MOVE(LFILETMP,filpath(LPSHOPPROCESADOS,"",""),LSTAT) From ORDSYS           # mueve el fichero txt a la carpeta de procesados
+          Endif
+          Call ECR_TRACE("Presupuesto para el cliente"-[F:ZQP2]BPCNUM,0) From GESECRAN
+        Endif
+
+        Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+      Else
+        Filter [F:ZQP3] Where IMPORTFLG = "E"
+        For [ZQP3]
+          Call ECR_TRACE("La línea con cliente"-[F:ZQP3]BPCNUM-", artículo"-[F:ZQP3]ITMREF-", cantidad"-num$([F:ZQP3]QTY)-"y precio"-num$([F:ZQP3]GROPRI/100)-
+&         "ya existe en la línea"-num$([F:ZQP3]SQDLIN)-"del presupuesto"-[F:ZQP3]SQHNUM,0) From GESECRAN
+          Trbegin [F:ZQP3]
+          [F:ZQP3]IMPORTFLG = "NP"     # línea no procesada
+          Rewrite [F:ZQP3]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
+        Next
+      Endif
+      Filter [F:ZQP2]
+    Next
+
+    Call MOVE(LFILE,filpath(LPSHOPSQH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+
+    Call LANZA_WORKFLOW(LNOMFICHERO,LERRIMPORT)
+
+  Next
+
+  Call FERME_TRACE From LECFIC
+#  If !GSERVEUR Then
+#    Call LEC_TRACE From LECFIC
+#  Endif
+
+  # cierra tablas
+  Close Local File [ZQP0],[ZQP1],[ZQP2],[ZQB0],[ZQB1],[ZSQH],[ZSQD],[ZITM],[ZBPC]
+Return
+
+########################################################
+$OPEN_FILE_W
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILETMP Using [ZIMP_W]
+
+Return
+
+########################################################
+$CLOSE_FILE_W
+
+Openo Using [ZIMP_W]
+
+Return
+
+###############################################################
+#**
+#* envía correo con la traza
+#*
+#* @param PNOMFICH    > nombre del fichero SOF
+#* @param PERRIMPORT  > 1=error ; 0=sin error
+#*!
+Subprog LANZA_WORKFLOW(PNOMFICH,PERRIMPORT)
+Value Char    PNOMFICH
+Value Integer PERRIMPORT
+  # lanza un workflow para avisar de que la importación ha fallado
+  Global Char GCORREO(250),GFICHERO(250),GASUNTO(250),GMENSAJE(250)
+#  GCORREO    = "joseluis.chiva@auren.es"
+  GCORREO    = "sergi.cunill@hispanox.com"
+  GFICHERO   = PNOMFICH
+  GASUNTO    = "Traza importación presupuesto Prestashop"
+  If PERRIMPORT = 1 Then
+    GMENSAJE = "Importación CON errores para el fichero " + PNOMFICH
+  Else
+    GMENSAJE = "Importación SIN errores para el fichero " + PNOMFICH
+  Endif
+  Call WORKFLOW (1,"ZIQ","",GUSER) From AWRK
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+  If dim(GMENSAJE)  > 0 Then : Kill GMENSAJE  : Endif
+End

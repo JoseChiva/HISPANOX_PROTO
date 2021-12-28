@@ -1,0 +1,56 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+  Case ACTION
+    When "IMP_OUVRE"      : Gosub IMP_OUVRE
+    When "IMP_FERME"      : Gosub IMP_FERME
+    When "AP_IMPORT"      : Gosub AP_IMPORT
+    When Default
+  Endcase
+Return
+
+$IMP_OUVRE
+    If !clalev([F:ZMBED]): Local File ZMBEXTRAD  [F:ZMBED]: Endif
+Return
+
+$AP_IMPORT
+#  If IMPFIC = "ZMBE" Then
+#    If !clalev([F:XXH]) Then : Local File ZMBEXTRA  [F:XXH] : Endif
+#    Trbegin [F:XXH]
+#    Delete [F:XXH] Where CLI_1 = [F:ZMBE]CLI_1
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#    Close Local File [XXH]
+#  Endif
+
+  If IMPFIC = "ZMBED" Then
+    If !clalev([XMBED]): Local File ZMBEXTRAD  [F:XMBED]: Endif
+    Read [F:XMBED]ZMBED0 = [F:ZMBED]CLI_1;[F:ZMBED]TSCCOD
+    [F:XMBED]CLI_1    = [F:ZMBED]CLI_1
+    [F:XMBED]TSCCOD   = [F:ZMBED]TSCCOD
+    [F:XMBED]MBEXTRA  = [F:ZMBED]MBEXTRA
+    If !fstat Then
+      Rewrite [F:XMBED]
+      Call ECR_TRACE("Registro "+num$([F:ZMBED]CLI_1)-"-"-[F:ZMBED]TSCCOD+" modificado con valor "+num$([F:ZMBED]MBEXTRA),0) From GESECRAN
+    Else
+      Write [F:XMBED]
+      Call ECR_TRACE("Registro "+num$([F:ZMBED]CLI_1)-"-"-[F:ZMBED]TSCCOD+" creado con valor "+num$([F:ZMBED]MBEXTRA),0) From GESECRAN
+    Endif
+    Close Local File [XMBED]
+  Endif
+Return
+
+$IMP_FERME
+  If !clalev([F:XMBED]) Then : Local File ZMBEXTRAD  [F:XMBED] : Endif
+  Trbegin [F:XMBED]
+  Delete [F:XMBED] Where CLI_1 = [F:ZMBED]CLI_1 and TSCCOD = ""
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+  Close Local File [XMBED],[ZMBED]
+Return

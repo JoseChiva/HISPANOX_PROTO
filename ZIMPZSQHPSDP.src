@@ -1,0 +1,167 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+#Infbox ACTION
+Local Char LUSER(50)
+  LUSER = GUSER
+  GUSER = "WEB"
+  Case ACTION
+    When "AP_IMPORT"      : Gosub AP_IMPORT
+    When "IMP_FERME"      : Gosub IMP_FERME
+    When Default
+  Endcase
+  GUSER = LUSER
+Return
+
+########################################################
+$AP_IMPORT
+#  # guarda en pantalla el valor del campo Facturación portes
+#  # guarda en pantalla el valor del importe de portes
+#  If !clalev([F:ZOPH4]) Then : Local File ZSOHPSHOPH [F:ZOPH4] : Endif
+#  Read [F:ZOPH4]ZOPH0 = [F:SQH]ZPEDIDOWEB
+#  If !fstat Then
+#    [M:SQH1]ZFREINV = [F:ZOPH4]ZFREINV
+#    Affzo [M:SQH1]ZFREINV
+#    If [F:ZOPH4]IMPPORTES > 0 Then
+#      [M:SQH3]INVDTAAMT(1) = [F:ZOPH4]IMPPORTES
+#      Affzo [M:SQH3]INVDTAAMT(1)
+#    Endif
+#  Endif
+#  Call AM_ZFREINV([M:SQH1]ZFREINV) From SPESQH
+#  Close Local File [ZOPH4]
+Return
+
+########################################################
+$IMP_FERME
+Local Decimal LDIFSOHWEB : LDIFSOHWEB = val(func AFNC.PARAM("ZDIFSOHWEB",""))
+Local Decimal LIMPORTEWEB, LIMPORTEX3, LSTOCKDISP
+Local Integer LERROR
+
+  # guarda el usuario WEB como creador y actualizador en la cabecera
+  If !clalev([F:ZSQH]) Then : Local File SQUOTE     [F:ZSQH] : Endif
+  Read [F:ZSQH]SQH0 = [F:SQH]SQHNUM
+  If !fstat Then
+    [F:ZSQH]CREUSR = "WEB"
+    [F:ZSQH]UPDUSR = "WEB"
+    Trbegin [F:ZSQH]
+    Rewrite [F:ZSQH]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Endif
+  Close Local File [ZSQH]
+
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED    [F:ZSQD] : Endif
+  Filter [F:ZSQD] Where SQHNUM = [F:SQH]SQHNUM
+  For [ZSQD]
+    # comprueba si hay diferencia superior a lo indicado en el parámetro ZDIFSOHWEB entre el precio
+    # web y el precio X3
+    LIMPORTEWEB = [F:ZSQD]QTY * [F:ZSQD]GROPRI
+    LIMPORTEX3  = [F:ZSQD]QTY * [F:ZSQD]ZPREOFERTA
+    If abs(LIMPORTEWEB - LIMPORTEX3) > LDIFSOHWEB Then
+       Call ECR_TRACE("Importe de la línea"-num$([F:ZSQD]SQDLIN)-"del presupuesto"-[F:ZSQD]SQHNUM-"superior a"-num$(LDIFSOHWEB)-[F:SQH]CUR,0) From GESECRAN
+       Call ECR_TRACE("Precio web:"-num$([F:ZSQD]GROPRI)-"/ Precio X3:"-num$([F:ZSQD]ZPREOFERTA)-"/ Artículo:"-[F:ZSQD]ITMREF-"/ Importe web:"-num$(LIMPORTEWEB)-"/ Importe X3:"-num$(LIMPORTEX3),0)
+& From GESECRAN
+       Call ECR_TRACE("************************************************************************************************",0) From GESECRAN
+    Endif
+    # comprueba si no hay stock suficiente
+    LSTOCKDISP = func ZAULIB01.STOCK_DISPONIBLE("",[F:ZSQD]ITMREF,[F:ZSQD]STOFCY,0,LERROR)
+    If LSTOCKDISP < [F:ZSQD]QTY Then
+       Call ECR_TRACE("Stock de la línea"-num$([F:ZSQD]SQDLIN)-"del presupuesto"-[F:ZSQD]SQHNUM-"inferior al disponible (Disponible:"-num$(LSTOCKDISP)-[F:ZSQD]SAU+")",0) From GESECRAN
+       Call ECR_TRACE("************************************************************************************************",0) From GESECRAN
+    Endif
+    # guarda el usuario WEB como creador y actualizador en las líneas
+    [F:ZSQD]CREUSR = "WEB"
+    [F:ZSQD]UPDUSR = "WEB"
+    Trbegin [F:ZSQD]
+    Rewrite [F:ZSQD]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+  Close Local File [ZSQD]
+
+  # guarda el número de presupuesto creado en la tabla temporal de cabecera
+  # para poder relacionar el nuevo pedido con el presupuesto
+  If !clalev([F:ZOPH3]) Then : Local File ZSOHPSHOPH [F:ZOPH3] : Endif
+  If !clalev([F:ZOPD3]) Then : Local File ZSOHPSHOPD [F:ZOPD3] : Endif
+  Filter [F:ZOPH3] Where SOHNUM = [F:SQH]ZPEDIDOWEB #and IMPORTFLG <> "E"
+  Read [F:ZOPH3] First
+  If !fstat Then
+    Trbegin [F:ZOPH3]
+    [F:ZOPH3]SQHNUM = [F:SQH]SQHNUM
+    Rewrite [F:ZOPH3]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+#    # guarda el comentario del documento en el Texto pie
+#    If !clalev([F:ZSQH]) Then : Local File SQUOTE  [F:ZSQH] : Endif
+#    If !clalev([F:TXC0]) Then : Local File TEXCLOB [F:TXC0] : Endif
+#    Read [F:ZSQH]SQH0 = [F:SQH]SQHNUM
+#    If !fstat Then
+#      Trbegin [F:ZSQH]
+#      [F:ZSQH]SQHTEX2 = "SQH~0"+mid$([F:SQH]SQHNUM,3,7)
+#      Rewrite [F:ZSQH]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+#    Read [F:TXC0]TXC0 = [F:ZSQH]SQHTEX2
+#    If !fstat Then
+#      Trbegin [F:TXC0]
+#      [F:TXC0]TEXTE = [F:ZOPH3]COMCLI
+#      Rewrite [F:TXC0]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Else
+#      Trbegin [F:TXC0]
+#      [F:TXC0]CODE    = [F:ZSQH]SQHTEX2
+#      [F:TXC0]IDENT3  = [F:ZSQH]SQHTEX2
+#      [F:TXC0]TEXTE   = [F:ZOPH3]COMCLI
+#      Write [F:TXC0]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+#    Close Local File [ZSQH],[TXC0]
+  Endif
+  Filter [F:ZOPH3]
+
+  # guarda el número de presupuesto creado y las líneas en la tabla temporal de líneas
+  # para poder relacionar el nuevo pedido con el presupuesto
+  Filter [F:SQD] Where SQHNUM = [F:SQH]SQHNUM
+  For [F:SQD]
+    Filter [F:ZOPD3] Where SOHNUM = [F:SQH]ZPEDIDOWEB and IMPORTFLG <> "E" and ITMREF = [F:SQD]ITMREF and QTY = [F:SQD]QTY and GROPRI = ([F:SQD]GROPRI*100) and DISCRGVAL1 = [F:SQD]DISCRGVAL1
+    Read   [F:ZOPD3] First
+    If !fstat Then
+      [F:ZOPD3]SQHNUM = [F:SQD]SQHNUM
+      [F:ZOPD3]SQDLIN = [F:SQD]SQDLIN
+      Trbegin [F:ZOPD3]
+      Rewrite [F:ZOPD3]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+    Filter [F:ZOPD3]
+  Next
+  Filter [F:SQD]
+
+  GSQHNUM = [F:SQH]SQHNUM
+
+  Close Local File [ZOPH3],[ZOPD3]
+
+Return

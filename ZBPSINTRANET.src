@@ -1,0 +1,206 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ 
+#Local Char NUM
+#NUM = ''
+#Call PROVEEDORES(NUM)
+#End
+#---------------------------------------------------------------
+Subprog PROVEEDORES(WBPS)
+Variable Char WBPS
+Gosub OPEN_TABLAS
+   Filter [BPS] Where (WBPS="" or BPSNUM=WBPS)
+   If rowcount([BPS])>0
+     Gosub CREAR_FICHERO
+     Gosub CABECERA
+     For [BPS]BPS0
+       Read [F:BPR]BPR0=[F:BPS]BPSNUM
+       Gosub DIRECCION
+       Gosub PAIS
+       Gosub INACTIVO
+       Gosub FORMA_PAGO
+       Gosub IDIOMA
+       Gosub COMPRAS
+       Gosub NOTAS
+       Gosub ESC_REGISTRO
+     Next
+     Openo Using [BPS]
+   Endif
+   Gosub CLOSE_TABLAS
+End
+#################################################################
+$ESC_REGISTRO
+Wrseq [F:BPS]BPSNUM;       Using [BPS]
+Wrseq [F:BPS]BPSSHO;       Using [BPS]
+Wrseq [F:BPR]BPRNAM(0);    Using [BPS]
+Wrseq [F:BPR]BPRNAM(1);    Using [BPS]
+Wrseq format$("K:5X",[F:BPA]BPAADD);        Using [BPS]
+Wrseq format$("K:50X",[F:BPA]BPAADDLIG(0)); Using [BPS]
+Wrseq format$("K:50X",[F:BPA]BPAADDLIG(1)); Using [BPS]
+Wrseq format$("K:50X",[F:BPA]BPAADDLIG(2)); Using [BPS]
+Wrseq format$("K:40X",V_PAIS);              Using [BPS]
+Wrseq format$("K:10X",[F:BPA]POSCOD);       Using [BPS]
+Wrseq format$("K:40X",[F:BPA]CTY);          Using [BPS]
+Wrseq format$("K:35X",[F:BPA]SAT);          Using [BPS]
+Wrseq format$("K:35X",[F:BPR]CRN);          Using [BPS]
+Wrseq format$("K:18X",V_INACTIVO);          Using [BPS]
+Wrseq format$("K:3X",[F:BPS]CUR);           Using [BPS]
+Wrseq format$("K:15X",[F:BPS]PTE);          Using [BPS]
+Wrseq format$("K:30X",V_FPAGO);             Using [BPS]
+#Wrseq [F:NTS]NOTE;                          Using [BPS]
+#Wrseq [F:TXC]TEXTE;                         Using [BPS]
+Wrseq NOTASPED;                             Using [BPS]
+Wrseq format$("K:20X",[F:BPA]TEL(0));       Using [BPS]
+Wrseq format$("K:20X",[F:BPA]TEL(1));       Using [BPS]
+Wrseq format$("K:80X",[F:BPA]WEB(0));       Using [BPS]
+Wrseq format$("K:80X",[F:BPA]WEB(1));       Using [BPS]
+Wrseq ctrans(num$(format$("N:1.3#",[F:BPS]ZCPRCOE)),".",",");     Using [BPS]
+Wrseq ctrans(num$(format$("N:8.2#",[F:BPS]INVDTAAMT(2))),".",",");  Using [BPS]
+Wrseq format$("K:3X",[F:BPS]TSSCOD(0));     Using [BPS]
+Wrseq format$("K:3X",[F:BPR]LAN);           Using [BPS]
+Wrseq format$("K:30X",V_IDIOMA);            Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(0))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(1))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(2))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(3))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(4))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(5))),".",",");       Using [BPS]
+Wrseq ctrans(num$(format$("N:12.2",V_COMPRAS(6))),".",",")       Using [BPS]
+Return
+##################################################################
+$COMPRAS
+Local Decimal V_COMPRAS(7)
+Raz V_COMPRAS
+Local Date WDAT
+For X=0 To 6
+   WDAT=gdat$(1,1,year(date$)-X)
+   #Filter [F:SAT] Where COD="ZCOMI" and CRI1=[F:BPS]BPSNUM and DAT=WDAT
+##AMG.STR Estadíasitca ZREC1
+   Filter [F:SAT] Where COD="ZREC1" and CRI1=[F:BPS]BPSNUM and DAT=WDAT
+
+   Read [F:SAT]SAT0 First
+   If !fstat
+     V_COMPRAS(X)=[F:SAT]AMT(0)
+   Endif
+Next
+Return
+##################################################################
+$DIRECCION
+  Read [BPA]BPA0=1;[F:BPS]BPSNUM;[F:BPS]BPAADD
+Return
+##################################################################
+$IDIOMA
+Read [F:AXX]AXX0="TABLAN";"INTDES";"SPA";[F:BPR]LAN;""
+If !fstat
+  Local Char V_IDIOMA(30): V_IDIOMA=[F:AXX]TEXTE
+Endif
+Return
+##################################################################
+$PAIS
+Read [F:AXX]AXX0="TABCOUNTRY";"CRYDES";"SPA";[F:BPR]CRY;""
+If !fstat
+  Local Char V_PAIS(50): V_PAIS=[F:AXX]TEXTE
+Endif
+Return
+###################################################################
+$FORMA_PAGO
+Local Char V_FPAGO(30): Raz V_FPAGO
+Read [F:AXX]AXX0="TABPAYTERM";"DESAXX";"SPA";[F:BPS]PTE;"SPA"
+If !fstat
+  V_FPAGO=[F:AXX]TEXTE
+Endif
+Return
+##################################################################
+$INACTIVO
+Local Char V_INACTIVO(2)
+If [F:BPS]ENAFLG=2
+  V_INACTIVO="No"
+Else
+  V_INACTIVO="Si"
+Endif
+Return
+
+###################################################################
+$NOTAS
+Local Char NOTASPED(250)
+#Filter [F:NTS] Where BPSNUM = [F:BPS]BPSNUM
+#Read  [F:NTS] First
+Raz NOTASPED
+#es la nota del doc. pedido
+Filter [F:TXC] Where CODE = [F:BPS]ORDTEX
+Read  [F:TXC] First
+If !fstat Then
+  #esta formula es para evitar que cuando en el doc pedido escriban un punto y coma lo tome como separador de campo
+  #tambien para evitar que con el salto de linea salte de linea en el csv y de problemas de formato.
+  NOTASPED = ctrans([F:TXC]TEXTE,";",chr$(32)+chr$(32))
+  NOTASPED = ctrans(NOTASPED,chr$(13)+chr$(10)+";"," #")
+Endif
+
+Return
+##################################################################
+$OPEN_TABLAS
+Local File BPSUPPLIER
+Local File BPARTNER
+Local File BPADDRESS
+Local File ATEXTRA
+Local File STAT
+Local File NOTE
+Local File TEXCLOB
+
+Return
+##################################################################
+$CABECERA
+Wrseq "Código"; Using [BPS]
+Wrseq "Mote"; Using [BPS]
+Wrseq "RSoc"; Using [BPS]
+Wrseq "Nombre"; Using [BPS]
+Wrseq "Dirección"; Using [BPS]
+Wrseq "Descripción dirección"; Using [BPS]
+Wrseq "Descripción dirección"; Using [BPS]
+Wrseq "Descripción dirección"; Using [BPS]
+Wrseq "Descripción país"; Using [BPS]
+Wrseq "Cpost"; Using [BPS]
+Wrseq "Población"; Using [BPS]
+Wrseq "Provincia"; Using [BPS]
+Wrseq "NIF"; Using [BPS]
+Wrseq "Inactivo"; Using [BPS]
+Wrseq "Moneda"; Using [BPS]
+Wrseq "Forma_Pago"; Using [BPS]
+Wrseq "Desc_Forma_Pago"; Using [BPS]
+Wrseq "Notas_Ped_1"; Using [BPS]
+Wrseq "Telefono"; Using [BPS]
+Wrseq "Fax"; Using [BPS]
+Wrseq "email_1"; Using [BPS]
+Wrseq "email_2"; Using [BPS]
+Wrseq "Arancel_1"; Using [BPS]
+Wrseq "Dto_PP"; Using [BPS]
+Wrseq "Nivel"; Using [BPS]
+Wrseq "Idioma"; Using [BPS]
+Wrseq "Desc_Idioma"; Using [BPS]
+Wrseq "Compras_año_actual"; Using [BPS]
+Wrseq "Compras_año_actual-1"; Using [BPS]
+Wrseq "Compras_año_actual-2"; Using [BPS]
+Wrseq "Compras_año_actual-3"; Using [BPS]
+Wrseq "Compras_año_actual-4"; Using [BPS]
+Wrseq "Compras_año_actual-5"; Using [BPS]
+Wrseq "Compras_año_actual-6" Using [BPS]
+
+Return
+##################################################################
+$CREAR_FICHERO
+If WBPS=""
+# Openo filpath("ZINT\para_bmitz","proveedores","csv"),0 Using [BPS]
+ Openo filpath("ZINT\ERP_to_intranet","proveedores","csv"),0 Using [BPS]
+Else
+# Openo filpath("ZINT\para_bmitz","proveedores"+"_"+WBPS,"csv"),0 Using [BPS]
+ Openo filpath("ZINT\ERP_to_intranet","proveedores"+"_"+WBPS,"csv"),0 Using [BPS]
+Endif
+Iomode adxifs ";"        Using [BPS] # comento para probar que no haya error con las notas proveedor que lleven ';'
+#Iomode adxifs "|"        Using [BPS]
+#Iomode adxirs "\013\010" Using [BPS]
+Iomode adxium 50         Using [BPS]
+
+Return
+
+$CLOSE_TABLAS
+
+Close Local File [F:BPR],[F:SAT],[F:AXX],[F:BPS],[F:TXC],[F:BPA]
+Return

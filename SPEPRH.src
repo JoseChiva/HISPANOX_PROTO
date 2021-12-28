@@ -1,0 +1,335 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ Vales de preparación
+#
+#MLGA - Al cambiar el Vale de Preparacion a ENTREGABLE(V) se general el XML SOR - 07/2020
+#
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "APRES_CRE"  : Gosub APRES_MOD
+  When "APRES_MOD"  : Gosub APRES_MOD
+  When "LIENS"      : Gosub LIENS
+  When "EXEBOUT"    : Gosub EXEBOUT
+  When "SETBOUT"    : Gosub SETBOUT
+  When "SEL_TABLE"  : Gosub SEL_TABLE
+  When "VERF_TABLE" : Gosub VERF_TABLE
+  When Default
+Endcase
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$APRES_MOD
+Local Integer LCON
+
+# JC.03062021.STR
+  If !clalev([F:PRE0]) Then : Local File STOPRED [F:PRE0] : Endif
+  For LCON=0 To [M:PRH1]NBLIG-1
+    Read [F:PRE0]PRE0 = [M:PRH0]PRHNUM;[M:PRH1]PRELIN(LCON)
+    If !fstat Then
+      Trbegin [F:PRE0]
+      [F:PRE0]ZEXPORT = [M:PRH1]ZEXPORT(LCON)
+      Rewrite [F:PRE0]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+  Close Local File [PRE0]
+  If dim(LCON)>0 Then : Kill LCON :Endif
+
+#  Call ZSGASOR([M:PRH0]PRHNUM,'') From ZSGASOR
+# JC.03062021.END
+
+Return
+
+##############################################################
+$LIENS
+  For X=0 To [M:PRH1]NBLIG-1
+    [M:PRH1]ZUSRFLD1(X)=[F:PRE]ZUSRFLD1
+  Next
+Return
+
+##############################################################
+$EXEBOUT
+  Case BOUT
+    When "s"  : Gosub CREA_SOR                      # JC.20052021
+  Endcase
+Return
+
+##############################################################
+$SETBOUT
+  If [M:PRH0]ZSGAENVIADO = 2 Then
+    Call VIREBOUT(CHAINE,"s") From GOBJET
+  Else
+    CHMEN += "s"
+  Endif
+Return
+
+##############################################################
+$SEL_TABLE
+  Case TABLE
+    When "ZSELVPADRE"   : Gosub SEL_ZSELVPADRE
+  Endcase
+Return
+
+##############################################################
+$VERF_TABLE
+  Case TABLE
+    When "ZSELVPADRE"   : Gosub VERF_ZSELVPADRE
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$SEL_ZSELVPADRE
+Local Char LCRIT(250)
+
+  If !clalev([F:ZVVP1]) Then : Local File ZVVPPADRE1 [F:ZVVP1] : Endif
+  LCRIT  = "BPCORD = [M:PRH0]BPCORD"                   # del mismo cliente
+  LCRIT += " and DLVFLG = 1"                           # sólo estado = encurso
+  LCRIT += " and PRHNUM <> [M:PRH0]PRHNUM"             # no muestra el propio VP
+  Default File [F:ZVVP1]
+  Filter [F:ZVVP1] Where evalue(LCRIT)
+
+  NBCOL       = 0                                                               # número de la columna
+  TIT(NBCOL)  = "Selección Vales de preparación"                                # título de la ventana
+  NBCOL       += 1
+  TIT(NBCOL)  = "Vales de preparación"                                          # título de la primera columna
+  COL(NBCOL)  = "PRHNUM"                                                        # nombre del campo a mostrar en la segunda columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Cliente pdo"                                                   # título de la segunda columna
+  COL(NBCOL)  = "BPCORD"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Dirección"                                                     # título de la tercera columna
+  COL(NBCOL)  = "BPAADD"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Fecha exp."                                                    # título de la cuarta columna
+  COL(NBCOL)  = "SHIDAT"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Estado"                                                        # título de la quinta columna
+  COL(NBCOL)  = "ESTADO"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Tipo entrega"                                                  # título de la sexta columna
+  COL(NBCOL)  = "SDHTYP"                                                        # nombre del campo a mostrar en la primera columna
+  NBCOL       += 1
+  TIT(NBCOL)  = "Status Mecalux"                                                # título de la septima columna
+  COL(NBCOL)  = "ZSTATUS"                                                       # nombre del campo a mostrar en la primera columna
+Return
+
+##############################################################
+$VERF_ZSELVPADRE
+Return
+
+##############################################################
+# JC.20052021
+$CREA_SOR
+Local Integer YESNO : YESNO = 2   # yes
+Local Integer LCON
+
+  Call OUINON("Se va a genera el documento SOR para el vale de preparación " + [M:PRH0]PRHNUM + "\¿Deseas continuar?",YESNO) From GESECRAN
+  If YESNO = 2 Then
+    Call ZSGASOR([M:PRH0]PRHNUM,'') From ZSGASOR
+    # actualiza cabecera vales de preparación
+    If !clalev([F:ZPRH]) Then : Local File STOPREH [F:ZPRH] : Endif
+    Read [F:ZPRH]PRH0 = [M:PRH0]PRHNUM
+    If !fstat Then
+      Trbegin [F:ZPRH]
+      [F:ZPRH]ZSGAENVIADO = 2
+      Rewrite [F:ZPRH]
+      If !fstat Then
+        Commit
+        [M:PRH0]ZSGAENVIADO = 2
+        Affzo [M:PRH0]ZSGAENVIADO
+      Else
+        Rollback
+      Endif
+    Endif
+    Close Local File [ZPRH]
+    # actualiza líneas vales de preparación
+    If !clalev([F:ZPRE]) Then : Local File STOPRED [F:ZPRE] : Endif
+    For LCON=0 To [M:PRH1]NBLIG-1
+      Read [F:ZPRE]PRE0 = [M:PRH0]PRHNUM;[M:PRH1]PRELIN(LCON)
+      If !fstat Then
+        Trbegin [F:ZPRE]
+        [F:ZPRE]ZEXPORT       = 2
+        Rewrite [F:ZPRE]
+        If !fstat Then
+          Commit
+          [M:PRH1]ZEXPORT(LCON) = 2
+          Affzo [M:PRH1]ZEXPORT(LCON)
+        Else
+          Rollback
+        Endif
+      Endif
+    Next
+    Close Local File [ZPRE]
+  Endif
+
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla PRH1) 30/09/2020 08:45:46 (MLGA)
+######################################################################################
+Subprog AM_NBLIG
+  If [M:PRH1]ZEXPORT(nolign-1)=0
+    [M:PRH1]ZEXPORT(nolign-1)=1
+  Endif
+  If [M:PRH1]ZEXPORT(nolign-1)=2
+    [M:PRH1]ZEXPORT(nolign-1)=3
+  Endif
+  Affzo [M:PRH1]ZEXPORT(nolign-1)
+End
+
+
+#######################################################################################
+### Etiqueta añadida por el supervisor (pantalla PRH0) 30/09/2020 18:46:37 (MLGA)
+#######################################################################################
+#Subprog S_ZVPPADRE(VALEUR)
+#Variable Char    VALEUR()
+#
+#Local Char LCRIT(250)
+#
+#  LCRIT  = "[F:PRH]BPCORD = [M:PRH0]BPCORD"                   # del mismo cliente
+##  LCRIT += " and [F:PRH]DLVFLG <> 2 and [F:PRH]DLVFLG <> 3"   # no entregables ni entregados
+#  LCRIT += " and [F:PRH]DLVFLG = 1"                           # sólo estado = encurso
+#  LCRIT += " and [F:PRH]PRHNUM <> [M:PRH0]PRHNUM"             # no muestra el propio VP
+#  Filter [F:PRH] Where evalue(LCRIT)
+#  Call SELECT("PRH","",[M:PRH0]ZVPPADRE,"") From SELOBJ
+#  Filter [F:PRH]
+#  If status = 7 : VALEUR='': End
+#  Else
+#      VALEUR = [F:PRH]PRHNUM
+#  Endif
+#End
+
+######################################################################################
+## Después de modificar el campo 'Enviado SGA' (pantalla PRH0) 03/06/2021 09:18:30 (ADEV)
+######################################################################################
+# JC.20052021
+Subprog AM_ZSGAENVIADO(VALEUR)
+Variable Integer VALEUR
+
+Local Integer LCON
+
+  For LCON=0 To [M:PRH1]NBLIG-1
+    [M:PRH1]ZEXPORT(LCON) = VALEUR
+    Affzo [M:PRH1]ZEXPORT(LCON)
+  Next
+
+  If dim(LCON) > 0  Then : Kill LCON : Endif
+End
+
+######################################################################################
+## Control en el campo 'VP Padre' (pantalla PRH0) 29/09/2021 09:47:10 (ADEV)
+######################################################################################
+Subprog C_ZVPPADRE(VALEUR)
+Variable Char    VALEUR()
+# JC.29092021.INI
+# impide que se ponga cualquier valor en el campo, sólo admite VP válidos.
+# VP válidos significa no entregables ni entregados, del mismo cliente entrega y
+# teniendo en cuenta que los % de descuento comercial y %dto pp (elementos de facturación)
+# sean iguales, porque si son distintos no pueden ser entregados conjuntamente en una
+# misma entrega
+Local Integer LCON,LSTA
+Local Char    LCRIT(250)
+  If VALEUR <> "" Then
+    # impide que pongan el mismo VP
+    If VALEUR = [M:PRH0]PRHNUM Then
+      LSTA = 1
+      Goto CREA_BLOQUEO
+    Else
+      # impide que pongan un VP que no existe
+      Read [F:PRH]PRH0 = VALEUR
+      If fstat <> 0 Then
+        LSTA = 2
+        Goto CREA_BLOQUEO
+      Else
+        # impide que ponga un VP con estado distinto a Encurso
+        If [F:PRH]DLVFLG <> 1 Then
+          LSTA = 3
+          Goto CREA_BLOQUEO
+        Else
+          #impide que ponga un VP de otro cliente
+          If [F:PRH]BPCORD <> [M:PRH0]BPCORD Then
+            LSTA = 4
+            Goto CREA_BLOQUEO
+          Else
+            # impide que pongan un VP con diferentes % en los elementos de facturación
+            # de sus pedidos origen
+            If !clalev([F:PRH0]) Then : Local File STOPREH [F:PRH0] : Endif
+            If !clalev([F:PRE0]) Then : Local File STOPRED [F:PRE0] : Endif
+            If !clalev([F:SOH0]) Then : Local File SORDER  [F:SOH0] : Endif
+            If !clalev([F:SOH1]) Then : Local File SORDER  [F:SOH1] : Endif
+            # filtra por el VP Padre seleccionado
+            Read [F:PRH0]PRH0 = VALEUR
+            If !fstat Then
+              # filtra las líneas del VP Padre seleccionado
+              Filter [F:PRE0] Where PRHNUM = [F:PRH0]PRHNUM
+              For [F:PRE0]
+                For LCON=0 To [M:PRH1]NBLIG-1
+                  # busca los pedidos origen del VP Padre y del VP activo para comparar los %
+                  Read [F:SOH0]SOH0 = [F:PRE0]ORINUM
+                  Read [F:SOH1]SOH0 = [M:PRH1]ORINUM(LCON)
+                  # los % de dto.comercial y dto.pp no coinciden
+                  If [F:SOH0]INVDTAAMT(0) <> [F:SOH1]INVDTAAMT(0) or [F:SOH0]INVDTAAMT(2) <> [F:SOH1]INVDTAAMT(2) Then
+                    LSTA = 5
+                    Goto CREA_BLOQUEO
+                  Endif
+                Next  # [M:PRH1]
+              Next  # [F:PRE0]
+              Filter [F:PRE0]
+            Endif
+            Close Local File [PRH0],[PRE0],[SOH0],[SOH1]
+          Endif
+        Endif
+      Endif
+    Endif
+  Endif
+
+  $CREA_BLOQUEO
+
+  Case LSTA
+    When 1
+      Call ERREUR("El VP padre no puede se el mismo vale") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When 2
+      Call ERREUR("El VP padre indicado no existe") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When 3
+      Call ERREUR("El VP padre indicado no tiene estado Encurso") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When 4
+      Call ERREUR("El VP padre indicado no es del mismo cliente") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When 5
+      Call ERREUR("No se puede seleccionar este VP porque los pedidos tienen distintos elementos de facturación (dto o dto pp)") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When Default
+  Endcase
+# JC.29092021.END
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

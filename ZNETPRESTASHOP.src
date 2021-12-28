@@ -1,0 +1,164 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call PRECIONETO()
+
+End
+
+###########################################################
+Subprog PRECIONETO()
+  Gosub OPEN_TABLAS
+#  Filter [F:ITM1] Where ZWEB=2 and (ITMREF = '21452') #or ITMREF = '1000' or ITMREF = '10000' or ITMREF = '10001') Order By ITMREF
+#  Filter [F:ITM1] Where ZWEB=2 and len(ITMREF) = 6 Order By ITMREF
+  Filter [F:ITM1] Where ZWEB=2 Order By ITMREF
+  Filter [F:ADI1] Where NUMTAB=33
+  If rowcount([F:ITM1])>0
+    Gosub CREAR_FICHERO
+    For [ITM1]
+      For [F:ADI1]CODE
+        Gosub ESC_REGISTRO
+      Next
+    Next
+    Openo Using [ITM]
+  Endif
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$ESC_REGISTRO
+  If (6-len([F:ITM1]ITMREF)) > 0 Then
+    Wrseq ctrans(space$(6-len([F:ITM1]ITMREF))+[F:ITM1]ITMREF,' ','0'); Using [ITM]
+  Else
+    Wrseq left$([F:ITM1]ITMREF,6);                                      Using [ITM]
+  Endif
+  Wrseq [F:ADI1]CODE;                                                   Using [ITM]
+  Raz LIMITE_0, LIMITE_1, LIMITE_2
+  Raz PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3
+#  Call CALC_PRECIO([F:ITM1]ITMREF,[F:ADI1]CODE,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2, PRECIO_NETO_3)
+  COSTE_OFERTA  = func ZAULIB01.GET_COSTEOFERTA([F:ITM1]ITMREF,"PHISP")
+  Call GET_PBASE([F:ITM1]ITMREF,"PHISP",[F:ADI1]CODE,COSTE_OFERTA,LIMITE_0,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2,PRECIO_NETO_3) From ZAULIB01
+  Wrseq format$("N0:3#",LIMITE_1);                                      Using [ITM]
+  Wrseq format$("N0:3#",LIMITE_2);                                      Using [ITM]
+  Wrseq ctrans(format$("N0:6.4#",arr(PRECIO_NETO_1,0.0001)),".",",");   Using [ITM]
+  Wrseq ctrans(format$("N0:6.4#",arr(PRECIO_NETO_2,0.0001)),".",",");   Using [ITM]
+  Wrseq ctrans(format$("N0:6.4#",arr(PRECIO_NETO_3,0.0001)),".",",")    Using [ITM]
+#  Wrseq ctrans(num$(format$("N0:6.4#",arr(PRECIO_NETO_1,4))),".",",");  Using [ITM]
+#  Wrseq ctrans(num$(format$("N0:6.4#",arr(PRECIO_NETO_2,4))),".",",");  Using [ITM]
+#  Wrseq ctrans(num$(format$("N0:6.4#",arr(PRECIO_NETO_3,4))),".",",")   Using [ITM]
+
+Return
+
+##################################################################
+Subprog CALC_PRECIO(ITMREF,TSCCOD,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2, PRECIO_NETO_3)
+Value Char ITMREF()
+Value Char TSCCOD()
+Variable Integer LIMITE_1
+Variable Integer LIMITE_2
+Variable Decimal PRECIO_NETO_1
+Variable Decimal PRECIO_NETO_2
+Variable Decimal PRECIO_NETO_3
+
+### Apertura de tablas
+If !clalev([F:ZITM0]) Then : Local File ITMMASTER   [F:ZITM0] : Endif
+If !clalev([F:ZITF])  Then : Local File ITMFACILIT  [F:ZITF]  : Endif
+If !clalev([F:ZMBB])  Then : Local File ZMBBASE     [F:ZMBB]  : Endif
+If !clalev([F:ZMBBD]) Then : Local File ZMBBASED    [F:ZMBBD] : Endif
+If !clalev([F:ZMBE])  Then : Local File ZMBEXTRA    [F:ZMBE]  : Endif
+If !clalev([F:ZMBED]) Then : Local File ZMBEXTRAD   [F:ZMBED] : Endif
+If !clalev([F:ZITV])  Then : Local File ITMMVT      [F:ZITV]  : Endif
+If !clalev([F:ITV])   Then : Local File ITMMVT      [F:ITV]   : Endif
+If !clalev([F:ZITG])  Then : Local File ITMCATEG    [F:ZITG]  : Endif
+If !clalev([F:ITG])   Then : Local File ITMCATEG    [F:ITG]   : Endif
+If !clalev([F:ZSAT])  Then : Local File STAT        [F:ZSAT]  : Endif
+
+  Read [F:ZITM0]ITM0=[L]ITMREF
+
+  #Limites
+  Raz [F:ZMBB]
+  Read [F:ZMBB]ZMBB0=[F:ZITM0]TSICOD(0)
+  LIMITE_1=[F:ZMBB]FRANJA1
+  LIMITE_2=[F:ZMBB]FRANJA2
+
+  ## CO
+  Local Decimal CO: Raz CO
+  Read [F:ZITF]ITF0=[L]ITMREF;"PHISP"
+  If !fstat: CO=[F:ZITF]ZCMOFIX: Endif
+  If CO=0
+    CO=max([F:ZITF]ZCMO,[F:ZITF]ZCMOMIN)
+  Endif
+
+  ##### ASIGNACION MB EXTRA
+  #- Stock disponible
+  Local Decimal STOCK_DISPONIBLE
+  Read [F:ZITG]ITG1=[F:ITM1]TCLCOD;""
+  Read [F:ZITV]ITV0=[F:ITM1]ITMREF;"PHISP"
+  Call STODISTOT("",0,0,"",STOCK_DISPONIBLE) From STKLIB
+
+  #- Ventas 12 años
+  Local Decimal VENTAS_12_MESES: Raz VENTAS_12_MESES
+  Local Date DAT1: DAT1=date$-365
+  Local Date DAT2: DAT2=date$
+  Filter [F:ZSAT] Where COD="ZPRES" & FCY="PHISP" & DAT>=DAT1 & DAT<=DAT2 & CRI1=[L]ITMREF
+  For [ZSAT]
+    VENTAS_12_MESES+=[F:ZSAT]AMT(0)
+  Next
+
+
+  #- Cantidad pendiente recepcionar
+  Local Decimal CEPR: CEPR=[F:ZITV]ORDSTO
+
+  #- Cobertura
+  Local Decimal COBERTURA
+  COBERTURA=0
+  If VENTAS_12_MESES<>0
+  COBERTURA=12*(STOCK_DISPONIBLE+CEPR)/(VENTAS_12_MESES)
+  Endif
+
+  #- MBEXTRA
+  Local Integer MB_EXTRA: MB_EXTRA=0
+  Filter [F:ZMBE] Where CLI_1>=COBERTURA
+  Read [F:ZMBE]ZMBE0 First
+  If !fstat
+     Read [F:ZMBED]ZMBED0=[F:ZMBE]CLI_1;[L]TSCCOD
+     If !fstat
+       MB_EXTRA=[F:ZMBED]MBEXTRA
+     Endif
+  Endif
+
+  #- MBBASE
+  Raz [F:ZMBBD]
+  Read [F:ZMBBD]ZMBBD0=[F:ZITM0]TSICOD(0);[L]TSCCOD
+
+  #- Precios bases
+  PRECIO_NETO_1=CO*(1-([F:ZMBBD]MB1+ MB_EXTRA))
+  PRECIO_NETO_2=CO*(1-([F:ZMBBD]MB2+ MB_EXTRA))
+  PRECIO_NETO_3=CO*(1-([F:ZMBBD]MB3+ MB_EXTRA))
+
+  Close Local File [ZITM0],[ZITF],[ZMBB],[ZMBBD],[ZMBE],[ZMBED],[ZITV],[ITV],[ZITG],[ITG],[ZSAT]
+
+End
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ITM1]) Then : Local File ITMMASTER  [F:ITM1] : Endif
+  If !clalev([F:ADI1]) Then : Local File ATABDIV    [F:ADI1] : Endif
+
+  Local Decimal LIMITE_0, LIMITE_1, LIMITE_2
+  Local Decimal PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3, COSTE_OFERTA
+Return
+
+##################################################################
+$CLOSE_TABLAS
+  Close Local File [ITM1],[ADI1]
+Return
+
+##################################################################
+$CREAR_FICHERO
+  # borramos el fichero si existe...
+  If filinfo(filpath("ZPSHOP\ERP_to_WEB\NET","WPNET","txt"), 7) > 0 Then
+    System "ae_rm " + filpath("ZPSHOP\ERP_to_WEB\NET","WPNET","txt")
+  Endif
+
+  Openo filpath("ZPSHOP\ERP_to_WEB\NET","WPNET","txt"),0 Using [ITM]
+  Iomode adxifs ";"        Using [ITM]
+  #Iomode adxirs "\013\010" Using [BPS]
+  Iomode adxium 50         Using [ITM]
+Return

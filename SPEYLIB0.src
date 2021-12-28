@@ -1,0 +1,1696 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ 
+# inserción MASIVA de artículos y códigos de barra
+#Call MASS_SET_ITM_COMERZZIA()
+# inserción MASIVA de tarifas
+#Call MASS_SET_TRF_COMERZZIA()
+#MRR01 - 20/03/2021 - Arranque tiendas
+Call GET_TCK_COMERZZIA()
+#Call IMPORT_PARRILLAS()
+End
+
+###################################################################################
+#################################   SUBPROGRAMAS  #################################
+###################################################################################
+#######################
+#**
+#* devuelve el siguiente número de contador para el código de contador indicado en PCDGCONT
+#*
+#* @param PCDGCONT  > código del contador
+#* @param PSTRDAT   > fecha inicial
+#* @param PSEQCODE  > devuelve número de contador
+#*!
+Subprog GENNUMBER(PCDGCONT,PSTRDAT,PSEQCODE)
+Value     Char PCDGCONT
+Value     Date PSTRDAT
+Variable  Char PSEQCODE
+Local Integer STAT
+  Call NUMERO(PCDGCONT, nomap, PSTRDAT, "null", PSEQCODE, STAT) From SUBANM
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* Encuentra el centro de trabajo sin mantenimiento ligado a un centro
+#* de trabajo de Preactor
+#*
+#* @param PCTPREACTOR   > centro de trabajo de Preactor
+#* @param PWCRFCY       > planta asociada al centro de trabajo
+#* @param PWSTCONMNTO   > centro de trabajo de producción
+#*!
+Subprog GET_WSTSINMNTO(PCTPREACTOR, PWCRFCY, PWSTCONMNTO)
+Value     Char    PCTPREACTOR
+Value     Char    PWCRFCY
+Variable  Char    PWSTCONMNTO
+
+  If PCTPREACTOR <> ""
+    If !clalev([F:MWS0]) Then : Local File WORKSTATIO   [F:MWS0] : Endif
+    If !clalev([F:YMP0]) Then : Local File YMNTOCT      [F:YMP0] : Endif
+    For [MWS0] Where WCRFCY = PWCRFCY and YCTPREACTOR = PCTPREACTOR
+      Read [F:YMP0]YMP0 = [F:MWS0]WST;[F:MWS0]WCRFCY
+      If (fstat = 0 and [F:YMP0]YGESFLG <> 2) or fstat <> 0
+        PWSTCONMNTO = [F:MWS0]WST                                                                 # CT que define la línea asociada al CT de mantenimiento
+        Break
+      Endif
+    Next
+    Close Local File [F:MWS0],[F:YMP0]
+  Endif
+
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* Horas de funcionamiento del CT desde una fecha determinada (datos de los seguimientos)
+#*
+#* @param PCPLWST       > centro de trabajo
+#* @param PFCY          > planta
+#* @param POPEEND       > fecha
+#* @param PCPLQTY       > cantidad total realizada
+#* @param PCPLTIM       > tiempo total realizado
+#*!
+Subprog GET_SUM_MTK(PCPLWST,PFCY,POPEEND,PCPLQTY,PCPLTIM)
+Value     Char    PCPLWST
+Value     Char    PFCY
+Value     Date    POPEEND
+Variable  Decimal PCPLQTY
+Variable  Decimal PCPLTIM
+
+Local Char SQLSENT(250)(1..4)
+
+  SQLSENT(1) = "SELECT CPLWST_0, SUM(CPLQTY_0) AS SUMCPLQTY, SUM(CPLOPETIM_0) AS SUMCPLOPETIM "
+  SQLSENT(2) = "FROM "+nomap+".MFGOPETRK "
+  SQLSENT(3) = "WHERE IPTDAT_0 >= '" + POPEEND + "' AND MFGFCY_0 = '" + PFCY + "' AND CPLWST_0 = '" + PCPLWST + "' "
+  SQLSENT(4) = "GROUP BY CPLWST_0"
+  For (Char CPLWST, Decimal SUMCPLQTY, Decimal SUMCPLOPETIM) From "5" Sql SQLSENT(1..4) As [Y00]
+    PCPLQTY = [F:Y00]SUMCPLQTY
+    PCPLTIM = [F:Y00]SUMCPLOPETIM
+  Next
+End
+
+#####################################################################
+#**
+#* Horas de funcionamiento del CT previstos (datos de los seguimientos)
+#*
+#* @param PCPLWST       > centro de trabajo
+#* @param PFCY          > planta
+#* @param POPEEND       > fecha
+#* @param PCPLQTY       > cantidad total prevista
+#* @param PCPLTIM       > tiempo total previsto
+#*!
+Subprog GET_SUM_MFG(TCPLWST,TFCY,TOPEEND,TCPLQTY,TCPLTIM)
+Value     Char    TCPLWST
+Value     Char    TFCY
+Value     Date    TOPEEND
+Variable  Decimal TCPLQTY
+Variable  Decimal TCPLTIM
+
+# Saco primero parámetros de la planta
+If !clalev([PP2]) : Local File FACILITY [PP2] : Endif
+Local Integer HORIZON
+Local Integer WOP
+
+Read [PP2]FCY0 = TFCY
+If fstat = 0
+  HORIZON = [PP2]YHORIZONTE
+  WOP     = [PP2]YWOP
+Endif
+
+Close Local File [PP2]
+
+# Saco los datos de la OF
+If !clalev([PP3]) : Local File MFGOPE  [PP3] : Endif
+If !clalev([PP4]) : Local File MFGHEAD [PP4] : Endif
+
+Local Char CRITERIO(250)
+Local Date HOY : HOY = date$
+
+# Controlo que la OF esté En espera, planta, WOF/WOP, fechas
+CRITERIO = "[PP4]MFGTRKFLG=1 & [PP4]MFGFCY=TFCY & [PP4]STRDAT>=HOY & [PP4]STRDAT<=HOY+HORIZON & [PP4]YMNTOTYP=0"
+If WOP = 2
+  CRITERIO += " & ([PP4]MFGSTA=1 | [PP4]MFGSTA=2)"
+Else
+  CRITERIO += " & [PP4]MFGSTA=1"
+Endif
+
+For [PP3] Where [PP3]MFGFCY = TFCY and [PP3]EXTWST = TCPLWST
+  Filter [PP4] Where [PP4]MFGNUM = [PP3]MFGNUM and evalue(CRITERIO)
+  Read [PP4] First
+  If fstat = 0
+    TCPLQTY += [PP3]EXTQTY
+    TCPLTIM += [PP3]EXTOPETIM
+  Else
+    Goto NEXT_OF
+  Endif
+  Filter [PP4]
+
+  $NEXT_OF
+Next
+
+Close Local File [PP3],[PP4]
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* datos de la gama
+#*
+#* @param PGAMA     > gama
+#* @param PALT      > alternativa ruta
+#* @param PFECHA    > fecha último mantenimiento preventivo
+#* @param PUC       > unidad de control
+#* @param PCTD      > cantidad
+#* @param PUN       > unidad
+#* @param PBOM      > estructura producción
+#* @param PBOMALT   > alternativa estructura
+#* @param PROU      > ruta
+#*
+#*!
+Subprog GET_GAMA(PGAMA,PALT,PFECHA,PUC,PCTD,PUN,PBOMALT)
+Value     Char    PGAMA
+Value Integer     PALT
+Variable  Date    PFECHA
+Variable Integer  PUC
+Variable Decimal  PCTD
+Variable Integer  PUN
+Variable Integer  PBOMALT
+
+# La fecha del último preventivo la tomo directamente de la gama
+If !clalev([PP1]) : Local File YGAMAD    [PP1] : Endif
+If !clalev([PP0]) : Local File TABROUALT [PP0] : Endif
+
+
+Read [PP1]YGD1 = PGAMA;PALT
+If fstat = 0
+  PFECHA  = [PP1]FECHAULT
+  PUC     = [PP1]UDCRTL
+  PCTD    = [PP1]CANTIDAD
+  PUN     = [PP1]UNIDADES
+  PROU    = [PP1]ROUNUM
+  Read [PP0]TRO0 = PALT
+  If fstat = 0
+    PBOMALT = [PP0]BOMALT1
+  Endif
+Endif
+
+If PFECHA = [00/00/0000]
+  PFECHA = [01/01/2010]
+Endif
+
+Close Local File [PP0],[PP1]
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* Horas de funcionamiento y cantidad producida del CT teniendo en cuenta el horizonte
+#*
+#* @param PCPLWST       > centro de trabajo
+#* @param PWCRFCY       > planta asociada al centro de trabajo
+#* @param PCPLQTYHZ     > cantidad total realizada
+#* @param PCPLTIMHZ     > tiempo total realizado
+#*!
+Subprog GET_QTYTIMHORIZONTE(PCPLWST,PWCRFCY,PCPLQTYHZ,PCPLTIMHZ)
+Value     Char PCPLWST
+Value     Char PWCRFCY
+Variable  Decimal PCPLQTYHZ
+Variable  Decimal PCPLTIMHZ
+
+Local Decimal LHORIZONTE : Raz LHORIZONTE
+Local Char    SQLSENT(250)(1..4)
+If !clalev([F:FCY0]) Then : Local File FACILITY [F:FCY0] : Endif
+
+  # obtención del valor de la variable HORIZONTE
+  Read [F:FCY0]FCY0 = PWCRFCY
+  If !fstat Then
+    LHORIZONTE = date$ + [F:FCY]YHORIZONTE
+  Endif
+
+  SQLSENT(1) = "SELECT MFO.CPLWST_0, SUM(MFO.EXTQTY_0) AS SUMCPLQTYHZ, SUM(MFO.EXTOPETIM_0) AS SUMCPLOPETIMHZ "
+  SQLSENT(2) = "FROM "+nomap+".MFGOPE MFO "
+  SQLSENT(3) = "INNER JOIN "+nomap+".MFGHEAD MFG ON MFO.MFGNUM_0 = MFG.MFGNUM_0 "
+  SQLSENT(4) = "WHERE MFG.MFGSTA_0 = 1 "
+  SQLSENT(5) = "AND MFG.STRDAT_0 <= CONVERT(DATETIME, '"+year(LHORIZONTE)+"-"+month(LHORIZONTE)+"-"+day(LHORIZONTE)+"', 102)) "
+  SQLSENT(6) = "GROUP BY MFO.CPLWST_0"
+  For (Char CPLWST, Decimal SUMCPLQTYHZ, Decimal SUMCPLOPETIMHZ) From "5" Sql SQLSENT(1..6) As [Y00]
+    PCPLQTYHZ = [F:Y00]SUMCPLQTYHZ
+    PCPLTIMHZ = [F:Y00]SUMCPLOPETIMHZ
+  Next
+
+Kill SQLSENT
+If  clalev([F:FCY0]) Then : Close Local File    [F:FCY0] : Endif
+
+
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* Fecha de la última OF de un CT
+#*
+#* @param PCPLWST       > centro de trabajo
+#* @param PMFGDAT       > fecha última OF
+#*!
+Subprog GET_LASTMFG(PCPLWST, PMFGDAT)
+Value     Char    PCPLWST
+Variable  Date    PMFGDAT
+
+  If !clalev([F:MFO0]) Then : Local File MFGOPE [F:MFO0] : Endif
+  Filter [F:MFO0] Where EXTWST = PCPLWST Order By OPEEND Desc
+  Read   [F:MFO0] First
+  If !fstat Then
+    If [F:MFO0]OPEEND <> [00/00/0000] Then
+      PMFGDAT = [F:MFO0]OPEEND
+    Else
+      PMFGDAT = [01/01/1753]
+    Endif
+  Else
+    PMFGDAT = [01/01/1753]
+  Endif
+  If clalev([F:MFO0])  Then : Close Local File    [F:MFO0] : Endif
+
+End
+
+#####################################################################
+# *******************************************************************
+#####################################################################
+#**
+#* Horas de funcionamiento del CT desde una fecha determinada
+#*
+#* @param PCPLPWST      > centro de trabajo
+#* @param POPEEND       > fecha
+#* @param PCPLQTY       > cantidad total realizada
+#* @param PCPLTIM       > tiempo total realizado
+#*!
+Subprog GET_CPLQTY(PCPLWST, POPEEND, PCPLQTY, PCPLTIM)
+Value     Char    PCPLWST
+Value     Date    POPEEND
+Variable  Decimal PCPLQTY
+Variable  Decimal PCPLTIM
+
+Local Char SQLSENT(250)(1..4)
+
+  SQLSENT(1) = "SELECT CPLWST_0, SUM(CPLQTY_0) AS SUMCPLQTY, SUM(CPLOPETIM_0) AS SUMCPLOPETIM "
+  SQLSENT(2) = "FROM " + nomap + "MFGOPE "
+  SQLSENT(3) = "WHERE OPEEND_0 >= '" + num$(POPEEND) + "' AND CPLWST_0 = '" + PCPLWST + "' "
+  SQLSENT(4) = "GROUP BY CPLWST_0"
+  For (Char CPLWST, Decimal SUMCPLQTY, Decimal SUMCPLOPETIM) From "5" Sql SQLSENT(1..4) As [Y00]
+    PCPLQTY = [F:Y00]SUMCPLQTY
+    PCPLTIM = [F:Y00]SUMCPLOPETIM
+  Next
+
+End
+
+#####################################################################
+##################  PARRILLAS - CALIDAD  ############################
+#####################################################################
+# **** PROCESO BATCH DE IMPORTACIÓN *********************************
+#####################################################################
+#**
+#* Importación de ficheros para la entrada y salida de stock desd parrillas
+#*
+#*!
+Subprog IMPORT_PARRILLAS()
+Local Char LPATHORI(255)  : LPATHORI  = filpath("IMPORT_EXPORT\PARRILLAS\Mov_Parrillas","","")
+Local Char LPATHDESE(255) : LPATHDESE = filpath("IMPORT_EXPORT\PARRILLAS\Error_Parrillas","","")    # ruta de la carpeta con errores
+Local Char LPATHDESS(255) : LPATHDESS = filpath("IMPORT_EXPORT\PARRILLAS\Success_Parrillas","","") # ruta de la carpeta de finalizados con éxito
+
+Local Char LPATHFICH(255), FILELIST(255)(1..100)
+
+Local Integer STAT,LNGTH, I
+
+Local Char LPARRTYP(2)
+
+If !clalev([F:YEI0]) Then : Local File YERRIMPORT [F:YEI0] : Endif
+
+  Raz LPATHFICH,LNGTH,FILELIST
+  # ejecuta todos los ficheros de entrada
+  Call SYSTEME2(adxmac(0), "lsadx"-LPATHORI,"",LNGTH,FILELIST) From ORDSYS          # función que devuelve la lista de archivos en un directorio
+  For I=3 To LNGTH
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+    LPARRTYP = seg$(FILELIST(I),len(FILELIST(I))-20,len(FILELIST(I))-18)            # descompone el fichero para saber si es 'PR' o 'PL'
+    LPATHFICH = LPATHORI + "\" + FILELIST(I)                                        # se compone el nombre de la ruta + el del fichero
+    If mid$(FILELIST(I),12,6) = "Entrad" Then                                       # fichero de entrada
+      If !GSERVEUR Then
+        Call OUVRE_TRACE("Entrada articulo") From LECFIC
+      Endif
+      Call IMPORTSIL("YSMR",LPATHFICH) From GIMPOBJ                                 # lanza la imporación de entrada varia
+      If !GSERVEUR Then
+        Call FERME_TRACE From LECFIC
+      Endif
+      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                         # si se produce error de importación...
+        Trbegin [F:YEI0]                                                            # ...se añade un registro en la tabla YERRIMPPARR...
+        [F:YEI0]ID = getUuid                                                        # ...con la información del archivo...
+        Case LPARRTYP                                                               # ...para que, a través de un peticionario...
+          When "PR" : [F:YEI0]GENERADO  = "ENTRADA PARRILLA RECEPCIÓN"              # ...se muestre un proceso visual con los resultados...
+          When "PL" : [F:YEI0]GENERADO  = "ENTRADA PARRILLA LIBERACIÓN"             # ...en la landing page
+        Endcase
+        [F:YEI0]FECHA     = date$
+        [F:YEI0]FICHERO   = FILELIST(I)
+        Write [F:YEI0]
+        If !fstat Then
+          Commit
+          Call MOVE(LPATHFICH+".err",LPATHDESE,STAT) From ORDSYS                    # mueve el fichero .err con errores en la importación
+          System "ae_rm " + LPATHFICH                                               # borra el fichero .txt que ha dado errores
+        Else
+          Rollback
+        Endif
+
+        # lanza un workflow para avisar de que la importación ha fallado
+        Global Char GYRECIPIENTPRR(250),GTIPOPARRILLA(250),GDOCERROR(250)
+        GYRECIPIENTPRR  = "leticia.diez@ynsadietsa.com"
+#        GYRECIPIENTPRR  = "joseluis.chiva@aitana.es"
+        Case LPARRTYP                                                               # ...para que, a través de un peticionario...
+          When "PR" : GTIPOPARRILLA = "ENTRADA PARRILLA RECEPCIÓN"
+          When "PL" : GTIPOPARRILLA = "ENTRADA PARRILLA LIBERACIÓN"
+        Endcase
+        GDOCERROR = LPATHDESE + "\" + FILELIST(I) + ".err"
+        Call WORKFLOW (1,"YEP","",GUSER) From AWRK
+        If dim(GYRECIPIENTPRR)  > 0 Then : Kill    GYRECIPIENTPRR : Endif
+        If dim(GTIPOPARRILLA)   > 0 Then : Kill    GTIPOPARRILLA  : Endif
+        If dim(GDOCERROR)       > 0 Then : Kill    GDOCERROR      : Endif
+      Else
+        Call MOVE(LPATHFICH,LPATHDESS,STAT) From ORDSYS                             # mueve el fichero .txt con importación exitosa
+      Endif
+    Endif
+  Next
+
+  # ejecuta todos los ficheros de salida
+  Call SYSTEME2(adxmac(0), "lsadx"-LPATHORI,"",LNGTH,FILELIST) From ORDSYS          # función que devuelve la lista de archivos en un directorio
+  For I=3 To LNGTH
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+    LPARRTYP = seg$(FILELIST(I),len(FILELIST(I))-20,len(FILELIST(I))-18)            # descompone el fichero para saber si es 'PR' o 'PL'
+    LPATHFICH = LPATHORI + "\" + FILELIST(I)                                        # se compone el nombre de la ruta + el del fichero
+    If mid$(FILELIST(I),12,6) = "Salida" Then                                       # fichero de salida
+      If !GSERVEUR Then
+        Call OUVRE_TRACE("Salida articulo") From LECFIC
+      Endif
+      Call IMPORTSIL("YSMO",LPATHFICH) From GIMPOBJ                                 # lanza la imporación de salida varia
+      If !GSERVEUR Then
+        Call FERME_TRACE From LECFIC
+      Endif
+      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                         # si se produce error de importación...
+        Trbegin [F:YEI0]                                                            # ...se añade un registro en la tabla YERRIMPPARR...
+        [F:YEI0]ID = getUuid                                                        # ...con la información del archivo...
+        Case LPARRTYP                                                               # ...para que, a través de un peticionario...
+          When "PR" : [F:YEI0]GENERADO  = "SALIDA PARRILLA RECEPCIÓN"               # ...se muestre un proceso visual con los resultados...
+          When "PL" : [F:YEI0]GENERADO  = "SALIDA PARRILLA LIBERACIÓN"              # ...en la landing page
+        Endcase
+        [F:YEI0]FECHA     = date$
+        [F:YEI0]FICHERO   = FILELIST(I)
+        Write [F:YEI0]
+        If !fstat Then
+          Commit
+          Call MOVE(LPATHFICH+".err",LPATHDESE,STAT) From ORDSYS                    # mueve el fichero .err con errores en la importación
+          System "ae_rm " + LPATHFICH                                               # borra el fichero .txt que ha dado errores
+        Else
+          Rollback
+        Endif
+
+        # lanza un workflow para avisar de que la importación ha fallado
+        Global Char GYRECIPIENTPRR(250),GTIPOPARRILLA(250),GDOCERROR(250)
+        GYRECIPIENTPRR  = "leticia.diez@ynsadietsa.com"
+#        GYRECIPIENTPRR  = "joseluis.chiva@aitana.es"
+        Case LPARRTYP                                                               # ...para que, a través de un peticionario...
+          When "PR" : GTIPOPARRILLA = "SALIDA PARRILLA RECEPCIÓN"
+          When "PL" : GTIPOPARRILLA = "SALIDA PARRILLA LIBERACIÓN"
+        Endcase
+        GDOCERROR = LPATHDESE + "\" + FILELIST(I) + ".err"
+        Call WORKFLOW (1,"YEP","",GUSER) From AWRK
+        If dim(GYRECIPIENTPRR)  > 0 Then : Kill    GYRECIPIENTPRR : Endif
+        If dim(GTIPOPARRILLA)   > 0 Then : Kill    GTIPOPARRILLA  : Endif
+        If dim(GDOCERROR)       > 0 Then : Kill    GDOCERROR      : Endif
+      Else
+        Call MOVE(LPATHFICH,LPATHDESS,STAT) From ORDSYS                             # mueve el fichero .txt con importación exitosa
+      Endif
+    Endif
+  Next
+
+  mkstat = 0 : fstat = 0 : GOK = 1 : GERRTRACE = 0
+
+  If  clalev([F:YEI0]) Then : Close Local File      [F:YEI0] : Endif
+
+End
+
+#####################################################################
+##################  COMERZZIA  ######################################
+#####################################################################
+# **** INSERCIÓN DE ARTÍCULOS Y CÓDIGOS DE BARRA ********************
+#####################################################################
+#**
+#* Inserción de artículos y códigos de barra en Comerzzia
+#*
+#* @param PITMREF      > código de artículo
+#*!
+Subprog SET_ITM_COMERZZIA(PITMREF)
+Value Char PITMREF
+
+Local Char SQLINSERT(250)(1..)
+Local Char SQLINSERTCB(250)(1..)
+
+Local Char      LCODART(50),LDESART(250),LACTIVO(1),LDESGLOSE1(1),LDESGLOSE2(1),LGENERICO(1),LPROCESARO(1)
+Local Char      LCODFAM(10),LDESFAM(250),LCODIMP(1),LCODSECCION(20),LDESSECCION(250),LCODCAT(15),LDESCAT(250),LCODMARCA(15),LDESMARCA(250)
+Local Char      LCODPRO(15),LREF_PROVEEDOR(50),LCODFAB(15),CODIMP(1),LOBSERVACIONES(250),LCODIGO_BARRAS(50),LDUN14(1)
+Local Datetime  LFECHA_ALTA_REGISTRO
+Local Date      LFECHA_ALTA
+Local Decimal   LDTO_PROVEEDOR,LPMP,LFACTOR_CONVERSION
+
+  If !clalev([F:ITM0]) Then : Local File ITMMASTER [F:ITM0] : Endif
+  If !clalev([F:ITP0]) Then : Local File ITMBPS    [F:ITP0] : Endif
+  If !clalev([F:AXX0]) Then : Local File ATEXTRA   [F:AXX0] : Endif
+  If !clalev([F:AXX1]) Then : Local File ATEXTRA   [F:AXX1] : Endif
+  If !clalev([F:AXX2]) Then : Local File ATEXTRA   [F:AXX2] : Endif
+  If !clalev([F:SPL0]) Then : Local File SPRICLIST [F:SPL0] : Endif
+
+  Read [F:ITM0]ITM0 = PITMREF
+  If !fstat Then
+    # inserción de artículos
+    LCODART               = PITMREF
+    LDESART               = left$(ctrans([F:ITM0]ITMDES1,"'"," "),60)
+    Case [F:ITM0]VACITM
+      When  "NOR" : LCODIMP = "1"
+      When  "RED" : LCODIMP = "2"
+      When  "SRD" : LCODIMP = "3"
+      When  "EXO" : LCODIMP = "4"
+    Endcase
+    Case [F:ITM0]ITMSTA
+      When 1      : LACTIVO = "S"
+      When 2      : LACTIVO = "S"
+      When 3      : LACTIVO = "S"
+      When 4      : LACTIVO = "N"
+      When 5      : LACTIVO = "N"
+      When 6      : LACTIVO = "N"
+    Endcase
+    LDESGLOSE1            = "N"
+    LDESGLOSE2            = "N"
+    LGENERICO             = "N"
+    LFECHA_ALTA_REGISTRO  = datetime$
+    LPROCESADO            = "N"
+    LCODFAM               = [F:ITM0]TSICOD(0)
+    Filter [F:AXX0] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "20" and IDENT2 = [F:ITM0]TSICOD(0)
+    Read [F:AXX0] First
+    If !fstat Then
+      LDESFAM               = [F:AXX0]TEXTE
+    Endif
+    Filter [F:AXX0]
+    LCODSECCION           = [F:ITM0]TSICOD(2)
+    Filter [F:AXX2] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "22" and IDENT2 = [F:ITM0]TSICOD(2)
+    Read [F:AXX2] First
+    If !fstat Then
+      LDESSECCION         = [F:AXX2]TEXTE
+    Endif
+    Filter [F:AXX2]
+    LCODCAT               = [F:ITM0]TCLCOD
+    Filter [F:AXX1] Where CODFIC = "ITMCATEG" and ZONE = "TCLAXX" and LANGUE = GLANGUE and IDENT1 = [F:ITM0]TCLCOD
+    Read [F:AXX1] First
+    If !fstat Then
+      LDESCAT               = [F:AXX1]TEXTE
+    Endif
+    Filter [F:AXX1]
+    LCODMARCA             = ""
+    LDESMARCA             = ""
+    Filter [F:ITP0] Where ITMREF = PITMREF and PIO = 0
+    Read [F:ITP0] First
+    If !fstat Then
+      LCODPRO               = ""
+      LREF_PROVEEDOR        = ""
+    Endif
+    Filter [F:ITP0]
+    LDTO_PROVEEDOR        = 0
+    LCODFAB               = ""
+    LPMP                  = 0
+    LOBSERVACIONES        = ""
+    LFECHA_ALTA           = date$
+    Raz  SQLINSERT
+    SQLINSERT(1)  = "INSERT INTO integra.integra.INT_ARTICULOS_TBL "
+    SQLINSERT(2)  = "(CODART,DESART,CODIMP,ACTIVO,DESGLOSE1,DESGLOSE2,GENERICO,FECHA_ALTA_REGISTRO,PROCESADO,"
+    SQLINSERT(3)  = "CODFAM,DESFAM,CODSECCION,DESSECCION,CODCAT,DESCAT,CODMARCA,DESMARCA,CODPRO,REFERENCIA_PROVEEDOR,"
+    SQLINSERT(4)  = "DTO_PROVEEDOR,CODFAB,PMP,OBSERVACIONES,FECHA_ALTA) "
+    SQLINSERT(5)  = "VALUES "
+    SQLINSERT(6)  = "('"+LCODART+"','"+LDESART+"','"+LCODIMP+"','"+LACTIVO+"','"+LDESGLOSE1+"',"
+    SQLINSERT(7)  = "'"+LDESGLOSE2+"','"+LGENERICO+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"',"
+    SQLINSERT(8)  = "'"+LCODFAM+"','"+LDESFAM+"','"+LCODSECCION+"','"+LDESSECCION+"','"+LCODCAT+"',"
+    SQLINSERT(9)  = "'"+LDESCAT+"','"+LCODMARCA+"','"+LDESMARCA+"','"+LCODPRO+"','"+LREF_PROVEEDOR+"',"
+    SQLINSERT(10) = num$(LDTO_PROVEEDOR)+",'"+LCODFAB+"',"+num$(LPMP)+",'"+LOBSERVACIONES+"','"+LFECHA_ALTA+"')"
+    Execsql From "5" Sql SQLINSERT(1..10)
+
+    # inserción de códigos de barra
+    If [F:ITM0]EANCOD <> "" Then
+      LDESGLOSE1          = "*"
+      LDESGLOSE2          = "*"
+      LCODIGO_BARRAS      = [F:ITM0]EANCOD
+      LDUN14              = "N"
+      LFACTOR_CONVERSION  = 0
+      LPROCESADO          = "N"
+      Raz  SQLINSERT
+      SQLINSERTCB(1) = "INSERT INTO integra.integra.INT_ARTICULOS_CODBAR_TBL "
+      SQLINSERTCB(2) = "(CODART,DESGLOSE1,DESGLOSE2,CODIGO_BARRAS,DUN14,FACTOR_CONVERSION,FECHA_ALTA_REGISTRO,PROCESADO) "
+      SQLINSERTCB(3) = "VALUES "
+      SQLINSERTCB(4) = "('"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"','"+LCODIGO_BARRAS+"','"+LDUN14+"',"+num$(LFACTOR_CONVERSION)+","
+      SQLINSERTCB(5) = "'"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+      Execsql From "5" Sql SQLINSERTCB(1..5)
+    Endif
+
+  Endif
+
+  Close Local File [ITM0],[ITP0],[AXX0],[AXX1],[AXX2],[SPL0]
+
+  Kill SQLINSERT,SQLINSERTCB
+End
+
+#####################################################################
+# **** DESACTIVAR ARTÍCULOS Y CÓDIGOS DE BARRA AL ELIMINAR DE SAGE *
+#####################################################################
+#**
+#* Desactivación de artículos y códigos de barra al eliminar de Sage
+#*
+#* @param PITMREF      > código de artículo
+#*!
+Subprog SET_ITM_INACT_COMERZZIA(PITMREF)
+Value Char PITMREF
+
+Local Char SQLINSERT(250)(1..)
+Local Char SQLINSERTCB(250)(1..)
+
+Local Char      LCODART(50),LDESART(250),LACTIVO(1),LDESGLOSE1(1),LDESGLOSE2(1),LGENERICO(1),LPROCESARO(1)
+Local Char      LCODFAM(10),LDESFAM(250),LCODIMP(1),LCODSECCION(20),LDESSECCION(250),LCODCAT(15),LDESCAT(250),LCODMARCA(15),LDESMARCA(250)
+Local Char      LCODPRO(15),LREF_PROVEEDOR(50),LCODFAB(15),CODIMP(1),LOBSERVACIONES(250),LCODIGO_BARRAS(50),LDUN14(1)
+Local Datetime  LFECHA_ALTA_REGISTRO
+Local Date      LFECHA_ALTA
+Local Decimal   LDTO_PROVEEDOR,LPMP,LFACTOR_CONVERSION
+
+  If !clalev([F:ITM0]) Then : Local File ITMMASTER [F:ITM0] : Endif
+  If !clalev([F:ITP0]) Then : Local File ITMBPS    [F:ITP0] : Endif
+  If !clalev([F:AXX0]) Then : Local File ATEXTRA   [F:AXX0] : Endif
+  If !clalev([F:AXX1]) Then : Local File ATEXTRA   [F:AXX1] : Endif
+  If !clalev([F:AXX2]) Then : Local File ATEXTRA   [F:AXX2] : Endif
+  If !clalev([F:SPL0]) Then : Local File SPRICLIST [F:SPL0] : Endif
+  Read [F:ITM0]ITM0 = PITMREF
+  If !fstat Then
+    # inserción de artículos
+    LCODART               = PITMREF
+    LDESART               = left$(ctrans([F:ITM0]ITMDES1,"'"," "),60)
+    Case [F:ITM0]VACITM
+      When  "NOR" : LCODIMP = "1"
+      When  "RED" : LCODIMP = "2"
+      When  "SRD" : LCODIMP = "3"
+      When  "EXO" : LCODIMP = "4"
+    Endcase
+    LACTIVO               = "N"
+    LDESGLOSE1            = "N"
+    LDESGLOSE2            = "N"
+    LGENERICO             = "N"
+    LFECHA_ALTA_REGISTRO  = datetime$
+    LPROCESADO            = "N"
+    LCODFAM               = [F:ITM0]TSICOD(0)
+    Filter [F:AXX0] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "20" and IDENT2 = [F:ITM0]TSICOD(0)
+    Read [F:AXX0] First
+    If !fstat Then
+      LDESFAM               = [F:AXX0]TEXTE
+    Endif
+    Filter [F:AXX0]
+    LCODSECCION           = [F:ITM0]TSICOD(2)
+    Filter [F:AXX2] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "22" and IDENT2 = [F:ITM0]TSICOD(2)
+    Read [F:AXX2] First
+    If !fstat Then
+      LDESSECCION         = [F:AXX2]TEXTE
+    Endif
+    Filter [F:AXX2]
+    LCODCAT               = [F:ITM0]TCLCOD
+    Filter [F:AXX1] Where CODFIC = "ITMCATEG" and ZONE = "TCLAXX" and LANGUE = GLANGUE and IDENT1 = [F:ITM0]TCLCOD
+    Read [F:AXX1] First
+    If !fstat Then
+      LDESCAT               = [F:AXX1]TEXTE
+    Endif
+    Filter [F:AXX1]
+    LCODMARCA             = ""
+    LDESMARCA             = ""
+    Filter [F:ITP0] Where ITMREF = PITMREF and PIO = 0
+    Read [F:ITP0] First
+    If !fstat Then
+      LCODPRO               = ""
+      LREF_PROVEEDOR        = ""
+    Endif
+    Filter [F:ITP0]
+    LDTO_PROVEEDOR        = 0
+    LCODFAB               = ""
+    LPMP                  = 0
+    LOBSERVACIONES        = ""
+    LFECHA_ALTA           = date$
+    Raz  SQLINSERT
+    SQLINSERT(1)  = "INSERT INTO integra.integra.INT_ARTICULOS_TBL "
+    SQLINSERT(2)  = "(CODART,DESART,CODIMP,ACTIVO,DESGLOSE1,DESGLOSE2,GENERICO,FECHA_ALTA_REGISTRO,PROCESADO,"
+    SQLINSERT(3)  = "CODFAM,DESFAM,CODSECCION,DESSECCION,CODCAT,DESCAT,CODMARCA,DESMARCA,CODPRO,REFERENCIA_PROVEEDOR,"
+    SQLINSERT(4)  = "DTO_PROVEEDOR,CODFAB,PMP,OBSERVACIONES,FECHA_ALTA) "
+    SQLINSERT(5)  = "VALUES "
+    SQLINSERT(6)  = "('"+LCODART+"','"+LDESART+"','"+LCODIMP+"','"+LACTIVO+"','"+LDESGLOSE1+"',"
+    SQLINSERT(7)  = "'"+LDESGLOSE2+"','"+LGENERICO+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"',"
+    SQLINSERT(8)  = "'"+LCODFAM+"','"+LDESFAM+"','"+LCODSECCION+"','"+LDESSECCION+"','"+LCODCAT+"',"
+    SQLINSERT(9)  = "'"+LDESCAT+"','"+LCODMARCA+"','"+LDESMARCA+"','"+LCODPRO+"','"+LREF_PROVEEDOR+"',"
+    SQLINSERT(10) = num$(LDTO_PROVEEDOR)+",'"+LCODFAB+"',"+num$(LPMP)+",'"+LOBSERVACIONES+"','"+LFECHA_ALTA+"')"
+    Execsql From "5" Sql SQLINSERT(1..10)
+
+  Endif
+
+  Close Local File [ITM0],[ITP0],[AXX0],[AXX1],[AXX2],[SPL0]
+
+  If dim(SQLINSERT)   > 0 Then : Kill SQLINSERT   : Endif
+  If dim(SQLINSERTCB) > 0 Then : Kill SQLINSERTCB : Endif
+End
+
+#####################################################################
+# **** INSERCIÓN DE TARIFAS *****************************************
+#####################################################################
+#**
+#* Inserción de tarifas en Comerzzia
+#*
+#*!
+Subprog SET_TRF_COMERZZIA(PCODTAR,PDESTAR,PID_TRAT_IMPUESTOS,PCODART,PDESGLOSE1,PDESGLOSE2,PPRECIO_COSTO,PFACTOR_MARCAJE,PPRECIO_VENTA,PPRECIO_TOTAL,
+&                         PFECHA_INICIO_VIGENCIA,PFECHA_ALTA_REGISTRO,PPROCESADO)
+Value Char    PCODTAR,PDESTAR,PCODART,PDESGLOSE1,PDESGLOSE2,PPROCESADO
+Value Integer PID_TRAT_IMPUESTOS
+Value Date    PFECHA_INICIO_VIGENCIA,PFECHA_ALTA_REGISTRO
+Value Decimal PPRECIO_COSTO,PFACTOR_MARCAJE,PPRECIO_VENTA,PPRECIO_TOTAL
+
+Local Char SQLINSERT(250)(1..)
+
+  Raz  SQLINSERT
+  SQLINSERT(1) = "INSERT INTO integra.integra.INT_TARIFAS_TBL "
+  SQLINSERT(2) = "(CODTAR,DESTAR,ID_TRAT_IMPUESTOS,CODART,DESGLOSE1,DESGLOSE2,PRECIO_COSTO,FACTOR_MARCAJE,PRECIO_VENTA,"
+  SQLINSERT(3) = "PRECIO_TOTAL,FECHA_INICIO_VIGENCIA,FECHA_ALTA_REGISTRO,PROCESADO) "
+  SQLINSERT(4) = "VALUES "
+  SQLINSERT(5) = "('"+PCODTAR+"','"+PDESTAR+"',"+num$(PID_TRAT_IMPUESTOS)+",'"+PCODART+"','"+PDESGLOSE1+"','"+PDESGLOSE2+"',"+num$(PPRECIO_COSTO)+","
+  SQLINSERT(6) = num$(PFACTOR_MARCAJE)+","+num$(PPRECIO_VENTA)+","+num$(PPRECIO_TOTAL)+",'"+PFECHA_INICIO_VIGENCIA+"','"+PFECHA_ALTA_REGISTRO+"','"+PPROCESADO+"')"
+  Execsql From "5" Sql SQLINSERT(1..6)
+
+  Kill SQLINSERT
+End
+
+#####################################################################
+# **** INSERCIÓN MASIVA DE ARTÍCULOS Y CÓDIGOS DE BARRA *************
+#####################################################################
+#**
+#* Inserción MASIVA de artículos y códigos de barra en Comerzzia
+#*
+#*!
+Subprog MASS_SET_ITM_COMERZZIA()
+
+Local Char SQLINSERT(250)(1..)
+Local Char SQLINSERTCB(250)(1..)
+
+Local Char      LCODART(50),LDESART(250),LACTIVO(1),LDESGLOSE1(1),LDESGLOSE2(1),LGENERICO(1),LPROCESARO(1)
+Local Char      LCODFAM(10),LDESFAM(250),LCODIMP(1),LCODSECCION(20),LDESSECCION(250),LCODCAT(15),LDESCAT(250),LCODMARCA(15),LDESMARCA(250)
+Local Char      LCODPRO(15),LREF_PROVEEDOR(50),LCODFAB(15),CODIMP(1),LOBSERVACIONES(250),LCODIGO_BARRAS(50),LDUN14(1)
+Local Datetime  LFECHA_ALTA_REGISTRO
+Local Date      LFECHA_ALTA
+Local Decimal   LDTO_PROVEEDOR,LPMP,LFACTOR_CONVERSION
+
+  If !clalev([F:ITM0]) Then : Local File ITMMASTER [F:ITM0] : Endif
+  If !clalev([F:ITP0]) Then : Local File ITMBPS    [F:ITP0] : Endif
+  If !clalev([F:AXX0]) Then : Local File ATEXTRA   [F:AXX0] : Endif
+  If !clalev([F:AXX1]) Then : Local File ATEXTRA   [F:AXX1] : Endif
+  If !clalev([F:AXX2]) Then : Local File ATEXTRA   [F:AXX2] : Endif
+  If !clalev([F:SPL0]) Then : Local File SPRICLIST [F:SPL0] : Endif
+
+#  Execsql From "5" Sql "truncate table integra.integra.INT_ARTICULOS_TBL"
+#  Execsql From "5" Sql "truncate table integra.integra.INT_ARTICULOS_CODBAR_TBL"
+
+  Filter [F:ITM0] Where YTPVFLG = 2
+  For [ITM0]
+    # inserción de artículos
+    LCODART               = [F:ITM0]ITMREF
+    LDESART               = left$(ctrans([F:ITM0]ITMDES1,"'"," "),60)
+    Case [F:ITM0]VACITM
+      When  "NOR" : LCODIMP = "1"
+      When  "RED" : LCODIMP = "2"
+      When  "SRD" : LCODIMP = "3"
+      When  "EXO" : LCODIMP = "4"
+    Endcase
+    Case [F:ITM0]ITMSTA
+      When 1      : LACTIVO = "S"
+      When 2      : LACTIVO = "S"
+      When 3      : LACTIVO = "S"
+      When 4      : LACTIVO = "N"
+      When 5      : LACTIVO = "N"
+      When 6      : LACTIVO = "N"
+    Endcase
+    LDESGLOSE1            = "N"
+    LDESGLOSE2            = "N"
+    LGENERICO             = "N"
+    LFECHA_ALTA_REGISTRO  = datetime$
+    LPROCESADO            = "N"
+    LCODFAM               = [F:ITM0]TSICOD(0)
+    Filter [F:AXX0] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "20" and IDENT2 = [F:ITM0]TSICOD(0)
+    Read [F:AXX0] First
+    If !fstat Then
+      LDESFAM               = [F:AXX0]TEXTE
+    Endif
+    Filter [F:AXX0]
+    LCODSECCION           = [F:ITM0]TSICOD(2)
+    Filter [F:AXX2] Where CODFIC = "ATABDIV" and ZONE = "LNGDES" and LANGUE = GLANGUE and IDENT1 = "22" and IDENT2 = [F:ITM0]TSICOD(2)
+    Read [F:AXX2] First
+    If !fstat Then
+      LDESSECCION         = [F:AXX2]TEXTE
+    Endif
+    Filter [F:AXX2]
+    LCODCAT               = [F:ITM0]TCLCOD
+    Filter [F:AXX1] Where CODFIC = "ITMCATEG" and ZONE = "TCLAXX" and LANGUE = GLANGUE and IDENT1 = [F:ITM0]TCLCOD
+    Read [F:AXX1] First
+    If !fstat Then
+      LDESCAT               = [F:AXX1]TEXTE
+    Endif
+    Filter [F:AXX1]
+    LCODMARCA             = ""
+    LDESMARCA             = ""
+    Filter [F:ITP0] Where ITMREF = [F:ITM0]ITMREF and PIO = 0
+    Read [F:ITP0] First
+    If !fstat Then
+#      LCODPRO               = [F:ITP0]BPSNUM
+      LCODPRO               = ""
+#      LREF_PROVEEDOR        = [F:ITP0]ITMREFBPS
+      LREF_PROVEEDOR        = ""
+    Endif
+    Filter [F:ITP0]
+    LDTO_PROVEEDOR        = 0
+    LCODFAB               = ""
+    LPMP                  = 0
+    LOBSERVACIONES        = ""
+    LFECHA_ALTA           = date$
+    Raz  SQLINSERT
+    SQLINSERT(1)  = "INSERT INTO integra.integra.INT_ARTICULOS_TBL "
+    SQLINSERT(2)  = "(CODART,DESART,CODIMP,ACTIVO,DESGLOSE1,DESGLOSE2,GENERICO,FECHA_ALTA_REGISTRO,PROCESADO,"
+    SQLINSERT(3)  = "CODFAM,DESFAM,CODSECCION,DESSECCION,CODCAT,DESCAT,CODMARCA,DESMARCA,CODPRO,REFERENCIA_PROVEEDOR,"
+    SQLINSERT(4)  = "DTO_PROVEEDOR,CODFAB,PMP,OBSERVACIONES,FECHA_ALTA) "
+    SQLINSERT(5)  = "VALUES "
+    SQLINSERT(6)  = "('"+LCODART+"','"+LDESART+"','"+LCODIMP+"','"+LACTIVO+"','"+LDESGLOSE1+"',"
+    SQLINSERT(7)  = "'"+LDESGLOSE2+"','"+LGENERICO+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"',"
+    SQLINSERT(8)  = "'"+LCODFAM+"','"+LDESFAM+"','"+LCODSECCION+"','"+LDESSECCION+"','"+LCODCAT+"',"
+    SQLINSERT(9)  = "'"+LDESCAT+"','"+LCODMARCA+"','"+LDESMARCA+"','"+LCODPRO+"','"+LREF_PROVEEDOR+"',"
+    SQLINSERT(10) = num$(LDTO_PROVEEDOR)+",'"+LCODFAB+"',"+num$(LPMP)+",'"+LOBSERVACIONES+"','"+LFECHA_ALTA+"')"
+    Execsql From "5" Sql SQLINSERT(1..10)
+
+    # inserción de códigos de barra
+    If [F:ITM0]EANCOD <> "" Then
+      LDESGLOSE1          = "*"
+      LDESGLOSE2          = "*"
+      LCODIGO_BARRAS      = [F:ITM0]EANCOD
+      LDUN14              = "N"
+      LFACTOR_CONVERSION  = 0
+      LPROCESADO          = "N"
+      Raz  SQLINSERT
+      SQLINSERTCB(1) = "INSERT INTO integra.integra.INT_ARTICULOS_CODBAR_TBL "
+      SQLINSERTCB(2) = "(CODART,DESGLOSE1,DESGLOSE2,CODIGO_BARRAS,DUN14,FACTOR_CONVERSION,FECHA_ALTA_REGISTRO,PROCESADO) "
+      SQLINSERTCB(3) = "VALUES "
+      SQLINSERTCB(4) = "('"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"','"+LCODIGO_BARRAS+"','"+LDUN14+"',"+num$(LFACTOR_CONVERSION)+","
+      SQLINSERTCB(5) = "'"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+      Execsql From "5" Sql SQLINSERTCB(1..5)
+    Endif
+
+  Next
+  Filter [F:ITM0]
+
+  Close Local File [ITM0],[ITP0],[AXX0],[AXX1],[AXX2],[SPL0]
+
+  Kill SQLINSERT,SQLINSERTCB
+End
+
+#####################################################################
+# **** INSERCIÓN MASIVA DE TARIFAS **********************************
+#####################################################################
+#**
+#* Inserción MASIVA de tarifas en Comerzzia
+#*
+#*!
+Subprog MASS_SET_TRF_COMERZZIA()
+
+Local Char      LCODTAR(11),LDESTAR(45),LCODART(25),LDESGLOSE1(15),LDESGLOSE2(15),LPROCESADO(1)
+Local Integer   LID_TRAT_IMPUESTOS
+Local Date      LFECHA_INICIO_VIGENCIA
+Local Datetime  LFECHA_ALTA_REGISTRO
+Local Decimal   LPPRECIO_COSTO,LFACTOR_MARCAJE,LPRECIO_VENTA,LPRECIO_TOTAL
+
+Local Char SQLINSERT(250)(1..)
+
+#  Execsql From "5" Sql "truncate table integra.integra.INT_TARIFAS_TBL"
+
+  # inserción de la tarifa VN20 -> PRECIOS ESPECIALES VENTANAS
+  If !clalev([F:SPL0]) Then : Local File SPRICLIST [F:SPL0] : Endif
+  Filter [F:SPL0] Where PLI = "VN20" and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  For [SPL0]
+    LCODTAR                 = [F:SPL0]PLICRI1
+    LDESTAR                 = "PRECIOS ESPECIALES VENTANAS"
+    LCODART                 = [F:SPL0]PLICRI2
+    LID_TRAT_IMPUESTOS      = 1
+    LDESGLOSE1              = "*"
+    LDESGLOSE2              = "*"
+    LPRECIO_COSTO           = 0
+    LFACTOR_MARCAJE         = 0
+    LPRECIO_VENTA           = [F:SPL0]PRI     # ESTE PRECIO DEBERÍAMOS PASARLO SIN IVA, PERO ANTONIO ME HA DICHO QUE NO HAY PROBLEMA EN QUE LLEGUE ASÍ
+    LPRECIO_TOTAL           = [F:SPL0]PRI - (([F:SPL0]PRI * [F:SPL0]DCGVAL(3)) / 100)
+    LFECHA_INICIO_VIGENCIA  = [F:SPL0]PLISTRDAT #gdat$(01,01,year(date$))
+    LFECHA_ALTA_REGISTRO    = datetime$
+    LPROCESADO              = "N"
+
+    Raz  SQLINSERT
+    SQLINSERT(1) = "INSERT INTO integra.integra.INT_TARIFAS_TBL "
+    SQLINSERT(2) = "(CODTAR,DESTAR,ID_TRAT_IMPUESTOS,CODART,DESGLOSE1,DESGLOSE2,PRECIO_COSTO,FACTOR_MARCAJE,PRECIO_VENTA,"
+    SQLINSERT(3) = "PRECIO_TOTAL,FECHA_INICIO_VIGENCIA,FECHA_ALTA_REGISTRO,PROCESADO) "
+    SQLINSERT(4) = "VALUES "
+    SQLINSERT(5) = "('"+LCODTAR+"','"+LDESTAR+"',"+num$(LID_TRAT_IMPUESTOS)+",'"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"',"+num$(LPRECIO_COSTO)+","
+    SQLINSERT(6) = num$(LFACTOR_MARCAJE)+","+num$(LPRECIO_VENTA)+","+num$(LPRECIO_TOTAL)+",'"+LFECHA_INICIO_VIGENCIA+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+    Execsql From "5" Sql SQLINSERT(1..6)
+  Next
+  Filter [F:SPL0]
+
+  # inserción de la tarifa VN50 -> VENTANAS YNSADIET
+  If !clalev([F:SPL1]) Then : Local File SPRICLIST [F:SPL1] : Endif
+  Filter [F:SPL1] Where PLI = "VN50" and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  For [SPL1]
+    LCODTAR                 = "GENERAL"
+    LDESTAR                 = "VENTANAS YNSDIET"
+    LID_TRAT_IMPUESTOS      = 1
+    LCODART                 = [F:SPL1]PLICRI2
+    LDESGLOSE1              = "*"
+    LDESGLOSE2              = "*"
+    LPRECIO_COSTO           = 0
+    LFACTOR_MARCAJE         = 0
+    LPRECIO_VENTA           = [F:SPL1]PRI
+    LPRECIO_TOTAL           = [F:SPL1]PRI - (([F:SPL1]PRI * [F:SPL1]DCGVAL(3)) / 100)
+    LFECHA_INICIO_VIGENCIA  = [F:SPL1]PLISTRDAT #gdat$(01,01,year(date$))
+    LFECHA_ALTA_REGISTRO    = datetime$
+    LPROCESADO              = "N"
+
+    Raz  SQLINSERT
+    SQLINSERT(1) = "INSERT INTO integra.integra.INT_TARIFAS_TBL "
+    SQLINSERT(2) = "(CODTAR,DESTAR,ID_TRAT_IMPUESTOS,CODART,DESGLOSE1,DESGLOSE2,PRECIO_COSTO,FACTOR_MARCAJE,PRECIO_VENTA,"
+    SQLINSERT(3) = "PRECIO_TOTAL,FECHA_INICIO_VIGENCIA,FECHA_ALTA_REGISTRO,PROCESADO) "
+    SQLINSERT(4) = "VALUES "
+    SQLINSERT(5) = "('"+LCODTAR+"','"+LDESTAR+"',"+num$(LID_TRAT_IMPUESTOS)+",'"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"',"+num$(LPRECIO_COSTO)+","
+    SQLINSERT(6) = num$(LFACTOR_MARCAJE)+","+num$(LPRECIO_VENTA)+","+num$(LPRECIO_TOTAL)+",'"+LFECHA_INICIO_VIGENCIA+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+    Execsql From "5" Sql SQLINSERT(1..6)
+  Next
+  Filter [F:SPL1]
+
+  # inserción de la tarifa VN60 -> VENTANAS TERCEROS PROVEEDORES
+  If !clalev([F:SPL2]) Then : Local File SPRICLIST [F:SPL2] : Endif
+  Filter [F:SPL2] Where PLI = "VN60" and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  For [SPL2]
+    LCODTAR                 = "GENERAL"
+    LDESTAR                 = "VENTANAS TERCEROS PROVEEDORES"
+    LID_TRAT_IMPUESTOS      = 1
+    LCODART                 = [F:SPL2]PLICRI1
+    LDESGLOSE1              = "*"
+    LDESGLOSE2              = "*"
+    LPRECIO_COSTO           = 0
+    LFACTOR_MARCAJE         = 0
+    LPRECIO_VENTA           = [F:SPL2]PRI
+    LPRECIO_TOTAL           = [F:SPL2]PRI - (([F:SPL2]PRI * [F:SPL2]DCGVAL(3)) / 100)
+    LFECHA_INICIO_VIGENCIA  = [F:SPL2]PLISTRDAT #gdat$(01,01,year(date$))
+    LFECHA_ALTA_REGISTRO    = datetime$
+    LPROCESADO              = "N"
+
+    Raz  SQLINSERT
+    SQLINSERT(1) = "INSERT INTO integra.integra.INT_TARIFAS_TBL "
+    SQLINSERT(2) = "(CODTAR,DESTAR,ID_TRAT_IMPUESTOS,CODART,DESGLOSE1,DESGLOSE2,PRECIO_COSTO,FACTOR_MARCAJE,PRECIO_VENTA,"
+    SQLINSERT(3) = "PRECIO_TOTAL,FECHA_INICIO_VIGENCIA,FECHA_ALTA_REGISTRO,PROCESADO) "
+    SQLINSERT(4) = "VALUES "
+    SQLINSERT(5) = "('"+LCODTAR+"','"+LDESTAR+"',"+num$(LID_TRAT_IMPUESTOS)+",'"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"',"+num$(LPRECIO_COSTO)+","
+    SQLINSERT(6) = num$(LFACTOR_MARCAJE)+","+num$(LPRECIO_VENTA)+","+num$(LPRECIO_TOTAL)+",'"+LFECHA_INICIO_VIGENCIA+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+    Execsql From "5" Sql SQLINSERT(1..6)
+  Next
+  Filter [F:SPL2]
+
+  # inserción de la tarifa LM50 -> VENTANAS LA MANCHA
+  If !clalev([F:SPL3]) Then : Local File SPRICLIST [F:SPL3] : Endif
+  Filter [F:SPL3] Where PLI = "LM50" and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  For [SPL3]
+    LCODTAR                 = "GENERAL"
+    LDESTAR                 = "VENTANAS LA MANCHA"
+    LID_TRAT_IMPUESTOS      = 1
+    LCODART                 = [F:SPL3]PLICRI1
+    LDESGLOSE1              = "*"
+    LDESGLOSE2              = "*"
+    LPRECIO_COSTO           = 0
+    LFACTOR_MARCAJE         = 0
+    LPRECIO_VENTA           = [F:SPL3]PRI
+    LPRECIO_TOTAL           = [F:SPL3]PRI - (([F:SPL3]PRI * [F:SPL3]DCGVAL(3)) / 100)
+    LFECHA_INICIO_VIGENCIA  = [F:SPL3]PLISTRDAT #gdat$(01,01,year(date$))
+    LFECHA_ALTA_REGISTRO    = datetime$
+    LPROCESADO              = "N"
+
+    Raz  SQLINSERT
+    SQLINSERT(1) = "INSERT INTO integra.integra.INT_TARIFAS_TBL "
+    SQLINSERT(2) = "(CODTAR,DESTAR,ID_TRAT_IMPUESTOS,CODART,DESGLOSE1,DESGLOSE2,PRECIO_COSTO,FACTOR_MARCAJE,PRECIO_VENTA,"
+    SQLINSERT(3) = "PRECIO_TOTAL,FECHA_INICIO_VIGENCIA,FECHA_ALTA_REGISTRO,PROCESADO) "
+    SQLINSERT(4) = "VALUES "
+    SQLINSERT(5) = "('"+LCODTAR+"','"+LDESTAR+"',"+num$(LID_TRAT_IMPUESTOS)+",'"+LCODART+"','"+LDESGLOSE1+"','"+LDESGLOSE2+"',"+num$(LPRECIO_COSTO)+","
+    SQLINSERT(6) = num$(LFACTOR_MARCAJE)+","+num$(LPRECIO_VENTA)+","+num$(LPRECIO_TOTAL)+",'"+LFECHA_INICIO_VIGENCIA+"','"+num$(LFECHA_ALTA_REGISTRO)+"','"+LPROCESADO+"')"
+    Execsql From "5" Sql SQLINSERT(1..6)
+  Next
+  Filter [F:SPL3]
+
+  Kill SQLINSERT
+  If  clalev([F:SPL0]) Then : Close Local File     [F:SPL0] : Endif
+  If  clalev([F:SPL1]) Then : Close Local File     [F:SPL1] : Endif
+  If  clalev([F:SPL2]) Then : Close Local File     [F:SPL2] : Endif
+  If  clalev([F:SPL3]) Then : Close Local File     [F:SPL3] : Endif
+
+End
+
+#####################################################################
+# **** LECTURA DE TICKETS (ALBARANES VTA) ***************************
+#####################################################################
+#**
+#* Lectura de tickets de Comerzzia
+#*
+#*!
+Subprog GET_TCK_COMERZZIA()
+
+Local   Char SQLSELECTH(250)(1..)
+Local   Char SQLSELECTD(250)(1..)
+Local   Char LDIRIMPORT(250)  : LDIRIMPORT = filpath("IMPORT_EXPORT\COMERZZIA\Mov_Comerzzia","","")
+Global  Char LFILE_W_TK(250), LFILE_W_EV(250)
+Local   Char NAMEFILE(250), NAMEFILEEV(250)
+Local   Char LFECHA(10), LHORA(10), LTICKET(30) : Raz LFECHA, LHORA, LTICKET
+Local   Char LSEP(1)          : LSEP = ";"  # separador
+Local   Char LPATHDESE(255)   : LPATHDESE = filpath("IMPORT_EXPORT\COMERZZIA\Error_Comerzzia","","")    # ruta de la carpeta con errores
+Local   Char LPATHDESS(255)   : LPATHDESS = filpath("IMPORT_EXPORT\COMERZZIA\Success_Comerzzia","","")  # ruta de la carpeta de finalizados con éxito
+
+Local Decimal ID_CLIE_ALBARAN,PERIOD,BASE,IMPUESTOS,TOTAL,IMPORTE_1,IMPORTE_2,IMPORTE_3,IMPORTE_4,IMPORTE_5
+Local Char    CODEMP(4),HORA(8),CODTIENDA(4),CODCAJA(4),DOCUMENTO(60),CODTIPODOCUMENTO(10),DOCUMENTO_ORIGEN(60),CODTIPODOCUMENTO_ORIGEN(10)
+Local Char    CODTRATIMP(11),DESTRATIMP(45),CODDIVISA(3),DESCLI(45),DOMICILIO(50),POBLACION(50),PROVINCIA(50),LOCALIDAD(50),CP(8),CODPAIS(4)
+Local Char    CODTIPOIDEN(10),CIF(20),TARJETA_FIDELIZACION(30),COMEDPAG_1(4),DESMEDPAG_1(45),COMEDPAG_2(4),DESMEDPAG_2(45),COMEDPAG_3(4),DESMEDPAG_3(45)
+Local Char    COMEDPAG_4(4),DESMEDPAG_4(45),COMEDPAG_5(4),DESMEDPAG_5(45),OBSERVACIONES(255),USUARIO(100)
+Local Date    FECHA,FECHA_ALTA_REGISTRO
+
+Local Decimal LINEA,CANTIDAD_MEDIDA,CANTIDAD,PRECIO,PRECIO_TOTAL,DESCUENTO,IMPORTE,IMPORTE_TOTAL
+Local Char    CODART(20),DESGLOSE1(15),DESGLOSE2(15),DESART(60),UNIDAD_MEDIDA(4),CODIMP(1),DESIMP(45)
+Local Date    FECHA_ALTA_REGISTRO
+
+Local Integer STAT                    : Raz STAT
+Local Clbfile UPDCAB(2),UPDLIN(2)     : Raz UPDCAB,UPDLIN
+
+  If !clalev([F:YEI0]) Then : Local File YERRIMPORT [F:YEI0] : Endif
+  If !clalev([F:BPR0]) Then : Local File BPARTNER   [F:BPR0] : Endif
+  If !clalev([F:BPA0]) Then : Local File BPADDRESS  [F:BPA0] : Endif
+  If !clalev([F:BPD0]) Then : Local File BPDLVCUST  [F:BPD0] : Endif
+  If !clalev([F:ITM0]) Then : Local File ITMMASTER  [F:ITM0] : Endif
+  If !clalev([F:ITM0]) Then : Local File ITMMASTER  [F:ITM0] : Endif
+
+  Call OUVRE_TRACE("Ticket Comerzzia") From LECFIC
+
+  # lee los registros de la cabecera de albarán
+  Raz SQLSELECTH
+  SQLSELECTH(1)   = "SELECT ID_CLIE_ALBARAN,CODEMP,PERIODO,FECHA,HORA,CODTIENDA,CODCAJA,DOCUMENTO,CODTIPODOCUMENTO,"
+  SQLSELECTH(2)   = "DOCUMENTO_ORIGEN,CODTIPODOCUMENTO_ORIGEN,CODTRATIMP,DESTRATIMP,BASE,IMPUESTOS,"
+  SQLSELECTH(3)   = "TOTAL,CODDIVISA,DESCLI,DOMICILIO,POBLACION,PROVINCIA,LOCALIDAD,CP,CODPAIS,CODTIPOIDEN,"
+  SQLSELECTH(4)   = "CIF,TARJETA_FIDELIZACION,CODMEDPAG_1,DESMEDPAG_1,IMPORTE_1,CODMEDPAG_2,DESMEDPAG_2,IMPORTE_2,"
+  SQLSELECTH(5)   = "CODMEDPAG_3,DESMEDPAG_3,IMPORTE_3,CODMEDPAG_4,DESMEDPAG_4,IMPORTE_4,"
+  SQLSELECTH(6)   = "CODMEDPAG_5,DESMEDPAG_5,IMPORTE_5,OBSERVACIONES,USUARIO,FECHA_ALTA_REGISTRO "
+  SQLSELECTH(7)   = "FROM integra.integra.INT_VENTAS_CAB_TBL "
+#  SQLSELECTH(8)   = "WHERE ID_CLIE_ALBARAN = 72632"
+  SQLSELECTH(8)   = "WHERE PROCESADO = 'N' AND ((BASE >= 0) OR (CODTIENDA = 'V03' OR CODTIENDA = 'V08' OR CODTIENDA = 'V12' OR CODTIENDA = 'V25' OR CODTIENDA = 'V26' "
+  SQLSELECTH(9)   = "OR CODTIENDA = 'V27' OR CODTIENDA  = 'V09' OR CODTIENDA = 'V02' OR CODTIENDA = 'V01' OR CODTIENDA = 'V18' OR CODTIENDA = 'V15' OR CODTIENDA = 'V10' "
+  SQLSELECTH(10)  = "OR CODTIENDA = 'V13' OR CODTIENDA = 'V04' OR CODTIENDA = 'V29' OR CODTIENDA = 'V05' OR CODTIENDA = 'V28' OR CODTIENDA = 'V16' OR CODTIENDA = 'V06' "
+  SQLSELECTH(11)  = "OR CODTIENDA = 'V11' OR CODTIENDA = 'V21' OR CODTIENDA = 'V14' OR CODTIENDA = 'V24'))"
+
+#If GUSER="AIT07" Then
+#  Local Integer K
+#  For K=1 To 11
+#    Infbox SQLSELECTH(K)
+#  Next
+#Endif
+
+  For (Decimal ID_CLIE_ALBARAN,Char CODEMP,Decimal PERIODO,Date FECHA,Char HORA,Char CODTIENDA,Char CODCAJA,Char DOCUMENTO,Char CODTIPODOCUMENTO,
+& Char DOCUMENTO_ORIGEN,Char CODTIPODOCUMENTO_ORIGEN,Char CODTRAIMP,Char DESTRAIMP,Decimal BASE, Decimal IMPUESTOS,
+& Decimal TOTAL,Char CODDIVISA,Char DESCLI,Char DOMICILIO,Char POBLACION,Char PROVINCIA,Char LOCALIDAD,Char CP,Char CODPAIS,Char CODTIPOIDEN,
+& Char CIF,Char TARJETA_FIDELIZACION,Char CODMEDPAG_1,Char DESMEDPAG_1,Decimal IMPORTE_1,Char CODMEDPAG_2,Char DESMEDPAG_2,Decimal IMPORTE_2,
+& Char CODMEDPAG_3,Char DESMEDPAG_3,Decimal IMPORTE_3,Char CODMEDPAG_4,Char DESMEDPAG_4,Decimal IMPORTE_4,
+& Char CODMEDPAG_5,Char DESMEDPAG_5,Decimal IMPORTE_5,Char OBSERVACIONES,Char USUARIO,Date FECHA_ALTA_REGISTRO)
+& From "5" Sql SQLSELECTH(1..11) As [Y00]
+
+    ID_CLIE_ALBARAN   = [F:Y00]ID_CLIE_ALBARAN  : CODEMP            = [F:Y00]CODEMP           : PERIODO   = [F:Y00]PERIODO    : FECHA       = [F:Y00]FECHA
+    HORA              = [F:Y00]HORA             : CODTIENDA         = [F:Y00]CODTIENDA        : CODCAJA   = [F:Y00]CODCAJA    : DOCUMENTO   = [F:Y00]DOCUMENTO
+    CODTIPODOCUMENTO  = [F:Y00]CODTIPODOCUMENTO : DOCUMENTO_ORIGEN  = [F:Y00]DOCUMENTO_ORIGEN : CODTIPODOCUMENTO_ORIGEN = [F:Y00]CODTIPODOCUMENTO_ORIGEN
+    CODTRAIMP         = [F:Y00]CODTRAIMP        : DESTRAIMP         = [F:Y00]DESTRAIMP        : BASE      = [F:Y00]BASE       : IMPUESTOS   = [F:Y00]IMPUESTOS
+    TOTAL             = [F:Y00]TOTAL            : CODDIVISA         = [F:Y00]CODDIVISA        : DESCLI    = [F:Y00]DESCLI     : DOMICILIO   = [F:Y00]DOMICILIO
+    POBLACION         = [F:Y00]POBLACION        : PROVINCIA         = [F:Y00]PROVINCIA        : LOCALIDAD = [F:Y00]LOCALIDAD  : CP          = [F:Y00]CP
+    CODPAIS           = [F:Y00]CODPAIS          : CODTIPOIDEN       = [F:Y00]CODTIPOIDEN      : CIF       = vireblc([F:Y00]CIF,5)
+    TARJETA_FIDELIZACION = [F:Y00]TARJETA_FIDELIZACION
+    CODMEDPAG_1       = [F:Y00]CODMEDPAG_1      : DESMEDPAG_1       = [F:Y00]DESMEDPAG_1      : IMPORTE_1 = [F:Y00]IMPORTE_1
+    CODMEDPAG_2       = [F:Y00]CODMEDPAG_2      : DESMEDPAG_2       = [F:Y00]DESMEDPAG_2      : IMPORTE_2 = [F:Y00]IMPORTE_2
+    CODMEDPAG_3       = [F:Y00]CODMEDPAG_3      : DESMEDPAG_3       = [F:Y00]DESMEDPAG_3      : IMPORTE_3 = [F:Y00]IMPORTE_3
+    CODMEDPAG_4       = [F:Y00]CODMEDPAG_4      : DESMEDPAG_4       = [F:Y00]DESMEDPAG_4      : IMPORTE_4 = [F:Y00]IMPORTE_4
+    CODMEDPAG_5       = [F:Y00]CODMEDPAG_5      : DESMEDPAG_5       = [F:Y00]DESMEDPAG_5      : IMPORTE_5 = [F:Y00]IMPORTE_5
+    OBSERVACIONES     = [F:Y00]OBSERVACIONES    : USUARIO           = [F:Y00]USUARIO          : FECHA_ALTA_REGISTRO = [F:Y00]FECHA_ALTA_REGISTRO
+
+    # ES TIENDA
+    If len(CIF) <= 4 Then
+      Filter [F:BPR0] Where FCY = CIF
+      Read   [F:BPR0] First
+      If !fstat Then
+#        DESCLI = [F:BPR0]BPRNUM
+        Filter [F:BPD0] Where BPCNUM = [F:BPR0]BPRNUM and ENAFLG = 2     # código de dirección de entrega por defecto
+        Read   [F:BPD0] First
+        If !fstat Then
+          DOMICILIO = [F:BPD0]BPAADD
+        Endif
+        Filter [F:BPD0]
+      Else
+        mkstat = 2
+      Endif
+      Filter [F:BPR0]
+    Endif
+
+    # obtención del cliente a partir de la planta
+    DESCLI = func GET_CLICZZ(CODTIENDA)
+
+    LFECHA  = vireblc(num$(FECHA),4)  : LFECHA  = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+    LTICKET = vireblc(DOCUMENTO,4)    : LTICKET = mid$(LTICKET,12,8)
+
+    # crea el cliente si no existe y el documento que entra es FT (factura) o NC (abono)
+    If CODTIPODOCUMENTO = "FT" or CODTIPODOCUMENTO = "NC" Then
+#      Global Char GDESTRAIMP(100) : GDESTRAIMP = DESTRAIMP
+#      Gosub SET_BPCINV_COMERZZIA
+#      If dim(GDESTRAIMP) > 0 Then : Kill GDESTRAIMP : Endif
+    Endif
+
+    # crea el documento
+    Case CODTIPODOCUMENTO
+      When "FS"
+        If BASE >= 0 Then
+          Raz LFILE_W_TK
+          LFILE_W_TK = "\TicketCZZ_"+CODTIENDA+"_"+LTICKET
+        Else
+          Raz LFILE_W_TK, LFILE_W_EV
+          LFILE_W_EV = "\EVariaCZZ_"+CODTIENDA+"_"+LTICKET
+          LFILE_W_TK = "\AbonoCZZ_"+CODTIENDA+"_"+LTICKET
+        Endif
+      When "FT"
+#        Raz LFILE_W_TK
+#        LFILE_W_TK = "\FacturaCZZ_"+CODTIENDA+"_"+LTICKET
+      When "NC"
+    Endcase
+    Raz NAMEFILE     : NAMEFILE = LFILE_W_TK + "_" + LFECHA + ".txt"
+    LFILE_W_TK = LDIRIMPORT + LFILE_W_TK + "_" + LFECHA + ".txt"
+    If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+      Raz NAMEFILEEV : NAMEFILEEV = LFILE_W_EV + "_" + LFECHA + ".txt"
+      LFILE_W_EV = LDIRIMPORT + LFILE_W_EV + "_" + LFECHA + ".txt"
+    Endif
+
+    # borramos el fichero si existe...
+    If filinfo(LFILE_W_TK, 7) > 0 Then
+      System "ae_rm " + LFILE_W_TK
+    Endif
+
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+    Sleep 1
+    # abrir el fichero para escritura
+    Gosub OPEN_FILE_W_TK
+    If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+      Gosub OPEN_FILE_W_EV
+    Endif
+
+    # busca en las líneas del pedido si existe el artículo 'VIP'
+    Local Decimal LVIPIMPORT
+    LVIPIMPORT = func BUSCA_ARTICULOCZZ(ID_CLIE_ALBARAN,"VIP")
+
+    # cabecera documento
+    Case CODTIPODOCUMENTO
+      When "FS"     # Factura simplificada, crea albarán de venta
+        If BASE >= 0 Then
+          Wrseq "H" + LSEP + CODTIENDA + LSEP + "TPV" + LSEP + DOCUMENTO + LSEP + CODTIENDA + LSEP + DESCLI + LSEP + DOMICILIO + LSEP +
+&               CODDIVISA + LSEP + FECHA + LSEP + FECHA + LSEP + num$(abs(LVIPIMPORT)) Using [YIMP_WTK]
+        Else
+          # entrada varia
+          Wrseq "E" + LSEP + num$(19) + LSEP + "" + LSEP + CODTIENDA + LSEP + date$ + LSEP + "DEVOLUCION TPV"-DOCUMENTO + LSEP + "" + LSEP + "" + LSEP + "040" Using [YIMP_WEV]
+          # abono
+          Wrseq "V" + LSEP + CODTIENDA + LSEP + "1" + LSEP + "ABO" + LSEP + DOCUMENTO + LSEP + DESCLI + LSEP + CODDIVISA + LSEP + "DEVOLUCION TPV"-DOCUMENTO + LSEP + "101" +
+&         LSEP + DOMICILIO + LSEP + CODTIENDA Using [YIMP_WTK]
+          Wrseq "S" + LSEP + num$(7) Using [YIMP_WTK]
+        Endif
+      When "FT"     # Factura total, crea factura de venta
+        # factura
+#        If GSTATBPC <> 2 Then
+#          Wrseq "V" + LSEP + CODTIENDA + LSEP + "1" + LSEP + "TPV" + LSEP + DOCUMENTO + LSEP + DESCLI + LSEP + CODDIVISA + LSEP + "" + LSEP + DESCLI + LSEP + DOMICILIO +
+#&         LSEP + CODTIENDA Using [YIMP_WTK]
+#        Endif
+      When "NC"     # Nota de crédito
+    Endcase
+
+    Raz SQLSELECTD
+    SQLSELECTD(1) = "SELECT LINEA,CODART,DESGLOSE1,DESGLOSE2,DESART,UNIDAD_MEDIDA,CANTIDAD_MEDIDA,CANTIDAD,"
+    SQLSELECTD(2) = "PRECIO,PRECIO_TOTAL,DESCUENTO,IMPORTE,IMPORTE_TOTAL,CODIMP,DESIMP,FECHA_ALTA_REGISTRO "
+    SQLSELECTD(3) = "FROM integra.integra.INT_VENTAS_LIN_TBL "
+    SQLSELECTD(4) = "WHERE ID_CLIE_ALBARAN = " + num$(ID_CLIE_ALBARAN)
+
+    For (Decimal LINEA,Char CODART,Char DESGLOSE1,Char DESGLOSE2,Char DESART,Char UNIDAD_MEDIDA,Decimal CANTIDAD_MEDIDA,Decimal CANTIDAD,
+&   Decimal PRECIO,Decimal PRECIO_TOTAL,Decimal DESCUENTO,Decimal IMPORTE,Decimal IMPORTE_TOTAL,Char CODIMP,Char DESIMP,Date FECHA_ALTA_REGISTRO)
+&   From "5" Sql SQLSELECTD(1..4) As [Y01]
+
+    LINEA               = [F:Y01]LINEA          : CODART        = [F:Y01]CODART         : DESGLOSE1       = [F:Y01]DESGLOSE1        : DESGLOSE2 = [F:Y01]DESGLOSE2
+    DESART              = [F:Y01]DESART         : UNIDAD_MEDIDA = [F:Y01]UNIDAD_MEDIDA  : CANTIDAD_MEDIDA = [F:Y01]CANTIDAD_MEDIDA  : CANTIDAD  = [F:Y01]CANTIDAD
+    PRECIO              = [F:Y01]PRECIO         : PRECIO_TOTAL  = [F:Y01]PRECIO_TOTAL   : DESCUENTO       = [F:Y01]DESCUENTO        : IMPORTE   = [F:Y01]IMPORTE
+    IMPORTE_TOTAL       = [F:Y01]IMPORTE_TOTAL  : CODIMP        = [F:Y01]CODIMP         : DESIMP          = [F:Y01]DESIMP
+    FECHA_ALTA_REGISTRO = [F:Y01]FECHA_ALTA_REGISTRO
+
+    If UNIDAD_MEDIDA = "" Then
+      Read [F:ITM0]ITM0 = CODART
+      If !fstat Then
+        UNIDAD_MEDIDA = [F:ITM0]SAU
+      Endif
+    Endif
+
+      # líneas documento
+      Case CODTIPODOCUMENTO
+        When "FS"     # Factura simplificada, crea albarán de venta
+          If BASE >= 0 Then
+            # si es un artículo VIP no se añade la línea porque se pasa como elemento de facturación
+            If CODART <> "VIP" Then
+              Wrseq "L" + LSEP + CODART + LSEP + DESART + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + num$(abs(PRECIO)) + LSEP + num$(abs(DESCUENTO)) Using [YIMP_WTK]
+            Endif
+          Else
+            # entrada varia
+            Wrseq "L" + LSEP + num$(LINEA*1000) + LSEP + CODART + LSEP + DESART + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + UNIDAD_MEDIDA +
+&                 LSEP + num$(abs(CANTIDAD)) + LSEP + num$(abs(IMPORTE_TOTAL)) Using [YIMP_WEV]
+#            Wrseq "S" + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + "001" + LSEP + "A1" + LSEP + "DEVOLUCION TPV"-DOCUMENTO Using [YIMP_WEV]
+            Wrseq "S" + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + "" + LSEP + "001" + LSEP + "A1" + LSEP + "" + LSEP + "DEVOLUCION TPV"-DOCUMENTO Using [YIMP_WEV]
+            # abono
+            Wrseq "D" + LSEP + CODART + LSEP + DESART + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + num$(abs(PRECIO)) + LSEP + num$(abs(DESCUENTO)) Using [YIMP_WTK]
+          Endif
+        When "FT"     # Factura total, crea factura de venta
+#          If GSTATBPC <> 2 Then
+#            Wrseq "D" + LSEP + CODART + LSEP + DESART + LSEP + UNIDAD_MEDIDA + LSEP + num$(abs(CANTIDAD)) + LSEP + num$(abs(PRECIO)) + LSEP + num$(abs(DESCUENTO)) Using [YIMP_WTK]
+#          Endif
+        When "NC"     # Nota de crédito
+      Endcase
+    Next
+
+    Gosub CLOSE_FILE_W_TK
+    If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+      Gosub CLOSE_FILE_W_EV
+    Endif
+
+    Case [F:Y00]CODTIPODOCUMENTO
+      When "FS"     # Factura simplificada, crea albarán de venta
+        If BASE >= 0 Then
+          Call IMPORTSIL("YSDHCZZ",LFILE_W_TK) From GIMPOBJ                         # lanza la importación de entrega
+        Else
+          Call IMPORTSIL("YSMRDEV",LFILE_W_EV) From GIMPOBJ                         # lanza la importación de la entrada varia
+          Call IMPORTSIL("YSIHCZZ",LFILE_W_TK) From GIMPOBJ                         # lanza la importación del abono
+        Endif
+      When "FT"     # Factura total, crea factura de venta
+#        Call IMPORTSIL("YSIHCZZ",LFILE_W_TK) From GIMPOBJ                           # lanza la importación de factura de venta
+      When "NC"     # Nota de crédito
+    Endcase
+
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
+      Trbegin [F:YEI0]                                                              # ...se añade un registro en la tabla YERRIMPORT...
+      [F:YEI0]ID = getUuid                                                          # ...con la información del archivo...
+      [F:YEI0]GENERADO  = "TICKET COMERZZIA"                                        # ...para que, a través de un peticionario...
+      [F:YEI0]FECHA     = datetime$                                                 # ...se muestre un proceso visual con los resultados...
+      [F:YEI0]FICHERO   = LPATHDESE + NAMEFILE + ".err"                             # ...en la landing page
+      Write [F:YEI0]
+      If !fstat Then
+        Commit
+        Call MOVE(LFILE_W_TK+".err",LPATHDESE,STAT) From ORDSYS                     # mueve el fichero .err con errores en la importación
+        If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+          Call MOVE(LFILE_W_EV+".err",LPATHDESE,STAT) From ORDSYS                   # mueve el fichero .err con errores en la importación
+        Endif
+        System "ae_rm " + LFILE_W_TK                                                # borra el fichero .txt que ha dado errores
+        If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+          System "ae_rm " + LFILE_W_EV                                              # borra el fichero .txt que ha dado errores
+        Endif
+        UPDCAB = "UPDATE integra.integra.INT_VENTAS_CAB_TBL SET PROCESADO='E',FECHA_PROCESADO='"+num$(datetime$)+"',MENSAJE_PROCESADO='"+LPATHDESE+NAMEFILE+".err' WHERE ID_CLIE_ALBARAN="+
+&                 num$(ID_CLIE_ALBARAN)
+        UPDLIN = "UPDATE integra.integra.INT_VENTAS_LIN_TBL SET PROCESADO='E',FECHA_PROCESADO='"+num$(datetime$)+"',MENSAJE_PROCESADO='"+LPATHDESE+NAMEFILE+".err' WHERE ID_CLIE_ALBARAN="+
+&                 num$(ID_CLIE_ALBARAN)
+        Execsql From "5" Sql UPDCAB
+        Execsql From "5" Sql UPDLIN
+      Else
+        Rollback
+      Endif
+
+      # lanza un workflow para avisar de que la importación ha fallado
+      Global Char GYRECIPIENT(250),GDOCUMENTCZZ(250)
+      GYRECIPIENT   = "elena.jorge@ynsadietsa.com"
+#      GYRECIPIENT   = "joseluis.chiva@aitana.es"
+      GDOCUMENTCZZ  = DOCUMENTO
+      Call WORKFLOW (1,"YEC","",GUSER) From AWRK
+      If dim(GYRECIPIENT) > 0 Then : Kill    GYRECIPIENT  : Endif
+      If dim(GDOCUMENTCZZ)> 0 Then : Kill    GDOCUMENTCZZ : Endif
+    Else
+      Call MOVE(LFILE_W_TK,LPATHDESS,STAT) From ORDSYS                              # mueve el fichero .txt con importación exitosa
+      If CODTIPODOCUMENTO = "FS" and BASE < 0 Then
+        Call MOVE(LFILE_W_EV,LPATHDESS,STAT) From ORDSYS                            # mueve el fichero .txt con importación exitosa
+      Endif
+      UPDCAB = "UPDATE integra.integra.INT_VENTAS_CAB_TBL SET PROCESADO='S',FECHA_PROCESADO='"+num$(datetime$)+"',MENSAJE_PROCESADO='PROCESO CORRECTO' WHERE ID_CLIE_ALBARAN="+num$(ID_CLIE_ALBARAN)
+      UPDLIN = "UPDATE integra.integra.INT_VENTAS_LIN_TBL SET PROCESADO='S',FECHA_PROCESADO='"+num$(datetime$)+"',MENSAJE_PROCESADO='PROCESO CORRECTO' WHERE ID_CLIE_ALBARAN="+num$(ID_CLIE_ALBARAN)
+      Execsql From "5" Sql UPDCAB
+      Execsql From "5" Sql UPDLIN
+    Endif
+    mkstat = 0 : fstat = 0 : GOK = 1 : GERRTRACE = 0
+
+  Next
+  If  clalev([F:YEI0]) Then : Close Local File      [F:YEI0] : Endif
+  If  clalev([F:BPR0]) Then : Close Local File      [F:BPR0] : Endif
+  If  clalev([F:BPA0]) Then : Close Local File      [F:BPA0] : Endif
+  If  clalev([F:BPD0]) Then : Close Local File      [F:BPD0] : Endif
+  If  clalev([F:ITM0]) Then : Close Local File      [F:ITM0] : Endif
+
+  Call FERME_TRACE From LECFIC
+  If !GSERVEUR Then
+    Call LEC_TRACE() From LECFIC
+  Endif
+
+  Kill SQLSELECTH,SQLSELECTD
+  If CODTIPODOCUMENTO = "FT" or CODTIPODOCUMENTO = "NC" Then
+#    If dim(GSTATBPC) > 0 Then : Kill GSTATBPC : Endif
+  Endif
+
+End
+
+########################################################
+$OPEN_FILE_W_TK
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILE_W_TK Using [YIMP_WTK]
+
+Return
+
+########################################################
+$CLOSE_FILE_W_TK
+
+Openo Using [YIMP_WTK]
+
+Return
+
+########################################################
+$OPEN_FILE_W_EV
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILE_W_EV Using [YIMP_WEV]
+
+Return
+
+########################################################
+$CLOSE_FILE_W_EV
+
+Openo Using [YIMP_WEV]
+
+Return
+
+#####################################################################
+# **** INSERTA CLIENTE PARA FACTURA DIRECTA Y ABONO *****************
+#####################################################################
+$SET_BPCINV_COMERZZIA
+Global  Integer GSTATBPC      : Raz GSTATBPC
+Local   Char LFILE_W_BPC(200)
+Local   Char NAMEFILEBPC(200) : Raz NAMEFILEBPC
+  GSTATBPC = 0 # 0=inserción correcta ; 1=cliente ya existe ; 2=error
+  If !clalev([F:BPR1]) Then : Local File BPARTNER [F:BPR1] : Endif
+  Filter [F:BPR1] Where CRN = CIF
+  Read   [F:BPR1] First
+  If !fstat Then
+    GSTATBPC = 1
+  Else
+    Raz LFILE_W_BPC  : LFILE_W_BPC = "\ClienteCZZ_"+CIF
+    Raz NAMEFILEBPC  : NAMEFILEBPC = LFILE_W_BPC + "_" + LFECHA + LHORA + ".txt"
+    LFILE_W_BPC = LDIRIMPORT + LFILE_W_BPC + "_" + LFECHA + LHORA + ".txt"
+
+    # borramos el fichero si existe...
+    If filinfo(LFILE_W_BPC, 7) > 0 Then
+      System "ae_rm " + LFILE_W_BPC
+    Endif
+
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+    Sleep 1
+    # abrir el fichero para escritura
+    Gosub OPEN_FILE_W_BPC
+
+    Local Char LCATEGORIA(5)
+    Local Char LREGIMPUESTO(5)
+    If GDESTRAIMP = "Nacional" Then
+      LCATEGORIA    = "CNA"
+      LREGIMPUESTO  = "NAC"
+    Endif
+    Wrseq "B" + LSEP + LCATEGORIA + LSEP + CIF + LSEP + DESCLI + LSEP + DESCLI + LSEP + "E0"+ LSEP + "E0" + LSEP + CODDIVISA + LSEP + CIF + LSEP + LREGIMPUESTO + LSEP +
+&         "CON"  Using [YIMP_WBC]
+    Wrseq "A" + LSEP + "E0" + LSEP + "DIRECCION" + LSEP + DOMICILIO + LSEP + CP + LSEP + POBLACION + LSEP + CODPAIS + LSEP + "2" Using [YIMP_WBC]
+    Wrseq "D" + LSEP + "E0" + LSEP + DESCLI Using [YIMP_WBC]
+
+    Gosub CLOSE_FILE_W_BPC
+
+    If !GSERVEUR Then
+      Call OUVRE_TRACE("Cliente Comerzzia") From LECFIC
+    Endif
+    Call IMPORTSIL("YBPCCZZ",LFILE_W_BPC) From GIMPOBJ                              # lanza la importación del cliente
+    If !GSERVEUR Then
+      Call FERME_TRACE From LECFIC
+    Endif
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
+      If !clalev([F:YEI1]) Then : Local File YERRIMPORT [F:YEI1] : Endif
+      Trbegin [F:YEI1]                                                              # ...se añade un registro en la tabla YERRIMPPARR...
+      [F:YEI1]ID = getUuid                                                          # ...con la información del archivo...
+      [F:YEI1]GENERADO  = "CLIENTE COMERZZIA"                                       # ...para que, a través de un peticionario...
+      [F:YEI1]FECHA     = date$                                                     # ...se muestre un proceso visual con los resultados...
+      [F:YEI1]FICHERO   = LPATHDESE + "\" + NAMEFILEBPC + ".err"                    # ...en la landing page
+      Write [F:YEI1]
+      If !fstat Then
+        Commit
+        Call MOVE(LFILE_W_BPC+".err",LPATHDESE,STAT) From ORDSYS                    # mueve el fichero .err con errores en la importación
+        System "ae_rm " + LFILE_W_BPC                                               # borra el fichero .txt que ha dado errores
+      Else
+        Rollback
+      Endif
+      If  clalev([F:YEI1]) Then : Close Local File      [F:YEI1] : Endif
+      GSTATBPC = 2
+    Else
+      Call MOVE(LFILE_W_BPC,LPATHDESS,STAT) From ORDSYS                             # mueve el fichero .txt con importación exitosa
+      GSTATBPC = 0
+    Endif
+    mkstat = 0 : fstat = 0 : GOK = 1 : GERRTRACE = 0
+
+  Endif
+  Filter [F:BPR1]
+  Close Local File [F:BPR1]
+
+Return
+
+########################################################
+$OPEN_FILE_W_BPC
+
+adxifs = ";"
+adxirs = chr$(13)+chr$(10)
+Openo LFILE_W_BPC Using [YIMP_WBC]
+
+Return
+
+########################################################
+$CLOSE_FILE_W_BPC
+
+Openo Using [YIMP_WBC]
+
+Return
+
+#######################
+#**
+#* importación de un fichero con modelo import/export
+#*
+#* @param PMESS     > mensaje a mostrar en la pantalla de progreso
+#* @param PMODEL    > modelo import/export
+#* @param PFILE     > fichero a importar
+#* @param PTRACE    > mostrar traza: 0=No , 1=Si
+#*!
+Subprog IMPORT_FILE(PMESS,PMODEL,PFILE,PTRACE)
+Value     Char    PMESS
+Value     Char    PMODEL
+Value     Char    PFILE
+Value     Integer PTRACE
+
+  If !GSERVEUR Then
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+    # Lanzamiento de la importación silenciosa
+    Call TEMPON("Proceso de generación de OF's") From GESECRAN
+    Call OUVRE_TRACE(PMESS) From LECFIC
+    Call ECR_TRACE(PMESS,0) From GESECRAN
+
+    # importar fichero..
+    Call IMPORTSIL(PMODEL,PFILE) From GIMPOBJ
+
+    Call TEMPOFF() From GESECRAN
+
+    Call FERME_TRACE From LECFIC
+
+    # si se quiere mostrar traza, sino dejarla comentada Call LEC_TRACE From LECFIC
+    If PTRACE = 1 Then
+      Call LEC_TRACE From LECFIC
+    Endif
+
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+  Endif
+End
+
+#######################
+#**
+#* limpia caracteres extraños en una cadena
+#*
+#* @param PCHARIN   > cadena a limpiar
+#* @param PCHAROUT  > cadena limpia
+#*!
+Subprog LIMPIA_STR(PCHARIN,PCHAROUT)
+Value     Clbfile  PCHARIN
+Variable  Clbfile  PCHAROUT
+
+Local Clbfile PSTR(3) : PSTR=PCHARIN
+
+  PSTR=ctrans(PSTR,"Ã¡" ,"a") : PSTR=ctrans(PSTR,"Ã " ,"a") : PSTR=ctrans(PSTR,"Ã¤" ,"a")
+  PSTR=ctrans(PSTR,"Ã¢" ,"a") : PSTR=ctrans(PSTR,"Âª" ,"a") : PSTR=ctrans(PSTR,"Ã?" ,"A")
+  PSTR=ctrans(PSTR,"Ã€" ,"A") : PSTR=ctrans(PSTR,"Ã‚" ,"A") : PSTR=ctrans(PSTR,"Ã„" ,"A")
+  PSTR=ctrans(PSTR,"Ã©" ,"e") : PSTR=ctrans(PSTR,"Ã¨" ,"e") : PSTR=ctrans(PSTR,"Ã«" ,"e")
+  PSTR=ctrans(PSTR,"Ãª" ,"e") : PSTR=ctrans(PSTR,"Ã‰" ,"E") : PSTR=ctrans(PSTR,"Ãˆ" ,"E")
+  PSTR=ctrans(PSTR,"ÃŠ" ,"E") : PSTR=ctrans(PSTR,"Ã‹" ,"E") : PSTR=ctrans(PSTR,"Ã­" ,"i")
+  PSTR=ctrans(PSTR,"Ã¬" ,"i") : PSTR=ctrans(PSTR,"Ã¯" ,"i") : PSTR=ctrans(PSTR,"Ã®" ,"i")
+  PSTR=ctrans(PSTR,"Ã?" ,"I") : PSTR=ctrans(PSTR,"ÃŒ" ,"I") : PSTR=ctrans(PSTR,"Ã?" ,"I")
+  PSTR=ctrans(PSTR,"ÃŽ" ,"I") : PSTR=ctrans(PSTR,"Ã³" ,"o") : PSTR=ctrans(PSTR,"Ã²" ,"o")
+  PSTR=ctrans(PSTR,"Ã¶" ,"o") : PSTR=ctrans(PSTR,"Ã´" ,"o") : PSTR=ctrans(PSTR,"Ã“" ,"O")
+  PSTR=ctrans(PSTR,"Ã’" ,"O") : PSTR=ctrans(PSTR,"Ã–" ,"O") : PSTR=ctrans(PSTR,"Ã”" ,"O")
+  PSTR=ctrans(PSTR,"Ãº" ,"u") : PSTR=ctrans(PSTR,"Ã¹" ,"u") : PSTR=ctrans(PSTR,"Ã¼" ,"u")
+  PSTR=ctrans(PSTR,"Ã»" ,"u") : PSTR=ctrans(PSTR,"Ãš" ,"U") : PSTR=ctrans(PSTR,"Ã™" ,"U")
+  PSTR=ctrans(PSTR,"Ã›" ,"U") : PSTR=ctrans(PSTR,"Ãœ" ,"U") : PSTR=ctrans(PSTR,"Ã±" ,"n")
+  PSTR=ctrans(PSTR,"Ã‘" ,"N") : PSTR=ctrans(PSTR,"Ã§" ,"c") : PSTR=ctrans(PSTR,"Ã‡" ,"C")
+  PSTR=ctrans(PSTR,"\" ,"")   : PSTR=ctrans(PSTR,"Â¨" ,"")  : PSTR=ctrans(PSTR,"Âº" ,"")
+  PSTR=ctrans(PSTR,"~" ,"")   : PSTR=ctrans(PSTR,"#" ,"")   : PSTR=ctrans(PSTR,"@" ,"")
+  PSTR=ctrans(PSTR,"|" ,"")   : PSTR=ctrans(PSTR,"!" ,"")   : PSTR=ctrans(PSTR,'"' ,"")
+  PSTR=ctrans(PSTR,"*" ,"")   : PSTR=ctrans(PSTR,"Â·" ,"")  : PSTR=ctrans(PSTR,"$" ,"")
+  PSTR=ctrans(PSTR,"%" ,"")   : PSTR=ctrans(PSTR,"&" ,"")   : PSTR=ctrans(PSTR,"(" ,"")
+  PSTR=ctrans(PSTR,")" ,"")   : PSTR=ctrans(PSTR,"?" ,"")   : PSTR=ctrans(PSTR,"'" ,"")
+  PSTR=ctrans(PSTR,"Â¡" ,"")  : PSTR=ctrans(PSTR,"Â¿" ,"")  : PSTR=ctrans(PSTR,"[" ,"")
+  PSTR=ctrans(PSTR,"^" ,"")   : PSTR=ctrans(PSTR,"<" ,"")   : PSTR=ctrans(PSTR,">" ,"")
+  PSTR=ctrans(PSTR,"]" ,"")   : PSTR=ctrans(PSTR,"+" ,"")   : PSTR=ctrans(PSTR,"}" ,"")
+  PSTR=ctrans(PSTR,"{" ,"")   : PSTR=ctrans(PSTR,"Â´" ,"")  : PSTR=ctrans(PSTR,";" ,"")
+  PSTR=ctrans(PSTR," " ,"")   : PSTR=ctrans(PSTR,":" ,"")   : PSTR=ctrans(PSTR,"." ,"")
+  PSTR=ctrans(PSTR,"/" ,"")
+
+  PCHAROUT = PSTR
+
+End
+
+#######################
+#**
+#* busca si el pedido contiene una línea con artículo VIP
+#*
+#* @param PIDECLIEALB  > número de pedido Comerzzia
+#*!
+Funprog BUSCA_ARTICULOCZZ(PIDECLIEALB,PARTICULO)
+Value Integer PIDECLIEALB
+Value Char    PARTICULO
+
+Local Decimal LRES
+
+  If !clalev([F:YVLT]) Then : Local File YVLINTKCZZ [F:YVLT] : Endif
+  Filter [F:YVLT] Where IDALBARAN = PIDECLIEALB and CODART = PARTICULO
+  Read [F:YVLT] First
+  If !fstat Then
+#    LRES = [F:YVLT]PRECIOTOTAL
+    LRES = [F:YVLT]IMPORTE
+  Else
+    LRES = 0
+  Endif
+  Close Local File [YVLT]
+
+End LRES
+
+#######################
+#**
+#* busca el cliente a partir de la tienda
+#*
+#* @param PCODTIENDA  > código de la tienda
+#*!
+Funprog GET_CLICZZ(PCODTIENDA)
+Value Char    PCODTIENDA
+
+Local Char LRES(50)
+
+  Case PCODTIENDA
+    When "V01"  : LRES = "VC01"
+    When "V02"  : LRES = "VC02"
+    When "V03"  : LRES = "VC03"
+    When "V04"  : LRES = "VC04"
+    When "V05"  : LRES = "VC05"
+    When "V06"  : LRES = "VC06"
+    When "V08"  : LRES = "VC08"
+    When "V09"  : LRES = "VC09"
+    When "V10"  : LRES = "VC10"
+    When "V11"  : LRES = "VC11"
+    When "V12"  : LRES = "VC12"
+    When "V13"  : LRES = "VC13"
+    When "V14"  : LRES = "VC14"
+    When "V15"  : LRES = "VC15"
+    When "V16"  : LRES = "VC16"
+    When "V18"  : LRES = "VC18"
+    When "V21"  : LRES = "VC21"
+    When "V24"  : LRES = "VC24"
+    When "V25"  : LRES = "VC25"
+    When "V26"  : LRES = "VC26"
+    When "V27"  : LRES = "VC27"
+    When "V28"  : LRES = "VC28"
+    When "V29"  : LRES = "VC29"
+  Endcase
+
+End LRES
+
+#####################################################################
+#####################################################################
+################GESTIÓN DE BLOQUEOS EN PARRILLAS#####################
+#####################################################################
+#######################
+#**
+#* busca bloqueo para artículo/lote
+#*
+#* @param PITM  > artículo
+#* @param PLOT  > lote
+#* LRES -> 0 no bloqueo ; 1 sí bloqueo
+#*!
+Funprog SEARCH_LCKPRR(PITM,PLOT)
+Value Char PITM,PLOT
+
+Local Integer LRES
+
+  If !clalev([F:YLKP]) Then : Local File YLCKPRR [F:YLKP] : Endif
+  Read [F:YLKP]YLKP3 = PITM;PLOT
+  If !fstat Then
+    If [F:YLKP]LCKUID <> adxuid(1) Then
+      LRES = 1
+    Endif
+  Endif
+  Close Local File [YLKP]
+
+End LRES
+
+#######################
+#**
+#* lanza bloqueo en parrillas
+#*
+#* @param PITM  > artículo
+#* @param PLOT  > lote
+#* @param PMSK  > pantalla
+#*!
+Subprog LOCK_LCKPRR(PITM,PLOT,PMSK)
+Value Char PITM,PLOT,PMSK
+
+  If !clalev([F:YLKP]) Then : Local File YLCKPRR [F:YLKP] : Endif
+  Read [F:YLKP]YLKP3 = PITM;PLOT
+  If fstat <> 0 Then
+    [F:YLKP]LCKUID    = adxuid(1)
+    [F:YLKP]LCKMSK    = PMSK
+    [F:YLKP]LCKITM    = PITM
+    [F:YLKP]LCKLOT    = PLOT
+    [F:YLKP]LCKDATIM  = datetime$
+    Trbegin [F:YLKP]
+    Write   [F:YLKP]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Endif
+  Close Local File [YLKP]
+
+End
+
+#######################
+#**
+#* lanza desbloqueo en parrillas
+#*
+#* @param PUID  > adxuid
+#* @param PMSK  > pantalla
+#*!
+Subprog UNLOCK_LCKPRR(PUID,PMSK)
+Value Integer PUID
+Value Char    PMSK
+
+  If !clalev([F:YLKP]) Then : Local File YLCKPRR [F:YLKP] : Endif
+  Trbegin [F:YLKP]
+  Delete [F:YLKP]YLKP4 = PUID;PMSK
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+  Close Local File [YLKP]
+
+End
+
+#######################
+#**
+#* devuelve datos del bloqueo para artículo/lote
+#*
+#* @param PITM      > artículo
+#* @param PLOT      > lote
+#* @param PLCKUID   > id de sesión
+#* @param PLCKUSR   > usuario
+#* @param PLCKTIM   > fecha y hora de bloqueo
+#*!
+Subprog GET_IDLCK(PITM,PLOT,PLCKUID,PLCKUSR,PLCKTIM)
+Value     Char      PITM,PLOT
+Variable  Integer   PLCKUID
+Variable  Datetime  PLCKTIM
+Variable  Char      PLCKUSR
+
+Local Integer LRES
+
+  If !clalev([F:YLKP]) Then : Local File YLCKPRR [F:YLKP] : Endif
+  Read [F:YLKP]YLKP3 = PITM;PLOT
+  If !fstat Then
+    PLCKUID = [F:YLKP]LCKUID
+    PLCKTIM = [F:YLKP]LCKDATIM
+  Endif
+  Close Local File [YLKP]
+
+  If !clalev([F:VUA0]) Then : Local File YVUSERADXUID [F:VUA0] : Endif
+  Filter [F:VUA0] Where SESSIONID = PLCKUID
+  Read [F:VUA0] First
+  If !fstat Then
+    PLCKUSR = [F:VUA0]ALOGIN
+  Endif
+  Filter [F:VUA0]
+  Close Local File [VUA0]
+
+End
+
+#######################
+#**
+#* elimina registros de la tabla de bloqueos si la sesión no existe en X3
+#*
+#* @param PLCKUID   > id de sesión
+#*!
+Subprog DEL_SESSIONS()
+
+  If !clalev([F:VSL0]) Then : Local File YVSESLCK     [F:VSL0] : Endif
+  If !clalev([F:VUA0]) Then : Local File YVUSERADXUID [F:VUA0] : Endif
+  If !clalev([F:YLKP]) Then : Local File YLCKPRR      [F:YLKP] : Endif
+
+  For [F:VSL0]
+    Filter [F:VUA0] Where SESSIONID = [F:YLKP]LCKUID
+    Read [F:VUA0] First
+    If fstat <> 0 Then
+      Trbegin [F:YLKP]
+      Delete [F:YLKP] Where LCKUID = [F:YLKP]LCKUID
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+    Filter [F:VUA0]
+  Next
+  Close Local File [VSL0],[VUA0],[YLKP]
+
+End

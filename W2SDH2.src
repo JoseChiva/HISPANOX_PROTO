@@ -1,0 +1,140 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Supervisor
+# Gestión de la máscara SDH2 
+
+$_AFF
+If GIMPORT
+ Gosub AFF From GSAISIE
+Else
+ If GMESSAGE <>""
+  Gosub ERR From GSAISIE
+ Else
+  Raz GERR , GZNUM
+ Endif
+Endif
+Return
+
+$ON_PACNBR
+Onevent CONTROL Call C_PACNBR(zc) From W2SDH2
+Return
+
+Subprog C_PACNBR(VALEUR)
+Variable Decimal VALEUR
+## Action STD
+Call C_PACNBR(VALEUR) From SUBSDH
+If mkstat : GERR = 1 : GZONE = "PACNBR" : GZNUM = 2975 : Endif
+Gosub _AFF
+End
+
+$ON_NBFAC
+Onevent CONTROL Call C_NBFAC From W2SDH2
+Onevent AFTER_LINE Call APRES_NBFAC From W2SDH2
+Onevent BEFORE_INPUT Call AS_NBFAC From W2SDH2
+Return
+
+Subprog IB_NBFAC
+Local Decimal BASPAG
+## Action STD
+Call IB_NBFAC From SUBSDH
+Gosub _AFF
+End
+
+Subprog AS_NBFAC
+Local Decimal BASPAG
+Local Integer INDIC : INDIC = indice
+Raz mkstat
+Call TEXTE(33857,GBOUT3) From OBJDIV
+Call IB_NBFAC
+Onkey 131 Titled GBOUT3 Call B3_NBFAC From W2SDH2
+Gosub _AFF
+End
+
+Subprog C_NBFAC
+Local Decimal BASPAG
+## Action STD
+Call C_NBFAC From SUBSDH
+If mkstat : GERR = 1 : GZONE = "NBFAC" : GZNUM = 0 : Endif
+Gosub _AFF
+End
+
+Subprog B3_NBFAC
+Local Decimal BASPAG
+If !GWEBSERV
+ ## Action STD
+ Call B3_NBFAC From SUBSDH
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog APRES_NBFAC
+Local Decimal BASPAG
+## Action STD
+Call APRES_NBFAC From SUBSDH
+If mkstat : End : Endif
+Gosub _AFF
+End
+
+$ON_INVDTA
+Return
+
+$ON_INVDTAAMT
+Onevent AFTER_CHANGE Gosub AMM_INVDTAAMT From W2SDH2
+Onevent BEFORE_AREA Gosub AV_INVDTAAMT From W2SDH2
+Return
+
+$AV_INVDTAAMT
+If [M]FORMAT(nolign-1)<>""
+ Chgfmt [M]INVDTAAMT(indice) With [M]FORMAT(nolign-1)
+Else
+ Chgfmt [M]INVDTAAMT(indice) With "-K:1X"
+Endif
+Gosub _AFF
+Return
+
+$AMM_INVDTAAMT
+Call AM_INVDTAAMT(zc)
+If !mkstat & GOBJET
+ zoncou = "INVDTAAMT" : Gosub APRES_MODIF From =GPROGRAMME
+Endif
+Return
+
+Subprog AM_INVDTAAMT(VALEUR)
+Variable Decimal VALEUR
+## Action STD
+Call AM_INVDTAAMT(VALEUR) From SUBSDH
+If mkstat : GERR = 1 : GZONE = "INVDTAAMT" : GZNUM = 5476 : Endif
+Gosub _AFF
+End
+
+$ON_INVDTATYP
+Onevent INIT_AREA Call D_INVDTATYP(zc) From W2SDH2
+Return
+
+Subprog D_INVDTATYP(VALEUR)
+Variable Integer VALEUR
+If varinit([M]INVDTATYP,indice)=0
+ VALEUR = 1
+Endif
+Gosub _AFF
+End
+
+$ON_AMTCOD
+Onevent INIT_AREA Call D_AMTCOD(zc) From W2SDH2
+Return
+
+Subprog D_AMTCOD(VALEUR)
+Variable Integer VALEUR
+If varinit([M]AMTCOD,indice)=0
+ VALEUR = 1
+Endif
+Gosub _AFF
+End
+
+$ON_YCUR
+Return
+
+$CHG_STY
+Return
+
+

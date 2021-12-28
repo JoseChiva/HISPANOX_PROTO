@@ -1,0 +1,3014 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ Presupuestos
+# Gestión de la máscara SQH2 (Especifico)
+#MRR - 23/03/2020 - Cód.act.: ZQ006 "Línea oculta en Oferta"
+#MRR01 - 24/04/2020 - Cód.act.: ZQ003 "Fecha validez oferta"
+#MRR02 - 21/08/2020 - Cód.act.: ZQ009 "Clasificación oferta"
+#MRR03 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+#DEV: JESP 20201125 VTAS079 - Stock disponible
+#DEV: RPES  20201130  VTAS078 Multiple de caja
+#DEV: RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
+#DEV: RPES 20201217 Tarifas transportistas
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 23/03/2020 10:26:41 (ADMIN)
+######################################################################################
+End
+
+$ACTION
+#If GUSER = 'ADEV' Then : Infbox ACTION : Endif
+Case ACTION
+ When 'OUVRE'       :  Gosub OUVRE
+ When 'SETBOUT'     :  Gosub SETBOUT
+ When 'AVANTBOUT'   :  Gosub AVANTBOUT
+ When 'EXEBOUT'     :  Gosub EXEBOUT
+ When 'VERIF_CRE'   :  Gosub VERIF_CRE
+ When 'VERIF_MOD'   :  Gosub VERIF_CRE
+ When "LIENS"       :  Gosub LIENS
+ When "LIENS_LIG"   :  Gosub LIENS_LIG
+ When "APRES_CRE"   :  Gosub APRES_CRE
+ When "APRES_MOD"   :  Gosub APRES_CRE
+ When Default
+Endcase
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$OUVRE
+  Global Integer GCTRLSTA
+Return
+
+##############################################################
+$SETBOUT
+Local Integer X
+
+For X=0 To NBLIG-1
+  If [M:SQH2]ZLINOCU(X) = 2 Then
+    Effzo [M:SQH2]GROPRI(X)
+    Diszo [M:SQH2]GROPRI(X)
+    Effzo [M:SQH2]ZPORCOSTE(X)
+    Diszo [M:SQH2]ZPORCOSTE(X)
+    Effzo [M:SQH2]ZPFM(X)
+    Diszo [M:SQH2]ZPFM(X)
+    Effzo [M:SQH2]ZPRECLI(X)
+    Diszo [M:SQH2]ZPRECLI(X)
+    Effzo [M:SQH2]ZUNPRE(X)
+    Diszo [M:SQH2]ZUNPRE(X)
+    Effzo [M:SQH2]DISCRGVAL1(X)
+    Diszo [M:SQH2]DISCRGVAL1(X)
+    Effzo [M:SQH2]DDAYLTI(X)
+    Diszo [M:SQH2]DDAYLTI(X)
+    Effzo [M:SQH2]ZPRECLI(X)
+    Diszo [M:SQH2]ZPRECLI(X)
+    Effzo [M:SQH2]ZCOSOFER(X)
+    Diszo [M:SQH2]ZCOSOFER(X)
+    [M:SQH2]PRIREN(X) = 1
+    Affzo [M:SQH2]PRIREN(1)
+    [M:SQH2]DISCRGREN1(1) = 1
+    Affzo [M:SQH2]DISCRGREN1(X)
+  Else
+#    Actzo [M:SQH2]GROPRI(X)
+  Endif
+  Diszo [M:SQH2]GROPRI(X)
+  Diszo [M:SQH2]ZCOSOFER(X)
+
+  Affzo [M:SQH2]GROPRI(X)
+Next
+
+# JC.14062021.STR.vtas021
+  If [M:SQH1]VLYDAT < date$ Then
+    Call VIREBOUT(CHAINE,"2") From GOBJET
+  Else
+    CHMEN += "2"
+  Endif
+# JC.14062021.END.vtas021
+
+# JC.14062021.STR.vtas029
+Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+For X=0 To [M:SQH2]NBLIG-1
+  If [M:SQH2]ZLINOCU(X) <> 2 Then
+    If [M:SQH2]ZPFM(X) < PUMBRALMRG Then
+      Chgstl [M:SQH2]NBLIG(X) With "BACKRED"
+    Else
+      Chgstl [M:SQH2]NBLIG(X) With ""
+    Endif
+  Else
+    Chgstl [M:SQH2]NBLIG(X) With "BACKGREY"
+  Endif
+  Affzo [M:SQH2]NBLIG(X)
+Next
+
+Affzo [M:SQH2]
+
+Gosub IMPORTES_TOTALES
+
+# JC.14062021.END.vtas029
+
+  Chgtzn [M:SQH2]DISCRGVAL1 With "Dto"
+
+  [M:ZSQH1]QUOINVNOT = [M:SQH2]QUOINVNOT
+  [M:ZSQH1]QUOINVATI = [M:SQH2]QUOINVATI
+  Affzo [M:ZSQH1]QUOINVNOT
+  Affzo [M:ZSQH1]QUOINVATI
+
+  Diszo [M:SQH0]ZPEDIDOWEB
+
+Return
+
+##############################################################
+$VERIF_CRE
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+  For I = 0 To [M:SQH2]NBLIG-1
+    If [M:SQH2]ZLINOCU(I) = 2 Then
+      [M:SQH2]GROPRI(I) = 0
+    Endif
+  Next
+# FIN JESP
+
+  # llama a la función de cálculo de portes
+  Call AM_ZFREINV([M:SQH1]ZFREINV)            # JC.24062021.NEW.transportista.ZTART
+
+Return
+
+
+##############################################################
+#MODIF RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
+$LIENS
+
+Gosub ACTION From SUBSQH
+GPE=1
+
+[M:SQH0]ZREP1 = [M:SQH1]REP(0)
+Affzo [M:SQH0]ZREP1
+Return
+#FIN MODIF RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
+
+Return
+
+##############################################################
+$LIENS_LIG
+
+## JC.14062021.STR.vtas029
+#  Gosub LIENS_LIG From SUBSQHA
+#  [M:SQH2]ZPORCOSTE(NOL) = [M:SQH2]ZCOSOFER(NOL)*100
+## JC.14062021.END.vtas029
+#
+## JC.14062021.STR.ddf unipre.ZUNPR
+#  Case [M:SQH2]ZUNPRE(NOL)
+#    When "UN"        :   [M:SQH2]ZPRECLI(NOL)  = [M:SQH2]GROPRI(NOL)
+#    When "CEN"       :   [M:SQH2]ZPRECLI(NOL)  = [M:SQH2]GROPRI(NOL) * 100
+#    When "MIL"       :   [M:SQH2]ZPRECLI(NOL)  = [M:SQH2]GROPRI(NOL) * 1000
+#    When Default
+#  Endcase
+## JC.14062021.END.ddf unipre.ZUNPR
+#
+#  GPE=1
+Return
+
+##############################################################
+$APRES_CRE
+# JC.14062021.STR.vtas021
+  If !clalev([F:SQH0]) Then : Local File SQUOTE [F:SQH0] : Endif
+  Read [F:SQH0]SQH0 = [M:SQH0]SQHNUM
+  If !fstat Then
+    Trbegin [F:SQH0]
+    [F:SQH0]VLYDAT      = [M:SQH1]VLYDAT
+    Rewrite [F:SQH0]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Endif
+  Close Local File [SQH0]
+# JC.14062021.END.vtas021
+
+# JC.09072021.ddf.intranet.STR
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then
+    Call PRESUPUESTOS([M:SQH0]SQHNUM) From ZSQHINTRANET
+  Endif
+# JC.09072021.ddf.intranet.END
+
+Local Integer LCON
+Local Decimal LZCOSOFER
+Local Decimal LZCOSTOFEREK
+  For LCON=0 To [M:SQH2]NBLIG-1
+    Read [F:SQD]SQD0 = [M:SQH0]SQHNUM;[M:SQH2]SQDLIN(LCON)
+    If !fstat Then
+#      If func ZAULIB01.GET_COSTEOFERTA([F:SQD]ITMREF,[F:SQD]SALFCY) <> 0 Then
+#        LZCOSOFER = func ZAULIB01.GET_COSTEOFERTA([F:SQD]ITMREF,[F:SQD]SALFCY)
+      If [M:SQH2]ZCOSOFER(LCON) <> 0 Then
+        LZCOSOFER = [M:SQH2]ZCOSOFER(LCON)
+      Endif
+      LZCOSOFER   = 100 * LZCOSOFER
+      If [F:SQD]DSPLINWEI > 0 Then
+        Trbegin [F:SQD]
+#        [F:SQD]ZCOSTOFEREK = func ZAULIB01.REDONDEA_ALZA(((LZCOSOFER * [F:SQD]QTY) / [F:SQD]DSPLINWEI)/100,2)
+#        [F:SQD]ZCOSTOFEREK = func ZAULIB01.REDONDEA_ALZA((([F:SQD]ZPRECLI * [F:SQD]QTY) / [F:SQD]DSPLINWEI)/100,2)
+        [F:SQD]ZCOSTOFEREK = func ZAULIB01.REDONDEA_ALZA((([F:SQD]ZPORCOSTE * [F:SQD]QTY) / [F:SQD]DSPLINWEI)/100,2)
+        Rewrite [F:SQD]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Endif
+    Endif
+  Next
+
+  # crea e fichero JOB para actualizar las líneas del pedido abierto
+  Call RESTAQTY_SOHPA()
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+
+Return
+
+##############################################################
+$AVANTBOUT
+Local Integer LCUENTAZLINOCU,LCUENTAITMTEXTO
+
+# JC.03082021.No pasar líneas ocultas de presupuesto a pedido.STR
+  If BOUT = '2' Then  # Crear pedido
+    LCUENTAZLINOCU = 0
+    For I = 0 To [M:SQH2]NBLIG
+      If [M:SQH2]ZLINOCU(I) = 2 or left$([M:SQH2]ITMREF(I),4) = "TEXT" Then
+        LCUENTAZLINOCU += 1
+      Endif
+      If left$([M:SQH2]ITMREF(I),4) = "TEXT" Then
+        LCUENTAITMTEXTO += 1
+      Endif
+    Next
+    # todas las líneas son ocultas o con artículo texto
+    If LCUENTAZLINOCU = [M:SQH2]NBLIG Then
+      OK  = 0
+      GPE = 1
+      Call ERREUR("No se puede crear el pedido\Revisa que las líneas no sean todas ocultas o con artículo TEXTO") From GESECRAN
+      Return
+    # hay algunas líneas ocultas o con artículo texto (o no), pero no son todas y, además hay líneas con artículo texto
+    Elsif LCUENTAZLINOCU < [M:SQH2]NBLIG and LCUENTAITMTEXTO > 0 Then
+      Call MESSAGE("Hay"-num$(LCUENTAITMTEXTO)-"líneas con artículos TEXTO que no se pasarán a pedido") From GESECRAN
+    Endif
+  Endif
+# JC.03082021.No pasar líneas ocultas de presupuesto a pedido.END
+
+Return
+
+##############################################################
+$EXEBOUT
+  Case BOUT
+    When "i" : Gosub ABRE_INTRANET
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+#MODIF RPES  20201130  VTAS078 Multiple de caja
+$CALCULO_CAJA
+
+Local Decimal F_QTY
+Local Integer I_QTY
+
+If [L]F_COEF <> 0 Then
+  [L]F_QTY = VALEUR/[L]F_COEF
+  [L]I_QTY = [L]F_QTY
+Endif
+
+VALEUR = ([L]I_QTY+1)*[L]F_COEF
+[M:SQH2]QTY(nolign-1) = VALEUR
+[M:SQH2]ZCANTJUSTA(nolign-1) = 1
+Affzo [M:SQH2]ZCANTJUSTA(nolign-1)
+
+
+
+Return
+#FIN MODIF RPES  20201130  VTAS078 Multiple de caja
+
+##############################################################
+$IMPORTES_TOTALES
+
+# JC.14062021.vtas029.STR
+#Raz [M:SQH2]ZPESO
+#Raz [M:SQH2]ZIMPLINAI
+#Raz [M:SQH2]ZMARGIMP
+#Raz [M:SQH2]ZPORMARG
+#Raz [M:SQH2]ZPESOLIN
+#Raz [M:SQH2]ZIMPLINAI2
+#Raz [M:SQH2]ZMARGLIN
+#
+#Local Integer I_NUM_LIN_OCUL : [L]I_NUM_LIN_OCUL = 0
+#
+#For I = 0 To [M:SQH2]NBLIG-1
+#  If [M:SQH2]ZLINOCU = 2 Then
+#    [L]I_NUM_LIN_OCUL += 1
+#  Endif
+#
+#  [M:SQH2]ZPESO += [M:SQH2]DSPLINWEI(I)
+#  [M:SQH2]ZIMPLINAI += [M:SQH2]LINQUONOT(I)
+#  [M:SQH2]ZMARGIMP += [M:SQH2]LINPFM(I)
+#  If [M:SQH2]LINQUONOT(I) > 0 Then
+#    [M:SQH2]ZPORMARG += ([M:SQH2]LINPFM(I)*100)/[M:SQH2]LINQUONOT(I)
+#  Endif
+#
+#Next
+#
+#If   ([M:SQH2]NBLIG - [L]I_NUM_LIN_OCUL) > 0 Then
+#  [M:SQH2]ZPESOLIN     =  [M:SQH2]ZPESO/([M:SQH2]NBLIG - [L]I_NUM_LIN_OCUL)
+#  [M:SQH2]ZIMPLINAI2   =  [M:SQH2]ZIMPLINAI/([M:SQH2]NBLIG - [L]I_NUM_LIN_OCUL)
+#  [M:SQH2]ZMARGLIN     =  [M:SQH2]ZMARGIMP/([M:SQH2]NBLIG - [L]I_NUM_LIN_OCUL)
+#Endif
+#
+#[M:SQH2]ZREFCLI      =  func SPESOH.GET_REF_ITU([M:SQH2]ITMREF(nolign-1), [M:SQH0]BPCORD)
+
+Local Integer I_NUM_LIN_OCUL : [L]I_NUM_LIN_OCUL = 0
+Local Decimal LTOTNETPRI, LTOTZCOSOFER
+
+  Raz [M:ZSQH0]ZPESO
+  Raz [M:ZSQH0]ZIMPLINAI
+  Raz [M:ZSQH0]ZMARGIMP
+  Raz [M:ZSQH0]ZPORMARG
+  Raz [M:ZSQH0]ZPESOLIN
+  Raz [M:ZSQH0]ZIMPLINAI2
+  Raz [M:ZSQH0]ZMARGLIN
+
+  For I = 0 To [M:SQH2]NBLIG-1
+    If [M:SQH2]ZLINOCU(I) = 2 Then
+      [L]I_NUM_LIN_OCUL += 1
+    Else
+      # Peso
+      [M:ZSQH0]ZPESO      += [M:SQH2]DSPLINWEI(I)
+      # Importe AI líneas
+      [M:ZSQH0]ZIMPLINAI  += [M:SQH2]LINQUONOT(I)
+      # Margen importe
+#      [M:ZSQH0]ZMARGIMP   += [M:SQH2]LINPFM(I)
+      [M:ZSQH0]ZMARGIMP   += ([M:SQH2]NETPRI(I) - [M:SQH2]ZCOSOFER(I)) * [M:SQH2]QTY(I)
+      LTOTNETPRI          += [M:SQH2]NETPRI(I)
+      LTOTZCOSOFER        += [M:SQH2]ZCOSOFER(I)
+    Endif
+  Next
+  # %Margen
+  If [M:ZSQH0]ZIMPLINAI > 0 Then
+#    [M:ZSQH0]ZPORMARG     = ((LTOTNETPRI - LTOTZCOSOFER) / LTOTNETPRI) * 100
+    [M:ZSQH0]ZPORMARG     = ([M:ZSQH0]ZMARGIMP / [M:ZSQH0]ZIMPLINAI) * 100
+  Endif
+
+  If ([M:SQH2]NBLIG - I_NUM_LIN_OCUL) > 0 Then
+    # Peso/Líneas
+    [M:ZSQH0]ZPESOLIN   =  [M:ZSQH0]ZPESO/([M:SQH2]NBLIG - I_NUM_LIN_OCUL)
+    # Importe AI/Líneas
+    [M:ZSQH0]ZIMPLINAI2 =  [M:ZSQH0]ZIMPLINAI/([M:SQH2]NBLIG - I_NUM_LIN_OCUL)
+    # Margen Importe/Líneas
+    [M:ZSQH0]ZMARGLIN   =  [M:ZSQH0]ZMARGIMP/([M:SQH2]NBLIG - I_NUM_LIN_OCUL)
+  Endif
+
+  Affzo [M:ZSQH0]
+# JC.14062021.vtas029.END
+
+Return
+
+##############################################################
+$DETALLE_ARTICULOS
+
+Local Integer I_ERROR
+Local Decimal LZCOSOFER
+Local Decimal LZCOSTMED
+# JC.14062021.vtas029.STR
+#[M:SQH2]ZSTODISPO = func SPESOH.STOCK_DISPONIBLE([M:SQH0]SQHNUM,[M:SQH2]ITMREF(nolign-1),[M:SQH0]SALFCY,[M:SQH2]SQDLIN(nolign-1) , [L]I_ERROR)
+#[M:SQH2]ZCANTCAJ =  func SPESOH.CANTIDAD_CAJA([M:SQH2]ITMREF(nolign-1))
+
+  If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH0]SALFCY) <> 0 Then
+    LZCOSOFER = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH0]SALFCY)
+  Endif
+
+  If !clalev([F:ZITV]) Then : Local File ITMMVT [F:ZITV] : Endif
+  Read [F:ZITV]ITV0 = [M:SQH2]ITMREF(nolign-1);[M:SQH0]SALFCY
+  If !fstat Then
+    LZCOSTMED = [F:ZITV]AVC
+  Endif
+
+  Raz [M:ZSQH0]ZSTODISPO
+  Raz [M:ZSQH0]ZCOBERTURA
+  Raz [M:ZSQH0]ZCOSTOFER
+  Raz [M:ZSQH0]ZCOSTOFEREK
+  Raz [M:ZSQH0]ZSTOREAL
+  Raz [M:ZSQH0]ZCANTCAJ
+  Raz [M:ZSQH0]ZCOSTMED
+  Raz [M:ZSQH0]ZCOSTMEDEK
+
+  If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+    # Stock disponible
+    [M:ZSQH0]ZSTODISPO      = func ZAULIB01.STOCK_DISPONIBLE([M:SQH0]SQHNUM,[M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH2]SQDLIN(nolign-1),[L]I_ERROR)
+    # Cobertura
+    If func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 999 Then
+      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)),2)
+    Else
+      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))
+    Endif
+    # Coste Oferta
+    [M:ZSQH0]ZCOSTOFER      = 100 * LZCOSOFER
+    # Stock Real
+    [M:ZSQH0]ZSTOREAL       = func ZAULIB01.GET_PHYSTO([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))
+    # Múltiple caja
+    [M:ZSQH0]ZCANTCAJ       = func ZAULIB01.CANTIDAD_CAJA([M:SQH2]ITMREF(nolign-1))
+    # Coste Medio
+    If LZCOSTMED <> 0 Then
+      [M:ZSQH0]ZCOSTMED     = func ZAULIB01.REDONDEA_ALZA(100 * LZCOSTMED,3)
+    Else
+      [M:ZSQH0]ZCOSTMED     = LZCOSTMED
+    Endif
+    # €/Kg CO y €/Kg CMO
+    If !clalev([F:ZITM1]) Then : Local File ITMMASTER [F:ZITM1] : Endif
+    Read [F:ZITM1]ITM0 = [M:SQH2]ITMREF(nolign-1)
+    If !fstat Then
+      Local Decimal LITMWEI
+      LITMWEI = func CONVERTIR_CANTIDAD([F:ZITM1]WEU,"KG",[F:ZITM1]ITMWEI)
+      Raz [M:ZSQH0]ZCOSTOFEREK,[M:ZSQH0]ZCOSTMEDEK
+      If LITMWEI <> 0 Then
+        [M:ZSQH0]ZCOSTOFEREK  = [M:ZSQH0]ZCOSTOFER / LITMWEI
+        [M:ZSQH0]ZCOSTMEDEK   = [M:ZSQH0]ZCOSTMED  / LITMWEI
+        Case [M:SQH2]ZUNPRE(nolign-1)
+          When "UN"
+            [M:ZSQH0]ZCOSTOFEREK  = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTOFEREK,2)
+            [M:ZSQH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTMEDEK,2)
+          When "CEN"
+            [M:ZSQH0]ZCOSTOFEREK  = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTOFEREK / 100,2)
+            [M:ZSQH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTMEDEK  / 100,2)
+          When "MIL"
+            [M:ZSQH0]ZCOSTOFEREK  = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTOFEREK / 1000,2)
+            [M:ZSQH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZSQH0]ZCOSTMEDEK  / 1000,2)
+        Endcase
+      Endif
+    Endif
+    Close Local File [ZITM1]
+  Endif
+
+  Affzo [M:ZSQH0]
+# JC.14062021.vtas029.END
+Return
+
+##############################################################
+$CARGAR_GRID_PEDIDOS
+
+  Read [XSOP]SOP0 = [F:XSOQ]SOHNUM;[F:XSOQ]SOPLIN;[F:XSOQ]SOQSEQ
+  Read [XSOH]SOH0 = [F:XSOQ]SOHNUM
+
+  [M:ZSQH1]ZSOHTYP([L]I_NUM_REG)    = [F:XSOH]SOHTYP
+  [M:ZSQH1]ZSOHNUM([L]I_NUM_REG)    = [F:XSOQ]SOHNUM
+  [M:ZSQH1]ZSOPLIN([L]I_NUM_REG)    = [F:XSOQ]SOPLIN
+  [M:ZSQH1]ZSOHDAT([L]I_NUM_REG)    = [F:XSOQ]ORDDAT
+  [M:ZSQH1]ZDEMDLVDAT([L]I_NUM_REG) = [F:XSOQ]DEMDLVDAT                 # JC.15072021.NEW.vtas029
+  [M:ZSQH1]ZQTYSOH([L]I_NUM_REG)    = [F:XSOQ]QTY
+  [M:ZSQH1]ZPRISOH([L]I_NUM_REG)    = [F:XSOP]ZPRECLI
+  [M:ZSQH1]ZQTYPEND([L]I_NUM_REG)   = [F:XSOQ]QTY - [F:XSOQ]DLVQTY
+  [M:ZSQH1]ZDESCSOH([L]I_NUM_REG)   = [F:XSOP]DISCRGVAL1
+  [M:ZSQH1]ZLINORDNOT([L]I_NUM_REG) = [F:XSOP]NETPRINOT
+  [M:ZSQH1]NBLIG1 = I_NUM_REG + 1
+
+Return
+
+##############################################################
+$CARGAR_GRID_PRESUPUESTO
+Local Decimal LZCOSOFER
+Local Decimal LZCOSTOFEREK
+
+  Read [XSQH]SQH0 = [XSQD]SQHNUM
+
+  [M:ZSQH1]ZSQHTYP1([L]I_NUM_REG)   = [XSQH]SQHTYP
+  [M:ZSQH1]ZSQHNUM([L]I_NUM_REG)    = [XSQD]SQHNUM
+  [M:ZSQH1]ZSQDLIN([L]I_NUM_REG)    = [XSQD]SQDLIN
+  [M:ZSQH1]ZSQHDAT([L]I_NUM_REG)    = [XSQD]QUODAT
+  [M:ZSQH1]ZQTYCONF([L]I_NUM_REG)   = [XSQD]ORDQTY
+  [M:ZSQH1]ZQTYOFER([L]I_NUM_REG)   = [XSQD]QTY
+  [M:ZSQH1]ZLINQUONOT([L]I_NUM_REG) = [XSQD]NETPRINOT * [XSQD]QTY
+  [M:ZSQH1]ZPRI([L]I_NUM_REG)       = [XSQD]ZPRECLI
+  [M:ZSQH1]ZDISC([L]I_NUM_REG)      = [XSQD]DISCRGVAL1
+  [M:ZSQH1]ZMARGEN([L]I_NUM_REG)    = [XSQD]ZPFM
+  [M:ZSQH1]ZCOSTOFER([L]I_NUM_REG)  = [XSQD]ZPORCOSTE
+  [M:ZSQH1]ZPLAZO([L]I_NUM_REG)     = [XSQD]DAYLTI
+  [M:ZSQH1]ZCOSTOFEREK([L]I_NUM_REG)= [XSQD]ZCOSTOFEREK
+  [M:ZSQH1]ZLINOCU([L]I_NUM_REG)    = [XSQD]ZLINOCU
+  Read [XSQH]SQH0 =[XSQD]SQHNUM
+  If fstat = 0 Then
+    [M:ZSQH1]VLYDAT([L]I_NUM_REG)   = [XSQH]VLYDAT
+  Endif
+  [M:ZSQH1]NBLIG2 = I_NUM_REG + 1
+
+Return
+
+##############################################################
+$CARGAR_PRECIO
+
+Default Mask [M:SQH2]
+nolign = [M:SQH0]ZSAVNOLIN
+COUZON ="GROPRI"
+
+#Call AP_GROPRI([L]F_PRECIO) From W1SQH2
+#Call AM_GROPRI([L]F_PRECIO) From W1SQH2
+[M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1) = 2
+
+[M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1) = F_PRECIO
+Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
+Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
+  When "UN"        :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO
+  When "CEN"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO / 100
+  When "MIL"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO / 1000
+  When Default
+Endcase
+Affzo [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+
+#[M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) = F_PRECIO
+#Affzo [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+[M:SQH2]DISCRGVAL1([M:SQH0]ZSAVNOLIN-1) = F_DTO
+Affzo [M:SQH2]DISCRGVAL1([M:SQH0]ZSAVNOLIN-1)
+[M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1) = 1
+Affzo [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1)
+[M:SQH2]DISCRGREN1([M:SQH0]ZSAVNOLIN-1) = 1
+Affzo [M:SQH2]DISCRGREN1([M:SQH0]ZSAVNOLIN-1)
+Call AP_GROPRI([M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)) From W1SQH2
+Call AM_GROPRI([M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)) From W1SQH2
+
+Call C_NBLIG     From W1SQH2
+Call APRES_NBLIG From W1SQH2
+
+If [L]D_VLYDAT <> "00000000" Then
+  If [L]D_VLYDAT < [M:SQH0]QUODAT Then
+    Call MESSAGE ("Precio de oferta caducada") From GESECRAN
+#    Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN) With "BACKRED"
+#    Affzo [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN)
+  Endif
+Endif
+
+# JC.14062021.STR.vtas029
+#If [M:SQH1]ZMARGEN <> 0 Then
+#  If [M:SQH2]NETPRI(nolign-1) > [M:SQH2]PFM(nolign-1)+([M:SQH2]PFM(nolign-1)*([M:SQH1]ZMARGEN/100))
+#    Call MESSAGE ("Margen por debajo del umbral") From GESECRAN
+#    Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+#  Endif
+#Endif
+#Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+#If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+#  Call MESSAGE ("Margen por debajo del umbral") From GESECRAN
+#  Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+#Else
+#  Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+#Endif
+#Affzo [M:SQH2]NBLIG(nolign-1)
+# JC.14062021.STR.vtas029
+
+Return
+
+##############################################################
+$ABRE_INTRANET
+Local Char RETOUR(250)
+  Callui RETOUR="" With "UIAction=" + chr$(1) + "OpenFile",
+& "UILocalDir=" + chr$(1) + "HTTP",
+& "UILocalFile=" + chr$(1)+"srvdf:8080/hispanox/index.php?menu=221&t=1&offer_id=" + [M:SQH0]SQHNUM
+& ,
+& "UIAdxPubSubFile=" + chr$(1) + "1"
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 14/12/2020 18:46:54 (RPES)
+######################################################################################
+Subprog AVANT_NBLIG
+
+  Raz [M:ZSQH1]
+
+  [M:SQH0]ZSAVNOLIN = nolign
+
+  If [M:SQH2]ITMREF(nolign-1) <> "" Then
+    Call CARGAR_PEDIDOS([M:SQH2]ITMREF(nolign-1),[M:SQH0]BPCORD, "")
+    Call CARGAR_PRESUPUESTOS([M:SQH2]ITMREF(nolign-1),[M:SQH0]BPCORD,[M:SQH0]SQHNUM)
+  Endif
+
+  Affzo [M:ZSQH1]
+
+  # pedidos no saldados en color rojo
+  For I = 0 To [M:ZSQH1]NBLIG1-1
+    If [M:ZSQH1]ZSALDADAFLG(I) = 1
+      Chgstl [M:ZSQH1]NBLIG1(I) With "BACKRED"
+    Else
+      Chgstl [M:ZSQH1]NBLIG1(I) With ""
+    Endif
+  Next
+
+  # presupuestos con línea oculta en color gris
+  For I = 0 To [M:ZSQH1]NBLIG2-1
+    If [M:ZSQH1]ZLINOCU(I) = 2
+      Chgstl [M:ZSQH1]NBLIG2(I) With "BACKGREY"
+    Else
+      Chgstl [M:ZSQH1]NBLIG2(I) With ""
+    Endif
+  Next
+
+  Affzo [M:ZSQH1]
+
+#  Gosub DETALLE_ARTICULOS
+
+  Affzo [M:SQH2]
+
+  [M:ZSQH1]QUOINVNOT = [M:SQH2]QUOINVNOT
+  [M:ZSQH1]QUOINVATI = [M:SQH2]QUOINVATI
+  Affzo [M:ZSQH1]QUOINVNOT
+  Affzo [M:ZSQH1]QUOINVATI
+
+End
+
+######################################################################################
+## Control en el campo NBLIG de las líneas (pantalla SQH2) 23/06/2021 16:20:58 (ADEV)
+######################################################################################
+Subprog C_NBLIG
+#If GUSER="ADEV" Then : Infbox "entro c_nblig"-num$([M:ZSQH1]GROPRI(nolign-1)) : Endif
+  Gosub DETALLE_ARTICULOS
+  Affzo [M:SQH2]
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZSQH1) 12/01/2021 12:22:44 (RPES)
+######################################################################################
+Subprog AS_NBLIG2
+##If GUSER="ADEV" Then : Infbox "entro as_nblig2"-num$([M:ZSQH1]GROPRI([M:SQH0]ZSAVNOLIN-1)) : Endif
+#If GUSER="ADEV" Then : Infbox "entro as_nblig2"-zoncou : Endif
+#
+#If [M:ZSQH1]ZSQHNUM(nolign-1) <> "" Then
+#  If [M:ZSQH1]ZLINOCU(nolign-1) <> 2 Then
+#    Local Integer I_OK : [L]I_OK = 2
+#    Call OUINON("¿Cargar precio del presupuesto"-[M:ZSQH1]ZSQHNUM(nolign-1)+"?",[L]I_OK) From GESECRAN
+#    If [L]I_OK = 2 Then
+#      Local Decimal F_PRECIO : F_PRECIO = [M:ZSQH1]ZPRI(nolign-1)
+#      Local Decimal F_DTO    : F_DTO    = [M:ZSQH1]ZDISC(nolign-1)
+#      Local Date D_VLYDAT    : D_VLYDAT = [M:ZSQH1]VLYDAT(nolign-1)
+#      Gosub CARGAR_PRECIO
+#
+## JC.14062021.vtas029.STR
+#      GCTRLSTA = 1
+#      Local Integer LNUMLIN : LNUMLIN = nolign
+#      nolign = [M:SQH0]ZSAVNOLIN
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPFM
+#      If [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+#        GCTRLSTA = 1
+#        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+#        Affzo [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1)
+#        Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+#        If [M:SQH2]ZLINOCU([M:SQH0]ZSAVNOLIN-1) <> 2 Then
+#          If [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) < PUMBRALMRG Then
+#            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKRED"
+#          Else
+#            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With ""
+#          Endif
+#        Else
+#          Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKGREY"
+#        Endif
+#        Affzo [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1)
+#        GCTRLSTA = 0
+#      Endif
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+#      Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
+#        When "UN"        :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+#        When "CEN"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 100
+#        When "MIL"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 1000
+#        When Default
+#      Endcase
+#      Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+#      If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY) <> 0 Then
+#        [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY)
+#        Affzo [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)
+#      Endif
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+#      If [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+#        [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)   = arr([M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)*100,0.001)
+#        Affzo [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)
+#      Endif
+#
+#      # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+#      [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1) = 3
+#      Affzo [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1)
+#
+#      # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+#      [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1) = 1
+#      Affzo [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1)
+#
+#      # ponemos la línea como actualizada para que se registren los cambios
+#      [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1) = 1
+#      Affzo [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1)
+#
+#      GCTRLSTA = 0
+#      nolign = LNUMLIN
+## JC.14062021.vtas029.END
+#
+#    Endif
+#  Else
+#    Call ERREURT("Línea oculta. Selecciona otra",1) From GESECRAN
+#  Endif
+#Endif
+##If GUSER="ADEV" Then : Infbox "salgo as_nblig2"-num$([M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)) : Endif
+#If GUSER="ADEV" Then : Infbox "salgo as_nblig2" : Endif
+#
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZSQH1) 12/01/2021 12:25:05 (RPES)
+######################################################################################
+Subprog AS_NBLIG1
+##If GUSER="ADEV" Then : Infbox "entro as_nblig1"-zoncou : Endif
+##If GUSER="ADEV" Then : Infbox "2entro as_nblig1"-num$([M:ZSQH1]GROPRI([M:SQH0]ZSAVNOLIN-1)) : Endif
+#
+#If [M:ZSQH1]ZSOHNUM(nolign-1) <> "" Then
+##  If [M:ZSQH1]ZLINOCU(nolign-1) <> 2 Then
+#    Local Integer I_OK : [L]I_OK = 2
+#    Call OUINON("¿Cargar precio del pedido"-[M:ZSQH1]ZSOHNUM(nolign-1)+"?",[L]I_OK) From GESECRAN
+#    If [L]I_OK = 2 Then
+#      Local Decimal F_PRECIO : [L]F_PRECIO = [M:ZSQH1]ZPRISOH(nolign-1)
+#      Local Decimal F_DTO    : [L]F_DTO    = [M:ZSQH1]ZDESCSOH(nolign-1)
+#      Local Date D_VLYDAT
+#      Gosub CARGAR_PRECIO
+#
+## JC.14062021.vtas029.STR
+#      GCTRLSTA = 1
+#      Local Integer LNUMLIN : LNUMLIN = nolign
+#      nolign = [M:SQH0]ZSAVNOLIN
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPFM
+#      If [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+#        GCTRLSTA = 1
+#        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+#        Affzo [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1)
+#        Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+#        If [M:SQH2]ZLINOCU([M:SQH0]ZSAVNOLIN-1) <> 2 Then
+#          If [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) < PUMBRALMRG Then
+#            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKRED"
+#          Else
+#            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With ""
+#          Endif
+#        Else
+#          Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKGREY"
+#        Endif
+#        Affzo [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1)
+#        GCTRLSTA = 0
+#      Endif
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+#      Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
+#        When "UN"        :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+#        When "CEN"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 100
+#        When "MIL"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 1000
+#        When Default
+#      Endcase
+#      Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+#      If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY) <> 0 Then
+#        [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY)
+#        Affzo [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)
+#      Endif
+#
+#      # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+#      If [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+#        [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)   = arr([M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)*100,0.001)
+#        Affzo [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)
+#      Endif
+#
+#      # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+#      [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1) = 3
+#      Affzo [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1)
+#
+#      # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+#      [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1) = 1
+#      Affzo [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1)
+#
+#      # ponemos la línea como actualizada para que se registren los cambios
+#      [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1) = 1
+#      Affzo [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1)
+#
+#      GCTRLSTA = 0
+#      nolign = LNUMLIN
+## JC.14062021.vtas029.END
+#
+#    Endif
+##  Else
+##    Call ERREURT("Línea oculta. Selecciona otra",1) From GESECRAN
+##  Endif
+#Endif
+#
+##zonsui = "[M:SQH2]GROPRI("+num$([M:SQH0]ZSAVNOLIN-1)+")"
+#zonsui = "[M:ZSQH1]ZSOHNUM(nolign)"
+#
+##If GUSER="ADEV" Then : Infbox "salgo as_nblig1"-num$([M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)) : Endif
+##If GUSER="ADEV" Then : Infbox "salgo as_nblig1" : Endif
+End
+
+######################################################################################
+## Click en icono de pedidos (pantalla ZSQH1) 09/09/2021 15:16:40 (ADEV)
+######################################################################################
+Subprog CL_ZICOSOH(VALEUR)
+Variable Char    VALEUR()
+
+Local Integer LLINGRID : LLINGRID = nolign-1
+
+If [M:ZSQH1]ZSOHNUM(nolign-1) <> "" Then
+#  If [M:ZSQH1]ZLINOCU(nolign-1) <> 2 Then
+    Local Integer I_OK : [L]I_OK = 2
+    Call OUINON("¿Cargar precio del pedido"-[M:ZSQH1]ZSOHNUM(nolign-1)+"?",[L]I_OK) From GESECRAN
+    If [L]I_OK = 2 Then
+      Local Decimal F_PRECIO : [L]F_PRECIO = [M:ZSQH1]ZPRISOH(nolign-1)
+      Local Decimal F_DTO    : [L]F_DTO    = [M:ZSQH1]ZDESCSOH(nolign-1)
+      Local Date D_VLYDAT
+      Gosub CARGAR_PRECIO
+
+# JC.14062021.vtas029.STR
+      GCTRLSTA = 1
+      Local Integer LNUMLIN : LNUMLIN = nolign
+      nolign = [M:SQH0]ZSAVNOLIN
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPFM
+      If [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+        GCTRLSTA = 1
+        Local Decimal LCOSTEOFERTA                                                                                                  # JC.27102021.Cambio de divisas
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+        Affzo [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1)
+        Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+        If [M:SQH2]ZLINOCU([M:SQH0]ZSAVNOLIN-1) <> 2 Then
+          If [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) < PUMBRALMRG Then
+            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKRED"
+          Else
+            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With ""
+          Endif
+        Else
+          Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKGREY"
+        Endif
+        Affzo [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1)
+        GCTRLSTA = 0
+      Endif
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+      Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
+        When "UN"        :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+        When "CEN"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 100
+        When "MIL"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 1000
+        When Default
+      Endcase
+      Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+      If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY) <> 0 Then
+        [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY)
+        Affzo [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)
+      Endif
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+      If [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+        [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)   = arr([M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)*100,0.001)
+        Affzo [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)
+      Endif
+
+      # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+      [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1) = 3
+      Affzo [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1)
+
+      # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+      [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1) = 1
+      Affzo [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1)
+
+      # ponemos la línea como actualizada para que se registren los cambios
+      [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1) = 1
+      Affzo [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1)
+
+      GCTRLSTA = 0
+      nolign = LNUMLIN
+# JC.14062021.vtas029.END
+
+    Endif
+
+# JC.12072021.vtas029/2.STR
+  If [M:ZSQH1]ZSOHTYP(LLINGRID) = "PA" Then
+    I_OK = 2
+    Call OUINON("¿La cantidad pendiente de la línea"-num$([M:ZSQH1]ZSOPLIN(LLINGRID)/1000)-"del pedido abierto"-[M:ZSQH1]ZSOHNUM(LLINGRID)-"debe ser actualizada?",I_OK) From GESECRAN
+    If I_OK = 2 Then
+#      Call RESTAQTY_SOHPA([M:ZSQH1]ZSOHNUM(LLINGRID),[M:ZSQH1]ZSOPLIN(LLINGRID),[M:ZSQH1]ZQTYSOH(LLINGRID),[M:SQH2]QTY([M:SQH0]ZSAVNOLIN-1))
+      [M:SQH2]ZSOHNUMACT([M:SQH0]ZSAVNOLIN-1) = [M:ZSQH1]ZSOHNUM(LLINGRID)
+      [M:SQH2]ZSOPLINACT([M:SQH0]ZSAVNOLIN-1) = [M:ZSQH1]ZSOPLIN(LLINGRID)
+      [M:SQH2]ZQTYLINACT([M:SQH0]ZSAVNOLIN-1) = [M:ZSQH1]ZQTYSOH(LLINGRID)
+      Affzo [M:SQH2]ZSOHNUMACT([M:SQH0]ZSAVNOLIN-1)
+      Affzo [M:SQH2]ZSOPLINACT([M:SQH0]ZSAVNOLIN-1)
+      Affzo [M:SQH2]ZQTYLINACT([M:SQH0]ZSAVNOLIN-1)
+    Endif
+  Endif
+# JC.12072021.vtas029/2.END
+
+Endif
+
+End
+
+######################################################################################
+## Click en icono de presupuestos (pantalla ZSQH1) 09/09/2021 15:16:13 (ADEV)
+######################################################################################
+Subprog CL_ZICOSQH(VALEUR)
+Variable Char    VALEUR()
+
+Local Integer LLINGRID : LLINGRID = nolign-1
+
+If [M:ZSQH1]ZSQHNUM(nolign-1) <> "" Then
+  If [M:ZSQH1]ZLINOCU(nolign-1) <> 2 Then
+    Local Integer I_OK : [L]I_OK = 2
+    Call OUINON("¿Cargar precio del presupuesto"-[M:ZSQH1]ZSQHNUM(nolign-1)+"?",[L]I_OK) From GESECRAN
+    If [L]I_OK = 2 Then
+      Local Decimal F_PRECIO : F_PRECIO = [M:ZSQH1]ZPRI(nolign-1)
+      Local Decimal F_DTO    : F_DTO    = [M:ZSQH1]ZDISC(nolign-1)
+      Local Date D_VLYDAT    : D_VLYDAT = [M:ZSQH1]VLYDAT(nolign-1)
+      Gosub CARGAR_PRECIO
+
+# JC.14062021.vtas029.STR
+      GCTRLSTA = 1
+      Local Integer LNUMLIN : LNUMLIN = nolign
+      nolign = [M:SQH0]ZSAVNOLIN
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPFM
+      If [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+        GCTRLSTA = 1
+        Local Decimal LCOSTEOFERTA                                                                                                  # JC.27102021.Cambio de divisas
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+        [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI([M:SQH0]ZSAVNOLIN-1)) * 100,2)
+        Affzo [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1)
+        Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+        If [M:SQH2]ZLINOCU([M:SQH0]ZSAVNOLIN-1) <> 2 Then
+          If [M:SQH2]ZPFM([M:SQH0]ZSAVNOLIN-1) < PUMBRALMRG Then
+            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKRED"
+          Else
+            Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With ""
+          Endif
+        Else
+          Chgstl [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1) With "BACKGREY"
+        Endif
+        Affzo [M:SQH2]NBLIG([M:SQH0]ZSAVNOLIN-1)
+        GCTRLSTA = 0
+      Endif
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+      Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
+        When "UN"        :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
+        When "CEN"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 100
+        When "MIL"       :   [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)  = [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1) * 1000
+        When Default
+      Endcase
+      Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+      If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY) <> 0 Then
+        [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF([M:SQH0]ZSAVNOLIN-1),[M:SQH0]SALFCY)
+        Affzo [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)
+      Endif
+
+      # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+      If [M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1) <> 0 Then
+        [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)   = arr([M:SQH2]ZCOSOFER([M:SQH0]ZSAVNOLIN-1)*100,0.001)
+        Affzo [M:SQH2]ZPORCOSTE([M:SQH0]ZSAVNOLIN-1)
+      Endif
+
+      # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+      [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1) = 3
+      Affzo [M:SQH2]ZTIPOPRECIO([M:SQH0]ZSAVNOLIN-1)
+
+      # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+      [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1) = 1
+      Affzo [M:SQH2]PRIREN([M:SQH0]ZSAVNOLIN-1)
+
+      # ponemos la línea como actualizada para que se registren los cambios
+      [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1) = 1
+      Affzo [M:SQH2]UPDFLG([M:SQH0]ZSAVNOLIN-1)
+
+      GCTRLSTA = 0
+      nolign = LNUMLIN
+# JC.14062021.vtas029.END
+
+    Endif
+  Else
+    Call ERREURT("Línea oculta. Selecciona otra",1) From GESECRAN
+  Endif
+
+Endif
+
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH0) 23/06/2020 12:31:25 (MLGA)
+######################################################################################
+Subprog AM_BPCORD(VALEUR)
+Variable Char    VALEUR()
+#If GUSER="ADEV" Then : Infbox "entro am_bpcord"-num$([M:ZSQH1]GROPRI(nolign-1)) : Endif
+#MRR02 comento porque da fallo de FREEINV variable inexistente
+#[M:SQH1]FREINV=[F:BPC]FREINV
+[M:SQH0]ZESPECIALES=[F:BPC]ZESPECIALES
+#Affzo [M:SQH1]FREINV
+#MRR02 comento porque da fallo de FREEINV variable inexistente
+Affzo [M:SQH0]ZESPECIALES
+
+#MRR02 ini
+If clalev([F:BPC1])=0 Local File BPCUSTOMER[BPC1]  : Endif
+
+Filter [F:BPC1] Where BPCNUM = VALEUR
+Read [F:BPC1] First
+If !fstat Then
+# JC.14062021.STR.vtas025_077
+#  [M:SQH1]ZCLAOFER = [F:BPC1]ZCLAOFER
+  [M:SQH1]ZCLAOFER = [F:BPC1]TSCCOD(3)
+  Affzo [M:SQH1]ZCLAOFER
+  Call AM_ZCLAOFER([M:SQH1]ZCLAOFER)
+# JC.14062021.END.vtas025_077
+Endif
+#MRR02 fin
+
+#MODIF RPES 20201217 Tarifas transportistas
+
+[M:SQH1]ZFREINV = func GET_ZFREINV(VALEUR)
+Affzo [M:SQH1]ZFREINV
+
+
+If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+Read [F:ZBPD]BPD0 = VALEUR;[M:SQH1]BPAADD
+If !fstat Then
+  [M:SQH1]BPTNUM = [F:ZBPD]BPTNUM
+  Affzo [M:SQH1]BPTNUM
+Endif
+Close Local File [ZBPD]
+#FIN MODIF RPES 20201217 Tarifas transportistas
+
+End
+
+######################################################################################
+## Después de modificar el campo 'Dto' (pantalla SQH2) 21/07/2021 17:00:45 (ADEV)
+######################################################################################
+Subprog AM_DISCRGVAL1(VALEUR)
+Variable Decimal VALEUR
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+  Endif
+End
+
+######################################################################################
+## Antes de entrada al campo 'Dto' (pantalla SQH2) 23/06/2021 09:52:11 (ADEV)
+######################################################################################
+Subprog AS_DISCRGVAL1(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro as_discrgval1"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+# JC.14062021.vtas029.STR
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+      If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+      Endif
+    Else
+      Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+    Endif
+    Affzo [M:SQH2]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
+# JC.14062021.vtas029.END
+
+#If GUSER="ADEV" Then : Infbox "salgo as_discrgval1"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 06/07/2020 13:53:29 (ADMIN)
+######################################################################################
+Subprog AM_GROPRI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_gropri"-num$(VALEUR) : Endif
+
+If GIMPORT Then
+  If [M:SQH2]GROPRI(nolign-1) = 0 Then
+    [M:SQH2]ZLINOCU(nolign-1) = 2
+    Affzo [M:SQH2]ZLINOCU(nolign-1)
+  Endif
+Endif
+
+## JC.14062021.ddf unipre.ZUNPR.STR
+#  #LLamamos a acciones STD de campo GROPRI
+#  Local Char PARAM(20)(1..11)
+#  #ACCION D_REN
+#  PARAM(1) = "SQH2"
+#  PARAM(2) = "5"
+#  PARAM(3) = num$(nolign-1)
+#  PARAM(4) = "GROPRI"
+#  Gosub  D_REN From TRTPRICE
+#  Raz PARAM
+#
+#  #ACCION C_GROPRI
+#  Call C_GROPRI(VALEUR)
+#  Call C_GROPRI(VALEUR)  From SUBSQH
+#
+#  #ACCION DIVDISCRG
+#  PARAM(1) = "SQH2"
+#  PARAM(2) = "0"
+#  PARAM(3) = num$(nolign-1)
+#  Gosub D_DISCRG From TRTVENTAR
+#  Raz PARAM
+#
+#  #ACCION DIVPRIPFM
+#  Local Char TRAIT : TRAIT = "DIVPRIPFM"
+#  Default Mask [SQH2]
+#  PARAM(1) = "0"
+#  PARAM(2) = num$([M:SQH2]QTY(nolign-1))
+#  PARAM(3) = [M:SQH0]BPCORD
+#  PARAM(4) = num$([M:SQH0]CHGTYP)
+#  PARAM(5) = [M:SQH0]QUODAT
+#  PARAM(6) = [M:SQH0]CUR
+#  PARAM(7) = num$(nolign-1)
+#  PARAM(8) = [M:SQH2]DSTOFCY(nolign-1)
+#  PARAM(9) = num$([M:SQH1]PRITYP)
+#  PARAM(10)= "GROPRI"
+#  Gosub DIVPRIPFM From TRTVENPRI
+#  Raz PARAM
+## JC.14062021.ddf unipre.ZUNPR.END
+
+# JC.14062021.STR.ddf unipre.ZUNPR
+  Case [M:SQH2]ZUNPRE(nolign-1)
+    When "UN"        :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR
+    When "CEN"       :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR * 100
+    When "MIL"       :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR * 1000
+    When Default
+  Endcase
+  Affzo [M:SQH2]ZPRECLI(nolign-1)
+# JC.14062021.END.ddf unipre.ZUNPR
+
+
+  # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+  [M:SQH2]ZTIPOPRECIO(nolign-1) = 3
+  Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+
+  # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+  [M:SQH2]PRIREN(nolign-1) = 1
+  Affzo [M:SQH2]PRIREN(nolign-1)
+
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+  Endif
+#If GUSER="ADEV" Then : Infbox "salgo am_gropri"-num$(VALEUR) : Endif
+End
+
+##############################################################
+Subprog AP_GROPRI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro ap_gropri"-num$(VALEUR) : Endif
+
+If GIMPORT <> 0 and [M:SQH2]GROPRI(nolign-1) = 0 Then
+  [M:SQH2]ZLINOCU(nolign-1) = 2
+  Affzo [M:SQH2]ZLINOCU(nolign-1)
+Endif
+
+#If GUSER="ADEV" Then : Infbox "salgo ap_gropri"-num$(VALEUR) : Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 21/08/2020 11:36:01 (ADMIN)
+######################################################################################
+Subprog C_GROPRI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro c_gropri"-num$(VALEUR) : Endif
+
+#If [M:SQH2]ZLINOCU(nolign-1) = 2 Then
+#  [M:SQH2]GROPRI(nolign-1) = 0
+#  Diszo [M:SQH2]GROPRI(nolign-1)
+#  Affzo [M:SQH2]GROPRI(nolign-1)
+#Else
+#  Actzo [M:SQH2]GROPRI(nolign-1)
+#  Affzo [M:SQH2]GROPRI(nolign-1)
+#Endif
+
+#If GUSER="ADEV" Then : Infbox "salgo c_gropri"-num$(VALEUR) : Endif
+End
+
+##############################################################
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+Subprog AV_GROPRI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro av_gropri"-num$(VALEUR) : Endif
+#If GUSER="ADEV" Then : Infbox "[M:SQH2]ZTIPOPRECIO(nolign-1)"-num$([M:SQH2]ZTIPOPRECIO(nolign-1)) : Endif
+
+  If GREP = "M" or GREP = "C" Then
+    If [M:SQH2]ZLINOCU(nolign-1) = 2 Then
+      VALEUR = 0
+      [M:SQH2]GROPRI(nolign-1) = VALEUR
+      [M:SQH2]CPRPRI(nolign-1) = VALEUR
+      [M:SQH2]PFM(nolign-1)    = VALEUR
+      [M:SQH2]LINPFM(nolign-1) = VALEUR
+      Affzo [M:SQH2]CPRPRI(nolign-1)
+      Affzo [M:SQH2]PFM(nolign-1)
+      Affzo [M:SQH2]LINPFM(nolign-1)
+    Endif
+
+    ############## HE AÑADIDO ESTE CÓDIGO PORQUE SINO, CUANDO SE AÑADE UNA CANTIDAD Y SE ELIJE LA OPCIÓN
+    ############## CANTIDAD JUSTA, ME PONE EL PRECIO BRUTO MULTIPLICADO POR 100
+    If [M:SQH2]ZTIPOPRECIO(nolign-1) = 2 and [M:SQH2]ZCANTJUSTA(nolign-1) = 2 Then
+      VALEUR = [M:SQH2]ZPREOFERTA(nolign-1)
+      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+    Endif
+  Endif
+#If GUSER="ADEV" Then : Infbox "salgo av_gropri"-num$(VALEUR) : Endif
+End
+
+# FIN JESP
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 03/09/2020 09:21:27 (ADMIN)
+######################################################################################
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+#If GUSER="ADEV" Then : Infbox "entro am_itmref"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+  [M:SQH2]ITMREF(nolign-1) = VALEUR
+  Affzo [M:SQH2]ITMREF(nolign-1)
+
+  If func ZAULIB01.GET_COSTEOFERTA(VALEUR,[M:SQH0]SALFCY) <> 0 Then
+    [M:SQH2]ZCOSOFER(nolign-1) = func ZAULIB01.GET_COSTEOFERTA(VALEUR,[M:SQH0]SALFCY)     # JC.14062021.NEW.vtas075
+    If !GIMPORT or GWEBSERV
+      Affzo [M:SQH2]ZCOSOFER(nolign-1)
+    Endif
+  Endif
+
+#MRR03 ini
+  If clalev([F:ITM1])=0:  Local File ITMMASTER[ITM1]: Endif
+
+  Filter [F:ITM1] Where ITMREF = VALEUR
+  Read [F:ITM1] First
+  If !fstat Then
+    [M:SQH2]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+    Affzo [M:SQH2]ZITMDES2(nolign-1)
+  Endif
+#MRR03 fin
+
+# JC.14062021.STR.vtas029
+  Raz [M:ZSQH1]
+  [M:SQH0]ZSAVNOLIN = nolign
+  If VALEUR <> "" Then
+    Call CARGAR_PEDIDOS(VALEUR,[M:SQH0]BPCORD, "")
+    Call CARGAR_PRESUPUESTOS(VALEUR,[M:SQH0]BPCORD,[M:SQH0]SQHNUM)
+    Gosub IMPORTES_TOTALES
+    Gosub DETALLE_ARTICULOS
+  Endif
+
+  Affzo [M:ZSQH1]
+
+  # pedidos no saldados en color rojo
+  For I = 0 To [M:ZSQH1]NBLIG1-1
+    If [M:ZSQH1]ZSALDADAFLG(I) = 1
+      Chgstl [M:ZSQH1]NBLIG1(I) With "BACKRED"
+    Else
+      Chgstl [M:ZSQH1]NBLIG1(I) With ""
+    Endif
+  Next
+  # presupuestos con línea oculta en color gris
+  For I = 0 To [M:ZSQH1]NBLIG2-1
+    If [M:ZSQH1]ZLINOCU(I) = 2
+      Chgstl [M:ZSQH1]NBLIG2(I) With "BACKGREY"
+    Else
+      Chgstl [M:ZSQH1]NBLIG2(I) With ""
+    Endif
+  Next
+
+  Affzo [M:ZSQH1]
+
+  If [M:SQH2]ZCOSOFER(nolign-1) <> 0 Then
+    [M:SQH2]ZPORCOSTE(nolign-1)   = arr([M:SQH2]ZCOSOFER(nolign-1)* 100,0.001)
+    Affzo [M:SQH2]ZPORCOSTE(nolign-1)
+  Endif
+# JC.14062021.END.vtas029
+
+# JC.14062021.STR.ddf unipre.ZUNPR
+  If !clalev([F:ZBPC]) Then : Local File BPCUSTOMER [F:ZBPC] : Endif
+  Read [F:ZBPC]BPC0 = [M:SQH0]BPCORD
+  If !fstat Then
+    [M:SQH2]ZUNPRE(nolign-1) = [F:ZBPC]ZUNPRE
+    Affzo [M:SQH2]ZUNPRE(nolign-1)
+  Endif
+  Close Local File [ZBPC]
+# JC.14062021.END.ddf unipre.ZUNPR
+
+# JC.24062021.STR.transportista.ZTART
+  [M:SQH2]ZFREINV(nolign-1) = [M:SQH1]ZFREINV
+  Affzo [M:SQH2]ZFREINV(nolign-1)
+# JC.24062021.END.transportista.ZTART
+
+#If GUSER="ADEV" Then : Infbox "salgo am_itmref"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después del campo '% o importe' de los elemenos de facturación (pantalla SQH3) 05/11/2021 16:40:13 (ADEV)
+######################################################################################
+Subprog AP_INVDTAAMT(VALEUR)
+Variable Decimal VALEUR
+  If indice = 0 and VALEUR <> 0 Then
+    Call ERRTIT('Uso del campo no permitido','Error en campo "Dto"') From GESECRAN
+    VALEUR = 0
+    mkstat=2
+  Endif
+End
+
+##############################################################
+Subprog C_QTY(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro c_qty"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Decimal LQTYORI : LQTYORI = VALEUR
+
+#MODIF RPES  20201130  VTAS078 Multiple de caja
+If [M:SQH2]ZCANTJUSTA(nolign-1) <> 2 and [M:SQH2]SAU(nolign-1) = [M:SQH2]STU(nolign-1) Then
+  Local Decimal F_COEF
+
+  # busca el número múltiplo de la caja para mostrarlo en el campo 'Múltipe caja'
+  If func ZAULIB01.NO_MULTIPLO_CAJA([M:SQH2]ITMREF(nolign-1), VALEUR, F_COEF) = 1 Then
+    Local Decimal F_QTY
+    Local Integer I_QTY
+
+    If [L]F_COEF <> 0 Then
+      [L]F_QTY = VALEUR/[L]F_COEF
+      [L]I_QTY = [L]F_QTY
+      Local Char S_MOTIVO(250)
+      Local Char S_PARAM(250)(1..20)
+      [L]S_PARAM(2) = num$(([L]I_QTY+1)*[L]F_COEF)
+    Endif
+
+    # abre la pantalla 'NO múltiple de caja'
+    Call SAISIE_CHAR([L]S_MOTIVO, [L]S_PARAM, "ZMULCAJ1" ,"","ZMULTIPCAJ") From GSAISIE
+    # selecciona la opción 1, 'múltiplo de caja'
+    If [L]S_PARAM = "1" Then
+      Gosub CALCULO_CAJA
+    # selecciona la opción 2, 'cantidad justa'
+    Elsif S_PARAM = "2" Then
+      # el artículo no acepta cantidad justa
+      If func ZAULIB01.ACEPTA_CANT_JUSTA([M:SQH2]ITMREF(nolign-1)) <> 2 Then
+        Local Decimal LPHYSTO : LPHYSTO = func ZAULIB01.GET_PHYSTO([M:SQH2]ITMREF(nolign-1),[M:SQH0]SALFCY)     # JC.14062021.NEW.vtas078
+        If VALEUR > mod(LPHYSTO,F_COEF) Then                                                                    # JC.14062021.NEW.vtas078
+          # abre la pantalla 'NO acepta cantidad justa'
+          Call SAISIE_CHAR([L]S_MOTIVO, [L]S_PARAM, "ZMULCAJ2" ,"","ZMULTIPCAJ") From GSAISIE
+          # selecciona la opción 2, 'excepción'
+          If [L]S_PARAM = "2" Then
+            [M:SQH2]ZCANTJUSTA(nolign-1) = 2
+            Affzo [M:SQH2]ZCANTJUSTA(nolign-1)
+          # selecciona la opción 1, 'múltiplo caja'
+          Elsif S_PARAM = "1" Then
+            Gosub CALCULO_CAJA
+          Endif
+        Else
+          [M:SQH2]ZCANTJUSTA(nolign-1) = 2
+          Affzo [M:SQH2]ZCANTJUSTA(nolign-1)
+        Endif                                                                                                   # JC.14062021.NEW.vtas078
+      # el artículo sí acepta cantidad justa
+      Else
+        [M:SQH2]ZCANTJUSTA(nolign-1) = 2
+        Affzo [M:SQH2]ZCANTJUSTA(nolign-1)
+      Endif
+    Endif
+  Endif
+Endif
+
+# MODIF JESP 20201125 VTAS079 - Stock disponible
+Local Decimal F_STODISPO
+Local Integer I_VALEUR
+Local Char S_PARAM(250)(1..)
+
+If VALEUR <> 0 Then
+  [L]F_STODISPO = func SPEZSDO.CALC_STODISPO([M:SQH0]SALFCY, [M:SQH2]ITMREF(nolign-1))
+
+  If VALEUR > [L]F_STODISPO Then
+    [L]S_PARAM(2) = num$([L]F_STODISPO)
+    [L]S_PARAM(3) = [M:SQH2]ITMREF(nolign-1)
+    Call SAISIE_LIB([L]I_VALEUR,[L]S_PARAM,"ZSTODISPOOP","SPEZSDO","OBJZON") From GSAISIE
+    #1 = Cancelar
+    #2 = Continuar
+    #3 = Múltiple
+    #4 = Total
+    #5 = Línea oculta
+    Case [L]S_PARAM(1)
+      When "1"
+        VALEUR = 0
+        mkstat = 2
+      When "2"
+        #No hacer nada
+      When "3"
+        VALEUR = func SPEZSDO.CALC_QTYMULT([M:SQH2]ITMREF(nolign-1), [L]F_STODISPO)
+      When "4"
+        VALEUR = [L]F_STODISPO
+      When "5"
+        [M:SQH2]ZLINOCU(nolign-1) = 2
+        Affzo [M:SQH2]ZLINOCU(nolign-1)
+        Effzo [M:SQH2]GROPRI(nolign-1)
+        Effzo [M:SQH2]DISCRGVAL1(nolign-1)
+        Effzo [M:SQH2]DISCRGVAL2(nolign-1)
+        Effzo [M:SQH2]DISCRGVAL3(nolign-1)
+        Effzo [M:SQH2]NETPRI(nolign-1)
+        Effzo [M:SQH2]CPRPRI(nolign-1)
+        Effzo [M:SQH2]PFM(nolign-1)
+        Effzo [M:SQH2]LINQUONOT(nolign-1)
+        Effzo [M:SQH2]LINQUOATI(nolign-1)
+        Effzo [M:SQH2]LINPFM(nolign-1)
+        Effzo [M:SQH2]NETPRIATI(nolign-1)
+        Effzo [M:SQH2]NETPRINOT(nolign-1)
+        Effzo [M:SQH2]ZPORCOSTE(nolign-1)
+        Effzo [M:SQH2]ZPFM(nolign-1)
+        Effzo [M:SQH2]ZPRECLI(nolign-1)
+        Effzo [M:SQH2]ZUNPRE(nolign-1)
+        Effzo [M:SQH2]ZCOSOFER(nolign-1)
+        Effzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+        Effzo [M:SQH2]ZPREOFERTA(nolign-1)
+        Diszo [M:SQH2]GROPRI(nolign-1)
+        Diszo [M:SQH2]ZPORCOSTE(nolign-1)
+        Diszo [M:SQH2]ZPFM(nolign-1)
+        Diszo [M:SQH2]ZUNPRE(nolign-1)
+        Diszo [M:SQH2]DISCRGVAL1(nolign-1)
+        Diszo [M:SQH2]DDAYLTI(nolign-1)
+        Diszo [M:SQH2]ZPRECLI(nolign-1)
+        Diszo [M:SQH2]ZCOSOFER(nolign-1)
+        [M:SQH2]PRIREN(nolign-1) = 1
+        Affzo [M:SQH2]PRIREN(nolign-1)
+        [M:SQH2]DISCRGREN1(nolign-1) = 1
+        Affzo [M:SQH2]DISCRGREN1(nolign-1)
+        VALEUR = LQTYORI
+    Endcase
+  Endif
+Endif
+# FIN JESP
+#If GUSER="ADEV" Then : Infbox "salgo c_qty"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después de modificar el campo 'Cantidad' (pantalla SQH2) 22/06/2021 10:04:39 (ADEV)
+######################################################################################
+Subprog AM_QTY(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_qty"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+#Local Char    LSQHTYP(5)  : LSQHTYP = "NOR"
+Local Decimal LDTO
+Local Integer YESNO       : YESNO   = 2
+
+#  # asignamos valor a la variable en función de si el presupuesto es web o no
+#  If [M:SQH0]SQHTYP = func AFNC.PARAM("ZTDOCWEB","") Then LSQHTYP = "WEB" : Endif
+
+  If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+    # llamamos a la función que nos devuelve el valor de Precio oferta y lo guardamos en el campo correspondiente
+#    Call GET_POFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH1]ZCLAOFER,[M:SQH2]ZCOSOFER(nolign-1),VALEUR,LSQHTYP,[M:SQH2]ZPREOFERTA(nolign-1),LDTO) From ZAULIB01
+    Call GET_POFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH1]ZCLAOFER,[M:SQH2]ZCOSOFER(nolign-1),VALEUR,[M:SQH0]SQHTYP,[M:SQH2]ZPREOFERTA(nolign-1),LDTO) From ZAULIB01
+    [M:SQH2]ZPREOFERTA(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1) / 100
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZPREOFERTA(nolign-1),1,[M:SQH0]QUODAT,[M:SQH2]ZPREOFERTA(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
+    Affzo [M:SQH2]ZPREOFERTA(nolign-1)
+
+    # si el estándar no nos devuelve precio por tarifa, asignamos al precio bruto
+    # el precio oferta que hemos obtenido, descuento lo dejamos a cero y el flag
+    # tipo precio lo ponemos a precio tarifa
+    If [M:SQH2]GROPRI(nolign-1) = 0 Then
+      [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]ZPREOFERTA(nolign-1)
+      [M:SQH2]DISCRGVAL1(nolign-1)  = 0
+      [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
+      Affzo [M:SQH2]GROPRI(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+      Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+#      Call  AP_GROPRI([M:SQH2]GROPRI(nolign-1))
+#      Call  AM_GROPRI([M:SQH2]GROPRI(nolign-1))
+      Default Mask [M:SQH2]
+      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Affzo [M:SQH2]GROPRI(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+      Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+      Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+      Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#      [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+      If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+      Endif
+      Affzo [M:SQH2]ZPFM(nolign-1)
+    # si el estándar nos devuelve precio por tarifa, preguntamos cuál de los dos queremos que deje
+    Else
+#      Call OUINON("- Precio tarifa:"-num$([M:SQH2]GROPRI(nolign-1))+"\- Precio oferta:"-num$([M:SQH2]ZPREOFERTA(nolign-1))+"\\¿Deseas mantener el precio de la tarifa?",YESNO) From GESECRAN
+#      # si elige el precio de tarifa, dejamos que actúe el estándar
+#      # y, simplemente, ponemos el flag tipo precio a precio tarifa
+#      If YESNO = 2 Then
+#        [M:SQH2]ZTIPOPRECIO(nolign-1) = 1
+#        Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+#      # si elige el precio de la oferta, asignamos al precio bruto
+#      # el precio oferta que hemos obtenido, descuento lo dejamos a cero y el flag
+#      # tipo precio lo ponemos a precio tarifa
+#      Else
+#        [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]ZPREOFERTA(nolign-1)
+#        [M:SQH2]DISCRGVAL1(nolign-1)  = 0
+#        [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
+#        Affzo [M:SQH2]GROPRI(nolign-1)
+#        Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+#        Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+##         Call  AP_GROPRI([M:SQH2]GROPRI(nolign-1))
+##         Call  AM_GROPRI([M:SQH2]GROPRI(nolign-1))
+#        Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+#        Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+#        Affzo [M:SQH2]GROPRI(nolign-1)
+#        Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+#        Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+#      Endif
+      Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+      Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+      If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+#        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+      Endif
+      Affzo [M:SQH2]ZPFM(nolign-1)
+    Endif
+
+# JC.14062021.STR.ddf unipre.ZUNPR
+    Case [M:SQH2]ZUNPRE(nolign-1)
+      When "UN"        :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1)
+      When "CEN"       :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1) * 100
+      When "MIL"       :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1) * 1000
+      When Default
+    Endcase
+    Affzo [M:SQH2]ZPRECLI(nolign-1)
+# JC.14062021.END.ddf unipre.ZUNPR
+
+# JC.14072021.STR.transportista.ZTART
+    [M:SQH2]ZFREINV(nolign-1) = [M:SQH1]ZFREINV
+    Affzo [M:SQH2]ZFREINV(nolign-1)
+# JC.14072021.END.transportista.ZTART
+
+## JC.03112021.Mostrar los campos '€/Kg(CO)' y '€/Kg(CM)' al introducir la cantidad.INI
+#    If !clalev([F:ZITM1]) Then : Local File ITMMASTER [F:ZITM1] : Endif
+#    Read [F:ZITM1]ITM0 = [M:SQH2]ITMREF(nolign-1)
+#    If !fstat Then
+#      Local Decimal LITMLINWEI
+#      LITMLINWEI = func CONVERTIR_CANTIDAD([F:ZITM1]WEU,"KG",[F:ZITM1]ITMWEI)
+#      [M:ZSQH0]ZCOSTOFEREK  = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]ZPORCOSTE(nolign-1) * VALEUR) / (LITMLINWEI * VALEUR)/100),2)
+#      Affzo [M:ZSQH0]ZCOSTOFEREK
+#      [M:ZSQH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA((([M:ZSQH0]ZCOSTMED * VALEUR)/ (LITMLINWEI * VALEUR)/100),2)
+#      Affzo [M:ZSQH0]ZCOSTMEDEK
+#    Endif
+#    Close Local File [ZITM1]
+## JC.03112021.Mostrar los campos '€/Kg(CO)' y '€/Kg(CM)' al introducir la cantidad.FIN
+
+#  If dim(LSQHTYP) > 0 Then : Kill LSQHTYP : Endif
+    If dim(LDTO)    > 0 Then : Kill LDTO    : Endif
+    If dim(YESNO)   > 0 Then : Kill YESNO   : Endif
+  Endif
+#If GUSER="ADEV" Then : Infbox "salgo am_qty"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+##############################################################
+#MRR01 ini
+Subprog AM_QUODAT(VALEUR)
+Variable Date    VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_quodat"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+# JC.14062021.STR.vtas021
+#If GREP = 'C' or GREP = 'D' Then
+#  If GIMPORT = 0 Then
+#    [M:SQH1]VLYDAT = date$+GZPLAZOVAL
+#    Affzo [M:SQH1]VLYDAT
+#  Else
+#    [M:SQH1]VLYDAT = [M:SQH0]QUODAT+GZPLAZOVALWEB
+#    Affzo [M:SQH1]VLYDAT
+#  Endif
+#Endif
+
+  If GIMPORT = 0 Then
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVAL
+    Affzo [M:SQH1]VLYDAT
+  Else
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVALWEB
+    Affzo [M:SQH1]VLYDAT
+  Endif
+  If [M:SQH0]SQHTYP <> func AFNC.PARAM("ZTDOCWEB","") Then
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVAL
+    Affzo [M:SQH1]VLYDAT
+  Else
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVALWEB
+    Affzo [M:SQH1]VLYDAT
+  Endif
+# JC.14062021.END.vtas021
+
+#If GUSER="ADEV" Then : Infbox "salgo am_quodat"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+##############################################################
+Subprog AP_QUODAT(VALEUR)
+Variable Date    VALEUR
+#If GUSER="ADEV" Then : Infbox "entro ap_quodat"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+# JC.14062021.STR.vtas021
+#If GREP = 'C' or GREP = 'D' Then
+#  If GIMPORT = 0 Then
+#    [M:SQH1]VLYDAT = date$+GZPLAZOVAL
+#    Affzo [M:SQH1]VLYDAT
+#  Else
+#    [M:SQH1]VLYDAT = [M:SQH0]QUODAT+GZPLAZOVALWEB
+#    Affzo [M:SQH1]VLYDAT
+#  Endif
+#Endif
+
+  If GIMPORT = 0 Then
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVAL
+    Affzo [M:SQH1]VLYDAT
+  Else
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVALWEB
+    Affzo [M:SQH1]VLYDAT
+  Endif
+  If [M:SQH0]SQHTYP <> func AFNC.PARAM("ZTDOCWEB","") Then
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVAL
+    Affzo [M:SQH1]VLYDAT
+  Else
+    [M:SQH1]VLYDAT = VALEUR+GZPLAZOVALWEB
+    Affzo [M:SQH1]VLYDAT
+  Endif
+# JC.14062021.END.vtas021
+
+#If GUSER="ADEV" Then : Infbox "salgo ap_quodat"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+#MRR01 fin
+
+######################################################################################
+## Después de modificar el campo 'Clasificación oferta' (pantalla SQH1) 15/06/2021 13:08:09 (ADEV)
+######################################################################################
+# JC.14062021.vtas025_077
+Subprog AM_ZCLAOFER(VALEUR)
+Variable Char    VALEUR()
+#If GUSER="ADEV" Then : Infbox "entro am_claofer"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Integer YESNO       : YESNO = 2
+Local Integer LCON
+Local Decimal LDTO
+Local Integer LNUMLIN
+#Local Char    LSQHTYP(5)  : LSQHTYP = "NOR"
+
+  Call OUINON("¿Recalcular los precios y descuentos?",YESNO)From GESECRAN
+  If YESNO = 2 Then
+    For LCON=0 To [M:SQH2]NBLIG-1
+      #  línea NO oculta            and tipo precio no es de tarifa    and precio no es importación web   and la línea no está saldada
+      If [M:SQH2]ZLINOCU(LCON) <> 2 and [M:SQH2]ZTIPOPRECIO(LCON) <> 1 and [M:SQH2]ZTIPOPRECIO(LCON) <> 4 and ([M:SQH2]QTY(LCON) <> [M:SQH2]ORDQTY(LCON)) Then
+        # EJECUTA EL ALGORITMO DE PRECIOS
+        # asignamos valor a la variable en función de si el presupuesto es web o no
+#          If [M:SQH0]SQHTYP <> func AFNC.PARAM("ZTDOCWEB","") Then LSQHTYP = "WEB" : Endif
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+        If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY) <> 0 Then
+          [M:SQH2]ZCOSOFER(LCON)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY)
+          Affzo [M:SQH2]ZCOSOFER(LCON)
+        Endif
+
+        # llamamos a la función que nos devuelve el valor de Precio oferta y lo guardamos en el campo correspondiente
+#        Call GET_POFERTA([M:SQH2]ITMREF(LCON),[M:SQH2]DSTOFCY(LCON),VALEUR,[M:SQH2]ZCOSOFER(LCON),VALEUR,LSQHTYP,[M:SQH2]ZPREOFERTA(LCON),LDTO) From ZAULIB01
+        Call GET_POFERTA([M:SQH2]ITMREF(LCON),[M:SQH2]DSTOFCY(LCON),VALEUR,[M:SQH2]ZCOSOFER(LCON),[M:SQH2]QTY(LCON),[M:SQH0]SQHTYP,[M:SQH2]ZPREOFERTA(LCON),LDTO) From ZAULIB01
+        [M:SQH2]ZPREOFERTA(LCON) = [M:SQH2]ZPREOFERTA(LCON) / 100
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZPREOFERTA(LCON),1,[M:SQH0]QUODAT,[M:SQH2]ZPREOFERTA(LCON)) From ZAULIB01      # JC.27102021.Cambio de divisas
+        Affzo [M:SQH2]ZPREOFERTA(LCON)
+
+        # ASIGNA EL PRECIO OFERTA AL PRECIO BRUTO
+        LNUMLIN = nolign
+        nolign = LCON+1
+        [M:SQH2]GROPRI(LCON)      = [M:SQH2]ZPREOFERTA(LCON)
+        [M:SQH2]DISCRGVAL1(LCON)  = LDTO
+        Affzo [M:SQH2]GROPRI(LCON)
+        Affzo [M:SQH2]DISCRGVAL1(LCON)
+        Default Mask [M:SQH2]
+        Call C_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+        Call AP_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+        Call AM_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+        Affzo [M:SQH2]GROPRI(LCON)
+        Affzo [M:SQH2]NETPRI(LCON)
+        Affzo [M:SQH2]DISCRGVAL1(LCON)
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+        Case [M:SQH2]ZUNPRE(LCON)
+          When "UN"        :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON)
+          When "CEN"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 100
+          When "MIL"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 1000
+          When Default
+        Endcase
+        Affzo [M:SQH2]ZPRECLI(LCON)
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZPFM
+        If [M:SQH2]NETPRI(LCON) <> 0 Then
+          Local Decimal LCOSTEOFERTA                                                                                       # JC.27102021.Cambio de divisas
+          Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(LCON),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#          [M:SQH2]ZPFM(LCON) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(LCON) - [M:SQH2]ZCOSOFER(LCON)) / [M:SQH2]NETPRI(LCON)) * 100,2)
+          [M:SQH2]ZPFM(LCON) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(LCON) - LCOSTEOFERTA) / [M:SQH2]NETPRI(LCON)) * 100,2)
+          Affzo [M:SQH2]ZPFM(LCON)
+          Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+          If [M:SQH2]ZLINOCU(LCON) <> 2 Then
+            If [M:SQH2]ZPFM(LCON) < PUMBRALMRG Then
+              Chgstl [M:SQH2]NBLIG(LCON) With "BACKRED"
+            Else
+              Chgstl [M:SQH2]NBLIG(LCON) With ""
+            Endif
+          Else
+            Chgstl [M:SQH2]NBLIG(LCON) With "BACKGREY"
+          Endif
+          Affzo [M:SQH2]NBLIG(LCON)
+        Endif
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+        If [M:SQH2]ZCOSOFER(LCON) <> 0 Then
+          [M:SQH2]ZPORCOSTE(LCON)   = arr([M:SQH2]ZCOSOFER(LCON)*100,0.001)
+          Affzo [M:SQH2]ZPORCOSTE(LCON)
+        Endif
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+        [M:SQH2]ZTIPOPRECIO(LCON) = 3
+        Affzo [M:SQH2]ZTIPOPRECIO(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+        [M:SQH2]PRIREN(LCON) = 1
+        Affzo [M:SQH2]PRIREN(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo descuento'
+        [M:SQH2]DISCRGREN1(LCON) = 1
+        Affzo [M:SQH2]DISCRGREN1(LCON)
+
+        # ponemos la línea como actualizada para que se registren los cambios
+        [M:SQH2]UPDFLG(LCON) = 1
+        Affzo [M:SQH2]UPDFLG(LCON)
+
+        nolign = LNUMLIN
+      Endif
+    Next
+  Endif
+
+  If dim(YESNO)   > 0 Then : Kill YESNO   : Endif
+  If dim(LCON)    > 0 Then : Kill LCON    : Endif
+  If dim(LDTO)    > 0 Then : Kill LDTO    : Endif
+  If dim(LNUMLIN) > 0 Then : Kill LNUMLIN : Endif
+  If dim(LSQHTYP) > 0 Then : Kill LSQHTYP : Endif
+
+#If GUSER="ADEV" Then : Infbox "salgo am_claofer"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después de modificar el campo 'Coste oferta' (pantalla SQH2) 23/06/2021 17:01:21 (ADEV)
+######################################################################################
+Subprog AM_ZCOSOFER(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zcosofer"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Decimal LDTO
+
+# JC.14062021.vtas029.STR
+#Infbox num$(VALEUR * 100)
+  If VALEUR <> 0 Then
+    [M:SQH2]ZPORCOSTE(nolign-1) = arr(VALEUR * 100,0.001)
+    Affzo [M:SQH2]ZPORCOSTE(nolign-1)
+  Endif
+
+  # llamamos a la función que nos devuelve el valor de Precio oferta y lo guardamos en el campo correspondiente
+  Call GET_POFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH1]ZCLAOFER,VALEUR,[M:SQH2]QTY(nolign-1),[M:SQH0]SQHTYP,[M:SQH2]ZPREOFERTA(nolign-1),LDTO) From ZAULIB01
+  [M:SQH2]ZPREOFERTA(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1) / 100
+  Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZPREOFERTA(nolign-1),1,[M:SQH0]QUODAT,[M:SQH2]ZPREOFERTA(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
+  Affzo [M:SQH2]ZPREOFERTA(nolign-1)
+
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA                                                                   # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,VALEUR,1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01   # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - VALEUR) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+      If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+      Endif
+    Else
+      Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+    Endif
+    Affzo [M:SQH2]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
+# JC.14062021.vtas029.END
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zcosofer"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después de modificar el campo 'Descuento' (pantalla SQH1) 15/06/2021 15:08:24 (ADEV)
+######################################################################################
+# JC.14062021.vtas076
+Subprog AM_ZDESCUENTO(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zdescuento" : Endif
+Local Integer YESNO : YESNO = 2
+Local Integer LCON
+
+  Call OUINON("¿Recalcular los precios y descuentos?",YESNO)From GESECRAN
+  If YESNO = 2 Then
+    GCTRLSTA = 1
+    For LCON=0 To [M:SQH2]NBLIG-1
+      #  línea NO oculta            and tipo precio no es de tarifa    and precio no es importación web   and la línea no está saldada
+      If [M:SQH2]ZLINOCU(LCON) <> 2 and [M:SQH2]ZTIPOPRECIO(LCON) <> 1 and [M:SQH2]ZTIPOPRECIO(LCON) <> 4 and ([M:SQH2]QTY(LCON) <> [M:SQH2]ORDQTY(LCON)) Then
+        nolign = LCON + 1
+        [M:SQH2]DISCRGVAL1(LCON)  = VALEUR
+        Affzo [M:SQH2]DISCRGVAL1(LCON)
+        # EJECUTA EL RECÁLCULO DEL CAMPO DISCRGVAL1
+        #LLamamos a acciones STD de campo DISCRGVAL1
+        Local Char PARAM(20)(1..11)
+        #ACCION DIVDISCRG
+        PARAM(1) = "SQH2"
+        PARAM(2) = "1"
+        PARAM(3) = num$(LCON)
+        Gosub D_DISCRG From TRTVENTAR
+        Raz PARAM
+        #ACCION DIVPRIPFM
+        Local Char TRAIT : TRAIT = "DIVPRIPFM"
+        Default Mask [SQH2]
+        PARAM(1) = "1"
+        PARAM(2) = num$([M:SQH2]QTY(LCON))
+        PARAM(3) = [M:SQH0]BPCORD
+        PARAM(4) = num$([M:SQH0]CHGTYP)
+        PARAM(5) = [M:SQH0]QUODAT
+        PARAM(6) = [M:SQH0]CUR
+        PARAM(7) = num$(LCON)
+        PARAM(8) = [M:SQH2]DSTOFCY(LCON)
+        PARAM(9) = num$([M:SQH1]PRITYP)
+        PARAM(10)= "DISCRGVAL1"
+        Gosub DIVPRIPFM From TRTVENPRI
+        Raz PARAM
+        Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+
+#        # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+#        If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY) <> 0 Then
+#          [M:SQH2]ZCOSOFER(LCON)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY)
+#          Affzo [M:SQH2]ZCOSOFER(LCON)
+#        Endif
+
+        # CALCULA EL CAMPO ZPFM PERO NO EJECUTA EL RECÁLCULO DEL CAMPO ZPFM PORQUE ÉSTE PONE LOS DESCUETOS TODOS A CERO
+        If [M:SQH2]NETPRI(LCON) <> 0 Then
+          Local Decimal LCOSTEOFERTA                                                                                    # JC.27102021.Cambio de divisas
+          Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(LCON),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01    # JC.27102021.Cambio de divisas
+#          [M:SQH2]ZPFM(LCON) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(LCON) - [M:SQH2]ZCOSOFER(LCON)) / [M:SQH2]NETPRI(LCON)) * 100,2)
+          [M:SQH2]ZPFM(LCON) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(LCON) - LCOSTEOFERTA) / [M:SQH2]NETPRI(LCON)) * 100,2)
+          Affzo [M:SQH2]ZPFM(LCON)
+          Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+          If [M:SQH2]ZLINOCU(LCON) <> 2 Then
+            If [M:SQH2]ZPFM(LCON) < PUMBRALMRG Then
+              Chgstl [M:SQH2]NBLIG(LCON) With "BACKRED"
+            Else
+              Chgstl [M:SQH2]NBLIG(LCON) With ""
+            Endif
+          Else
+            Chgstl [M:SQH2]NBLIG(LCON) With "BACKGREY"
+          Endif
+          Affzo [M:SQH2]NBLIG(LCON)
+        Endif
+
+#        # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+#        If [M:SQH2]ZCOSOFER(LCON) <> 0 Then
+#          [M:SQH2]ZPORCOSTE(LCON)   = arr([M:SQH2]ZCOSOFER(LCON)*100,0.001)
+#          Affzo [M:SQH2]ZPORCOSTE(LCON)
+#        Endif
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+        Case [M:SQH2]ZUNPRE(LCON)
+          When "UN"        :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON)
+          When "CEN"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 100
+          When "MIL"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 1000
+          When Default
+        Endcase
+        Affzo [M:SQH2]ZPRECLI(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+        [M:SQH2]ZTIPOPRECIO(LCON) = 3
+        Affzo [M:SQH2]ZTIPOPRECIO(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+        [M:SQH2]PRIREN(LCON) = 1
+        Affzo [M:SQH2]PRIREN(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo descuento'
+        [M:SQH2]DISCRGREN1(LCON) = 1
+        Affzo [M:SQH2]DISCRGREN1(LCON)
+
+        # ponemos la línea como actualizada para que se registren los cambios
+        [M:SQH2]UPDFLG(LCON) = 1
+        Affzo [M:SQH2]UPDFLG(LCON)
+
+      Endif
+    Next
+    GCTRLSTA  = 0
+  Endif
+  VALEUR    = 0
+
+  If dim(YESNO) > 0 Then : Kill YESNO : Endif
+  If dim(LCON)  > 0 Then : Kill LCON  : Endif
+
+End
+
+######################################################################################
+## Después de modificar el campo 'Dto a 0' (pantalla SQH1) 21/07/2021 08:41:46 (ADEV)
+######################################################################################
+Subprog AM_ZDTOACERO(VALEUR)
+Variable Integer VALEUR
+# tengo que añadir esto porque sino al introducir valor 0 en el campo no ejecuta la acción AM_ZDESCUENTO
+Local Decimal LDTO : Raz LDTO
+  If VALEUR = 2 Then
+    Call AM_ZDESCUENTO(LDTO)
+  Endif
+End
+
+######################################################################################
+## Después de modificar el campo 'Facturación porte' (pantalla SQH1) 24/06/2021 12:50:25 (ADEV)
+######################################################################################
+# JC.24062021.NEW.transportista.ZTART
+Subprog AM_ZFREINV(VALEUR)
+Variable Integer VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zfreinv"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Integer LCON
+Local Char    S_PAIS(250)
+Local Char    S_CIUDAD(250)
+Local Char    S_CODIGO_POSTAL(250)
+Local Char    S_REGION(5)
+Local Char    S_TRANSPORTISTA(250)
+Local Decimal F_PESOS
+Local Decimal F_VOLUMEN
+Local Decimal F_IMPORTE_TRANSPORTE
+Local Char    S_EXPLICACION_CALCULO (1)
+Local Integer I_STAT
+Local Char    S_UNIWEI(10)
+Local Char    S_UNIVOL(10)
+
+If !GIMPORT Then
+  If !clalev([F:ZSFI]) Then : Local File SFOOTINV   [F:ZSFI] : Endif
+  If !clalev([F:ZBPA]) Then : Local File BPADDRESS  [F:ZBPA] : Endif
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+
+  Read [F:ZSFI]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
+    Read [F:ZBPA]BPA0=1;[M:SQH0]BPCORD;[M:SQH1]BPAADD
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA]CRY
+      S_CIUDAD        = [F:ZBPA]CTY
+      S_CODIGO_POSTAL = [F:ZBPA]POSCOD
+    Endif
+  Endif
+
+#  Read [F:ZBPD]BPD0 = [M:SQH0]BPCORD;[M:SQH1]BPAADD
+#  If !fstat Then
+#    S_TRANSPORTISTA   = [F:ZBPD]BPTNUM
+#  Endif
+   S_TRANSPORTISTA    = [M:SQH1]BPTNUM
+
+  For LCON=0 To [M:SQH2]NBLIG-1
+    [M:SQH2]ZFREINV(LCON) = VALEUR
+    [M:SQH2]UPDFLG(LCON)  = 1
+    Affzo [M:SQH2]ZFREINV(LCON)
+    Affzo [M:SQH2]UPDFLG(LCON)
+  Next
+
+  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+    Case VALEUR
+      When 1
+        #Facturados, calculo de la tarifa de transporte
+        If S_TRANSPORTISTA <> "" Then
+          For I = 0 To [M:SQH2]NBLIG-1
+            If [M:SQH2]ZLINOCU(I) <> 2 Then
+              #Me sitúo en el artículo
+              Read [F:ZITM]ITM0 = [M:SQH2]ITMREF(I)
+              If !fstat Then
+                S_UNIWEI = [F:ZITM]WEU
+                S_UNIVOL = [F:ZITM]VOU
+              Endif
+              #Paso todo a KG
+              F_PESOS    += func CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SQH2]DSPLINWEI(I))
+#              F_PESOS    += [M:SQH2]DSPLINWEI(I)
+              #Paso todo a M3
+              F_VOLUMEN  += func CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SQH2]DSPLINVOL(I))
+#              F_VOLUMEN  += [M:SQH2]DSPLINVOL(I)
+            Endif
+          Next
+
+          Call TRANSPORT(S_TRANSPORTISTA,[M:SQH0]BPCORD,VALEUR,[M:SQH0]SALFCY,S_PAIS,S_CIUDAD,
+&                        S_CODIGO_POSTAL,[M:SQH0]CUR,[M:SQH0]CHGTYP,date$,[M:SQH2]QUONOT,
+&                        S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                        F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+
+          If find(I_STAT,0,4,5) Then
+            [M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1) = F_IMPORTE_TRANSPORTE
+          Else
+            [M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+          Endif
+      Endif
+
+      When 8
+        #Facturación manual, no hago nada
+        [M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1) = [M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1)
+
+      When Default
+        #Todos los demás casos, no se facturan portes
+        [M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+    Endcase
+  Endif
+
+  Call AM_INVDTAAMT([M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SQH3
+
+  Affzo [M:SQH3]
+
+  Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM]
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+Endif
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zfreinv"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+##############################################################
+Subprog AM_ZLINOCU(VALEUR)
+Variable Integer VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zlincou"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+If VALEUR = 2 Then
+  Effzo [M:SQH2]GROPRI(nolign-1)
+  Effzo [M:SQH2]DISCRGVAL1(nolign-1)
+  Effzo [M:SQH2]DISCRGVAL2(nolign-1)
+  Effzo [M:SQH2]DISCRGVAL3(nolign-1)
+#  Effzo [M:SQH2]DISCRGVAL4(nolign-1)
+#  Effzo [M:SQH2]DISCRGVAL5(nolign-1)
+#  Effzo [M:SQH2]DISCRGVAL6(nolign-1)
+  #Effzo [M:SQH2]DISCRGVAL7 # se comenta porque da fallo de variables inexistentes
+  #Effzo [M:SQH2]DISCRGVAL8
+  #Effzo [M:SQH2]DISCRGVAL9
+  Effzo [M:SQH2]NETPRI(nolign-1)
+  Effzo [M:SQH2]CPRPRI(nolign-1)
+  Effzo [M:SQH2]PFM(nolign-1)
+  Effzo [M:SQH2]LINQUONOT(nolign-1)
+  Effzo [M:SQH2]LINQUOATI(nolign-1)
+  Effzo [M:SQH2]LINPFM(nolign-1)
+  Effzo [M:SQH2]NETPRIATI(nolign-1)
+  Effzo [M:SQH2]NETPRINOT(nolign-1)
+  Effzo [M:SQH2]ZPORCOSTE(nolign-1)
+  Effzo [M:SQH2]ZPFM(nolign-1)
+  Effzo [M:SQH2]ZPRECLI(nolign-1)
+  Effzo [M:SQH2]ZUNPRE(nolign-1)
+  Effzo [M:SQH2]ZCOSOFER(nolign-1)
+  Effzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+  Effzo [M:SQH2]ZPREOFERTA(nolign-1)
+  Diszo [M:SQH2]GROPRI(nolign-1)
+  Diszo [M:SQH2]ZPORCOSTE(nolign-1)
+  Diszo [M:SQH2]ZPFM(nolign-1)
+  Diszo [M:SQH2]ZUNPRE(nolign-1)
+  Diszo [M:SQH2]DISCRGVAL1(nolign-1)
+  Diszo [M:SQH2]DDAYLTI(nolign-1)
+  Diszo [M:SQH2]ZPRECLI(nolign-1)
+  Diszo [M:SQH2]ZCOSOFER(nolign-1)
+  [M:SQH2]PRIREN(nolign-1) = 1
+  Affzo [M:SQH2]PRIREN(nolign-1)
+  [M:SQH2]DISCRGREN1(nolign-1) = 1
+  Affzo [M:SQH2]DISCRGREN1(nolign-1)
+Else
+#  Actzo [M:SQH2]GROPRI(nolign-1)
+  Actzo [M:SQH2]ZPORCOSTE(nolign-1)
+  Actzo [M:SQH2]ZPFM(nolign-1)
+  Actzo [M:SQH2]ZPRECLI(nolign-1)
+Endif
+
+Affzo [M:SQH2]14-64
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zlincou"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH2) 06/07/2020 13:49:52 (ADMIN)
+######################################################################################
+Subprog C_ZLINOCU(VALEUR)
+Variable Integer VALEUR
+#If GUSER="ADEV" Then : Infbox "entro c_zlincou"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después de modificar el campo '+/- Margen' (pantalla SQH1) 15/06/2021 15:08:24 (ADEV)
+######################################################################################
+# JC.14062021.vtas076
+Subprog AM_ZMMMARGEN(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zmmargen" : Endif
+
+Local Integer YESNO : YESNO = 2
+Local Integer LCON,LNUMLIN
+
+  Call OUINON("¿Recalcular los precios y descuentos?",YESNO)From GESECRAN
+  If YESNO = 2 Then
+    GCTRLSTA = 1
+    For LCON=0 To [M:SQH2]NBLIG-1
+      #  línea NO oculta            and tipo precio no es de tarifa    and precio no es importación web   and la línea no está saldada
+      If [M:SQH2]ZLINOCU(LCON) <> 2 and [M:SQH2]ZTIPOPRECIO(LCON) <> 1 and [M:SQH2]ZTIPOPRECIO(LCON) <> 4 and ([M:SQH2]QTY(LCON) <> [M:SQH2]ORDQTY(LCON)) Then
+        LNUMLIN = nolign
+        nolign = LCON+1
+        [M:SQH2]ZPFM(LCON)        +=  VALEUR
+        [M:SQH2]DISCRGVAL1(LCON)  =   0
+        Affzo [M:SQH2]ZPFM(LCON)
+        Affzo [M:SQH2]DISCRGVAL1(LCON)
+        Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+        If [M:SQH2]ZLINOCU(LCON) <> 2 Then
+          If [M:SQH2]ZPFM(LCON) < PUMBRALMRG Then
+            Chgstl [M:SQH2]NBLIG(LCON) With "BACKRED"
+          Else
+            Chgstl [M:SQH2]NBLIG(LCON) With ""
+          Endif
+        Else
+          Chgstl [M:SQH2]NBLIG(LCON) With "BACKGREY"
+        Endif
+        Affzo [M:SQH2]NBLIG(LCON)
+
+        # ACTUALIZA LOS CAMPOS DE PRECIOS Y DESCUENTOS
+        If [M:SQH2]NETPRI(LCON) = 0 Then
+          [M:SQH2]NETPRI(LCON)  = 1
+          [M:SQH2]GROPRI(LCON)  = 1
+        Endif
+        If (1-([M:SQH2]ZPFM(LCON)/100)) <> 0 Then
+          [M:SQH2]NETPRI(LCON)      = [M:SQH2]ZCOSOFER(LCON)/(1-([M:SQH2]ZPFM(LCON)/100))
+        Endif
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]NETPRI(LCON),1,[M:SQH0]QUODAT,[M:SQH2]NETPRI(LCON)) From ZAULIB01      # JC.27102021.Cambio de divisas
+        [M:SQH2]GROPRI(LCON)      = [M:SQH2]NETPRI(LCON)
+        [M:SQH2]DISCRGVAL1(LCON)  = 0
+        [M:SQH2]DISCRGVAL2(LCON)  = 0
+        [M:SQH2]DISCRGVAL3(LCON)  = 0
+        Affzo [M:SQH2]NETPRI(LCON)
+        Affzo [M:SQH2]GROPRI(LCON)
+        Affzo [M:SQH2]DISCRGVAL1(LCON)
+        Affzo [M:SQH2]DISCRGVAL2(LCON)
+        Affzo [M:SQH2]DISCRGVAL3(LCON)
+        Default Mask [M:SQH2]
+        Call C_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+        Call AP_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+        Call AM_GROPRI([M:SQH2]GROPRI(LCON)) From W1SQH2
+
+        # EJECUTA EL RECÁLCULO DEL CAMPO ZPRECLI
+        Case [M:SQH2]ZUNPRE(LCON)
+          When "UN"        :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON)
+          When "CEN"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 100
+          When "MIL"       :   [M:SQH2]ZPRECLI(LCON)  = [M:SQH2]GROPRI(LCON) * 1000
+          When Default
+        Endcase
+        Affzo [M:SQH2]ZPRECLI(LCON)
+
+#        # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
+#        If func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY) <> 0 Then
+#          [M:SQH2]ZCOSOFER(LCON)    = func ZAULIB01.GET_COSTEOFERTA([M:SQH2]ITMREF(LCON),[M:SQH0]SALFCY)
+#          Affzo [M:SQH2]ZCOSOFER(LCON)
+#        Endif
+#
+#        # EJECUTA EL RECÁLCULO DEL CAMPO ZPORCOSTE
+#        If [M:SQH2]ZCOSOFER(LCON) <> 0 Then
+#          [M:SQH2]ZPORCOSTE(LCON)   = arr([M:SQH2]ZCOSOFER(LCON)*100,0.001)
+#          Affzo [M:SQH2]ZPORCOSTE(LCON)
+#        Endif
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+        [M:SQH2]ZTIPOPRECIO(LCON) = 3
+        Affzo [M:SQH2]ZTIPOPRECIO(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+        [M:SQH2]PRIREN(LCON) = 1
+        Affzo [M:SQH2]PRIREN(LCON)
+
+        # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo descuento'
+        [M:SQH2]DISCRGREN1(LCON) = 1
+        Affzo [M:SQH2]DISCRGREN1(LCON)
+
+        # ponemos la línea como actualizada para que se registren los cambios
+        [M:SQH2]UPDFLG(LCON) = 1
+        Affzo [M:SQH2]UPDFLG(LCON)
+
+        nolign = LNUMLIN
+      Endif
+    Next
+    VALEUR    = 0
+    GCTRLSTA  = 0
+  Endif
+
+  If dim(YESNO) > 0 Then : Kill YESNO : Endif
+  If dim(LCON)  > 0 Then : Kill LCON  : Endif
+
+End
+
+######################################################################################
+## Después de modificar el campo 'Coste%' (pantalla SQH2) 23/06/2021 10:17:40 (ADEV)
+######################################################################################
+Subprog AM_ZPORCOSTE(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zporcoste"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Decimal LDTO
+
+# JC.14062021.vtas029.STR
+  If VALEUR <> 0 Then
+    [M:SQH2]ZCOSOFER(nolign-1) = func ZAULIB01.REDONDEA_ALZA(VALEUR / 100,7)
+    Affzo [M:SQH2]ZCOSOFER(nolign-1)
+  Endif
+
+  # llamamos a la función que nos devuelve el valor de Precio oferta y lo guardamos en el campo correspondiente
+  Call GET_POFERTA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH1]ZCLAOFER,[M:SQH2]ZCOSOFER(nolign-1),[M:SQH2]QTY(nolign-1),[M:SQH0]SQHTYP,[M:SQH2]ZPREOFERTA(nolign-1),LDTO) From ZAULIB01
+  [M:SQH2]ZPREOFERTA(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1) / 100
+  Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZPREOFERTA(nolign-1),1,[M:SQH0]QUODAT,[M:SQH2]ZPREOFERTA(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
+  Affzo [M:SQH2]ZPREOFERTA(nolign-1)
+#  # modifica el precio bruto
+#  [M:SQH2]GROPRI(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1)
+#  Affzo [M:SQH2]ZPRECLI(nolign-1)
+#  Case [M:SQH2]ZUNPRE(nolign-1)
+#    When "UN"        :   [M:SQH2]ZPRECLI(nolign-1) = [M:SQH2]GROPRI(nolign-1)
+#    When "CEN"       :   [M:SQH2]ZPRECLI(nolign-1) = [M:SQH2]GROPRI(nolign-1) * 100
+#    When "MIL"       :   [M:SQH2]ZPRECLI(nolign-1) = [M:SQH2]GROPRI(nolign-1) * 1000
+#    When Default
+#  Endcase
+#  Affzo [M:SQH2]GROPRI(nolign-1)
+#  Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+#  Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA                                                                                        # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01    # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+      If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+      Endif
+    Else
+      Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+    Endif
+    Affzo [M:SQH2]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
+# JC.14062021.vtas029.END
+
+##################################################################################
+# JC.09092021.vtas029.STR
+# añado esta parte de código porque nos han pedido que si se modifica el %Coste, si es
+# Precio tarifa que aparezca la pantalla Selección precios, sino que modifique el precio
+# bruto con el precio oferta calculado
+  # precio calculado
+  If [M:SQH2]ZTIPOPRECIO(nolign-1) <> 1 Then
+    [M:SQH2]GROPRI(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1)
+    Affzo [M:SQH2]GROPRI(nolign-1)
+    Default Mask [M:SQH2]
+    Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+    Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+    Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+  Else
+    Local Char    S_PARAM(250)(1..20)
+    Local Char    S_VALEUR(20)
+    Local Decimal F_MONTANT(0..8)
+    Local Decimal F_NETPRI
+    Local Decimal F_NETPRI_SOH
+    Local Decimal F_GROPRI_SOH
+    Local Char    S_MESSAGE(250)
+
+    [L]S_PARAM(1) = num$([M:SQH2]GROPRI(nolign-1))
+    [L]S_PARAM(2) = num$(F_MONTANT(0))
+    [L]S_PARAM(3) = num$(F_MONTANT(1))
+    [L]S_PARAM(4) = num$(F_MONTANT(2))
+    [L]S_PARAM(5) = num$([M:SQH2]NETPRI(nolign-1))
+    [L]S_PARAM(6) = num$([M:SQH2]ZPREOFERTA(nolign-1))   # JC.14062021.vtas080.NEW
+
+    Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
+    If [L]S_VALEUR = "2" Then
+      [M:SQH2]GROPRI = val ([L]S_PARAM(6))
+      For I = 0 To 2
+        Assign "[M]DISCRGVAL"+num$(I+1)+"(nolign-1)" With 0
+        Assign "[M]DISCRGREN"+num$(I+1)+"(nolign-1)" With 0
+      Next
+      [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
+      Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+      Call CALNET (1,"",[M:SQH2]GROPRI(nolign-1),[L]F_MONTANT,[M:SQH2]QTY(nolign-1),[M:SQH2]NETPRI(nolign-1),[M:SQH0]CUR) From TRTPRICE
+      If [M:SQH2]NETPRI(nolign-1) > 0 Then
+        Local Decimal LCOSTEOFERTA                                                                                        # JC.27102021.Cambio de divisas
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01    # JC.27102021.Cambio de divisas
+#        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+        Affzo [M:SQH2]ZPFM(nolign-1)
+      Endif
+      [M]PRIREN(nolign-1) = 0
+    Else
+      [M:SQH2]ZTIPOPRECIO(nolign-1) = 1
+      Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+      Call CALNET (1,"",[M:SQH2]GROPRI(nolign-1), [L]F_MONTANT,[M:SQH2]QTY(nolign-1),[M:SQH2]NETPRI(nolign-1), [M:SQH0]CUR) From TRTPRICE
+      If [M:SQH2]NETPRI(nolign-1) > 0 Then
+        Local Decimal LCOSTEOFERTA                                                                                        # JC.27102021.Cambio de divisas
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01    # JC.27102021.Cambio de divisas
+#        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+        [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+        Affzo [M:SQH2]ZPFM(nolign-1)
+      Endif
+    Endif
+    Affzo [M:SQH2]GROPRI(nolign-1)
+    Default Mask [M:SQH2]
+    Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+    Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+    Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+# JC.09092021.vtas029.END
+##################################################################################
+
+  Endif
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zporcoste"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Después de modificar el campo '%Margen' (pantalla SQH2) 14/06/2021 17:40:58 (ADEV)
+######################################################################################
+# JC.14062021.vtas029
+Subprog AM_ZPFM(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zpfm"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+Local Integer YESNO : YESNO = 2
+Local Decimal F_SAV_NETPRI
+
+  If VALEUR < 100 Then
+    # si GCTRLSTA=0 quiere decir que la llamada a AM_ZPFM viene de la acción del campo
+    If GCTRLSTA = 0 Then
+      Call OUINON("¿Recalcular precio según % margen?",YESNO)From GESECRAN
+      If YESNO = 2 Then
+#        GCTRLSTA = 1
+        If [M:SQH2]NETPRI(nolign-1) = 0 Then
+          [M:SQH2]NETPRI(nolign-1)  = 1
+          [M:SQH2]GROPRI(nolign-1)  = 1
+        Endif
+
+#        F_SAV_NETPRI = [M:SQH2]NETPRI(nolign-1)
+
+#        [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]CPRPRI(nolign-1)+[M:SQH2]CPRPRI(nolign-1)*(VALEUR/100)
+#        [M:SQH2]GROPRI(nolign-1)      = ([M:SQH2]GROPRI(nolign-1)*[M:SQH2]NETPRI(nolign-1))/F_SAV_NETPRI
+        If (1-(VALEUR/100)) <> 0 Then
+          [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
+        Endif
+        Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]NETPRI(nolign-1),1,[M:SQH0]QUODAT,[M:SQH2]NETPRI(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
+        [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]NETPRI(nolign-1)
+        [M:SQH2]DISCRGVAL1(nolign-1)  = 0
+        [M:SQH2]DISCRGVAL2(nolign-1)  = 0
+        [M:SQH2]DISCRGVAL3(nolign-1)  = 0
+        Affzo [M:SQH2]NETPRI(nolign-1)
+        Affzo [M:SQH2]GROPRI(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL2(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL3(nolign-1)
+#        Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From SUBSQH
+#        Call AM_GROPRI([M:SQH2]GROPRI(nolign-1))
+##If GUSER="ADEV" Then : Infbox "1entro am_zpfm"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+        Default Mask [M:SQH2]
+        Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+        Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+        Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+##If GUSER="ADEV" Then : Infbox "2entro am_zpfm"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+        Affzo [M:SQH2]GROPRI(nolign-1)
+        Affzo [M:SQH2]NETPRI(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL2(nolign-1)
+        Affzo [M:SQH2]DISCRGVAL3(nolign-1)
+
+#        GCTRLSTA = 0
+      Endif
+
+      Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+      If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+        If VALEUR < PUMBRALMRG Then
+          Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+        Else
+          Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+        Endif
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+      Endif
+      Affzo [M:SQH2]NBLIG(nolign-1)
+
+      # si GCTRLSTA=1 quiere decir que la llamada a AM_ZPFM viene de otra función del código, por tanto no queremos que muestre la pregunta de recálculo
+    Elsif GCTRLSTA = 1 Then
+#      GCTRLSTA = 1
+      If [M:SQH2]NETPRI(nolign-1) = 0 Then
+        [M:SQH2]NETPRI(nolign-1)  = 1
+        [M:SQH2]GROPRI(nolign-1)  = 1
+      Endif
+
+#      F_SAV_NETPRI = [M:SQH2]NETPRI(nolign-1)
+#      [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]CPRPRI(nolign-1)+[M:SQH2]CPRPRI(nolign-1)*(VALEUR/100)
+#      [M:SQH2]GROPRI(nolign-1)      = ([M:SQH2]GROPRI(nolign-1)*[M:SQH2]NETPRI(nolign-1))/F_SAV_NETPRI
+      If (1-(VALEUR/100)) <> 0 Then
+        [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
+      Endif
+      [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]NETPRI(nolign-1)
+      [M:SQH2]DISCRGVAL1(nolign-1)  = 0
+      [M:SQH2]DISCRGVAL2(nolign-1)  = 0
+      [M:SQH2]DISCRGVAL3(nolign-1)  = 0
+      Affzo [M:SQH2]NETPRI(nolign-1)
+      Affzo [M:SQH2]GROPRI(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL2(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL3(nolign-1)
+#      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From SUBSQH
+#      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1))
+      Default Mask [M:SQH2]
+      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+
+      Affzo [M:SQH2]GROPRI(nolign-1)
+      Affzo [M:SQH2]NETPRI(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL1(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL2(nolign-1)
+      Affzo [M:SQH2]DISCRGVAL3(nolign-1)
+
+      Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+      If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+        If VALEUR < PUMBRALMRG Then
+          Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+        Else
+          Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+        Endif
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+      Endif
+      Affzo [M:SQH2]NBLIG(nolign-1)
+
+#        GCTRLSTA = 0
+    Endif
+
+    # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+    [M:SQH2]ZTIPOPRECIO(nolign-1) = 3
+    Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+
+    # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+    [M:SQH2]PRIREN(nolign-1) = 1
+    Affzo [M:SQH2]PRIREN(nolign-1)
+
+    # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo descuento'
+    [M:SQH2]DISCRGREN1(nolign-1) = 1
+    Affzo [M:SQH2]DISCRGREN1(nolign-1)
+
+  Else
+    Call ERREURT("Porcentaje máximo permitido 99,99%",0) From GESECRAN
+    mkstat = 2
+  Endif
+#If GUSER="ADEV" Then : Infbox "salgo am_zpfm"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Antes de modificar el campo 'Precio cliente' (pantalla SQH2) 14/06/2021 15:47:11 (ADEV)
+######################################################################################
+Subprog AM_ZPRECLI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro am_zprecli"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+# JC.14062021.STR.ddf unipre.ZUNPR
+  Case [M:SQH2]ZUNPRE(nolign-1)
+    When "UN"        :   [M:SQH2]GROPRI(nolign-1) = VALEUR       : Affzo [M:SQH2]GROPRI(nolign-1)
+    When "CEN"       :   [M:SQH2]GROPRI(nolign-1) = VALEUR/100   : Affzo [M:SQH2]GROPRI(nolign-1)
+    When "MIL"       :   [M:SQH2]GROPRI(nolign-1) = VALEUR/1000  : Affzo [M:SQH2]GROPRI(nolign-1)
+    When Default
+  Endcase
+  Affzo [M:SQH2]GROPRI(nolign-1)
+
+#  Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From SUBSQH
+#  Call AM_GROPRI([M:SQH2]GROPRI(nolign-1))
+  Default Mask [M:SQH2]
+  Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+  Call AP_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+  Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+
+# JC.14062021.vtas029.STR
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA                                                                                        # JC.27102021.Cambio de divisas
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01    # JC.27102021.Cambio de divisas
+#    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - [M:SQH2]ZCOSOFER(nolign-1)) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+      If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+      Endif
+    Else
+      Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+    Endif
+    Affzo [M:SQH2]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
+# JC.14062021.vtas029.END
+
+  # como se modifica el precio manualmente, guardamos este valor en el campo 'Tipo precio'
+  [M:SQH2]ZTIPOPRECIO(nolign-1) = 3
+  Affzo [M:SQH2]ZTIPOPRECIO(nolign-1)
+  # como se modifica el precio manualmente, guardamos este valor en el campo 'Motivo precio'
+  [M:SQH2]PRIREN(nolign-1) = 1
+  Affzo [M:SQH2]PRIREN(nolign-1)
+# JC.14062021.END.ddf unipre.ZUNPR
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zprecli"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Antes de entrada al campo 'Precio cliente' (pantalla SQH2) 14/06/2021 16:38:08 (ADEV)
+######################################################################################
+Subprog AS_ZPRECLI(VALEUR)
+Variable Decimal VALEUR
+#If GUSER="ADEV" Then : Infbox "entro as_zprecli"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+# JC.14062021.STR.ddf unipre.ZUNPR
+  Case [M:SQH2]ZUNPRE(nolign-1)
+    When "UN"        :   VALEUR  = [M:SQH2]GROPRI(nolign-1)
+    When "CEN"       :   VALEUR  = [M:SQH2]GROPRI(nolign-1) * 100
+    When "MIL"       :   VALEUR  = [M:SQH2]GROPRI(nolign-1) * 1000
+    When Default
+  Endcase
+  [M:SQH2]ZPRECLI(nolign-1) = VALEUR
+# JC.14062021.END.ddf unipre.ZUNPR
+
+#If GUSER="ADEV" Then : Infbox "entro as_zprecli"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Antes de modificar el campo 'Unidad precio' (pantalla SQH2) 14/06/2021 15:47:11 (ADEV)
+######################################################################################
+# JC.14062021.ddf unipre.ZUNPR
+Subprog AM_ZUNPRE(VALEUR)
+Variable Char    VALEUR()
+#If GUSER="ADEV" Then : Infbox "entro am_zunpre"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+
+  Case VALEUR
+    When "UN"        :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1)
+    When "CEN"       :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1) * 100
+    When "MIL"       :   [M:SQH2]ZPRECLI(nolign-1)  = [M:SQH2]GROPRI(nolign-1) * 1000
+    When Default
+  Endcase
+  Affzo [M:SQH2]ZPRECLI(nolign-1)
+
+#If GUSER="ADEV" Then : Infbox "salgo am_zunpre"-num$([M:SQH2]GROPRI(nolign-1)) : Endif
+End
+
+######################################################################################
+## Botón 20 'Stock proyectado' (pantalla SQH2) 15/06/2021 11:23:46 (ADEV)
+######################################################################################
+# JC.14062021.vtas029
+Subprog B20_NBLIG
+Local Char    PARAM(20)(1..4)
+
+  GACTION   = "CONSSPR"
+  PARAM(1)  = "0"
+  PARAM(2)  = [M:SQH2]DSTOFCY(nolign-1)
+  PARAM(3)  = [M:SQH2]ITMREF(nolign-1)
+  PARAM(4)  = ""
+  Call GCONSULT("SPR","",PARAM) From GCONSULT
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################
+##############################################################
+Subprog  CARGAR_PEDIDOS(PS_ITMREF, PS_BPCORD, PS_SOHNUM)
+Value Char PS_ITMREF
+Value Char PS_BPCORD
+Value Char PS_SOHNUM
+
+Local Char    LSQL(250)(1..)
+Local Integer I_NUM_REG
+
+  # pedidos pendientes de servir (no saldados)
+  LSQL(1) = "SELECT SOH.SOHTYP_0,SOQ.SOHNUM_0,SOQ.SOPLIN_0,SOQ.ORDDAT_0,SOQ.DEMDLVDAT_0,SOQ.QTY_0,SOP.ZPRECLI_0,SOQ.DLVQTY_0,SOP.DISCRGVAL1_0,SOP.NETPRINOT_0,SOP.GROPRI_0 "
+  LSQL(2) = "FROM " + nomap + ".SORDERQ SOQ "
+  LSQL(3) = "INNER JOIN " + nomap + ".SORDER SOH ON SOH.SOHNUM_0 = SOQ.SOHNUM_0 "
+  LSQL(4) = "INNER JOIN " + nomap + ".SORDERP SOP ON SOP.SOHNUM_0 = SOQ.SOHNUM_0 and SOP.SOPLIN_0 = SOQ.SOPLIN_0 and SOP.SOPSEQ_0 = SOQ.SOQSEQ_0 "
+  LSQL(5) = "WHERE SOQ.SOQSTA_0 <> 3 AND SOQ.SOHNUM_0 <> '"+PS_SOHNUM+"' AND SOQ.ITMREF_0 = '"+PS_ITMREF+"' AND SOQ.BPCORD_0 = '"+PS_BPCORD+"' "
+  LSQL(6) = "ORDER BY SOH.SOHTYP_0 ASC, SOQ.ORDDAT_0 DESC"
+
+  For (Char LSOHTYP(250),Char LSOHNUM(250),Integer LSOPLIN,Date LORDDAT,Date LDEMDLVDAT,Decimal LQTY,Decimal LZPRECLI,Decimal LDLVQTY,Decimal LDISCRGVAL1,Decimal LNETPRINOT,Decimal LGROPRI)
+&     From "5" Sql LSQL(1..6) As [Z00]
+    [M:ZSQH1]ZSOHTYP([L]I_NUM_REG)    = [F:Z00]LSOHTYP
+    [M:ZSQH1]ZSOHNUM([L]I_NUM_REG)    = [F:Z00]LSOHNUM
+    [M:ZSQH1]ZSOPLIN([L]I_NUM_REG)    = [F:Z00]LSOPLIN
+    [M:ZSQH1]ZSOHDAT([L]I_NUM_REG)    = [F:Z00]LORDDAT
+    [M:ZSQH1]ZDEMDLVDAT([L]I_NUM_REG) = [F:Z00]LDEMDLVDAT
+    [M:ZSQH1]ZQTYSOH([L]I_NUM_REG)    = [F:Z00]LQTY
+    [M:ZSQH1]ZPRISOH([L]I_NUM_REG)    = [F:Z00]LZPRECLI
+    [M:ZSQH1]ZQTYPEND([L]I_NUM_REG)   = [F:Z00]LQTY - [F:Z00]LDLVQTY
+    [M:ZSQH1]ZDESCSOH([L]I_NUM_REG)   = [F:Z00]LDISCRGVAL1
+    [M:ZSQH1]ZLINORDNOT([L]I_NUM_REG) = [F:Z00]LNETPRINOT * [F:Z00]LQTY
+    [M:ZSQH1]ZSALDADAFLG([L]I_NUM_REG)= 1
+    [M:ZSQH1]NBLIG1 = I_NUM_REG + 1
+    I_NUM_REG + = 1
+
+
+    If I_NUM_REG >= 50 Then
+      Break
+    Endif
+  Next
+
+  # si no ha llegado a 50 en el filtro anterior, muestra los pedidos saldados
+  If I_NUM_REG < 50 Then
+    Raz LSQL
+    # pedidos saldados
+    LSQL(1) = "SELECT SOH.SOHTYP_0,SOQ.SOHNUM_0,SOQ.SOPLIN_0,SOQ.ORDDAT_0,SOQ.DEMDLVDAT_0,SOQ.QTY_0,SOP.ZPRECLI_0,SOQ.DLVQTY_0,SOP.DISCRGVAL1_0,SOP.NETPRINOT_0,SOP.GROPRI_0 "
+    LSQL(2) = "FROM " + nomap + ".SORDERQ SOQ "
+    LSQL(3) = "INNER JOIN " + nomap + ".SORDER SOH ON SOH.SOHNUM_0 = SOQ.SOHNUM_0 "
+    LSQL(4) = "INNER JOIN " + nomap + ".SORDERP SOP ON SOP.SOHNUM_0 = SOQ.SOHNUM_0 and SOP.SOPLIN_0 = SOQ.SOPLIN_0 and SOP.SOPSEQ_0 = SOQ.SOQSEQ_0 "
+    LSQL(5) = "WHERE SOQ.SOQSTA_0 = 3 AND SOQ.SOHNUM_0 <> '"+PS_SOHNUM+"' AND SOQ.ITMREF_0 = '"+PS_ITMREF+"' AND SOQ.BPCORD_0 = '"+PS_BPCORD+"' "
+#    LSQL(6) = "ORDER BY SOH.SOHTYP_0 ASC, SOQ.ORDDAT_0 DESC"
+    LSQL(6) = "ORDER BY SOQ.ORDDAT_0 DESC"
+
+    For (Char LSOHTYP(250),Char LSOHNUM(250),Integer LSOPLIN,Date LORDDAT,Date LDEMDLVDAT,Decimal LQTY,Decimal LZPRECLI,Decimal LDLVQTY,Decimal LDISCRGVAL1,Decimal LNETPRINOT,Decimal LGROPRI)
+&       From "5" Sql LSQL(1..6) As [Z00]
+      [M:ZSQH1]ZSOHTYP([L]I_NUM_REG)    = [F:Z00]LSOHTYP
+      [M:ZSQH1]ZSOHNUM([L]I_NUM_REG)    = [F:Z00]LSOHNUM
+      [M:ZSQH1]ZSOPLIN([L]I_NUM_REG)    = [F:Z00]LSOPLIN
+      [M:ZSQH1]ZSOHDAT([L]I_NUM_REG)    = [F:Z00]LORDDAT
+      [M:ZSQH1]ZDEMDLVDAT([L]I_NUM_REG) = [F:Z00]LDEMDLVDAT
+      [M:ZSQH1]ZQTYSOH([L]I_NUM_REG)    = [F:Z00]LQTY
+      [M:ZSQH1]ZPRISOH([L]I_NUM_REG)    = [F:Z00]LZPRECLI
+      [M:ZSQH1]ZQTYPEND([L]I_NUM_REG)   = [F:Z00]LQTY - [F:Z00]LDLVQTY
+      [M:ZSQH1]ZDESCSOH([L]I_NUM_REG)   = [F:Z00]LDISCRGVAL1
+      [M:ZSQH1]ZLINORDNOT([L]I_NUM_REG) = [F:Z00]LNETPRINOT * [F:Z00]LQTY
+      [M:ZSQH1]ZSALDADAFLG([L]I_NUM_REG)= 2
+      [M:ZSQH1]NBLIG1 = I_NUM_REG + 1
+      [L]I_NUM_REG + = 1
+      If [L]I_NUM_REG >= 50 Then
+        Break
+      Endif
+    Next
+  Endif
+
+#Local File    SORDERQ [XSOQ]
+#Local File    SORDERP [XSOP]
+#Local File    SORDER  [XSOH]
+#
+#  # primero filtra entre los pedidos entregados
+#  Filter [XSOQ] Where [F:XSOQ]SOHNUM <> PS_SOHNUM and [F:XSOQ]ITMREF = PS_ITMREF and [F:XSOQ]BPCORD = PS_BPCORD and [F:XSOQ]SDHNUM <> "" Order By [F:XSOQ]ORDDAT Desc
+#  Local Integer I_NUM_REG
+#  For [XSOQ]
+#    Gosub CARGAR_GRID_PEDIDOS
+#    [L]I_NUM_REG+= 1
+#    If [L]I_NUM_REG >= 15 Then
+#      Break
+#    Endif
+#  Next
+#  # JC.15072021.STR.vtas029
+#  Sorta [M:ZSQH1]NBLIG1 [M:ZSQH1]NBLIG1 Order By [M:ZSQH1]ZSOHTYP(indice) Asc
+#  # JC.15072021.END.vtas029
+#
+#  # si no ha llegado a 15 en el filtro anterior, muestra los pedidos no entregados hasta 15
+#  If [L]I_NUM_REG < 15 Then
+#    Filter [XSOQ] Where [F:XSOQ]SOHNUM <> PS_SOHNUM and [F:XSOQ]ITMREF = PS_ITMREF and [F:XSOQ]BPCORD = PS_BPCORD and [F:XSOQ]SDHNUM = "" Order By [F:XSOQ]ORDDAT Desc
+#    Local Integer I_NUM_REG
+#    For [XSOQ]
+#      Gosub CARGAR_GRID_PEDIDOS
+#      [L]I_NUM_REG+= 1
+#      If [L]I_NUM_REG >= 15 Then
+#        Break
+#      Endif
+#    Next
+#    # JC.15072021.STR.vtas029
+#    Sorta [M:ZSQH1]NBLIG1 [M:ZSQH1]NBLIG1 Order By [M:ZSQH1]ZSOHTYP(indice) Asc
+#    # JC.15072021.END.vtas029
+#  Endif
+
+End
+
+##############################################################
+Subprog CARGAR_PRESUPUESTOS(PS_ITMREF, PS_BPCORD, PS_SQHNUM)
+Value Char PS_ITMREF
+Value Char PS_BPCORD
+Value Char PS_SQHNUM
+
+Local File SQUOTED [XSQD]
+Local File SQUOTE  [XSQH]
+
+  Filter [XSQD] Where [F:XSQD]SQHNUM <> PS_SQHNUM and [F:XSQD]ITMREF = PS_ITMREF and [F:XSQD]BPCORD = PS_BPCORD Order By [XSQD]QUODAT Desc;[XSQD]SQHNUM Desc
+  Local Integer I_NUM_REG
+  For [XSQD]
+    Gosub CARGAR_GRID_PRESUPUESTO
+    [L]I_NUM_REG+= 1
+    If [L]I_NUM_REG >= 50 Then
+      Break
+    Endif
+  Next
+
+End
+
+##############################################################
+#MODIF RPES 20201217 Tarifas transportistas
+Funprog GET_ZFREINV(PS_BPCNUM)
+Value Char PS_BPCNUM
+
+Local File BPCUSTOMER [BPC]
+
+Read [F:BPC]BPC0 = PS_BPCNUM
+If fstat = 0 Then
+  End [F:BPC]FREINV
+Endif
+
+End 0
+#FIN MODIF RPES 20201217 Tarifas transportistas
+
+#############################################################################
+#MODIF JESP 20210121 Tarifas transportistas
+
+Funprog CONVERTIR_CANTIDAD (PS_UOM_ORI, PS_UOM_DES, PF_QTY)
+Value Char PS_UOM_ORI
+Value Char PS_UOM_DES
+Value Decimal PF_QTY
+
+Local Decimal F_QTY_DES
+
+Local File TABCOEFF [F:ZTCO]
+
+If PS_UOM_ORI = "" or PS_UOM_DES = "" or PS_UOM_ORI = PS_UOM_DES Then
+  [L]F_QTY_DES = PF_QTY
+Else
+  Read [F:ZTCO]TCO0 = PS_UOM_ORI;PS_UOM_DES
+  If fstat = 0 Then
+    [L]F_QTY_DES = [L]PF_QTY * [F:ZTCO]COEUOM
+  Endif
+Endif
+
+Close Local File [F:ZTCO]
+
+End [L]F_QTY_DES
+
+#FIN JESP
+
+##############################################################
+#Subprog RESTAQTY_SOHPA(PSOHNUM,PSOPLIN,PQTYSOHPA,PQTYSOHPN)
+Subprog RESTAQTY_SOHPA()
+#Value   Char    PSOHNUM
+#Value   Integer PSOPLIN
+#Value   Decimal PQTYSOHPA,PQTYSOHPN
+Local   Char    PSOHNUM(100)
+Local   Integer PSOPLIN
+Local   Decimal PQTYSOHPA,PQTYSOHPN
+
+Local   Char    LFILE(250)
+Local   Decimal LQTYSOHDIF
+Local   Integer LSOQSTA : LSOQSTA = 1
+Local   Char    LORDDAT(15)
+Local   Integer LCON,LPROCESA
+
+  If !clalev([F:ZSOH]) Then : Local File SORDER   [F:ZSOH] : Endif
+  If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP] : Endif
+
+  LFILETMP = filpath("ZIMPORT","","")
+  LFILETMP = LFILETMP+"\Act_qty_grid_soh2.txt"
+
+  # borramos el fichero si existe...
+  If filinfo(LFILETMP, 7) > 0 Then
+    System "ae_rm " + LFILETMP
+  Endif
+
+  # abre el fichero
+  adxifs = ";"
+  adxirs = chr$(13)+chr$(10)
+  Openo LFILETMP Using [ZIMP_W]
+
+  LORDDAT = ctrans(num$([F:ZSOH]ORDDAT),"/","")
+
+  For LCON=0 To [M:SQH2]NBLIG-1
+
+    If [M:SQH2]ZSOHNUMACT(LCON) <> "" and [M:SQH2]ZSOPLINACT(LCON) <> 0 and [M:SQH2]ZQTYLINACT(LCON) <> 0 Then
+
+      LPROCESA  = 1
+      PSOHNUM   = [M:SQH2]ZSOHNUMACT(LCON)
+      PSOPLIN   = [M:SQH2]ZSOPLINACT(LCON)
+      PQTYSOHPA = [M:SQH2]ZQTYLINACT(LCON)
+      PQTYSOHPN = [M:SQH2]QTY(LCON)
+      Read [F:ZSOH]SOH0 = PSOHNUM
+      Read [F:ZSOP]SOP3 = PSOHNUM;PSOPLIN
+
+      LORDDAT = ctrans(num$([F:ZSOH]ORDDAT),"/","")
+
+      LSOQSTA     = 1
+      LQTYSOHDIF  =  PQTYSOHPA - PQTYSOHPN
+      If LQTYSOHDIF <= 0 Then
+        LQTYSOHDIF  = 1
+        LSOQSTA     = 3
+      Endif
+
+      # datos de cabecera de pedido
+      Wrseq "E" + ";" + [F:ZSOH]SALFCY + ";" + [F:ZSOH]SOHTYP + ";" + [F:ZSOH]SOHNUM + ";" + [F:ZSOH]BPCORD + ";" + LORDDAT + ";" + [F:ZSOH]CUSORDREF + ";" +
+&           [F:ZSOH]STOFCY + ";" + [F:ZSOH]CUR + ";" + [F:ZSOH]ZCLAOFER Using [ZIMP_W]
+      # datos de la línea de pedido
+      Wrseq "L" + ";" + num$([F:ZSOP]SOPLIN) + ";" + [F:ZSOP]ITMREF + ";" + [F:ZSOP]STOFCY + ";" + num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" +
+&           num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" + num$(LSOQSTA) + ";" + "2" + ";" + num$([F:ZSOP]ZPORCOSTE) + ";" +
+&           num$([F:ZSOP]ZPFM) + ";" + num$([F:ZSOP]ZPRECLI) + ";" + num$([F:ZSOP]GROPRI) + ";" + num$([F:ZSOP]ZPREOFERTA) Using [ZIMP_W]
+
+      # desasignación de la línea de pedido
+      Local Integer FGSERVEUR : FGSERVEUR=GSERVEUR
+      GSERVEUR = 1
+      Gosub INIT          From FUNDESALL
+      [M:DIA]STOFCY     = [F:ZSOH]STOFCY
+      [M:DIA]SHIDAT     = [F:ZSOH]SHIDAT
+      [M:DIA]SOHNUMDEB  = PSOHNUM
+      [M:DIA]SOHNUMFIN  = PSOHNUM
+      [M:DIA]ALLCRITENT = "[F:SOQ]SOPLIN="+ num$(PSOPLIN)
+      Gosub EXEC          From FUNDESALL
+      Gosub TERMINE       From FUNDESALL
+      GSERVEUR = FGSERVEUR
+
+    Endif
+
+  Next
+
+  Openo Using [ZIMP_W]
+
+  If LPROCESA = 1 Then
+    GZDEJOB = 1
+    Gosub GEN_JOBSOH
+  Endif
+
+  Close Local File [ZSOH],[ZSOP]
+
+End
+
+###############################################################################
+$GEN_JOBSOH
+Local Char    LFILE(250),LFILERR(250)
+Local Char    LDIRIMPORT(250) : LDIRIMPORT = filpath("ZIMPORT","","")
+Local Char    ZNOMIMP(250)
+Local Char    ZMODIMP(20)
+Local Char    ZVOLFIL(250), ZRUTAJOB(250)
+Local Char    LFECHA(250),LHORA(250)
+Local Integer LTIPOMSS
+Local Char    LMESS(250),LTRA(250)
+
+  LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+  LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,4)
+
+  LFILE   = LDIRIMPORT + "\Act_qty_grid_soh2.txt"
+  LFILERR = LDIRIMPORT + "\Act_qty_grid_soh2.txt.err"
+
+  ZMODIMP = "ZSOHACT"
+  ZNOMIMP = LFILE
+  ZVOLFIL = "[ZIMPORT]/Act_qty_grid_soh2.txt"
+  ZRUTAJOB= "D:\Sage\SAGEX3\folders\IMPORT\BATCH\JOB\" + "Act_qty_grid_soh_" + LFECHA + "_" + LHORA + ".job"
+  Call CREAR_JOB(ZMODIMP,ZNOMIMP,ZVOLFIL,ZRUTAJOB) From ZAULIB01
+
+  Call GESTION_FILE_STA("D:\Sage\SAGEX3\folders\IMPORT\BATCH\STA\" + "Act_qty_grid_soh_" + LFECHA + "_" + LHORA + ".sta",LTIPOMSS,LMESS,LTRA) From ZAULIB01
+
+  Case LTIPOMSS
+    When 0 : Call MESSAGE(LMESS) From GESECRAN
+    When 1
+      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+      GCORREO   = "sergi.cunill@hispanox.com"
+      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+      Read [F:ZAUT]CODUSR = GUSER
+      If !fstat Then
+        If [F:ZAUT]ADDEML <> "" Then
+          GCORREO = [F:ZAUT]ADDEML
+        Endif
+      Endif
+      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,
+& "Petición finalizada con errores")        From GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      GASUNTO   = "Error en la actualización de pedido abierto"
+      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+      GTEXTO3   = "Documento adjunto con la traza"
+      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Close Local File [ZAUT]
+    When 2
+      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+      GCORREO   = "sergi.cunill@hispanox.com"
+      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+      Read [F:ZAUT]CODUSR = GUSER
+      If !fstat Then
+        If [F:ZAUT]ADDEML <> "" Then
+          GCORREO = [F:ZAUT]ADDEML
+        Endif
+      Endif
+      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"Tratamiento no lanzado") From
+& GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      GASUNTO   = "Error en la actualización de pedido abierto"
+      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+      GTEXTO3   = "Documento adjunto con la traza"
+      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Close Local File [ZAUT]
+    When 3
+      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+      GCORREO   = "sergi.cunill@hispanox.com"
+      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+      Read [F:ZAUT]CODUSR = GUSER
+      If !fstat Then
+        If [F:ZAUT]ADDEML <> "" Then
+          GCORREO = [F:ZAUT]ADDEML
+        Endif
+      Endif
+      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"Tratamiento detenido") From
+& GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      GASUNTO   = "Error en la actualización de pedido abierto"
+      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+      GTEXTO3   = "Documento adjunto con la traza"
+      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Close Local File [ZAUT]
+    When 4
+      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+      GCORREO   = "sergi.cunill@hispanox.com"
+      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+      Read [F:ZAUT]CODUSR = GUSER
+      If !fstat Then
+        If [F:ZAUT]ADDEML <> "" Then
+          GCORREO = [F:ZAUT]ADDEML
+        Endif
+      Endif
+      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"TIMEOUT") From GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      GASUNTO   = "Error en la actualización de pedido abierto"
+      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+      GTEXTO3   = "Documento adjunto con la traza"
+      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Close Local File [ZAUT]
+    When 5
+      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+      GCORREO   = "sergi.cunill@hispanox.com"
+      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+      Read [F:ZAUT]CODUSR = GUSER
+      If !fstat Then
+        If [F:ZAUT]ADDEML <> "" Then
+          GCORREO = [F:ZAUT]ADDEML
+        Endif
+      Endif
+      Call ERREUR(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH) From GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      GASUNTO   = "Error en la actualización de pedido abierto"
+      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+      GTEXTO3   = "Documento adjunto con la traza"
+      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Close Local File [ZAUT]
+  Endcase
+
+  # borramos el fichero si existe...
+  If filinfo(LFILE, 7) > 0 Then
+    System "ae_rm " + LFILE
+  Endif
+  If filinfo(LFILERR, 7) > 0 Then
+    System "ae_rm " + LFILERR
+  Endif
+
+Return

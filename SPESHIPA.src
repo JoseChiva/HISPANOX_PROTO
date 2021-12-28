@@ -1,0 +1,366 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#####################################################################################
+# Src: SPESHIPA
+#-------------------------------------------------------------------------------------
+# (Expediciones - Acciones)
+#-------------------------------------------------------------------------------------
+# Proyecto: HISPANOX
+#-------------------------------------------------------------------------------------
+# Version: v12
+#-------------------------------------------------------------------------------------
+# Fecha:01-01-2021
+#-------------------------------------------------------------------------------------
+# Desarrollador: AFVI
+# Codigo Actividad: ZC015
+#######################################################################################
+#DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
+
+$OUVRE
+If clalev([ZPOP])<=0  :  Local File PORDERP [ZPOP]  :  Endif
+If clalev([ZPOQ])<=0  :  Local File PORDERQ [ZPOQ]  :  Endif
+If clalev([ZOR])<=0  :  Local File ZORIG [ZOR]  :  Endif
+If clalev([ZORD])<=0  :  Local File ORDERS [ZORD]  :  Endif
+Global Integer ZDEL :Raz ZDEL
+Return
+
+#############################################################################
+$STYLE
+Local Integer QTYENVIADA,K
+
+For K = 0 To [M:SHIP1]NBLIG-1
+  Raz QTYENVIADA
+  QTYENVIADA = max([M:SHIP1]RCPQTYSTU(K),[M:SHIP1]SHIQTY(K))
+  #Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(K);[M:SHIP1]POPLIN(K);[M:SHIP1]POQSEQ(K)
+  Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(K);[M:SHIP1]POPLIN(K);[M:SHIP1]POQSEQ(K)
+  If !fstat
+    #If GUSER= "ADMIN" Infbox num$(QTYENVIADA)+"/"+num$([F:ZPOQ]QTYSTU+[M:SHIP1]ZQTYTOL(K)) Endif
+    If QTYENVIADA> [F:ZPOQ]QTYSTU+[M:SHIP1]ZQTYTOL(K)
+      Chgstl [M:SHIP1]ZQTYTOL(K) With "BACKRED"
+    Else
+      Chgstl [M:SHIP1]ZQTYTOL(K) With ""
+    Endif
+  Endif
+Next
+
+
+Return
+
+#############################################################################
+$SETBOUT
+
+Gosub ACTION From SUBSHIP
+GPE=1
+If [M:SHIP1]ZVCRLINSUP = 0 and [M:SHIP1]NBLIG>0
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Grizo [M:SHIP1]NBLIG2
+Endif
+
+Local Integer TMPLIG : TMPLIG=nolign
+For K = 0 To [M:SHIP1]NBLIG-1
+  nolign = K+1
+  Gosub COLOR_ROJO
+Next
+nolign=TMPLIG
+Return
+
+#############################################################################
+$APRES_MODIF
+ZDEL = 0
+If status = 65 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una linea de una grilla
+  ZDEL = 1
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Grizo [M:SHIP1]NBLIG2
+  Affzo [M:SHIP1]10
+  Affzo [M:SHIP1]15
+  For I=0 To [M:SHIP1]NBLIG3-1
+    If [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]POPLIN(nolign-1) and [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]POHNUM(nolign-1)
+      Dela I, 1, [M:SHIP1]NBLIG3-1 [M:SHIP1]NBLIG3
+      [M:SHIP1]NBLIG3 -= 1
+      I -= 1
+    Endif
+  Next
+  Affzo [M:SHIP1]20
+Endif
+
+If status = 83 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una grilla
+  ZDEL = 1
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Affzo [M:SHIP1]10
+  Affzo [M:SHIP1]15
+  Grizo [M:SHIP1]NBLIG2
+  Raz [M:SHIP1]NBLIG3
+  Affzo [M:SHIP1]20
+Endif
+
+Return
+#############################################################################
+
+$LIENS
+Gosub ACTION From SUBSHIP
+GPE=1
+Titcol [M:SHIP1]NBLIG "Arancel" For CPRCOE
+#Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+#
+#Grizo [M:SHIP1]NBLIG2
+nolign = 0
+
+Raz [M:SHIP1]NBLIG3
+For [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
+  [M:SHIP1]ZITMREF(nolign) = [F:ZOR]ZITMREF
+  [M:SHIP1]ZPOHNUM(nolign) = [F:ZOR]ZPOHNUM
+  [M:SHIP1]ZLOTE(nolign) = [F:ZOR]ZLOTE
+  [M:SHIP1]ZQTYLIN(nolign) = [F:ZOR]ZQTYLIN
+  [M:SHIP1]ZPALETP(nolign) = [F:ZOR]ZPALETP
+  [M:SHIP1]ZVCRLIN(nolign) = [F:ZOR]ZVCRLIN
+  [M:SHIP1]NBLIG3 += 1
+  nolign+=1
+Next
+
+
+For I = 0 To [M:SHIP1]NBLIG-1
+  Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
+  If !fstat
+    Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
+    [M:SHIP1]ZLPORCTOL(I) = [F:ZPOP]ZLPORCTOL
+    [M:SHIP1]ZQTYTOL(I) = [F:ZPOQ]QTYSTU*([F:ZPOP]ZLPORCTOL)/100 # Cantidad tolerancia
+    [M:SHIP1]ZQTYPENDENV(I) = [F:ZPOQ]QTYSTU - max([M:SHIP1]RCPQTYSTU(I),[M:SHIP1]SHIQTY(I))# Cantidad pendiente enviar
+    [M:SHIP1]ZWQTYPENV(I) = [M:SHIP1]ZQTYPENDENV(I)*[F:ZPOQ]QTYWEU/[F:ZPOQ]QTYSTU # Peso cantidad pendiente de enviar
+    [M:SHIP1]ZQTYEXE(I) = [M:SHIP1]RCPQTYSTU(I)+[M:SHIP1]SHIQTY(I) - [F:ZPOQ]QTYSTU # Cantidad enviada excedida
+    If [M:SHIP1]ZQTYEXE(I)<0 : [M:SHIP1]ZQTYEXE(I) = 0 Endif
+    [M:SHIP1]ZQTYSTU(I) = [F:ZPOQ]QTYSTU # Cantidad pedido
+    [M:SHIP1]ZQTYSERV(I) = [M:SHIP1]RCPQTYSTU(I)+[M:SHIP1]SHIQTY(I) # Cantidad servida
+    Read [F:ZORD]ORD0 = [F:ZPOQ]WIPTYP;[F:ZPOQ]WIPNUM;[F:ZPOQ]ITMREF
+    If !fstat
+      [M:SHIP1]ZQTYASIG(I) = [F:ZORD]MTOQTY
+    Endif
+  Endif
+Next
+
+Return
+
+#############################################################################
+
+$CREATION
+If !(func VERIF_QTY)
+  GERR = 1 : GOK = 0 :GPE = 1 :Return
+Endif
+
+Gosub ACTION From SUBSHIP
+GPE = 1
+Gosub WRT_ZOR
+
+Return
+
+#############################################################################
+
+$MODIF
+#If !(func VERIF_QTY)
+#  GERR = 1 : GOK = 0 :GPE = 1 :Return
+#Endif
+
+Gosub ACTION From SUBSHIP
+GPE = 1
+
+Delete [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
+
+Gosub WRT_ZOR
+#Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+#
+#Affzo [M:SHIP1]10
+#Affzo [M:SHIP1]15
+#Grizo [M:SHIP1]NBLIG2
+Return
+
+#############################################################################
+$WRT_ZOR
+For I=0 To [M:SHIP1]NBLIG3-1
+  If [M:SHIP1]ZVCRLIN(I)<> 0
+    Raz [F:ZOR]
+    [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
+    [F:ZOR]ZVCRLIN = [M:SHIP1]ZVCRLIN(I)
+    [F:ZOR]ZLIN = I+1
+    [F:ZOR]ZITMREF = [M:SHIP1]ZITMREF(I)
+    [F:ZOR]ZPOHNUM = [M:SHIP1]ZPOHNUM(I)
+    [F:ZOR]ZLOTE = [M:SHIP1]ZLOTE(I)
+    [F:ZOR]ZQTYLIN = [M:SHIP1]ZQTYLIN(I)
+    [F:ZOR]ZPALETP = [M:SHIP1]ZPALETP(I)
+    Write [F:ZOR]
+    If fstat :Call FSTA('ZORIG') From GLOCK Endif
+  Endif
+Next
+
+Return
+
+#############################################################################
+$PICKE
+Gosub ACTION From SUBSHIP
+GPE = 1
+If status=0 and currbox = GBOXPO6
+  [M:SHIP1]ZPALENT(NOL) = [F:POQ]ZPALENT
+  [M:SHIP1]ZLBPSPRI(NOL) = [F:POP]ZLBPSPRI
+  [M:SHIP1]ZLPRIDIV(NOL) = [F:POP]ZLPRIDIV
+  [M:SHIP1]ZDISCRGVAL1(NOL) = [F:POP]DISCRGVAL1
+  [M:SHIP1]ZLPORCTOL(NOL) = [F:POP]ZLPORCTOL
+  [M:SHIP1]ZQTYTOL(NOL) = [F:POQ]QTYSTU*([F:ZPOP]ZLPORCTOL)/100
+  If [F:POQ]ZSTA <> ""
+    [M:SHIP1]STA(NOL) = [F:POQ]ZSTA
+  Else
+    [M:SHIP1]STA(NOL) = "A"
+  Endif
+  Affzo [M:SHIP1]ZPALENT(NOL)
+  Affzo [M:SHIP1]ZLBPSPRI(NOL)
+  Affzo [M:SHIP1]ZLPRIDIV(NOL)
+  Affzo [M:SHIP1]ZDISCRGVAL1(NOL)
+  Affzo [M:SHIP1]STA(NOL)
+  Affzo [M:SHIP1]ZLPORCTOL(NOL)
+Endif
+If currbox = GBOXCTRH
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+
+  Grizo [M:SHIP1]NBLIG2
+  nolign = 0
+
+  For [F:ZOR] Where [F:ZOR]ZVCRNUM = [F:CTRH]CTRNUM
+    [M:SHIP1]ZITMREF(nolign) = [F:ZOR]ZITMREF
+    [M:SHIP1]ZPOHNUM(nolign) = [F:ZOR]ZPOHNUM
+    [M:SHIP1]ZLOTE(nolign) = [F:ZOR]ZLOTE
+    [M:SHIP1]ZQTYLIN(nolign) = [F:ZOR]ZQTYLIN
+    [M:SHIP1]ZPALETP(nolign) = [F:ZOR]ZPALETP
+    [M:SHIP1]ZVCRLIN(nolign) = [F:ZOR]ZVCRLIN
+    [M:SHIP1]NBLIG3 += 1
+    nolign+=1
+  Next
+Endif
+
+Return
+
+#############################################################################
+$DEPICK
+Case currbox
+  When GBOXPO6:
+    Gosub DEPICK_PO6
+
+  When GBOXCTRH:
+    Gosub DEPICK_CTRH
+Endcase
+
+Return
+
+#############################################################################
+$DEPICK_PO6
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Grizo [M:SHIP1]NBLIG2
+Affzo [M:SHIP1]10
+Affzo [M:SHIP1]15
+
+For I=0 To [M:SHIP1]NBLIG3-1
+  If [M:SHIP1]ZVCRLIN(I) = [F:POQ]POPLIN and [M:SHIP1]ZPOHNUM(I) = [F:POQ]POHNUM
+    Dela I, 1, [M:SHIP1]NBLIG3-1 [M:SHIP1]NBLIG3
+    [M:SHIP1]NBLIG3 -= 1
+    I -= 1
+  Endif
+Next
+Affzo [M:SHIP1]20
+Return
+
+#############################################################################
+$DEPICK_CTRH
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Grizo [M:SHIP1]NBLIG2
+Affzo [M:SHIP1]10
+Affzo [M:SHIP1]15
+For K = 0 To [M:SHIP1]NBLIG-1
+  If [M:SHIP1]CTRNUM(K) = [F:CTRH]CTRNUM
+    For I=0 To [M:SHIP1]NBLIG3-1
+      If [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]POPLIN(K) and [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]POHNUM(K)
+        Dela I, 1, [M:SHIP1]NBLIG3-1 [M:SHIP1]NBLIG3
+        [M:SHIP1]NBLIG3 -= 1
+        I -= 1
+      Endif
+    Next
+  Endif
+Next
+Affzo [M:SHIP1]20
+Return
+#############################################################################
+$ANNULE
+
+Delete [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
+#Borrar si tiene contenedor
+
+Return
+
+#############################################################################
+Funprog VERIF_QTY()
+Local Integer FTOT : FTOT = 1
+Local Integer FQTY,TMPLIN : Raz TMPLIN
+Local Decimal TMPTOT
+Local Char TMPPOH(20) : Raz TMPPOH
+For K = 0 To [M:SHIP1]NBLIG-1
+  Raz TMPTOT
+  For I=0 To [M:SHIP1]NBLIG3-1
+    If [M:SHIP1]ZPOHNUM(I) = [M:SHIP1]POHNUM(K) and [M:SHIP1]ZVCRLIN(I) = [M:SHIP1]POPLIN(K)
+      TMPTOT+=[M:SHIP1]ZQTYLIN(I)
+    Endif
+  Next
+  If TMPTOT <> [M:SHIP1]SHIQTY(K) and TMPTOT<> 0
+    Errbox "Cantidad total en detalle distinta a la cantidad de línea, Pedido: " +[M:SHIP1]POHNUM(K) +", línea: "+num$([M:SHIP1]POPLIN(K))
+&   +", Artículo: " +[M:SHIP1]ITMREF(K)
+    FTOT = 0
+    Break
+  Endif
+Next
+End FTOT
+
+#############################################################################
+$COLOR_ROJO
+#############################################################################
+Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(nolign-1);[M:SHIP1]POPLIN(nolign-1);[M:SHIP1]POQSEQ(nolign-1)
+Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(nolign-1);[M:SHIP1]POPLIN(nolign-1);[M:SHIP1]POQSEQ(nolign-1)
+If !fstat
+  If max([M:SHIP1]RCPQTYSTU(nolign-1),[M:SHIP1]SHIQTY(nolign-1))> [F:ZPOQ]QTYSTU+[M:SHIP1]ZQTYTOL(nolign-1)
+    Chgstl [M:SHIP1]ZQTYTOL(nolign-1) With "BACKRED"
+  Else
+    Chgstl [M:SHIP1]ZQTYTOL(nolign-1) With ""
+  Endif
+  #######
+  If [M:SHIP1]ZQTYPENDENV(nolign-1)< [M:SHIP1]ZQTYTOL(nolign-1)
+    Chgstl [M:SHIP1]ZQTYPENDENV(nolign-1) With "BACKRED"
+  Else
+    Chgstl [M:SHIP1]ZQTYPENDENV(nolign-1) With ""
+  Endif
+  #######
+  If [M:SHIP1]ZQTYEXE(nolign-1)>0
+    Chgstl [M:SHIP1]ZQTYEXE(nolign-1) With "BACKRED"
+  Else
+    Chgstl [M:SHIP1]ZQTYEXE(nolign-1) With ""
+  Endif
+  #######
+  If [M:SHIP1]ZQTYASIG(nolign-1)>0
+    Chgstl [M:SHIP1]ZQTYASIG(nolign-1) With "SELLIG"
+  Else
+    Chgstl [M:SHIP1]ZQTYASIG(nolign-1) With ""
+  Endif
+Endif
+
+If [M:SHIP1]ZPALENT(nolign-1) = 2
+  Local Integer J,FPAL : Raz J,FPAL
+  For J = 0 To [M:SHIP1]NBLIG-1
+    If J<>nolign-1
+      If [M:SHIP1]CTRNUM(J) = [M:SHIP1]CTRNUM(nolign-1) and [M:SHIP1]ZCPALET(J) = [M:SHIP1]ZCPALET(nolign-1)
+&     and [M:SHIP1]ITMREF(J) <> [M:SHIP1]ITMREF(nolign-1)
+        FPAL=1
+        Break
+      Endif
+    Endif
+  Next
+  If FPAL=1
+    Chgstl [M:SHIP1]ZPALENT(nolign-1) With "BACKRED"
+  Else
+    Chgstl [M:SHIP1]ZPALENT(nolign-1) With ""
+  Endif
+Endif
+
+
+Return
+#[M:SHIP1]ZQTYASIG(I)

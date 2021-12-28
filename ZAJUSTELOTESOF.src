@@ -1,0 +1,2097 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call AJUSTE_LOTE("PHISP","2129","VP2100045",1,1,300,"L20000290-2809")
+End
+
+##############################################################
+Subprog AJUSTE_LOTE(PPLANTA,PARTICULO,PVALEPREP,PNUMLIN,PNBLIG,PQTY,PLOT)
+Value Char    PPLANTA, PARTICULO, PVALEPREP, PLOT
+Value Decimal PNUMLIN, PNBLIG, PQTY
+
+  If !clalev([F:PRH0]) Then : Local File STOPREH [F:PRH0] : Endif
+  If !clalev([F:PRH1]) Then : Local File STOPREH [F:PRH1] : Endif
+  If !clalev([F:PRD0]) Then : Local File STOPRED [F:PRD0] : Endif
+  If !clalev([F:PRD1]) Then : Local File STOPRED [F:PRD1] : Endif
+  If !clalev([F:PRH])  Then : Local File STOPREH [F:PRH]  : Endif
+  If !clalev([F:SPD])  Then : Local File SPACKD  [F:SPD]  : Endif
+#  If !clalev([F:SRT])  Then : Local File STKTRS  [F:SRT]  : Endif
+#  Read [SRT]SRT0=12;GFLAG
+
+  Local Mask PRH0   [M:PRH0]
+  Local Mask PRH1   [M:PRH1]
+  Local Mask STOSOR [M:SOR]
+
+  Local Char      PARAM(250)(1..6), SAVACT(20), VALEUR
+  Local Integer   FIN,FOK
+  Local Integer   WRET
+  Local Char      SYMBOLE2(20)
+  Local Shortint  W_K
+#  Global Char      ACTION(250)  : ACTION  = "MODIF"
+#  Global Char      ZONLIG(250)  : ZONLIG  = "PRELIN"
+#  Global Char      ABLIG(250)   : ABLIG   = "PRH1"
+#  Global Integer   MAXLIG       : MAXLIG  = PNBLIG
+
+  PARAM(1) = "PRH1"       # abreviatura
+  PARAM(2) = "0"          # nº línea actual
+  PARAM(3) = num$(PNBLIG) # nº líneas
+  PARAM(4) = PARTICULO    # artículo
+  PARAM(5) = PPLANTA      # planta
+  PARAM(6) = "3"          # tipo; 3=preparación,20=salida varia
+  Local Integer FIN,FOK
+
+Infbox "1"-num$([M:PRH1]ALLTYP(0))
+#  Gosub SETTRANS        From SUBPRHA
+#  Gosub OUVRE           From SUBPRHA
+  Gosub LIENS_PRH0
+  Gosub LIENS_LIG_PRH1
+  Gosub OUVRE           From TRTSTOSOR
+#  Gosub OUVRE_BOITE     From TRTSTOSOR
+#  Gosub FILGAUCHE       From TRTSTOSOR
+#  Gosub CLE_GAUCHE      From TRTSTOSOR
+#  Gosub HINT_KEY        From TRTSTOSOR
+#  Gosub AP_FILGAUCHE    From TRTSTOSOR
+  Gosub DEBUT
+  Gosub CRE_PICSTO
+  Gosub AVANT_ENR
+  Gosub ENR
+  Gosub APRES_MODIF
+  Gosub APRES_STOSOR
+  Gosub AVANT_MOD         # para la pantalla de VP
+##  Gosub VERIF_MOD       From SUBPRHA
+  Gosub AVANT_MODFIC    From SUBPRHA
+  Gosub INIMOD          From SUBPRHA
+  Gosub MODIF           From SUBPRHA
+
+Infbox "2"-num$([M:PRH1]ALLTYP(0))
+
+  Close Mask        [PRH0],[PRH1],[SOR],[ALP],[SOW]#,[SMO0],[SMO1]
+  Close Local File  [PRH0],[PRH1],[PRH],[SPD]#,[STR],[PRD0],[PRD1]
+
+End
+
+####################################################################
+$LIENS_PRH0
+  Read [F:PRH0]PRH0 = PVALEPREP
+  [M:PRH0]=[F:PRH0]
+  Affzo [M:PRH0]
+Return
+
+####################################################################
+$LIENS_LIG_PRH1
+Local Integer NOL
+  Read [F:PRD0]PRE0 = PVALEPREP;PNUMLIN
+  [M:PRH1] = [F:PRD0]
+  [M:PRH1]PRELIN(NOL)     = [F:PRD0]PRELIN
+  [M:PRH1]ORITYP(NOL)     = [F:PRD0]ORITYP
+  [M:PRH1]ORINUM(NOL)     = [F:PRD0]ORINUM
+  [M:PRH1]ORILIN(NOL)     = [F:PRD0]ORILIN
+  [M:PRH1]ORISEQ(NOL)     = [F:PRD0]ORISEQ
+  [M:PRH1]ITMREF(NOL)     = [F:PRD0]ITMREF
+  [M:PRH1]ITMDES1(NOL)    = [F:PRD0]ITMDES1
+  [M:PRH1]REOLOC(NOL)     = [F:PRD0]REOLOC
+  [M:PRH1]SEQ(NOL)        = [F:PRD0]SEQ
+  [M:PRH1]DLVDAT(NOL)     = [F:PRH0]DLVDAT
+  [M:PRH1]QTYSTU(NOL)     = [F:PRD0]QTYSTU
+  [M:PRH1]STU(NOL)        = [F:PRD0]STU
+  [M:PRH1]ALLQTY(NOL)     = [F:PRD0]ALLQTY
+  [M:PRH1]SHTQTY(NOL)     = [F:PRD0]SHTQTY
+  [M:PRH1]ALLTYP(NOL)     = [F:PRD0]ALLTYP
+  [M:PRH1]QTYSTUMAX(NOL)  = [F:PRD0]QTYSTU
+  [M:PRH1]OALQTYSTU(NOL)  = [F:PRD0]OALQTYSTU
+  [M:PRH1]YQTYSTU(NOL)    = [F:PRD0]QTYSTU
+  [M:PRH1]STOMGTCOD(NOL)  = [F:PRD0]STOMGTCOD
+  [M:PRH1]PCU(NOL)        = [F:PRD0]PCU
+  [M:PRH1]PCUSTUCOE(NOL)  = [F:PRD0]PCUSTUCOE
+  [M:PRH1]LOCDES(NOL)     = [F:PRD0]LOCDES
+  [M:PRH1]LOCTYPDES(NOL)  = [F:PRD0]LOCTYPDES
+  [M:PRH1]PCK(NOL)        = [F:PRD0]PCK
+  [M:PRH1]PCKCAP(NOL)     = [F:PRD0]PCKCAP
+  [M:PRH1]LINTYP(NOL)     = [F:PRD0]LINTYP
+  [M:PRH1]ZUSRFLD1(NOL)   = [F:PRD0]ZUSRFLD1
+  [M:PRH1]FLGANN(NOL)     = [F:PRD0]FLGANN
+  [M:PRH1]ZEXPORT(NOL)    = [F:PRD0]ZEXPORT
+  [M:PRH1]SOHCAT(NOL)     = 1
+  [M:PRH1]PRPTEX(NOL)     = [F:PRD0]PRPTEX
+  [M:PRH1]PCKFLG(NOL)     = [F:PRD0]PCKFLG
+  [M:PRH1]DLVFLG(NOL)     = [F:PRH0]DLVFLG
+  [M:PRH1]PRNNPR(NOL)     = [F:PRH0]PRNNPR
+  [M:PRH1]SDHNUM(NOL)     = [F:PRH0]SDHNUM
+  [M:PRH1]SDHTYP(NOL)     = [F:PRH0]SDHTYP
+  [M:PRH1]PACFLG(NOL)     = [F:PRH0]PACFLG
+  [M:PRH1]PACNBR(NOL)     = [F:PRH0]PACNBR
+  [M:PRH1]NBLIG=NOL
+  Affzo [M:PRH1]
+Return
+
+####################################################################
+$LIENS_LIG_SOR
+Local Integer NOL
+
+  [M:SOR]STOFCY     = [F:PRH0]STOFCY
+  [M:SOR]ITMREF     = [F:PRD0]ITMREF
+  [M:SOR]TRSTYP     = 4
+  [M:SOR]TRSCOD     = ''
+  [M:SOR]BPRNUM     = [F:PRH0]BPCORD
+  [M:SOR]CUR        = ''
+  [M:SOR]VCRNUM     = [F:PRH0]PRHNUM
+  [M:SOR]PCU        = [F:PRD0]STU
+  [M:SOR]PCUSTUCOE  = [F:PRD0]PCUSTUCOE
+  [M:SOR]VCRTYP     = PARAM(6)
+  [M:SOR]VCRLIN     = [F:PRD0]PRELIN
+  [M:SOR]WSTOSEQ    = [F:PRD0]PRELIN
+  [M:SOR]MVTDES     = ''
+  [M:SOR]TRFFCY     = ''
+  [M:SOR]BETCPY     = 1
+  [M:SOR]AAASTA     = 2
+  [M:SOR]QQQSTA     = 1
+  [M:SOR]RRRSTA     = 1
+  [M:SOR]AUZSST     = 'A*'
+  [M:SOR]FORSTA     = 'pat(%,"A*")<>0'
+  [M:SOR]FILSTO     = ''
+  [M:SOR]FLGSHLLOT  = 1
+  [M:SOR]PECINTLOC  = 2
+  [M:SOR]PECPLFLOC  = 2
+  [M:SOR]PECSCOLOC  = 1
+  [M:SOR]PECQLYCTL  = 1
+  [M:SOR]STODISFLG  = 1
+  [M:SOR]FLPNNUM    = ''
+  [M:SOR]XPALNUM    = ''
+  [M:SOR]XCTRNUM    = ''
+  [M:SOR]XPCUFIL    = ''
+  [M:SOR]FLGDLULOT  = 2
+  [M:SOR]OWNFLG     = 2
+  [M:SOR]NOTOWNFLG  = 1
+  [M:SOR]PECOWNER   = ''
+  [M:SOR]PECTRU     = 2
+  [M:SOR]PECECC     = 2
+  [M:SOR]CCECODS    = 1
+  [M:SOR]CCE        = ''
+  [M:SOR]VCRTYPORI  = 0
+  [M:SOR]VCRNUMORI  = ''
+  [M:SOR]VCRLINORI  = 0
+  [M:SOR]VCRSEQORI  = 0
+  [M:SOR]XWRH       = ''
+  [M:SOR]WRHOBY     = 1
+  [M:SOR]WECCVALMAJ = ''
+  [M:SOR]TWSTOSEQ   = 0
+  [M:SOR]FLGSAISER  = 1
+  [M:SOR]SORQTYACT  = [F:PRD0]QTYSTU
+  [M:SOR]STU        = [F:PRD0]STU
+  [M:SOR]SORQTY     = [F:PRD0]QTYSTU
+  [M:SOR]PECQTYACT  = [F:PRD0]QTYSTU
+  [M:SOR]PECQTY     = [F:PRD0]QTYSTU
+  [M:SOR]PECQTYORI  = 0
+  [M:SOR]XLOT       = ''
+  [M:SOR]XLOC       = ''
+  [M:SOR]XSTA       = ''
+  [M:SOR]XLOCTYP    = ''
+  [M:SOR]STOLOC     = ''
+  [M:SOR]SHTQTY     = 0
+  [M:SOR]STOMGTCOD  = [F:PRD0]STOMGTCOD
+  [M:SOR]NEGSTO     = 1
+  [M:SOR]LOTMGT     = 2
+  [M:SOR]SERMGTCOD  = 1
+  [M:SOR]RETDAT     = date$
+  [M:SOR]DLVDAT     = [M:PRH0]DLVDAT
+  [M:SOR]GLOALLQTY  = [F:PRD0]QTYSTU
+  [M:SOR]GLOSHTQTY  = 0
+  Affzo [M:SOR]
+
+Return
+
+#########################################################################
+$DEBUT
+#-----------------------------------------------------------------------
+# Traitement Ã  alimenter pour les diffÃ©rentes fonctions
+# Chargement des blocs 1 et 2 de [M:SOR]
+#-----------------------------------------------------------------------
+Raz GTYPLIG, WF
+Raz [M:SOR]
+
+Local Mask ALLPAR  [ALP]                                      #JC.NEW
+Local Mask STOSORW [SOW]                                      #JC.NEW
+If !clalev([F:SOH]) Then : Local File SORDER  [SOH] : Endif   #JC.NEW
+If !clalev([F:SRT]) Then : Local File STKTRS  [SRT] : Endif   #JC.NEW
+
+Gosub CHARGE_PARAM From TRTSTOSORA
+
+If [F:FCY]FCY<>LFCY
+   Read [FCY]FCY0=LFCY
+   If fstat Raz [F:FCY] Endif
+Endif
+WRHGES=[F:FCY]WRHGES
+
+Call LECITM(LFCY,LITM,"",0,[M:SOR]XWRH,LRET) From STKLIB
+If LRET<>0
+   FIN=1 : Return
+Endif
+
+#--- Issue 110327
+If [F:ITM]SERMGTCOD>1 & fix([M:SOR]SORQTY)<>[M:SOR]SORQTY
+   Call ERREUR(mess(470,197,1)) From GESECRAN
+   FIN=1 : Return
+Endif
+#---
+
+
+[M:SOR]ITMREF = LITM
+[M:SOR]STOFCY = LFCY
+#--- Bug 65418
+#[M:SOR]VCRTYP = GVCRTYP
+If [M:SOR]VCRTYP=0 : [M:SOR]VCRTYP=GVCRTYP : Endif
+#---
+If GERR | FIN Return Endif
+
+# Stockage du lot de rupture
+Raz WSHTLOT
+If [M:SOR]XLOT<>"*" WSHTLOT=[M:SOR]XLOT Endif
+
+# Stockage du dÃ©pÃ´t de rupture
+WSHTWRH = [M:SOR]XWRH
+
+# DÃ©pÃ´t obligatoire ou renseignÃ© sur ligne document --> non modifiable
+If [M:SOR]XWRH<>""
+   [M:SOR]WRHOBY=2
+Else
+   [M:SOR]WRHOBY=1
+   LSST=0
+   # Sous-traitance
+   If (find([M:SOR]VCRTYP,10,12) & [M:SOR]PECSCOLOC=2)
+&   |([M:SOR]VCRTYP=34 & [M:ALP]LOCCAT=4)
+      LSST=1
+   Endif
+   # Alimentation dÃ©pÃ´t exclusif article-site pour filtrer le stock
+   Call WRHAUTO([M:SOR]STOFCY,[M:SOR]ITMREF,[M:SOR]VCRTYP,LSST,LWRH) From STKWRH
+   If !find(LWRH,"","*")
+      [M:SOR]XWRH = LWRH
+   Endif
+Endif
+
+# Stockage du filtre statut
+GXSTA = [M:SOR]XSTA
+
+# Si non renseignÃ© car ajoutÃ© 05.08
+If [M:SOR]PECINTLOC=0 [M:SOR]PECINTLOC=2 Endif
+# Filtre catÃ©gorie emplacement pour le contrÃ´le et la sÃ©lection emplacement
+Raz GLOCCAT
+If [M:SOR]PECINTLOC=2 GLOCCAT+="1" Endif
+If [M:SOR]PECPLFLOC=2 GLOCCAT+="2" Endif
+If [M:SOR]PECSCOLOC=2 GLOCCAT+="4" Endif
+
+# Par dÃ©faut, pas d'affichage des lignes de stock indisponibles
+[M:SOR]STODISFLG=1
+
+# Si ligne existante(dÃ©jÃ  crÃ©Ã©e) ou en cours de saisie(fin de ligne Ã©xÃ©cutÃ©e)
+# on regarde si [M:SOW] est dÃ©jÃ  chargÃ©,
+# dans le cas contraire on l'alimente Ã  partir des allocations
+#If evalue("[M:"+LABR+"]CREFLG(LNOL)")<>0 |
+#& (evalue("[M:"+LABR+"]CREFLG(LNOL)") =0 & evalue("[M:"+LABR+"]UPDFLG(LNOL)")<>0)
+
+# Le [SOW] est-il dÃ©jÃ  chargÃ© pour cette ligne ?
+WCHARGSOW=1
+If [M:SOR]WSTOSEQ<>0 & [M:SOW]NBLIG>0
+   For I=0 To [M:SOW]NBLIG-1
+      If [M:SOW]WSTOSEQ(I)=[M:SOR]WSTOSEQ
+         Raz WCHARGSOW
+         Break
+      Endif
+   Next I
+Endif
+
+# Il n'est pas dÃ©jÃ  chargÃ© --> on l'alimente Ã  partir des allocations
+If WCHARGSOW=1
+   Raz [M:ALP] : Transmask [M:SOR] To [M:ALP]  # Issue 25606_Transmask [M:ALP] = [M:SOR]
+   [M:ALP]VCRSEQ = 0
+   [M:ALP]TYPQTY = 2
+   [M:ALP]QTY    = [M:SOR]SORQTYACT
+   [M:ALP]STA    = [M:SOR]XSTA
+   [M:ALP]WRH    = [M:SOR]XWRH
+   [M:ALP]BESDAT = [M:SOR]RETDAT
+   # Chargement STOSORW Ã  partir des allocations
+   Call ALLSTOSORW(LABR,LNOL,LNBL,1,0,0,LRET) From STKSOR
+   If LRET<>0
+      FIN=1 : Return
+   Endif
+Endif
+
+#TS TEST####################
+# Ligne en cours de saisie (fin de ligne non exÃ©cutÃ©)
+#Else
+#   If evalue("[M:"+LABR+"]WSTOSEQ(LNOL)")=0
+#      Local Integer LLIG
+#      # Initialisation zone lien avec ligne document [M:'LABR']WSTOSEQ(LNOL)
+#      Call STKWSTOSEQ(LABR,LNOL,LNBL,1,LLIG,LRET) From STKECR
+#      If LRET<>0
+#         FIN=1 : Return
+#      Endif
+#   Endif
+#FIN TS TEST####################
+
+#Endif
+
+[M:SOR]WSTOSEQ = evalue("[M:"+LABR+"]WSTOSEQ(LNOL)")
+
+# RÃ©cupÃ©ration ou initialisation des sections ana dans [SOW]
+# S'il y a dÃ©jÃ  des lignes de stock chargÃ©es dans [SOW]
+If LABR<>""
+   Case LABR
+    When "SDH1"               : LANA="STKLIV"
+    When "SIH4"               : LANA="STKFAC"
+    When "PNH1"               : LANA="STKPRT"
+    When "SMO1","DBY0","BBY1" : LANA="STJSOR"
+    When "MTK3","MBM"         : LANA="STKSOF"
+    When "SRE9","ITN8"        : LANA="STKHDT"
+   Endcase
+   Call STKINISEC ([M:SOR]WSTOSEQ,LANA,"SOW") From STKECR
+Endif
+
+# Alimentation des sections analytiques dans [SOR]
+Raz J
+If [M:SOW]NBLIG2>0
+   For I=0 To [M:SOW]NBLIG2-1
+      If [M:SOW]WSTOSEQ2(I)=[M:SOR]WSTOSEQ
+         For J=1 To GNBDIE
+            [M:SOR]CCE(J-1) = evalue("[M:SOW]CCE"+num$(J)+"(I)")
+         Next J
+         Break
+      Endif
+   Next I
+Endif
+
+# Pas de section ana dans [SOW], il faut les alimenter dans [SOR]
+If J=0 & LABR<>""
+   Case LABR
+    When "SDH1"               : LANA="STKLIV"
+    When "SIH4"               : LANA="STKFAC"
+    When "PNH1"               : LANA="STKPRT"
+    When "SMO1","DBY0","BBY1" : LANA="STJSOR"
+    When "MTK3","MBM"         : LANA="STKSOF"
+    When "SRE9","ITN8"        : LANA="STKHDT"
+   Endcase
+   For I=1 To GNBDIE
+#      GAXE=I
+      Call INISEC(SECTION,LANA,I) From TRTX3CPT
+      [M:SOR]CCE(I-1) = SECTION
+   Next I
+Endif
+
+# Alimentation du masque STOSOR
+GCHARGRUPT = ""
+Gosub ALI_MSK_SOR
+
+If FIN=1 Return Endif
+
+If [M:SOR]NBLIG>0
+   Affzo [M:SOR]1-99
+Else
+   # Artifice (affichage du tableau) afin de traiter les colonnes invisibles
+   [M:SOR]NBLIG=1
+   Affzo [M:SOR]1-99
+   Effzo [M:SOR]15
+   # Si rien dans le filtre issu du document origine, on charge avec la saisie
+   # de la ligne du document (uniquement lot et emplacement et sauf si "$")
+   If evalue("dim([M:"+LABR+"]LOT(LNOL))")>0
+      If [M:SOR]XLOT="" & evalue("[M:"+LABR+"]LOT("+num$(LNOL)+")")<>"$"
+         [M:SOR]XLOT = evalue("[M:"+LABR+"]LOT("+num$(LNOL)+")")
+      Endif
+   Endif
+   If evalue("dim([M:"+LABR+"]LOC(LNOL))")>0
+      If [M:SOR]XLOC="" & evalue("[M:"+LABR+"]LOC("+num$(LNOL)+")")<>"$"
+         [M:SOR]XLOC = evalue("[M:"+LABR+"]LOC("+num$(LNOL)+")")
+      Endif
+   Endif
+Endif
+
+# Positionnement de l'Ã©tat du champ 'Total physique'
+If [M:SOR]STOMGTCOD>2
+   Diszo [M:SOR]PECQTY
+Else
+   Grizo [M:SOR]PECQTY
+Endif
+
+Gosub ETA_MSK_SOR
+
+#------------------------------------------------------
+# Chargement du filtre lignes de stock pour le picking
+#------------------------------------------------------
+# RÃ©cupÃ©ration de la rÃ¨gle d'allocation
+Case [M:SOR]VCRTYP
+
+ When 3,4,5,8        : # PrÃ©paration/Livraison sous-traitance
+                       If [M:SOR]TRSTYP=20
+                          WTRUCOD = [F:ITG]ALLRULSCO
+                       # PrÃ©paration, Livraison, Facture, Retour fou
+                       Else
+                          WTRUCOD = [F:ITG]ALLRULSHI
+                       Endif
+ When 6              : # RÃ©ception (conso matiÃ¨res sous-traitance)
+                       WTRUCOD = [F:ITG]ALLRULSCC
+ When 12             : # Suivi matiÃ¨re (opÃ©ration de sous-traitance)
+                       If [M:SOR]PECSCOLOC=2
+                          WTRUCOD = [F:ITG]ALLRULSCC
+                       # Suivi matiÃ¨re (interne)
+                       Else
+                          WTRUCOD = [F:ITG]ALLRULMFG
+                       Endif
+ When 20,29,31,32,33 : # Sortie diverse, Changement de stock,
+                       # Assemblage, DÃ©sassemblage, Demande de service
+                       WTRUCOD = [F:ITG]ALLRULTRF
+ When 34             : # RÃ©appro zones de consommation
+                       If [M:ALP]LOCCAT=4
+                          WTRUCOD = [F:ITG]ALLRULSCO
+                       Else
+                          WTRUCOD = [F:ITG]ALLRULTRF
+                       Endif
+ When Default
+Endcase
+
+GUNTLOT=1
+Raz [F:TRU]
+# Lecture rÃ¨gle d'allocation
+If WTRUCOD<>""
+   Read [TRU]TRU0=WTRUCOD
+   If fstat
+      Raz WTRUCOD
+   Else
+      GUNTLOT=[F:TRU]UNTLOT
+   Endif
+Endif
+
+# Stockage ordre des lots (FIFO par dÃ©faut) pour picking lignes de stock
+If WTRUCOD<>""
+   [M:SOR]LOTMGT=[F:TRU]LOTMGT
+Else
+   [M:SOR]LOTMGT=2
+Endif
+
+# Lecture de la rÃ¨gle de gestion Ã  utiliser
+Call LECSRU([M:SOR]STOFCY,[F:ITM]TCLCOD,[M:SOR]TRSTYP,[M:SOR]TRSCOD,"",LRET)
+&           From STKLIB
+If LRET<>0
+   FIN=1 : Return
+Endif
+
+#--- TS 106217
+# Stockage de la version de rupture si exclusivitÃ©
+If [F:SRU]ORDVER=2
+  WSHTECCVALMAJ = [M:SOR]WECCVALMAJ
+Else
+  WSHTECCVALMAJ = ""
+Endif
+#---
+
+Raz WSHTLOC, WSHTLOCTYP
+
+# Si rÃ¨gle d'allocation/sortie
+If WTRUCOD<>""
+
+   # RÃ©cupÃ©ration types emplacement ou emplacement par dÃ©faut
+   # de l'article-site pour le type mouvement
+   #--- Issue 110327
+   #Gosub ALI_DEFLOC From STKALL
+   Gosub ALI_DEFLOC From STKALF
+   #---
+
+   # DÃ©termination du nombre de ligne de la rÃ¨gle
+   I = find(0,[F:TRU]LOCFLT(0..dim([F:TRU]LOCFLT)-1))
+   If I=0
+      WNBL = dim([F:TRU]LOCFLT)
+   Else
+      WNBL = I-1
+   Endif
+   If min([F:TRU]LOCFLT(0..WNBL-1))>1
+      # Si sortie OF ou EO et emplacement local renseignÃ©
+      If find([M:SOR]TRSTYP,6,29)
+         If [M:SOR]STOLOC<>""
+            # Si emp local exclusif sans joker on le stocke pour les ruptures
+            If max([F:TRU]LOCFLT)=2
+&            & !instr(1,[M:SOR]STOLOC,'*') & !instr(1,[M:SOR]STOLOC,'?')
+&            & !instr(1,[M:SOR]STOLOC,'!') & !instr(1,[M:SOR]STOLOC,'#')
+               WSHTLOC=[M:SOR]STOLOC
+            Endif
+            # Emp local dans les rÃ¨gles, mais non exclusif --> c'est fini
+            If min([F:TRU]LOCFLT)=2 WF=1 Endif
+         Endif
+      Endif
+      If WSHTLOC="" & WF<>1
+
+         # I,J et K contiennent la 1Ã¨re position des catÃ©gories emp 1,2 et 3
+         # dans le tableau des rÃ¨gles d'allocation (0 si absent)
+         I = find(3,[F:TRU]LOCFLT(0..WNBL-1))
+         J = find(4,[F:TRU]LOCFLT(0..WNBL-1))
+         K = find(5,[F:TRU]LOCFLT(0..WNBL-1))
+         # WE1,WE2 et WE3 contiennent 1 si emp par dÃ©faut 1,2 et 3
+         Raz WE1, WE2, WE3
+         If WDEFLOC <>"" & !instr(1,WDEFLOC,'*')  & !instr(1,WDEFLOC,'?')
+&                        & !instr(1,WDEFLOC,'!')  & !instr(1,WDEFLOC,'#')
+            WE1=1
+         Endif
+         If WDEFLOC2<>"" & !instr(1,WDEFLOC2,'*') & !instr(1,WDEFLOC2,'?')
+&                        & !instr(1,WDEFLOC2,'!') & !instr(1,WDEFLOC2,'#')
+            WE2=1
+         Endif
+         If WDEFLOC3<>"" & !instr(1,WDEFLOC3,'*') & !instr(1,WDEFLOC3,'?')
+&                        & !instr(1,WDEFLOC3,'!') & !instr(1,WDEFLOC3,'#')
+            WE3=1
+         Endif
+         # WT1,WT2 et WT3 contiennent 1 si type emp par dÃ©faut 1,2 et 3
+         Raz WT1, WT2, WT3
+         If WDEFLOCTYP <>"" & !instr(1,WDEFLOCTYP,'*') &!instr(1,WDEFLOCTYP,'?')
+&                           & !instr(1,WDEFLOCTYP,'!') &!instr(1,WDEFLOCTYP,'#')
+            WT1=1
+         Endif
+         If WDEFLOCTYP2<>"" & !instr(1,WDEFLOCTYP2,'*')&!instr(1,WDEFLOCTYP2,'?')
+&                           & !instr(1,WDEFLOCTYP2,'!')&!instr(1,WDEFLOCTYP2,'#')
+            WT2=1
+         Endif
+         If WDEFLOCTYP3<>"" & !instr(1,WDEFLOCTYP3,'*')&!instr(1,WDEFLOCTYP3,'?')
+&                           & !instr(1,WDEFLOCTYP3,'!')&!instr(1,WDEFLOCTYP3,'#')
+            WT3=1
+         Endif
+
+         # WLOCFLT contient la valeur max des catÃ©gories d'emp (3,4 ou 5)
+         WLOCFLT = max([F:TRU]LOCFLT)
+
+         # Exploitation des rÃ¨gles d'allocation pour dÃ©terminer
+         # le type ou l'emplacement de rupture
+         #--- Issue 110327
+         #Gosub ALI_LOCATION From STKALL
+         Gosub ALI_LOCATION From STKALF
+         #---
+      Endif
+   Endif
+
+   # Chargement des (types) emplacements de l'article-site paramÃ©trÃ©s
+   # dans la rÃ¨gle d'allocation/sortie pour filtrer le picking stock
+   Call RECH_DEFLOCTYP("SOR") From STKALL
+
+Endif
+
+#-------------------------------
+# Positionnement filtre picking
+#-------------------------------
+Raz GCRITPIC, WCRIT, WCRITSTO
+Raz WCRITSTO1, WCRITSTO2, WCRITSTO3, WCRITSTO31, WCRITSTO4, WCRITSTO5, WCRITSTO6                # hcb v6percri
+
+# Article et site
+WCRITSTO1 = '[F:STO]ITMREF=[M:SOR]ITMREF&[F:STO]STOFCY=[M:SOR]STOFCY'
+
+#DLUBPC
+#lecture ITMBPC  pour recuperer DLUBPC
+If [M:SOR]BPRNUM <> ""
+   Read [ITU]ITU0 = [F:ITM]ITMREF;[M:SOR]BPRNUM
+   If fstat
+      Raz [F:ITU]
+   Endif
+Endif
+
+#DLU Client, calcul du nbre de jours Ã  retrancher Ã  la DLU article
+If [F:ITU]DLUBPC <> 0
+  Call CALNBDAYCLI([F:ITM]EXYMGTCOD,[F:ITM]SHL,[F:ITM]SHLUOM,[F:ITF]DLU,[F:ITU]DLUBPC,NBDAY) From STKLIB
+Endif
+
+
+# Lot et pÃ©remption
+If dim([M:SOR]XLOT)>0
+   # hcb V6dlu nouvelle gestion
+   WCRITSTO3  = '([F:STL]SHLDAT=[0/0/0]|'
+   WCRITSTO31 = '([F:STL]DLUDAT=[0/0/0]|'
+   If [M:SOR]DLVDAT<>[0/0/0]
+      WCRITSTO3  += '[F:STL]SHLDAT>=[M:SOR]DLVDAT)'
+      WCRITSTO31 += '[F:STL]DLUDAT'+NBDAY+'>=[M:SOR]DLVDAT)'
+   Else
+      WCRITSTO3  += '[F:STL]SHLDAT>=[M:SOR]RETDAT)'
+      WCRITSTO31 += '[F:STL]DLUDAT'+NBDAY+'>=[M:SOR]RETDAT)'
+   Endif
+   If [F:SRU]SHLLOT=1
+      GCRITPIC  = WCRITSTO3
+   Elsif [F:SRU]SHLLOT=2
+      GCRITPIC  = WCRITSTO31
+   Endif
+   If !find([M:SOR]XLOT,"","*")
+      WCRITSTO2 = 'pat([F:STO]LOT,[M:SOR]XLOT)<>0'
+   Endif
+   #--- TS 106217
+   # Si version renseignÃ©e et exclusive
+   If [M:SOR]WECCVALMAJ<>"" & [F:SRU]ORDVER=2
+      WCRITSTO21 = '[F:STO]ECCVALMAJ=[M:SOR]WECCVALMAJ'
+   Endif
+   #---
+Endif
+
+# CatÃ©gorie emplacement et dÃ©pÃ´t
+If [M:SOR]PECINTLOC=2
+   If [M:SOR]PECPLFLOC=2
+      WCRITSTO5 = 'find([F:STO]LOCCAT,1,2)<>0'
+      If [M:SOR]XWRH<>"" WCRITSTO5 += '&pat([F:STO]WRH,[M:SOR]XWRH)<>0' Endif
+   Else
+      WCRITSTO5 = '[F:STO]LOCCAT=1'
+      If [M:SOR]XWRH<>"" WCRITSTO5 += '&pat([F:STO]WRH,[M:SOR]XWRH)<>0' Endif
+   Endif
+Elsif [M:SOR]PECPLFLOC=2
+   WCRITSTO5 = '[F:STO]LOCCAT=2'
+   If [M:SOR]XWRH<>"" WCRITSTO5 += '&pat([F:STO]WRH,[M:SOR]XWRH)<>0' Endif
+Endif
+If [M:SOR]PECSCOLOC=2
+   If WCRITSTO5=""
+      WCRITSTO5  = '[F:STO]LOCCAT=4'
+   Else
+      WCRITSTO5 += '|[F:STO]LOCCAT=4'
+   Endif
+Elsif WCRITSTO5=""
+   # Pour ne rien avoir (paramÃ©trage incohÃ©rent)
+   WCRITSTO5 = '[F:STO]LOCCAT=9'
+Endif
+
+# PropriÃ©taire
+If [M:SOR]PECOWNER=""
+   [M:SOR]OWNFLG=2 : [M:SOR]NOTOWNFLG=1
+   WCRITSTO6 = '[F:STO]OWNER=[F:STO]STOFCY'
+Else
+   [M:SOR]OWNFLG=2 : [M:SOR]NOTOWNFLG=2
+   WCRITSTO6 = 'find([F:STO]OWNER,[F:STO]STOFCY,[M:SOR]PECOWNER)'
+Endif
+
+# Si rÃ©appro des zones de consommation,
+# restriction des s-statuts autorisÃ©s (emplacement)
+# par ceux de la rÃ¨gle de gestion
+If [M:SOR]VCRTYP=34
+   Call STKAUZSST([F:SRU]AUZSST,[M:SOR]AUZSST,WAUZSST) From STKECR2
+   [F:SRU]AUZSST = WAUZSST
+   # Construction de la formule :
+   Call DECODE_STAT([F:SRU]AUZSST,[F:SRU]FORSTA) From TRTCATEG
+Endif
+
+Raz WA, WQ, WR
+# Statuts autorisÃ©s par les rÃ¨gles de gestion d'E/S
+If find([F:SRU]AUZSTA,1,3,5,7) WA=1  Endif
+If find([F:SRU]AUZSTA,2,3,6,7) WQ=1  Endif
+If find([F:SRU]AUZSTA,4,5,6,7) WR=1  Endif
+
+[M:SOR]XSTA=vireblc([M:SOR]XSTA,4)
+
+# Si statuts renseignÃ©s dans filtre allocation
+If !find([M:SOR]XSTA,"","*")
+   # DÃ©codage de la liste de statuts --> transformation en
+   # une formule contenant des 'pat(%,statut)'
+   Call DECODE_STAT([M:SOR]XSTA,WCRIT) From TRTCATEG
+   # Remplacement des '%' par la variable Ã  tester
+   Call CREE_FORMULE(WCRIT,"[F:STO]STA",WCRITSTO4) From TRTCATEG
+# Sinon prise en compte des sous-statuts autorisÃ©s
+Elsif !find([F:SRU]AUZSST,"","*")
+   Call CREE_FORMULE([F:SRU]FORSTA,"[F:STO]STA",WCRITSTO4) From TRTCATEG
+
+#--- Issue 121665
+# IncompatibilitÃ© entre s-statuts de la rÃ¨gle de gestion et ceux de l'emp rÃ©appro
+# --> on prend ceux de l'emp rÃ©appro et on filtre pour ne pas avoir de stock ok
+Elsif [M:SOR]VCRTYP=34 & [F:SRU]AUZSST=""
+   [F:SRU]AUZSST = [M:SOR]AUZSST
+   Call DECODE_STAT([F:SRU]AUZSST,[F:SRU]FORSTA) From TRTCATEG
+   WCRITSTO4="pat([F:STO]STA,'')<>0"
+#--- End TS
+
+Endif
+
+WCRITSTOA = 'pat([F:STO]STA,"A*")<>0'
+WCRITSTOQ = 'pat([F:STO]STA,"Q*")<>0'
+WCRITSTOR = 'pat([F:STO]STA,"R*")<>0'
+
+# Alimentation des zones de la fenÃªtre critÃ¨re et du filtre
+# pour contrÃ´le ligne stock pickÃ©e (si non administrateur stock)
+[M:SOR]AUZSST=[F:SRU]AUZSST
+[M:SOR]FORSTA=[F:SRU]FORSTA
+[M:SOR]AAASTA=1
+[M:SOR]QQQSTA=1
+[M:SOR]RRRSTA=1
+
+# hcb V6percri deb
+[M:SOR]FLGSHLLOT = 2
+[M:SOR]FLGDLULOT = 2
+If [F:SRU]SHLLOT = 2
+   [M:SOR]FLGSHLLOT = 1
+   [M:SOR]FLGDLULOT = 1
+Endif
+If [F:SRU]SHLLOT = 1
+   [M:SOR]FLGSHLLOT = 1
+   [M:SOR]FLGDLULOT = 2
+Endif
+# hcb V6percri fin
+
+Raz WCRIT
+If WA=1
+   WCRIT+='pat([F:STO]STA,"A*")<>0'
+   [M:SOR]AAASTA=2
+Endif
+If WQ=1
+   If WCRIT<>"" WCRIT+='|' Endif
+   WCRIT+='pat([F:STO]STA,"Q*")<>0'
+   [M:SOR]QQQSTA=2
+Endif
+If WR=1
+   If WCRIT<>"" WCRIT+='|' Endif
+   WCRIT+='pat([F:STO]STA,"R*")<>0'
+   [M:SOR]RRRSTA=2
+Endif
+
+If WCRITSTO4<>""
+   If GCRITPIC<>""
+      GCRITPIC+='&('+WCRITSTO4+')'
+   Else
+      GCRITPIC+=WCRITSTO4
+   Endif
+Elsif GCRITPIC<>""
+   If WCRIT<>""
+      GCRITPIC+='&('+WCRIT+')'
+   Endif
+Else
+   If WCRIT<>""
+      GCRITPIC+=WCRIT
+   Else
+      GCRITPIC='1=1'
+   Endif
+Endif
+
+Raz WAFFPICK
+# Affichage liste picking si qtÃ© rupture ou qtÃ© restant Ã  sortir
+If [M:SOR]SHTQTY<>0 | [M:SOR]SHTQTY+[M:SOR]PECQTYACT<[M:SOR]SORQTYACT
+   WAFFPICK=1
+Endif
+
+#Gosub TIROIR     #JC.NEW
+
+
+If [M:SOR]VCRTYP=34 & GCONSULT = 2
+   Affzo [M:SOR]
+   Diszo [M:SOR]
+Endif
+
+Return
+
+#########################################################################
+$ALI_MSK_SOR
+Local Decimal WORIALLSTU, WORIALLPCU, WENCALLSTU
+Local Decimal WPCUDIS, WSTUDIS, WSTUACTDIS
+Local Integer WRET, WMAX, I1, I2
+
+Raz [M:SOR]PECQTY, [M:SOR]PECQTYACT, [M:SOR]SHTQTY, [M:SOR]PECQTYORI
+
+[M:SOR]COEFUCUS  = " ="+format$("N:5.4",[M:SOR]PCUSTUCOE)-[M:SOR]STU
+[M:SOR]STOMGTCOD = [F:ITF]STOMGTCOD
+[M:SOR]NEGSTO    = [F:ITM]NEGSTO
+[M:SOR]SERMGTCOD = [F:ITM]SERMGTCOD
+
+# Nb de lignes maximum du tableau [SOR]
+WMAX = dim([M:SOR]STOCOU)
+
+NOL=0
+If [M:SOW]NBLIG<=0 Goto ALI_MSK_SOR_FIN Endif
+
+For I=0 To [M:SOW]NBLIG-1
+   # Nb max de lignes atteint
+   If NOL>=WMAX
+      Goto ALI_MSK_SOR_SUI
+   Endif
+   # Si rupture et pas de chargement des ruptures
+   If [M:SOW]WSTOCOU(I)=0 & dim(GCHARGRUPT)>0 & GCHARGRUPT="N"
+      Goto NEXT_SOW
+   Endif
+
+   If [M:SOW]WSTOSEQ(I)=[M:SOR]WSTOSEQ
+      [M:SOR]ICOMVTATT(NOL) = ""
+      [M:SOR]STOCOU(NOL)    = [M:SOW]WSTOCOU(I)
+      [M:SOR]QTYSTU(NOL)    = [M:SOW]WQTYSTU(I)
+      [M:SOR]QTYSTUORI(NOL) = [M:SOW]WQTYSTU(I)
+      [M:SOR]QTYSTUACT(NOL) = [M:SOW]WQTYSTUACT(I)
+      If [M:SOR]STOCOU(NOL)<>0
+         [M:SOR]PECQTY     += [M:SOW]WQTYSTU(I)
+         [M:SOR]PECQTYACT  += [M:SOW]WQTYSTUACT(I)
+         [M:SOR]PECQTYORI  += [M:SOW]WQTYSTUACT(I)
+      Else
+         [M:SOR]SHTQTY     += [M:SOW]WQTYSTUACT(I)
+      Endif
+      [M:SOR]ALLSTU(NOL)    = [M:SOW]WALLSTU(I)
+      [M:SOR]ALLSTUACT(NOL) = [M:SOW]WALLSTUACT(I)
+
+      # Si mouvement en attente
+      If [M:SOR]STOCOU(NOL)=0
+         [M:SOR]ICOMVTATT(NOL) = "247"
+         If dim([M:SOR]LOT)>0 [M:SOR]LOT(NOL)=[M:SOW]WLOT(I) Endif
+         If dim([M:SOR]SLO)>0 [M:SOR]SLO(NOL)=[M:SOW]WSLO(I) Endif
+         If dim([M:SOR]LOC)>0 [M:SOR]LOC(NOL)=[M:SOW]WLOC(I) Endif
+         If dim([M:SOR]WRH)>0 [M:SOR]WRH(NOL)=[M:SOW]WWRH(I) Endif
+         #--- TS 106217
+         If dim([M:SOR]ECCVALMAJ)>0 [M:SOR]ECCVALMAJ(NOL)=[M:SOW]WECCVALMAJ(I) Endif
+         #---
+         [M:SOR]STA(NOL)=[M:SOW]WSTA(I)
+         If dim([M:SOR]SERNUM)>0
+            # No sÃ©rie de rupture
+            [M:SOR]SERNUM(NOL)=[M:SOW]WSERNUM(I)
+            If [M:SOW]WSERNUM(I)<>""
+               WNB = [M:SOW]WQTYSTUACT(I)
+               If WNB = 1
+                  [M:SOR]SERNUMF(NOL) = [M:SOW]WSERNUM(I)
+               Else
+                  Call PLUS_NB([M:SOR]SERNUM(NOL),WNB,[M:SOR]SERNUMF(NOL),WRET)
+&                              From STKLIB
+                  If WRET<>0
+                     Raz [M:SOR]SERNUM(NOL), [M:SOR]SERNUMF(NOL)
+                  Endif
+               Endif
+            Endif
+         Endif
+         Raz [M:SOR]SERNUMFLG(NOL)
+         Raz [M:SOR]AVAQTYPCU(NOL),[M:SOR]AVAQTYSTU(NOL),[M:SOR]TOTQTYSTU(NOL)
+         Raz [M:SOR]QTYPCU(NOL),[M:SOR]XPCU(NOL),[M:SOR]XPCUSTUCOE(NOL)
+         If dim([M:SOR]SHLDAT)>0 Raz [M:SOR]SHLDAT(NOL) Endif
+         If dim([M:SOR]POT)>0    Raz [M:SOR]POT(NOL)    Endif
+         Goto ALI_MSK_SOR_SUI
+      Endif
+      Read [STO]STO0=[M:SOR]STOFCY;[M:SOR]STOCOU(NOL)
+      If fstat Goto NEXT_SOW Endif
+
+      If dim([M:SOR]LOT)>0
+         [M:SOR]LOT(NOL) = [F:STO]LOT
+         If dim([M:SOR]SLO)>0 [M:SOR]SLO(NOL)=[F:STO]SLO Endif
+         Read [STL]STL0=[M:SOR]ITMREF;[F:STO]LOT;[F:STO]SLO
+         If fstat
+            Call ERREUR([F:STO]LOT-[F:STO]SLO-":"-mess(123,199,1)-[M:SOR]ITMREF)
+&                From GESECRAN
+            Goto NEXT_SOW
+         Endif
+         If dim([M:SOR]SHLDAT)>0 [M:SOR]SHLDAT(NOL)=[F:STL]SHLDAT Endif
+         If dim([M:SOR]POT)>0
+            If [M:SOR]STOMGTCOD=3
+               [M:SOR]POT(NOL) = [F:STL]POT
+            Elsif [M:SOR]STOMGTCOD=4
+               [M:SOR]POT(NOL) = [F:STL]ACT
+            Endif
+         Endif
+      Endif
+      #--- TS 106217
+      If dim([M:SOR]ECCVALMAJ)>0 [M:SOR]ECCVALMAJ(NOL)=[F:STO]ECCVALMAJ Endif
+      If dim([M:SOR]ECCVALMIN)>0 [M:SOR]ECCVALMIN(NOL)=[F:STL]ECCVALMIN Endif
+      #---
+      If dim([M:SOR]WRH)>0     [M:SOR]WRH(NOL) = [F:STO]WRH  Endif
+      If dim([M:SOR]LOC)>0     [M:SOR]LOC(NOL) = [F:STO]LOC  Endif
+      If dim([M:SOR]SERNUM)>0
+         [M:SOR]SERNUM(NOL)  = [F:STO]SERNUM
+         [M:SOR]SERNUMF(NOL) = [F:STO]SERNUM
+         # Si pas de no sÃ©rie sur la ligne de stock et no dans STOSORW
+         # rÃ©cupÃ©ration dans STOSOR (cas des no gÃ©rÃ©s en sortie et saisis)
+         # ou cas des no sÃ©rie gÃ©rÃ©s en E/S globale saisis                 : #--- Issue 110327
+         If [M:SOR]SERNUM(NOL) = ""
+            [M:SOR]SERNUM(NOL)=[M:SOW]WSERNUM(I)
+            If [M:SOW]WSERNUM(I)<>""
+               WNB = [M:SOW]WQTYSTUACT(I)
+               If WNB = 1
+                  [M:SOR]SERNUMF(NOL) = [M:SOW]WSERNUM(I)
+               Else
+                  Call PLUS_NB([M:SOR]SERNUM(NOL),WNB,[M:SOR]SERNUMF(NOL),WRET)
+&                              From STKLIB
+                  If WRET<>0
+                     Raz [M:SOR]SERNUM(NOL), [M:SOR]SERNUMF(NOL)
+                  Endif
+               Endif
+            Endif
+         Endif
+      Endif
+      # Ligne de stock avec no sÃ©rie ?
+      Raz [M:SOR]SERNUMFLG(NOL)
+      If [F:STO]SERNUM<>"" [M:SOR]SERNUMFLG(NOL)=1 Endif
+
+      #--- Issue X3-53322
+      If dim([M:SOR]LPNNUM)>0 [M:SOR]LPNNUM(NOL)=[F:STO]LPNNUM  Endif
+      #---
+      If dim([M:SOR]PALNUM)>0 [M:SOR]PALNUM(NOL)=[F:STO]PALNUM  Endif
+      If dim([M:SOR]CTRNUM)>0 [M:SOR]CTRNUM(NOL)=[F:STO]CTRNUM  Endif
+      [M:SOR]OWNER(NOL)     = [F:STO]OWNER
+      [M:SOR]STA(NOL)       = [F:STO]STA
+      [M:SOR]XPCU(NOL)      = [F:STO]PCU
+      [M:SOR]XPCUSTUCOE(NOL)= [F:STO]PCUSTUCOE
+      If [M:SOR]XPCUSTUCOE(NOL)=0 [M:SOR]XPCUSTUCOE(NOL)=1 Endif
+      [M:SOR]QTYPCU(NOL)    = [M:SOR]QTYSTU(NOL)/[M:SOR]XPCUSTUCOE(NOL)
+      Call QTEARR([M:SOR]QTYPCU(NOL),[M:SOR]XPCU(NOL)) From TRTDIV
+
+      If dim([M:SOR]STOFLD1)>0 [M:SOR]STOFLD1(NOL)= [F:STO]STOFLD1 Endif
+      If dim([M:SOR]STOFLD2)>0 [M:SOR]STOFLD2(NOL)= [F:STO]STOFLD2 Endif
+
+      # Si plan de rangement, la quantitÃ© allouÃ©e est disponible
+      If GLABR="REO1"
+         #--- Issue 95050
+         # Si la liste Ã  ranger existe dÃ©jÃ , ne pas ajouter la qtÃ© traitÃ©e
+         If [M:SOR]VCRNUM<>"" & [M:SOR]VCRLIN<>0
+            [M:SOR]AVAQTYSTU(NOL) = [F:STO]QTYSTU - [F:STO]CUMWIPQTY
+         Else
+            [M:SOR]AVAQTYSTU(NOL) = [F:STO]QTYSTU - [F:STO]CUMWIPQTY + [M:SOR]QTYSTU(NOL)
+         Endif
+         #[M:SOR]AVAQTYSTU(NOL) = [F:STO]QTYSTU - [F:STO]CUMWIPQTY + [M:SOR]QTYSTU(NOL)
+         #---
+         [M:SOR]AVAQTYPCU(NOL) = [M:SOR]AVAQTYSTU(NOL)/[M:SOR]XPCUSTUCOE(NOL)
+         Call QTEARR([M:SOR]AVAQTYPCU(NOL),[M:SOR]XPCU(NOL)) From TRTDIV
+      Else
+         # Calcul du disponible pour sortie sur la ligne de stock
+         Call STODISSOR("[F:STO]","[F:ITM]","",WPCUDIS,WSTUDIS,WSTUACTDIS) From STKLIB
+         # On rajoute la quantitÃ© sortie de la ligne au disponible
+         [M:SOR]AVAQTYSTU(NOL) = WSTUDIS + [M:SOR]QTYSTU(NOL)
+         [M:SOR]AVAQTYPCU(NOL) = WPCUDIS + [M:SOR]QTYPCU(NOL)
+      Endif
+      [M:SOR]TOTQTYSTU(NOL) = [F:STO]QTYSTU
+
+      #--- Bug 41947
+      # Si piÃ¨ce origine, calcul de la quantitÃ© allouÃ©e non consommÃ©e
+      Raz WORIALLSTU, WORIALLPCU
+      If [M:SOR]VCRTYPORI<>0 & [M:SOR]VCRNUMORI<>"" & [M:SOR]VCRLINORI<>0
+         For [STA]STA1 Where VCRTYP=[M:SOR]VCRTYPORI & VCRNUM=[M:SOR]VCRNUMORI &
+&                            VCRLIN=[M:SOR]VCRLINORI & VCRSEQ=[M:SOR]VCRSEQORI &
+&                            STOCOU=[F:STO]STOCOU
+            WORIALLSTU += [F:STA]QTYSTU
+         Next
+         WORIALLSTU -= [M:SOR]ALLSTU(NOL)
+      Endif
+      # Si quantitÃ© allouÃ©e non consommÃ©e, rajout sur le disponible
+      If WORIALLSTU>0
+         WORIALLPCU = WORIALLSTU/[M:SOR]XPCUSTUCOE(NOL)
+         Call QTEARR(WORIALLPCU,[M:SOR]XPCU(NOL)) From TRTDIV
+         [M:SOR]AVAQTYSTU(NOL) += WORIALLSTU
+         [M:SOR]AVAQTYPCU(NOL) += WORIALLPCU
+      Endif
+
+      # Si la piÃ¨ce d'origine a dÃ©jÃ  Ã©tÃ© sÃ©lectionnÃ©e au cours de cette transaction
+      # il faut dÃ©duire les allocations dÃ©jÃ  en cours de traitement
+      # --> dÃ©termination de la quantitÃ© allouÃ©e rÃ©ellement disponible
+      If [M:SOR]TWSTOSEQ(0)<>0
+         WENCALLSTU = 0
+         K=0
+         While [M:SOR]TWSTOSEQ(K)<>0 & K<dim([M:SOR]TWSTOSEQ)
+            WENCALLSTU+=sigma(L=0,[M:SOW]NBLIG-1,[M:SOW]WALLSTU(L)
+&                       *( [M:SOW]WSTOCOU(L)=[F:STO]STOCOU&[M:SOW]WSTOSEQ(L)=[M:SOR]TWSTOSEQ(K)))
+            K+=1
+         Wend
+         [M:SOR]AVAQTYSTU(NOL)-=WENCALLSTU
+         [M:SOR]AVAQTYPCU(NOL) = [M:SOR]AVAQTYSTU(NOL)/[M:SOR]XPCUSTUCOE(NOL)
+         Call QTEARR([M:SOR]AVAQTYPCU(NOL),[M:SOR]XPCU(NOL)) From TRTDIV
+      Endif
+      #---
+
+      $ALI_MSK_SOR_SUI
+
+      # Transfert zones de l'Ã©cran STOSORW vers l'Ã©cran STOSOR
+#      GPOINT="SOW_SOR" : Gosub ENTREE From EXEFNC
+
+      NOL += 1
+   Endif
+
+   $NEXT_SOW
+Next I
+
+$ALI_MSK_SOR_FIN
+
+# Tableau chargÃ©
+If NOL<WMAX
+   [M:SOR]NBLIG = NOL
+# Nombre mouvements Ã  charger (NOL) > Nombre de lignes maxi du tableau (WMAX)
+# Veuillez modifier le code activitÃ© SLS pour pouvoir modifier les mouvements
+Else
+   I1   = instr(1,mess(69,184,1),"%")
+   I2   = instr(I1+1,mess(69,184,1),"%")
+   WMES = left$(mess(69,184,1),I1-1)+num$(NOL)+mid$(mess(69,184,1),I1+1,I2-I1-1)
+&         +num$(WMAX)+right$(mess(69,184,1),I2+1)
+   Call ERREUR(WMES+chr$(13)+mess(71,184,1)) From GESECRAN
+   Effzo [M:SOR]1-99
+   FIN = 1
+Endif
+
+Return
+
+#########################################################################
+$ETA_MSK_SOR
+
+# Pas d'accÃ©s  si reappro type zone de consommation
+If (LABR="REO1" & find([M:REO1]ORIREO(LNOL),2))
+   Diszo [M:SOR]1-99
+Endif
+
+# Si pas de ligne, on se casse
+If [M:SOR]NBLIG=0 Return Endif
+
+If dim([M:SOR]WRH)>0
+   If WRHGES=2
+      Diszo [M:SOR]WRH
+   Else
+      Grizo [M:SOR]WRH
+   Endif
+Endif
+If dim([M:SOR]LOT)>0    Diszo [M:SOR]LOT    Endif
+If dim([M:SOR]SLO)>0    Diszo [M:SOR]SLO    Endif
+If dim([M:SOR]LOC)>0    Diszo [M:SOR]LOC    Endif
+If dim([M:SOR]PALNUM)>0 Diszo [M:SOR]PALNUM Endif
+If dim([M:SOR]CTRNUM)>0 Diszo [M:SOR]CTRNUM Endif
+If dim([M:SOR]STOFLD1)>0 Diszo [M:SOR]STOFLD1 Endif
+If dim([M:SOR]STOFLD2)>0 Diszo [M:SOR]STOFLD2 Endif
+#--- TS 106217
+If dim([M:SOR]ECCVALMAJ)>0 Diszo [M:SOR]ECCVALMAJ Endif
+#--- Issue X3-53322
+If dim([M:SOR]LPNNUM)>0    Diszo [M:SOR]LPNNUM    Endif
+
+# Si no sÃ©ries gÃ©rÃ©s en sortie
+If [M:SOR]SERMGTCOD=2
+   Actzo [M:SOR]QTYSTU
+   Actzo [M:SOR]QTYPCU
+   If dim([M:SOR]SERNUM)>0
+      Actzo [M:SOR]SERNUM
+
+      #--- Bug 85510
+      # Si trf inter-site et intra-sociÃ©tÃ©, ou BP non livrable
+      # pas de saisie des no sÃ©ries
+      #If [M:SOR]TRFFCY<>"" & [M:SOR]BETCPY<>2 Diszo [M:SOR]SERNUM Endif
+      If ([M:SOR]TRFFCY<>"" & [M:SOR]BETCPY<>2) | [M:SOR]FLGSAISER=1
+         Diszo [M:SOR]SERNUM
+      Endif
+      #---
+
+   Endif
+   Diszo [M:SOR]STA
+# Si no sÃ©ries gÃ©rÃ©s en E/S
+Elsif [M:SOR]SERMGTCOD=3
+   Diszo [M:SOR]QTYSTU
+   Diszo [M:SOR]QTYPCU
+   If dim([M:SOR]SERNUM)>0 Diszo [M:SOR]SERNUM Endif
+   Diszo [M:SOR]STA
+#--- Issue 110327
+# Si no sÃ©ries gÃ©rÃ©s en E/S globale
+Elsif [M:SOR]SERMGTCOD=4
+   Actzo [M:SOR]QTYSTU
+   Diszo [M:SOR]QTYPCU
+   If dim([M:SOR]SERNUM)>0 Actzo [M:SOR]SERNUM Endif
+   Diszo [M:SOR]STA
+#---
+Else
+   Actzo [M:SOR]QTYSTU
+   Actzo [M:SOR]QTYPCU
+   If dim([M:SOR]SERNUM)>0 Diszo [M:SOR]SERNUM Endif
+   Diszo [M:SOR]STA
+Endif
+
+# Si no sÃ©ries gÃ©rÃ©s en sortie et (no sÃ©rie existant ou retour fournisseur)
+# ou si mouvement en attente, on boucle sur le tableau pour affiner l'Ã©tat
+If ([M:SOR]SERMGTCOD=2 & ([M:SOR]VCRTYP=8 | sigma(NOL=0,[M:SOR]NBLIG-1,[M:SOR]SERNUMFLG(NOL)=1)>0))
+&  | sigma(NOL=0,[M:SOR]NBLIG-1,[M:SOR]STOCOU(NOL)=0)>0
+   For NOL=0 To [M:SOR]NBLIG-1
+      # Si mouvement en attente
+      If [M:SOR]STOCOU(NOL)=0
+         Actzo [M:SOR]QTYSTU(NOL) : Affzo [M:SOR]QTYSTU(NOL)
+         Diszo [M:SOR]QTYPCU(NOL) : Affzo [M:SOR]QTYPCU(NOL)
+         If dim([M:SOR]LOT)>0
+            Actzo [M:SOR]LOT(NOL)
+            If [M:SOR]LOT(NOL)<>"" Affzo [M:SOR]LOT(NOL) Endif
+         Endif
+         If dim([M:SOR]SLO)>0
+            Actzo [M:SOR]SLO(NOL)
+            If [M:SOR]SLO(NOL)<>"" Affzo [M:SOR]SLO(NOL) Endif
+         Endif
+         If dim([M:SOR]WRH)>0
+            If WRHGES=2
+               If [M:SOR]XWRH=""
+                  Actzo [M:SOR]WRH(NOL)
+               Else
+                  If [M:SOR]WRHOBY=2
+                     Diszo [M:SOR]WRH(NOL)
+                  Else
+                     Actzo [M:SOR]WRH(NOL)
+                  Endif
+                  [M:SOR]WRH(NOL)=[M:SOR]XWRH
+               Endif
+               If [M:SOR]WRH(NOL)<>"" Affzo [M:SOR]WRH(NOL) Endif
+            Else
+               Grizo [M:SOR]WRH(NOL)
+            Endif
+         Endif
+         #--- TS 106217
+         If dim([M:SOR]ECCVALMAJ)>0
+            #--- Si version exclusive et renseignÃ©e, pas de modification
+            If [M:SOR]ECCVALMAJ(NOL)<>"" & [F:SRU]ORDVER=2
+               Diszo [M:SOR]ECCVALMAJ(NOL)
+            Else
+               Actzo [M:SOR]ECCVALMAJ(NOL)
+            Endif
+            Affzo [M:SOR]ECCVALMAJ(NOL)
+         Endif
+         #---
+         If dim([M:SOR]LOC)>0
+            Actzo [M:SOR]LOC(NOL)
+            If [M:SOR]LOC(NOL)<>"" Affzo [M:SOR]LOC(NOL) Endif
+         Endif
+         If dim([M:SOR]SERNUM)>0
+            # Si no sÃ©rie gÃ©rÃ© en sortie, pas de saisie
+            # car problÃ¨me pour rÃ©gulariser par la suite
+            If [M:SOR]SERMGTCOD=2
+               Diszo [M:SOR]SERNUM(NOL)
+            Else
+               Actzo [M:SOR]SERNUM(NOL)
+            Endif
+            If [M:SOR]SERNUM(NOL)<>"" Affzo [M:SOR]SERNUM(NOL) Endif
+         Endif
+         Actzo [M:SOR]STA(NOL)
+         If [M:SOR]STA(NOL)<>"" Affzo [M:SOR]STA(NOL) Endif
+      # Si no sÃ©ries gÃ©rÃ©s en sortie
+      Elsif [M:SOR]SERMGTCOD=2 & dim([M:SOR]SERNUM)>0
+         # Si no sÃ©rie existant ou retour fournisseur, pas de saisie
+         If [M:SOR]SERNUMFLG(NOL)=1 | [M:SOR]VCRTYP=8
+            Diszo [M:SOR]QTYSTU(NOL)
+            Diszo [M:SOR]QTYPCU(NOL)
+            Diszo [M:SOR]SERNUM(NOL)
+         Endif
+      Endif
+   Next NOL
+Endif
+
+Return
+
+
+#########################################################################
+$CRE_PICSTO
+Raz WPICKSTO
+#JC.STR
+FOK=1 : GERR=0
+Filter [F:STO] Where STOFCY = PPLANTA and ITMREF = PARTICULO and STA = 'A' and LOC = 'SGA' and LOT = PLOT
+Read [STO]STO0 Last
+#############ESTANDAR##################
+#Read [STO]STO0=[F:STO]STOFCY;[F:STO]STOCOU
+#############ESTANDAR###################
+#JC.END
+
+If fstat
+   Call RSTA ("STO",[F:STO]STOFCY-num$([F:STO]STOCOU)) From GLOCK
+   FOK=0 : Return
+Endif
+Read [STL]STL0=[F:STO]ITMREF;[F:STO]LOT;[F:STO]SLO
+If fstat
+   Call RSTA ("STL",[F:STO]ITMREF-[F:STO]LOT-[F:STO]SLO) From GLOCK
+   FOK=0 : Return
+Endif
+
+Gosub CTRL_PIC
+
+If FOK=0 | GERR=1 : Return : Endif
+
+Gosub CTRL_DISPO
+If FOK=0 | GERR=1 : Return : Endif
+
+# Contrôle de l'insertion
+If [M:SOR]NBLIG+1 >= dim([M:SOR]STA)-1
+   FOK=0 : GERR=1
+   GMESSAGE=mess(122,199,1)
+   Return
+Endif
+
+#--- La sélection est correcte
+
+# Ouverture de la ligne
+nolign = [M:SOR]NBLIG
+Insa nolign,1,[M:SOR]NBLIG [M:SOR]NBLIG
+[M:SOR]NBLIG += 1
+nolign = [M:SOR]NBLIG
+NOL = nolign-1
+status = 0
+
+[M:SOR]ICOMVTATT(NOL)=""
+
+# Quantité UA restant à traiter
+WQTYSTU=max(0,[M:SOR]SORQTYACT-([M:SOR]PECQTYACT+[M:SOR]SHTQTY))
+
+If WDISPO>=WQTYSTU
+   [M:SOR]QTYSTUACT(NOL)=WQTYSTU
+Else
+   [M:SOR]QTYSTUACT(NOL)=WDISPO
+Endif
+
+[M:SOR]QTYSTU(NOL) = [M:SOR]QTYSTUACT(NOL)
+
+If dim([M:SOR]POT)>0
+   If [M:SOR]STOMGTCOD=3
+      [M:SOR]POT(NOL) = [F:STL]POT
+   Elsif [M:SOR]STOMGTCOD=4
+      [M:SOR]POT(NOL) = [F:STL]ACT
+   Endif
+   # Si gestion en titres ou UI, calcul quantité en UA
+   Case [M:SOR]STOMGTCOD
+    When 3 : If [M:SOR]QTYSTUACT(NOL)=[F:STO]QTYSTUACT    : #--- Issue 114287
+                [M:SOR]QTYSTU(NOL) = [F:STO]QTYSTU        : #--- Issue 114287
+             Elsif [M:SOR]POT(NOL)<>0
+                [M:SOR]QTYSTU(NOL) = [M:SOR]QTYSTUACT(NOL)*100/[M:SOR]POT(NOL)
+                Call QTEARR([M:SOR]QTYSTU(NOL),[M:SOR]STU) From TRTDIV
+             Endif
+    When 4 : If [M:SOR]QTYSTUACT(NOL)=[F:STO]QTYSTUACT    : #--- Issue 114287
+                [M:SOR]QTYSTU(NOL) = [F:STO]QTYSTU        : #--- Issue 114287
+             Elsif [M:SOR]POT(NOL)<>0
+                [M:SOR]QTYSTU(NOL) = [M:SOR]QTYSTUACT(NOL)/[M:SOR]POT(NOL)
+                Call QTEARR([M:SOR]QTYSTU(NOL),[M:SOR]STU) From TRTDIV
+             Endif
+   Endcase
+Endif
+
+[M:SOR]XPCU(NOL)       = [F:STO]PCU
+[M:SOR]XPCUSTUCOE(NOL) = [F:STO]PCUSTUCOE
+
+If [M:SOR]XPCUSTUCOE(NOL)=0 [M:SOR]XPCUSTUCOE(NOL)=1 Endif
+[M:SOR]QTYPCU(NOL) = [M:SOR]QTYSTU(NOL)/[M:SOR]XPCUSTUCOE(NOL)
+Call QTEARR([M:SOR]QTYPCU(NOL),[M:SOR]XPCU(NOL)) From TRTDIV
+
+[M:SOR]AVAQTYPCU(NOL)  = WPCUDIS
+[M:SOR]AVAQTYSTU(NOL)  = WSTUDIS
+[M:SOR]TOTQTYSTU(NOL)  = [F:STO]QTYSTU
+
+If dim([M:SOR]SERNUM)>0  [M:SOR]SERNUM(NOL) = [F:STO]SERNUM Endif
+If dim([M:SOR]SERNUMF)>0 [M:SOR]SERNUMF(NOL)= [F:STO]SERNUM Endif
+
+Gosub ALIM_PIC
+
+Return
+
+#########################################################################
+#--- Contrôle de la ligne de stock pické
+$CTRL_PIC
+#--- TS 106217
+# Contrôle version par rapport à la règle de gestion
+If [F:STO]ECCVALMAJ<>""
+  #--- Issue X3-133507 by TS
+  If [M:SOR]VCRTYP<>34
+  #---
+    Call CTLECCVALMAJ([F:STO]ITMREF,[M:SOR]WECCVALMAJ,[F:STO]ECCVALMAJ,[M:SOR]RETDAT,"",LRET) From STKSOR
+    If LRET<>0
+      FOK=0 : GERR=1
+      Return
+    Endif
+  #--- Issue X3-133507 by TS
+  Else
+    If [F:SRU]ORDVER=2 & [M:SOR]WECCVALMAJ<>"" & [M:SOR]WECCVALMAJ<>[F:STO]ECCVALMAJ
+      GMESSAGE=mess(426,184,1)-":"-[M:SOR]WECCVALMAJ
+      FOK=0 : GERR=1
+      Return
+    Endif
+  Endif
+  #---
+Endif
+#---
+
+# Contrôle si sortie mono-lot
+If GUNTLOT=2 & [M:SOR]NBLIG>0
+   If [F:STO]LOT<>[M:SOR]LOT(0)
+      OK=1 : Call AVERTIR(mess(211,184,1), OK) From GESECRAN
+      Raz GERR : # Sinon pas de dépick dans GSAISIE (la boule reste  bleue)
+      If OK=1  FOK=0 : Return  Endif
+   Endif
+Endif
+
+#--- Bug 86912
+If LABR="PNH1" & [M:PNH1]PTHNUM(LNOL)<>"" & [F:STO]LOT<>""
+  If clalev([F:STJ])=0  Local File STOJOU [STJ]  Endif
+  I=0
+  Columns [STJ] (STOFCY,ITMREF,VCRTYP,VCRNUM,VCRLIN,UPDCOD,REGFLG,LOT)
+  For [STJ]STJ1 Where STOFCY=[M:PNH1]PNHFCY & VCRTYP=6 & VCRNUM=[M:PNH1]PTHNUM(LNOL)
+&                   & VCRLIN=[M:PNH1]PTDLIN(LNOL) & ITMREF=[M:PNH1]ITMREF(LNOL)
+&                   & LOT=[F:STO]LOT & UPDCOD=2 & REGFLG<>2
+    I+=1 : Break
+  Next
+  Columns [STJ]
+  If I=0
+    OK=1 : Call AVERTIR(mess(43,197,1)-[F:STO]LOT+"\"+mess(410,184,1), OK) From GESECRAN
+    Raz GERR : # Sinon pas de dépick dans GSAISIE (la boule reste  bleue)
+    If OK=1  FOK=0 : Return  Endif
+  Endif
+Endif
+#---
+
+If [F:STO]LOCCAT=2
+   Raz WRET
+   # Contrôle que la ligne de stock en attente de rangement est complète
+   Call CTLPLFLOC([M:SOR]ITMREF,"",WRET) From STKSOR
+   If WRET<>0
+      FOK=0 : GERR=1
+      GMESSAGE =[F:STO]STOFCY-[F:STO]ITMREF-[F:STO]LOC-":"-mess(378,199,1)
+      GMESSAGE+="\"+mess(377,199,1)-": "
+      Case WRET
+       When 1 : GMESSAGE+=mess(43,197,1)-","-mess(456,197,1)
+       When 2 : GMESSAGE+=mess(453,197,1)
+       When 3 : GMESSAGE+=mess(43,197,1)-","-mess(456,197,1)-","-mess(453,197,1)
+      Endcase
+      Return
+   Endif
+Endif
+
+#--- Issue 121665
+If LABR="REO1"
+  Read [STC]STC0=[M:REO1]STOFCY;GREOLOC
+  If !fstat
+    Call STKCTRSTA([F:STO]STA,[F:STC]AUZSST,0,0,0,W_K) From STKACT
+    If W_K<>0
+      FOK=0 : GERR=1
+      GMESSAGE=[F:STO]STA-mess(832,196,1)-"("+GREOLOC+")"
+      Return
+    Endif
+  Endif
+Endif
+#---
+
+# Ligne de stock faisant l'objet d'une demande d'analyse
+If [M:SOR]PECQLYCTL<>2 & [F:STO]QLYCTLDEM<>""
+   FOK=0 : GERR=1
+   GMESSAGE =mess(399,198,1)-":"-[F:STO]STA
+   If [F:ITM]LOTMGTCOD>1
+      GMESSAGE-=mess(43,197,1)-":"-[F:STO]LOT
+   Endif
+   If [F:ITM]LOTMGTCOD=4
+      GMESSAGE-=mess(456,197,1)-":"-[F:STO]SLO
+   Endif
+   If [F:ITM]SERMGTCOD=3
+      GMESSAGE-=mess(453,197,1)-":"-[F:STO]SERNUM
+   Endif
+   If [F:ITF]LOCMGTCOD=2
+      GMESSAGE-=mess(44,197,1)-":"-[F:STO]LOC
+   Endif
+   GMESSAGE+="\"+mess(460,199,1)
+   Return
+Endif
+# Si non administrateur stock, contrôle ligne pickée par rapport
+# à la péremption et à la règle de gestion
+If GSTOADMIN<>2
+   WPICKSTO=string$(evalue(GCRITPIC),"OK")
+   If WPICKSTO<>"OK"
+      FOK=0 : GERR=1
+      GMESSAGE =mess(399,198,1)-":"-[F:STO]STA
+      If [F:ITM]LOTMGTCOD>1
+         GMESSAGE-=mess(43,197,1)-":"-[F:STO]LOT
+      Endif
+      If [F:ITM]LOTMGTCOD=4
+         GMESSAGE-=mess(456,197,1)-":"-[F:STO]SLO
+      Endif
+      If [F:ITM]SERMGTCOD=3
+         GMESSAGE-=mess(453,197,1)-":"-[F:STO]SERNUM
+      Endif
+      If [F:ITF]LOCMGTCOD=2
+         GMESSAGE-=mess(44,197,1)-":"-[F:STO]LOC
+      Endif
+      GMESSAGE+="\"+mess(366,199,1)
+      Return
+   Endif
+Endif
+
+# Si non article géré en titre ou en UI, et pas plan de réappro
+If !find([M:SOR]STOMGTCOD,3,4) & LABR<>"REO1"
+   # La quantité est déjà supérieure à la qte à traiter
+   If [M:SOR]PECQTYACT+[M:SOR]SHTQTY>=[M:SOR]SORQTYACT
+      FOK=0 : GERR=1
+      GMESSAGE=mess(393,199,1)
+      Return
+   Endif
+Endif
+
+Return
+
+#########################################################################
+#--- Calcul et contrôle du disponible de la ligne de stock pické
+$CTRL_DISPO
+
+If LABR="REO1"
+   #--- Issue 104979
+   #WSTUDIS = [F:STO]QTYSTU - [F:STO]CUMWIPQTY
+   WSTUDIS = [F:STO]QTYSTU - [F:STO]CUMALLQTY - [F:STO]CUMWIPQTY
+   #---
+   WPCUDIS = WSTUDIS/[F:STO]PCUSTUCOE
+   Call QTEARR(WPCUDIS,[F:STO]PCU) From TRTDIV
+   WDISPO  = WSTUDIS
+Else
+
+   # Calcul du stock disponible sur l'article
+   Raz LTYPLOC, LSTA
+   If [M:SOR]PECPLFLOC=2 LTYPLOC+=1 Endif
+   If [M:SOR]PECSCOLOC=2 LTYPLOC+=4 Endif
+   # Si pas d'emplacements internes
+   If [M:SOR]PECINTLOC=1 LTYPLOC=LTYPLOC*(-1) Endif
+   If [M:SOR]AAASTA=2    LSTA   +=1 Endif
+   If [M:SOR]QQQSTA=2    LSTA   +=2 Endif
+   If [M:SOR]RRRSTA=2    LSTA   +=4 Endif
+
+   #--- Issue 84803 by TS
+   If [M:SOR]AUZSST<>[F:SRU]AUZSST & GSTOADMIN=2
+     Local Integer L
+     Local Integer WWA, WWQ, WWR
+     Local Char    WAUZSST(30), WLEFT(30)
+     WAUZSST = [M:SOR]AUZSST
+     L = instr(1,WAUZSST+',',',')
+     Repeat
+       WLEFT = left$(WAUZSST,L-1)
+       Case left$(WLEFT,1)
+         When "A" : WWA = 1
+         When "Q" : WWQ = 1
+         When "R" : WWR = 1
+       Endcase
+       WAUZSST = right$(WAUZSST,L+1)
+       L = instr(1,WAUZSST+',',',')
+     Until WAUZSST=""
+     If WWA=1 & [M:SOR]AAASTA<>2 LSTA+=1 Endif
+     If WWQ=1 & [M:SOR]QQQSTA<>2 LSTA+=2 Endif
+     If WWR=1 & [M:SOR]RRRSTA<>2 LSTA+=4 Endif
+   Endif
+   #--- End issue 84803
+
+   Call STODISTOT("[F:ITV]",LTYPLOC,LSTA,[M:SOR]PECOWNER,WTOTACTDIS) From STKLIB
+
+   # On retire la somme des quantités saisies
+   WTOTACTDIS -= sum([M:SOR]QTYSTUACT)
+   # On rajoute l'allouée global
+   WTOTACTDIS += [M:SOR]GLOALLQTY
+
+   If [M:SOR]VCRTYPORI<>0 & [M:SOR]VCRNUMORI<>"" & [M:SOR]VCRLINORI<>0
+      # Ajout stock alloué sur la pièce origine si création
+      For [STA]STA1 Where VCRTYP=[M:SOR]VCRTYPORI & VCRNUM=[M:SOR]VCRNUMORI &
+&                         VCRLIN=[M:SOR]VCRLINORI & VCRSEQ=[M:SOR]VCRSEQORI
+         WTOTACTDIS += [F:STA]QTYSTUACT
+      Next
+   Else
+      # Ajout stock alloué sur la pièce
+      For [STA]STA1 Where VCRTYP=[M:SOR]VCRTYP & VCRNUM=[M:SOR]VCRNUM &
+&                         VCRLIN=[M:SOR]VCRLIN & VCRSEQ=0 & ALLTYP=2
+          WTOTACTDIS += [F:STA]QTYSTUACT
+      Next
+   Endif
+
+   # Contrôle du disponible pour sortie sur la ligne de stock
+   Call STODISSOR("[F:STO]","[F:ITM]","",WPCUDIS,WSTUDIS,WSTUACTDIS) From STKLIB
+
+   #--- TS en attente (pose des problèmes en maj : stock ayant évolué ----#
+   # Pouvoir picker une ligne de stock en rajoutant les allocations de la ligne
+   # origine dans le disponible, et en exploitant celles-ci par la suite
+   #---------------------#
+   #If [F:STO]CUMALLQTA<>0
+   #   If [M:SOR]VCRTYPORI<>0 & [M:SOR]VCRNUMORI<>"" & [M:SOR]VCRLINORI<>0
+   #      For [STA]STA1 Where VCRTYP=[M:SOR]VCRTYPORI & VCRNUM=[M:SOR]VCRNUMORI &
+   #&                            VCRLIN=[M:SOR]VCRLINORI & VCRSEQ=[M:SOR]VCRSEQORI &
+   #&                            STOCOU=[F:STO]STOCOU
+   #         WSTUACTDIS += [F:STA]QTYSTUACT
+   #         WSTUDIS    += [F:STA]QTYSTU
+   #      Next
+   #   Else
+   #      For [STA]STA1 Where VCRTYP=[M:SOR]VCRTYP & VCRNUM=[M:SOR]VCRNUM &
+   #&                         VCRLIN=[M:SOR]VCRLIN & VCRSEQ=0 & STOCOU=[F:STO]STOCOU
+   #         WSTUACTDIS += [F:STA]QTYSTUACT
+   #         WSTUDIS    += [F:STA]QTYSTU
+   #      Next
+   #   Endif
+   #   WPCUDIS = WSTUDIS/[F:STO]PCUSTUCOE
+   #   Call QTEARR(WPCUDIS,[F:STO]PCU) From TRTDIV
+   #Endif
+   #--- TS end ---#
+
+   # Disponible = min(dispo ligne stock, dispo article)
+   WDISPO = min(WSTUACTDIS,WTOTACTDIS)
+
+   # Pas de stock disponible
+   If WDISPO<=0
+      FOK=0 : GERR=1
+      If WTOTACTDIS <= 0
+         GMESSAGE = mess(80,197,1)-[M:SOR]ITMREF-": "
+      Else
+         GMESSAGE = mess(644,197,1)-": "
+      Endif
+      GMESSAGE += mess(367,199,1)
+      If GWIPSTOLCK=2 & [F:STO]LOCCAT=2
+         # La qté en attente de rangement est peut être dans une liste à ranger
+         GMESSAGE += "\"+mess(150,184,1)
+      Endif
+      Return
+   Endif
+Endif
+
+Return
+
+#########################################################################
+#--- Alimentation de la ligne de stock pické
+$ALIM_PIC
+
+If dim([M:SOR]LOT)>0     [M:SOR]LOT(NOL)    = [F:STO]LOT    Endif
+If dim([M:SOR]SLO)>0     [M:SOR]SLO(NOL)    = [F:STO]SLO    Endif
+If dim([M:SOR]LOC)>0     [M:SOR]LOC(NOL)    = [F:STO]LOC    Endif
+If dim([M:SOR]WRH)>0     [M:SOR]WRH(NOL)    = [F:STO]WRH    Endif
+
+# Ligne de stock avec no série ?
+Raz [M:SOR]SERNUMFLG(NOL)
+If [F:STO]SERNUM<>"" [M:SOR]SERNUMFLG(NOL)=1 Endif
+#--- TS 106217
+If dim([M:SOR]ECCVALMAJ)>0 [M:SOR]ECCVALMAJ(NOL) = [F:STO]ECCVALMAJ Endif
+If dim([M:SOR]ECCVALMIN)>0 [M:SOR]ECCVALMIN(NOL) = [F:STL]ECCVALMIN Endif
+#---
+[M:SOR]STA(NOL)        = [F:STO]STA
+[M:SOR]OWNER(NOL)      = [F:STO]OWNER
+
+If dim([M:SOR]SHLDAT)>0  [M:SOR]SHLDAT(NOL) = [F:STL]SHLDAT Endif
+
+#--- Issue X3-53322
+If dim([M:SOR]LPNNUM)>0  [M:SOR]LPNNUM(NOL) = [F:STO]LPNNUM Endif
+#---
+If dim([M:SOR]PALNUM)>0  [M:SOR]PALNUM(NOL) = [F:STO]PALNUM Endif
+If dim([M:SOR]CTRNUM)>0  [M:SOR]CTRNUM(NOL) = [F:STO]CTRNUM Endif
+
+If dim([M:SOR]STOFLD1)>0 [M:SOR]STOFLD1(NOL)= [F:STO]STOFLD1 Endif
+If dim([M:SOR]STOFLD2)>0 [M:SOR]STOFLD2(NOL)= [F:STO]STOFLD2 Endif
+
+[M:SOR]STOCOU(NOL)    = [F:STO]STOCOU
+
+[M:SOR]PECQTY        += [M:SOR]QTYSTU(NOL)
+[M:SOR]PECQTYACT     += [M:SOR]QTYSTUACT(NOL)
+
+If dim([M:SOR]LOT)>0    Diszo [M:SOR]LOT(NOL)    Endif
+If dim([M:SOR]SLO)>0    Diszo [M:SOR]SLO(NOL)    Endif
+If dim([M:SOR]LOC)>0    Diszo [M:SOR]LOC(NOL)    Endif
+If dim([M:SOR]WRH)>0
+   If WRHGES=2
+      Diszo [M:SOR]WRH(NOL)
+   Else
+      Grizo [M:SOR]WRH(NOL)
+   Endif
+Endif
+#--- TS 106217
+If dim([M:SOR]ECCVALMAJ)>0 Diszo [M:SOR]ECCVALMAJ(NOL) Endif
+#---
+
+If [F:ITM]SERMGTCOD=2
+   If dim([M:SOR]SERNUM)>0
+      # No série déjà existant ou retour fournisseur, pas de saisie
+      If [M:SOR]SERNUMFLG(I)=1 | [M:SOR]VCRTYP=8
+         Diszo [M:SOR]QTYSTU(NOL)
+         Diszo [M:SOR]QTYPCU(NOL)
+         Diszo [M:SOR]SERNUM(NOL)
+      Else
+         Actzo [M:SOR]QTYSTU(NOL)
+         Actzo [M:SOR]QTYPCU(NOL)
+         # Si trf inter-site mais intra-société, pas de saisie no série
+         If [M:SOR]TRFFCY<>"" & [M:SOR]BETCPY<>2
+            Diszo [M:SOR]SERNUM(NOL)
+         Else
+            Actzo [M:SOR]SERNUM(NOL)
+         Endif
+      Endif
+   Else
+      Actzo [M:SOR]QTYSTU(NOL)
+      Actzo [M:SOR]QTYPCU(NOL)
+   Endif
+Elsif [F:ITM]SERMGTCOD=3
+   Diszo [M:SOR]QTYSTU(NOL)
+   Diszo [M:SOR]QTYPCU(NOL)
+   If dim([M:SOR]SERNUM)>0 Diszo [M:SOR]SERNUM(NOL) Endif
+# Si no séries gérés en E/S globale
+Elsif [M:SOR]SERMGTCOD=4
+   Actzo [M:SOR]QTYSTU
+   Diszo [M:SOR]QTYPCU
+   If dim([M:SOR]SERNUM)>0 Actzo [M:SOR]SERNUM Endif
+Else
+   Actzo [M:SOR]QTYSTU(NOL)
+   Actzo [M:SOR]QTYPCU(NOL)
+   If dim([M:SOR]SERNUM)>0 Diszo [M:SOR]SERNUM(NOL) Endif
+Endif
+Diszo [M:SOR]STA(NOL)
+
+Gosub FIN_PIC   # JC.NEW
+Return
+#--- End issue 110327
+
+#########################################################################
+$FIN_PIC
+
+Affzo [M:SOR]1-99
+
+If [M:SOR]NBLIG<>0
+   # Repositionnement sur la ligne pickée
+   zonsui = "[M:SOR]NBLIG("+num$(NOL)+")"
+Endif
+
+Return
+
+#########################################################################
+$AVANT_ENR
+OKRUP=0
+
+# Pas de ligne saisie
+#If [M:SOR]NBLIG = 0
+#   GMESSAGE = mess(61,199,1)
+#   GERR=1 : FOK=0 : Return
+#Endif
+
+# Si on est sur un bon de préparation
+If find(LABR,"PREP","PRH1")
+
+   # Si quantité totale > quantité à sortir
+   If [M:SOR]PECQTYACT+[M:SOR]SHTQTY > [M:SOR]SORQTYACT
+      GMESSAGE = mess(465,199,1)
+      GERR=1 : FOK=0
+   # Sinon si quantité totale < quantité à sortir
+   Elsif [M:SOR]PECQTYACT+[M:SOR]SHTQTY < [M:SOR]SORQTYACT
+      # Si composant de kit
+      If GTYPLIG=1
+         GMESSAGE = mess(427,199,1)
+         GERR=1 : FOK=0 : Return
+      Endif
+      # Si la qtée sélectionnée est nulle et on avait de l'allocation globale
+      If [M:SOR]PECQTYACT+[M:SOR]SHTQTY = 0 & [M:SOR]GLOALLQTY+[M:SOR]GLOSHTQTY > 0
+         # Ligne de prépa allouée en global et pas de stock sélectionné
+         # L'enregistrement n'est pas possible
+         GMESSAGE = mess(329,184,1)
+         GERR=1 : FOK=0 : Return
+      Endif
+      # Non par défaut
+      OK=0
+      # Si bon de prépa livrable (on génère une rupture selon)
+      If (LABR="PRH1" & [M:PRH1]DLVFLG>1) | (LABR="PREP" & [M:PREP]DLVFLG(LNOL)>1)
+         # Si stock négatif autorisé
+         If [M:SOR]NEGSTO=2
+            # Voulez-vous générer une rupture ?
+            GMESSAGE=mess(395,199,1)
+            Call OUINON(GMESSAGE,OK) From GESECRAN
+            If OK<>2
+               FOK=0
+            Else
+               OKRUP=1
+            Endif
+         Else
+            # La qtée sélectionnée est < à la qté à traiter
+            GMESSAGE = mess(466,199,1)
+            GERR=1 : FOK=0 : Return
+         Endif
+      # Si bon de prépa en cours (on génère toujours une rupture)
+      Else
+         # Voulez-vous enregistrer ?
+         GMESSAGE=mess(390,199,1)
+         Call OUINON(GMESSAGE,OK) From GESECRAN
+         If OK<>2
+            FOK=0
+         Else
+            OKRUP=1
+         Endif
+      Endif
+      Raz GMESSAGE
+   Endif
+   Return
+
+Endif
+
+# Si no série en sortie sans compteur
+If [F:ITM]SERMGTCOD=2 & [F:ITM]SERCOU=""
+   #--- Bug 70723
+   #MAE, le 27/09/2010, bg 67175, si inter-site et intra-société, pas de n° série a saisir
+   #If [M:SOR]TRFFCY="" & [M:SOR]BETCPY=2
+   # Contrôle si (pas intersite ou pas intersociété) et pas retour fournisseur
+   #--- Bug 83893
+   #If ([M:SOR]TRFFCY="" | [M:SOR]BETCPY=2) & LABR<>"PNH1"
+   If ([M:SOR]TRFFCY="" | [M:SOR]BETCPY=2) & !find(LABR,"PNH1","REO1")
+   #---
+      If find("",[M:SOR]SERNUM(0..[M:SOR]NBLIG-1))
+         # Les no série n'ont pas été renseignés
+         GMESSAGE = mess(312,184,1)
+         GERR=1 : FOK=0 : Return
+      Endif
+   Endif
+Endif
+
+#--- Issue 110327
+# Si no série en E/S globale
+If [F:ITM]SERMGTCOD=4
+  If find("",[M:SOR]SERNUM(0..[M:SOR]NBLIG-1))
+    # Les no série n'ont pas été renseignés
+    GMESSAGE = mess(312,184,1)
+    GERR=1 : FOK=0 : Return
+  Endif
+Endif
+#---
+
+# Si no séries gérés en sortie ou E/S globale,        : #--- Issue 110327
+# contrôle de cohérence, entre les différentes lignes (pas de colision entre no)
+#--- Issue 110327
+#If [F:ITM]SERMGTCOD=2 & [M:SOR]NBLIG>1
+If find([F:ITM]SERMGTCOD,2,4) & [M:SOR]NBLIG>1
+#---
+   If clalev([M:SOM])=0  Local Mask STOSORM  [SOM]  Endif
+   Default Mask [SOR]
+   J=0
+   # Alimentation des no début et fin dans l'écran [SOM] pour tri
+   For I=0 To [M:SOR]NBLIG-1
+      If [M:SOR]SERNUM(I)<>""
+         [M:SOM]SERNUM(J)  = [M:SOR]SERNUM(I)
+         [M:SOM]SERNUMF(J) = [M:SOR]SERNUMF(I)
+         J+=1
+      Endif
+   Next I
+   [M:SOM]NBLIG = J
+   If [M:SOM]NBLIG>1
+      # Tri des no séries
+      Sorta [M:SOM]NBLIG [M:SOM]SERNUM,[M:SOM]SERNUMF
+      J=0
+      For J=1 To [M:SOM]NBLIG-1
+         If [M:SOM]SERNUMF(J-1)>=[M:SOM]SERNUM(J)
+            # Des no série sont présents plusieurs fois
+            #--- Issue 110327
+            #GMESSAGE = mess(464,199,1)
+            GMESSAGE = mess(464,199,1)-[M:SOM]SERNUM(J)-"-->"-[M:SOM]SERNUMF(J-1)
+            #---
+            GERR=1 : FOK=0 : Break
+         Endif
+      Next J
+      If GERR=1 Return Endif
+   Endif
+Endif
+
+# Si article géré en titre ou en UI, ou plan de réappro
+# on permet de ne pas respecter la qté à sortir
+If find([M:SOR]STOMGTCOD,3,4) | LABR="REO1"
+   # Si quantité totale > quantité à sortir, confirmer vous la saisie ?
+   If [M:SOR]PECQTYACT+[M:SOR]SHTQTY > [M:SOR]SORQTYACT
+      GMESSAGE = mess(465,199,1)+"\"+mess(623,196,1)
+      # Non par défaut
+      OK=0
+      Call OUINON(GMESSAGE,OK) From GESECRAN
+      Raz GMESSAGE
+      # Saisie non confirmée
+      If OK<>2 FOK=0 Endif
+   # Sinon si quantité totale < quantité à sortir
+   Elsif [M:SOR]PECQTYACT+[M:SOR]SHTQTY < [M:SOR]SORQTYACT
+      # Si livraison de prêt ou sous-traitance, pas de sortie d'un stock manquant
+      If LABR="SDH1" & ([M:SDH0]LND=2 | (dim([M:SDH0]SCO)>0 & [M:SDH0]SCO=2))
+         # La quantité sélectionnée ne peut être inférieure à la qté à traiter ?
+         GMESSAGE=mess(509,199,1)
+         GERR=1 : FOK=0
+      # Sinon si stock négatif autorisé, et pas plan de réappro
+      # générer rupture ou confirmer saisie ?
+      Elsif [M:SOR]NEGSTO=2 & LABR<>"REO1"
+         Local Char    PARMSK(250)(1..20) , SAVACT(20)
+         SAVACT = GACTION : GACTION = "DIVCHX1"
+         PARMSK(1) = "466"
+         PARMSK(2) = "199"
+         Call SAISIE_NUM(VALEUR,PARMSK,"ICHX1","STKECR2","") From GSAISIE
+         GACTION = SAVACT
+         # Génération rupture
+         If PARMSK(3)="A"
+            OKRUP=1
+         # Saisie non confirmée
+         Elsif PARMSK(3)<>"B"
+            FOK=0
+         Endif
+      # Sinon confirmez-vous la saisie ?
+      Else
+         GMESSAGE = mess(466,199,1)+"\"+mess(623,196,1)
+         # Non par défaut
+         OK=0
+         Call OUINON(GMESSAGE,OK) From GESECRAN
+         Raz GMESSAGE
+         # Saisie non confirmée
+         If OK<>2 FOK=0 Endif
+      Endif
+   Endif
+# Si article non géré en titre ou en UI, et pas plan de réappro
+Else
+   # Si quantité totale > quantité à sortir
+   If [M:SOR]PECQTYACT+[M:SOR]SHTQTY > [M:SOR]SORQTYACT
+      GMESSAGE = mess(465,199,1)
+      GERR=1 : FOK=0
+   # Sinon si quantité totale < quantité à sortir
+   Elsif [M:SOR]PECQTYACT+[M:SOR]SHTQTY < [M:SOR]SORQTYACT
+      # Si composant de kit
+      If GTYPLIG=1
+         GMESSAGE = mess(427,199,1)
+         GERR=1 : FOK=0 : Return
+      Endif
+      # Si livraison de prêt ou sous-traitance, pas de sortie d'un stock manquant
+      If LABR="SDH1" & ([M:SDH0]LND=2 | (dim([M:SDH0]SCO)>0 & [M:SDH0]SCO=2))
+         # La quantité sélectionnée ne peut être inférieure à la qté à traiter ?
+         GMESSAGE=mess(509,199,1)
+         GERR=1 : FOK=0 : Return
+      # Sinon si stock négatif autorisé
+      Elsif [M:SOR]NEGSTO=2
+         # Voulez-vous générer une rupture ?
+         GMESSAGE=mess(395,199,1)
+      Else
+         # Voulez-vous enregistrer ?
+         GMESSAGE=mess(390,199,1)
+      Endif
+      # Non par défaut
+      OK=0
+      Call OUINON(GMESSAGE,OK) From GESECRAN
+      Raz GMESSAGE
+      If OK<>2
+         FOK=0
+      Elsif [M:SOR]NEGSTO=2
+         OKRUP=1
+      Endif
+   Endif
+Endif
+Return
+
+#########################################################################
+$ENR
+If dim([M:SOW]WSTOCOU) <= 0
+   Call ERREUR (mess(339,199,1)-'SOW') From GESECRAN
+   Return
+Endif
+
+# Peut on ajouter les lignes dans l'écran de travail
+If [M:SOW]NBLIG+[M:SOR]NBLIG >= dim([M:SOW]WSTOCOU)
+   Call MESSAGE(mess(352,199,1)) From GESECRAN
+   Return
+Endif
+
+# Suppression des lignes [SOW] initiales pour la ligne de document
+Call DELSTOSORW(LNOL,LNOL,LABR,[M:SOR]STOFCY,LRET) From STKSOR
+If LRET<>0 Return Endif
+
+Trbegin [STO]
+
+# Alimentation de l'écran de stockage STOSORW
+WNBLIG = [M:SOW]NBLIG
+J      = [M:SOW]NBLIG
+If [M:SOR]NBLIG>0
+
+   #--- Issue 110327
+   # Tri du tableau [M:SOR] par chrono stock et no série pour réagréger si nécessaire
+   If [F:ITM]SERMGTCOD=4
+      Sorta [M:SOR]NBLIG [M:SOR]NBLIG Order By [M:SOR]STOCOU(indice),[M:SOR]SERNUM(indice)
+   Endif
+   #---
+
+   For I=0 To [M:SOR]NBLIG-1
+      # Si qté à sortir > qté déjà allouée, maj qté en cours de traitement
+      If [M:SOR]QTYSTUACT(I)>[M:SOR]ALLSTUACT(I)
+         Readlock [STO]STO0=[M:SOR]STOFCY;[M:SOR]STOCOU(I)
+         If !fstat
+            LWIPQTY = max(0,[M:SOR]QTYSTU(I)-[M:SOR]ALLSTU(I))
+            LWIPQTA = max(0,[M:SOR]QTYSTUACT(I)-[M:SOR]ALLSTUACT(I))
+            If LWIPQTA>[F:STO]QTYSTUACT-[F:STO]CUMALLQTA-[F:STO]CUMWIPQTA
+               GMESSAGE = mess(160,195,1)-num$(I+1)-":"-mess(142,184,1)-"\"-
+&                         mess(45,196,1)-num$(LWIPQTA)-mess(46,196,1)-
+&                         num$([F:STO]QTYSTUACT-[F:STO]CUMALLQTA-[F:STO]CUMWIPQTA)
+               Call ERREUR(GMESSAGE) From GESECRAN
+               LRET=1 : Break
+            Endif
+            [F:STO]CUMWIPQTY += LWIPQTY
+            [F:STO]CUMWIPQTA += LWIPQTA
+            LSTOCOU = [F:STO]STOCOU
+            Call CRE_STOWIPW(LSTOCOU,LWIPQTY,LWIPQTA) From STKLIB
+            Rewrite [STO]
+            If fstat
+               Call FSTA("STO") From GLOCK
+               Goto ENR_SUI
+            Endif
+         Elsif [M:SOR]STOCOU(I)<>0
+            GMESSAGE = mess(160,195,1)-num$(I+1)-":"-mess(232,188,1)-
+&                      "[STOCK]"-mess(50,196,1)-num$([M:SOR]STOCOU(I))
+            Call ERREUR(GMESSAGE) From GESECRAN
+            LRET=1 : Break
+         Endif
+      Endif
+      #--- Issue 110327
+      # Création no série en cours de traitement
+      If [F:ITM]SERMGTCOD=4 & [M:SOR]SERNUM(I)<>""
+        Call CRE_STOSERW([M:SOR]ITMREF,[M:SOR]SERNUM(I),[M:SOR]QTYSTU(I),LRET) From STKLIB
+        If LRET<>0 : Break : Endif
+      Endif
+      #---
+
+      #--- Issue 110327
+      If [F:ITM]SERMGTCOD=4 & I>0 & [M:SOR]SERNUM(I)<>"" & [M:SOR]STOCOU(I)=[M:SOR]STOCOU(I-1)
+         Raz WNUMDEB, LRET
+         Call PLUS_UN([M:SOR]SERNUMF(I-1),WNUMDEB,LRET) From STKLIB
+         # Si no série début = no série fin+1 de la ligne précédente, agrégation
+         If LRET=0 & WNUMDEB=[M:SOR]SERNUM(I)
+            [M:SOW]WQTYSTU(J-1)    += [M:SOR]QTYSTU(I)
+            [M:SOW]WQTYSTUACT(J-1) += [M:SOR]QTYSTUACT(I)
+            [M:SOW]WALLSTU(J-1)    += [M:SOR]ALLSTU(I)
+            [M:SOW]WALLSTUACT(J-1) += [M:SOR]ALLSTUACT(I)
+            Goto ENR_SUI
+         Endif
+      Endif
+      #---
+
+      [M:SOW]WSTOSEQ(J)    = [M:SOR]WSTOSEQ
+      [M:SOW]WSTOCOU(J)    = [M:SOR]STOCOU(I)
+      [M:SOW]WQTYSTU(J)    = [M:SOR]QTYSTU(I)
+      [M:SOW]WQTYSTUACT(J) = [M:SOR]QTYSTUACT(I)
+      Raz [M:SOW]WPLFSTO(J)
+      Raz [M:SOW]WLOT(J), [M:SOW]WSLO(J), [M:SOW]WLOC(J), [M:SOW]WWRH(J)
+      Raz [M:SOW]WSTA(J), [M:SOW]WSERNUM(J)
+      #--- TS 106217
+      Raz [M:SOW]WECCVALMAJ(J)
+
+      #--- Issue 110327
+      # Si série géré en sortie ou en E/S globale
+      #If [F:ITM]SERMGTCOD=2 & dim([M:SOR]SERNUM)>0
+      If find([F:ITM]SERMGTCOD,2,4) & dim([M:SOR]SERNUM)>0
+      #---
+         [M:SOW]WSERNUM(J)=[M:SOR]SERNUM(I)
+      Endif
+      # Sortie sur ligne de stock
+      If [M:SOR]STOCOU(I)<>0
+         [M:SOW]WALLSTU(J)    = [M:SOR]ALLSTU(I)
+         [M:SOW]WALLSTUACT(J) = [M:SOR]ALLSTUACT(I)
+      # Sortie en attente
+      Else
+         If dim([M:SOR]LOT)>0    [M:SOW]WLOT(J)   =[M:SOR]LOT(I) Endif
+         If dim([M:SOR]SLO)>0    [M:SOW]WSLO(J)   =[M:SOR]SLO(I) Endif
+         If dim([M:SOR]LOC)>0    [M:SOW]WLOC(J)   =[M:SOR]LOC(I) Endif
+         If dim([M:SOR]WRH)>0    [M:SOW]WWRH(J)   =[M:SOR]WRH(I) Endif
+         If dim([M:SOR]SERNUM)>0 [M:SOW]WSERNUM(J)=[M:SOR]SERNUM(I) Endif
+         #--- TS 106217
+         If dim([M:SOR]ECCVALMAJ)>0 [M:SOW]WECCVALMAJ(J)=[M:SOR]ECCVALMAJ(I) Endif
+         #---
+         [M:SOW]WSTA(J)=[M:SOR]STA(I)
+         Raz [M:SOW]WALLSTU(J), [M:SOW]WALLSTUACT(J)
+      Endif
+
+      # Transfert zones de l'écran STOSOR vers l'écran STOSORW
+      GPOINT="SOR_SOW" : Gosub ENTREE From EXEFNC
+
+      [M:SOW]NBLIG += 1
+      J += 1
+
+      $ENR_SUI
+   Next I
+   If LRET<>0 Goto AB_TRT Endif
+Endif
+
+# Génération d'une ligne de rupture si nécessaire
+If OKRUP=1
+   [M:SOW]WSTOSEQ(J)    = [M:SOR]WSTOSEQ
+   Raz [M:SOW]WSTOCOU(J)
+   [M:SOW]WQTYSTUACT(J) = [M:SOR]SORQTYACT-[M:SOR]PECQTYACT-[M:SOR]SHTQTY
+   [M:SOR]SHTQTY       += [M:SOW]WQTYSTUACT(J)
+   [M:SOW]WQTYSTU(J)    = [M:SOW]WQTYSTUACT(J)
+   Raz [M:SOW]WALLSTU(J), [M:SOW]WALLSTUACT(J)
+   Raz [M:SOW]WSLO(J), [M:SOW]WSTA(J), [M:SOW]WSERNUM(J)
+   Raz [M:SOW]WPLFSTO(J)
+   [M:SOW]WLOT(J) = WSHTLOT
+   [M:SOW]WLOC(J) = WSHTLOC
+   [M:SOW]WWRH(J) = WSHTWRH
+   #--- TS 106217
+   [M:SOW]WECCVALMAJ(J) = WSHTECCVALMAJ
+   #---
+   [M:SOW]NBLIG  += 1
+Endif
+
+Commit
+
+# Si ligne de stock alors stockage sections analytiques
+If [M:SOW]NBLIG <> WNBLIG
+   J=[M:SOW]NBLIG2
+   [M:SOW]WSTOSEQ2(J)=[M:SOR]WSTOSEQ
+   For I=1 To GNBDIE
+      Assign "[M:SOW]CCE"+num$(I)+"(J)" With [M:SOR]CCE(I-1)
+   Next I
+   [M:SOW]NBLIG2 += 1
+Endif
+
+# On a enregistré
+WGENR = 1
+FIN   = 1
+
+Return
+
+#########################################################################
+$AB_TRT
+Rollback
+Return
+
+#########################################################################
+$APRES_MODIF
+Local Integer I,J,K
+NOL = nolign-1
+
+# JC.STR
+##--- 110327
+#If find(COUZON,"SERNUM","QTYSTU","QTYPCU")
+#   GSAISERIE=1
+#Endif
+##---
+#
+## Raffraichissement du picking suite à saisie des no série (E/S)
+#If GSAISERIE=1
+#   Gosub TIROIR
+#Endif
+# JC.END
+
+# Si suppression d'une ligne, raffraichissement du picking
+If GSUPLIG=65 & [M:SOR]STOCOU(nolign-1)<>0
+   # Plusieurs lignes ont-elles le même chrono stock ?
+   K=sigma(J=0,[M:SOR]NBLIG-1,(1*([M:SOR]STOCOU(J)=[M:SOR]STOCOU(NOL))))
+   # Si chrono stock unique, on dépicke
+   If K=1
+      Read [STO]STO0=[M:SOR]STOFCY;[M:SOR]STOCOU(NOL)
+      If !fstat
+         Read [STL]STL0=[M:SOR]ITMREF;[F:STO]LOT;[F:STO]SLO
+         If !fstat
+            If evalue(FILGAUSUP) Gosub DEPICK From GSAISIE Endif
+         Endif
+      Endif
+   Endif
+Endif
+
+# Si suppression de n lignes, raffraichissement du picking
+If find(GSUPLIG,68,83)
+   For I=nolign-1 To nolign1-1
+      If [M:SOR]STOCOU(I)<>0
+         # Plusieurs lignes ont-elles le même chrono stock ?
+         K=sigma(J=0,[M:SOR]NBLIG-1,(1*([M:SOR]STOCOU(J)=[M:SOR]STOCOU(I))))
+         # Si chrono stock unique, on dépicke
+         If K=1
+            Read [STO]STO0=[M:SOR]STOFCY;[M:SOR]STOCOU(I)
+            If !fstat
+               Read [STL]STL0=[M:SOR]ITMREF;[F:STO]LOT;[F:STO]SLO
+               If !fstat
+                  If evalue(FILGAUSUP) Gosub DEPICK From GSAISIE Endif
+               Endif
+            Endif
+         Endif
+      Endif
+   Next I
+Endif
+
+Raz GSUPLIG, GSAISERIE
+
+Return
+
+#########################################################################
+$AVANT_MOD
+
+# Modification impossible si bon de préparation livré ou annulé
+If find([M:PRH1]DLVFLG,3,4)
+   GERR=1:GMESSAGE=mess(327,184,1)
+   OK=0
+Endif
+
+Return
+
+#########################################################################
+$APRES_STOSOR
+#-----------------------------------------------------------------------#
+# Mise a jour complementaires apres enregistrement
+# - Recalcul des quantites sorties US, UC de la ligne de document
+# - Realimentation des zones dependant de la quantite
+# - Coloriage de la ligne document si la quantite est nulle
+# - etc ...
+#
+#   [M:SOR]NBLIG     contient le nombre de ligne de stock traite
+#   [M:SOR]SORQTY    contient la quantite US qui etait a sortir
+#   [M:SOR]SORQTYACT contient la quantite en UA qui etait a sortir
+#   [M:SOR]PECQTY    contient la quantite US sortie
+#   [M:SOR]PECQTYACT contient la quantite en UA sortie
+#   [M:SOR]SHTQTY    contient la quantite manquante
+#-----------------------------------------------------------------------#
+
+If WGENR=1
+   [M:PRH1]ALLTYP(LNOL) = 2
+   [M:PRH1]ALLQTY(LNOL) = [M:SOR]PECQTYACT
+   [M:PRH1]SHTQTY(LNOL) = [M:SOR]SHTQTY
+   [M:PRH1]SHTQTY(LNOL) = [M:SOR]SHTQTY
+   [M:PRH1]LOT(NOL)     = PLOT                # JC.NEW
+   [M:PRH1]LOC(NOL)     = "SGA"               # JC.NEW
+   [M:PRH1]STA(NOL)     = "A"                 # JC.NEW
+   [M:PRH1]ZEXPORT(NOL) = 2                   # JC.NEW
+   [M:PRH1]UPDFLG(NOL)  = 1                   # JC.NEW
+   Affzo [M:PRH1]                             # JC.NEW
+Endif
+
+Return

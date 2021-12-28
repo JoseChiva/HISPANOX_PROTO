@@ -1,0 +1,668 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# JC.24112021-1. Añadir líneas de detalle de lote
+##############################################################
+
+#FILTRO EXTERNO
+#WVALORSHH - Documento seleccionado
+#WVALORSRH - Documento seleccionado
+#WFILTERSHH - Filtro a aplicar SHH
+#WFILTERSRH - Filtro a aplicar SRH
+
+##############################################################
+#If GUSER="ADEV" Then
+Call ZSGAROR("","") From ZSGAROR
+#Endif
+End
+
+
+##############################################################
+Subprog ZSGAROR(WVALORSHH,WVALORSRH)
+Value Char WVALORSHH, WVALORSRH
+
+Local Char    FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULT(250)
+Local Char    WTIPOMENSAJE(250), WSHIPNUM(250), WTIPOOPER(1), FICH2(250)
+Local Char    WZSGATMP(250), WSGADEFINITIVO(250)
+Local Integer LNGTH, LONG, I, WSEQ, WSUPPLIER, WABRIRFICHERO, WPREREPEXP, WPREREPPED, WDEVCLIENT, NFICH2
+Local Decimal LEXTQTY,LQTYSDD,LCANT
+Raz LNGTH
+Raz I
+
+  If !clalev([F:ZSHH]) : Local File SHIPMENT    [ZSHH] : Endif
+  If !clalev([F:ZSHD]) : Local File SHIPMENTD   [ZSHD] : Endif
+  If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
+  If !clalev([F:ZSRD]) : Local File SRETURND    [ZSRD] : Endif
+  If !clalev([F:ZSTJ]) : Local File STOJOU      [ZSTJ] : Endif
+  If !clalev([F:ZITM]) : Local File ITMMASTER   [ZITM] : Endif
+  If !clalev([F:ZPOH]) : Local File PORDER      [ZPOH] : Endif
+  If !clalev([F:ZSDD]) : Local File SDELIVERYD  [ZSDD] : Endif
+
+  If !clalev([F:ZSHH2]) : Local File SHIPMENT    [ZSHH2] : Endif
+  If !clalev([F:ZSHD2]) : Local File SHIPMENTD   [ZSHD2] : Endif
+  If !clalev([F:ZSRH2]) : Local File SRETURN     [ZSRH2] : Endif
+  If !clalev([F:ZSRD2]) : Local File SRETURND    [ZSRD2] : Endif
+
+  If !clalev([F:ZORI])  : Local File ZORIG      [ZORI] : Endif
+
+  WSGATMP='ZSGA\TMP'
+  WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+
+  WABRIRFICHERO=1
+  If WABRIRFICHERO=1
+    Gosub ABRIRFICHERO
+  Endif
+
+  WPREREPEXP=2 #Prerecepcion de expediciones
+  WPREREPPED=2 #Prerecepcion de pedidos
+  If WVALORSRH<>''
+    WPREREPEXP=1
+    WPREREPPED=1
+  Endif
+
+  WDEVCLIENT=2 #Devoluciones
+  If WVALORSHH<>''
+    WDEVCLIENT=1
+  Endif
+  WNDENTRO=1
+  WPOHNUM=''
+
+#FILTRO EXTERNO
+#WVALORSHH - Documento seleccionado
+#WVALORSRH - Documento seleccionado
+#WFILTERSHH - Filtro a aplicar SHH
+#WFILTERSRH - Filtro a aplicar SRH
+
+  WFILTERSHH='1=1'
+  WTRAZA=1
+  If WVALORSHH<>''
+    If GTRACE=''
+      WTRAZA=2
+      Call OUVRE_TRACE('Exped.:'+WVALORSHH) From LECFIC
+    Else
+      Call ECR_TRACE('Exped.:'+WVALORSHH,0) From GESECRAN
+    Endif
+    WFILTERSHH+=' & SHIPNUM=WVALORSHH'
+  Endif
+  WFILTERSRH='1=1'
+  If WVALORSRH<>''
+    If GTRACE=''
+      WTRAZA=2
+      Call OUVRE_TRACE('Devol.:'+WVALORSRH) From LECFIC
+    Else
+      Call ECR_TRACE('Devol.:'+WVALORSRH,0) From GESECRAN
+    Endif
+    WFILTERSRH+=' & SRHNUM=WVALORSRH'
+  Endif
+
+  #Prerecepcion de expediciones
+  If WPREREPEXP=2
+    For [ZSHH] Where SHIPTYP=1 and evalue(WFILTERSHH)
+
+      WSHIPNUM=[F:ZSHH]SHIPNUM
+      WTIPOMENSAJE=''
+      Filter [ZSHD] Where SHIPNUM=[F:ZSHH]SHIPNUM and (ZEXPORT=1 or ZEXPORT=0) # and PRCPFLG=2
+      For [ZSHD]
+        WTIPOMENSAJE='CREATE'
+        WNDENTRO=2
+        Gosub CREAHTML_CABSHH
+        Break
+        Filter
+      Next
+
+
+      Filter [ZSHD] Where SHIPNUM=[F:ZSHH]SHIPNUM  and ZEXPORT=3 #and PRCPFLG=2
+      WTIPOMENSAJE='UPDATE'
+      For [ZSHD]
+        Gosub CREAHTML_CABSHH
+        WNDENTRO=2
+        Break
+        Filter
+      Next
+    Next
+  Endif
+
+  #Prerecepcion de pedidos
+  If WPREREPPED=2
+    For [ZSHH] Where SHIPTYP=2 and evalue(WFILTERSHH)
+      WSUPPLIER=2
+      WSHIPNUM=[F:ZSHH]SHIPNUM
+      WTIPOMENSAJE=''
+      Filter [ZSHD] Where SHIPNUM=[F:ZSHH]SHIPNUM and (ZEXPORT=0 or ZEXPORT=1) #and PRCPFLG=2 and
+      WTIPOMENSAJE='CREATE'
+      For [ZSHD]
+        WPOHNUM=[ZSHD]POHNUM
+        Gosub CREAHTML_CABSHH
+        WNDENTRO=2
+        Break
+        Filter
+      Next
+
+      Filter [ZSHD] Where SHIPNUM=[F:ZSHH]SHIPNUM  and ZEXPORT=3 #and PRCPFLG=2
+      WTIPOMENSAJE='UPDATE'
+      For [ZSHD]
+        WPOHNUM=[ZSHD]POHNUM
+        Gosub CREAHTML_CABSHH
+              WNDENTRO=2
+        Break
+        Filter
+      Next
+    Next
+  Endif
+
+  #Devoluciones
+  If WDEVCLIENT=2
+    For [ZSRH]SRH0 Where evalue(WFILTERSRH)
+      WSRHNUM=[F:ZSRH]SRHNUM
+      WTIPOMENSAJE=''
+      Filter [ZSRD] Where SRHNUM=[F:ZSRH]SRHNUM and ZEXPORT=1
+      Read [F:ZSRD] First
+      If !fstat Then
+        For [ZSHD]
+          WNDENTRO=2
+          WTIPOMENSAJE='CREATE'
+          Gosub CREAHTML_CABSRH
+          Break
+        Next
+        Filter [ZSRD]
+      Endif
+
+      Filter [ZSRD] Where SRHNUM=[F:ZSRH]SRHNUM and ZEXPORT=3
+      WTIPOMENSAJE='UPDATE'
+      For [ZSRD]
+        WNDENTRO=2
+        Gosub CREAHTML_CABSRH
+        Break
+      Next
+      Filter [ZSRD]
+    Next
+  Endif
+
+  If WABRIRFICHERO=2
+    AA=func PUT_PROPXML('/ReceiptOrders','',0,1)
+    Openo Using [ZECO]
+    If WNDENTRO<>2
+      ORDSYS = "ae_rm " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml"
+      Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+      Call ECR_TRACE(CNOMBREFILE+'.xml - No Generado - No hay documentos ROR - Expedicion - Devoluciones',1) From GESECRAN
+    Else
+      Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+    Endif
+  Endif
+
+  If WNDENTRO=2
+    Gosub MUEVE_FILE
+  Endif
+
+  If WVALORSHH<>'' or WVALORSRH<>'' or WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+
+  GZPRE = 0
+
+End
+
+##############################################################
+$CREAHTML_CABSHH
+  For [ZSHH2] Where SHIPNUM=WSHIPNUM
+    AA=func PUT_PROPXML('ReceiptOrder ignoreNull="false"','',1,1)
+   #ReceiptOrder ----------------------------------------------------------
+    If WTIPOMENSAJE='CREATE'
+      WTIPOOPER='C'
+    Else
+      WTIPOOPER='S'
+    Endif
+    AA=func PUT_PROPXML('Operation',WTIPOOPER, 2,2)
+    AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+   #RorCode
+    AA=func PUT_PROPXML('RorCode',[F:ZSHH2]SHIPNUM,2,2)
+   #RorType
+    AA=func PUT_PROPXML('RorType','Supplier',2,2)
+   #SupplierCode
+    Read [ZSHD2]SHD0=[F:ZSHH2]SHIPNUM
+    Read [ZPOH]POH0=[F:ZSHD2]POHNUM
+    AA=func PUT_PROPXML('SupplierCode',[F:ZPOH]BPSNUM,2,2)
+   #AccountCode
+    AA=func PUT_PROPXML('AccountCode','',2,2)
+   #ReceivingClassCode
+    AA=func PUT_PROPXML('ReceivingClassCode','',2,2)
+#    AA=func PUT_PROPXML('ReceivingClassCode','Devolución Sub.',2,2)
+
+    Gosub LINEASSSH
+
+    AA=func PUT_PROPXML('/Lines','',2,1)
+   #Lines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    AA=func PUT_PROPXML('/ReceiptOrder','',1,1)
+    [F:ZSHH2]ZEXPORT=2
+    Rewrite [F:ZSHH2]
+  Next
+Return
+
+##############################################################
+$CREAHTML_CABSRH
+  For [ZSRH2] Where SRHNUM=WSRHNUM
+    AA=func PUT_PROPXML('ReceiptOrder ignoreNull="false"','',1,1)
+   #ReceiptOrder ----------------------------------------------------------
+    If WTIPOMENSAJE='CREATE'
+      WTIPOOPER='C'
+    Else
+      WTIPOOPER='S'
+    Endif
+    AA=func PUT_PROPXML('Operation',WTIPOOPER, 2,2)
+    AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+   #RorCode
+    AA=func PUT_PROPXML('RorCode',[F:ZSRH2]SRHNUM,2,2)
+   #RorType
+    AA=func PUT_PROPXML('RorType','Return',2,2)
+   #SupplierCode
+    WSUPPLIERCODE=''
+    If [F:ZSRH2]SRHCAT=3
+      #WSUPPLIERCODE=[F:ZSRH2]BPCORD
+      WSUPPLIERCODE=''
+    Endif
+    AA=func PUT_PROPXML('SupplierCode',WSUPPLIERCODE,2,2)
+   #AccountCode
+    WACCOUNTCODE=''
+   # If [F:ZSRH2]SRHCAT<>3
+      WACCOUNTCODE=[F:ZSRH2]BPCORD
+   # Endif
+    AA=func PUT_PROPXML('AccountCode',WACCOUNTCODE,2,2)
+   #ReceivingClassCode
+    WRECEIVINGCLASSCODE='Devolucion'
+   # If [F:ZSRH2]SRHCAT=3
+   #   WRECEIVINGCLASSCODE='Devolucion Sub.'
+   # Endif
+    AA=func PUT_PROPXML('ReceivingClassCode',WRECEIVINGCLASSCODE,2,2)
+
+    Gosub LINEASSRH
+
+    AA=func PUT_PROPXML('/Lines','',2,1)
+   #Lines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    AA=func PUT_PROPXML('/ReceiptOrder','',1,1)
+
+#    [F:ZSRH2]ZSTATUS  = 2
+    [F:ZSRH2]ZUPDATE  = num$(datetime$)
+    Rewrite [F:ZSRH2]
+  Next
+Return
+
+##############################################################
+$LINEASSSH
+Local Integer LNUMLIN
+Local Char    LSTRLIN(5)
+
+ #Lines --------------------------------------------------------------------------------
+  AA=func PUT_PROPXML('Lines transactional="true" complete="false"','',2,1)
+ #Line --------------------------------------------------------------------------------
+
+  Case WTIPOMENSAJE
+    When 'CREATE' : Filter [ZSHD2] Where SHIPNUM=[F:ZSHH]SHIPNUM  and (ZEXPORT=0 or ZEXPORT=1) #and PRCPFLG=2
+    When 'UPDATE' : Filter [ZSHD2] Where SHIPNUM=[F:ZSHH]SHIPNUM  and ZEXPORT=3 #and PRCPFLG=2
+  Endcase
+
+  For [ZSHD2]
+    Filter [F:ZORI] Where ZPOHNUM = [F:ZSHD2]POHNUM and ZVCRLIN = [F:ZSHD2]POPLIN and ZVCRNUM = [F:ZSHD2]SHIPNUM          # JC.24112021-1.NEW
+    Read [F:ZORI] First                                                                                                   # JC.24112021-1.NEW
+    # no tiene detalle de lote
+    If fstat <> 0 Then                                                                                                    # JC.24112021-1.NEW
+      Call ECR_TRACE("Prerep.Exp:  "+[F:ZSHD2]SHIPNUM+' '+num$([F:ZSHD2]SHIPLIN)+' '+[F:ZSHD2]ITMREF,0) From GESECRAN
+      AA=func PUT_PROPXML('Line','',3,1)
+     #Operation
+#      If WTIPOMENSAJE='CREATE'
+#        WTIPOOPER='C'
+#      Else
+#        WTIPOOPER='S'
+#      Endif
+      Case WTIPOMENSAJE
+        When 'CREATE' : WTIPOOPER='C'
+        When 'UPDATE' : WTIPOOPER='U'
+        When Default  : WTIPOOPER='S'
+      Endcase
+      AA=func PUT_PROPXML('Operation',vireblc(WTIPOOPER,2),4,2)
+     #LneNumber
+#      AA=func PUT_PROPXML('LneNumber',vireblc(num$([F:ZSHD2]SHIPLIN),2),4,2)                                              # JC.24112021-1.NEW
+      AA=func PUT_PROPXML('LneNumber',vireblc(num$([F:ZSHD2]SHIPLIN)+'00',2),4,2)                                         # JC.24112021-1.NEW
+     #LneItemCode
+      AA=func PUT_PROPXML('LneItemCode',vireblc([F:ZSHD2]ITMREF,2),4,2)
+     #LneOwnerCode
+      AA=func PUT_PROPXML('LneOwnerCode','OWN_HISPANOX',4,2)
+     #LneStockStatus
+      WLNESTOCKSTATUS=[F:ZSHD2]STA
+      If WLNESTOCKSTATUS='Q'
+        WLNESTOCKSTATUS='Q'
+      Endif
+      If WLNESTOCKSTATUS=''
+        WLNESTOCKSTATUS='A'
+      Endif
+      AA=func PUT_PROPXML('LneStockStatus',vireblc(WLNESTOCKSTATUS,2),4,2)
+     #LneQuantity --------------------------------------------------------------------------------
+      AA=func PUT_PROPXML('LneQuantity','',4,1)
+     #LneQtyExpected
+      If [F:ZSHH]SHIPTYP=1
+        AA=func PUT_PROPXML('LneQtyExpected',vireblc(num$([F:ZSHD2]SHIQTY),2),5,2)
+      Else
+        AA=func PUT_PROPXML('LneQtyExpected',vireblc(num$([F:ZSHD2]SHIQTY),2),5,2)
+        #AA=func PUT_PROPXML('LneQtyExpected',num$([F:ZSHD]PRCPQTY),5,2)
+      Endif
+     #LneQtyFree
+      AA=func PUT_PROPXML('LneQtyFree','0',5,2)
+     #LneQtyUoMCode
+      AA=func PUT_PROPXML('LneQtyUoMCode',vireblc([F:ZSHD2]UOM,2),5,2)
+      AA=func PUT_PROPXML('/LneQuantity','',4,1)
+     #LneQuantity +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     #LneAttributes --------------------------------------------------------------------------------
+      AA=func PUT_PROPXML('LneAttributes','',4,1)
+#     #LneAttSource
+#       If WSUPPLIER
+#         Read [F:ZSTJ]STJ1=[F:ZSHH]FCY;[F:ZSHH]SHIPTYP;[F:ZSHD]SHIPNUM;[F:ZSHD]SHIPLIN
+#         AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#       Else
+#         Read [F:ZSTJ]STJ1=[F:ZSRH]STOFCY;[F:ZSRD]SRHNUM;[F:ZSRD]VDRLIN
+#         AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#       Endif
+     #LneAttWeight
+      AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr([F:ZSHD2]QTYWEU,0.001)),2),5,2)
+      AA=func PUT_PROPXML('/LneAttributes','',4,1)
+     #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     #LneCustomAttributes --------------------------------------------------------------------------------
+      AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+     #LneCstAtt01
+      AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSHD2]ZPALET,2),5,2)
+     #LneCstAtt02
+      WLNECSTATT02=[F:ZSHD2]LOT
+      WLNECSTATT03=''
+      If WLNECSTATT02<>''
+        AA=func PUT_PROPXML('LneCstAtt02',vireblc(WLNECSTATT02,2),5,2)
+      Endif
+      If WLNECSTATT03<>''
+        AA=func PUT_PROPXML('LneCstAtt03',vireblc(WLNECSTATT03,2),5,2)
+      Endif
+      AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+     #LneCustomAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+      AA=func PUT_PROPXML('/Line','',3,1)
+     #Line ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    # sí tiene detalle de lote
+    Else                                                                                    # JC.24112021-1.NEW
+      Call ECR_TRACE("Prerep.Exp detalle:  "+[F:ZORI]ZVCRNUM+' '+num$([F:ZORI]ZVCRLIN)+' '+[F:ZORI]ZITMREF,0) From GESECRAN
+      Raz LNUMLIN
+      For [ZORI]
+        AA=func PUT_PROPXML('Line','',3,1)
+       #Operation
+        Case WTIPOMENSAJE
+          When 'CREATE' : WTIPOOPER='C'
+          When 'UPDATE' : WTIPOOPER='U'
+          When Default  : WTIPOOPER='S'
+        Endcase
+        AA=func PUT_PROPXML('Operation',vireblc(WTIPOOPER,2),4,2)
+       #LneNumber
+        LNUMLIN += 1
+        LSTRLIN = format$("N0:2",LNUMLIN)
+        AA=func PUT_PROPXML('LneNumber',vireblc(num$([F:ZSHD2]SHIPLIN)+LSTRLIN,2),4,2)
+       #LneItemCode
+        AA=func PUT_PROPXML('LneItemCode',vireblc([F:ZORI]ZITMREF,2),4,2)
+       #LneOwnerCode
+        AA=func PUT_PROPXML('LneOwnerCode','OWN_HISPANOX',4,2)
+       #LneStockStatus
+        WLNESTOCKSTATUS=[F:ZSHD2]STA
+        If WLNESTOCKSTATUS='Q'
+          WLNESTOCKSTATUS='Q'
+        Endif
+        If WLNESTOCKSTATUS=''
+          WLNESTOCKSTATUS='A'
+        Endif
+        AA=func PUT_PROPXML('LneStockStatus',vireblc(WLNESTOCKSTATUS,2),4,2)
+       #LneQuantity --------------------------------------------------------------------------------
+        AA=func PUT_PROPXML('LneQuantity','',4,1)
+       #LneQtyExpected
+        If [F:ZSHH]SHIPTYP=1
+          AA=func PUT_PROPXML('LneQtyExpected',vireblc(num$([F:ZORI]ZQTYLIN),2),5,2)
+        Else
+          AA=func PUT_PROPXML('LneQtyExpected',vireblc(num$([F:ZORI]ZQTYLIN),2),5,2)
+          #AA=func PUT_PROPXML('LneQtyExpected',num$([F:ZSHD]PRCPQTY),5,2)
+        Endif
+       #LneQtyFree
+        AA=func PUT_PROPXML('LneQtyFree','0',5,2)
+       #LneQtyUoMCode
+        AA=func PUT_PROPXML('LneQtyUoMCode',vireblc([F:ZSHD2]UOM,2),5,2)
+        AA=func PUT_PROPXML('/LneQuantity','',4,1)
+       #LneQuantity +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+       #LneAttributes --------------------------------------------------------------------------------
+        AA=func PUT_PROPXML('LneAttributes','',4,1)
+       #LneAttWeight
+        AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(([F:ZSHD2]QTYWEU/[F:ZSHD2]SHIQTY)*[F:ZORI]ZQTYLIN,0.001)),2),5,2)
+        AA=func PUT_PROPXML('/LneAttributes','',4,1)
+       #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+       #LneCustomAttributes --------------------------------------------------------------------------------
+        AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+       #LneCstAtt01
+        AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZORI]ZPALETP,2),5,2)
+       #LneCstAtt02
+        WLNECSTATT02=[F:ZORI]ZLOTE
+        WLNECSTATT03=''
+        If WLNECSTATT02<>''
+          AA=func PUT_PROPXML('LneCstAtt02',vireblc(WLNECSTATT02,2),5,2)
+        Endif
+        If WLNECSTATT03<>''
+          AA=func PUT_PROPXML('LneCstAtt03',vireblc(WLNECSTATT03,2),5,2)
+        Endif
+        AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+       #LneCustomAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        AA=func PUT_PROPXML('/Line','',3,1)
+       #Line ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+      Next
+    Endif                                                                                   # JC.24112021-1.NEW
+    [F:ZSHD2]ZEXPORT=2
+    Rewrite [F:ZSHD2]
+  Next
+Return
+
+##############################################################
+$LINEASSRH
+ #Lines --------------------------------------------------------------------------------
+  AA=func PUT_PROPXML('Lines transactional="true" complete="false"','',2,1)
+ #Line --------------------------------------------------------------------------------
+
+  Case WTIPOMENSAJE
+    When 'CREATE' : Filter [ZSRD2] Where SRHNUM=WSRHNUM and ZEXPORT=1
+    When 'UPDATE' : Filter [ZSRD2] Where SRHNUM=WSRHNUM and ZEXPORT=3
+  Endcase
+  For [ZSRD2]
+    Call ECR_TRACE("Prerep.Dev:  "+[F:ZSRD2]SDHNUM+' '+num$([F:ZSRD2]SRDLIN)+' '+[F:ZSRD2]ITMREF,0) From GESECRAN
+
+    AA=func PUT_PROPXML('Line','',3,1)
+   #Operation
+    If WTIPOMENSAJE='CREATE'
+      WTIPOOPER='C'
+    Else
+      WTIPOOPER='S'
+    Endif
+    AA=func PUT_PROPXML('Operation',vireblc(WTIPOOPER,2),4,2)
+   #LneNumber
+    AA=func PUT_PROPXML('LneNumber',vireblc(num$([F:ZSRD2]SRDLIN),2),4,2)
+   #LneItemCode
+    AA=func PUT_PROPXML('LneItemCode',vireblc([F:ZSRD2]ITMREF,2),4,2)
+   #LneOwnerCode
+    AA=func PUT_PROPXML('LneOwnerCode','OWN_HISPANOX',4,2)
+   #LneStockStatus
+    WLNESTOCKSTATUS=[F:ZSRD2]STA
+    If WLNESTOCKSTATUS='Q' or WLNESTOCKSTATUS=''
+#      WLNESTOCKSTATUS='QD'
+      WLNESTOCKSTATUS='A'
+    Endif
+    If WLNESTOCKSTATUS=''
+      WLNESTOCKSTATUS='A'
+    Endif
+    AA=func PUT_PROPXML('LneStockStatus',vireblc(WLNESTOCKSTATUS,2),4,2)
+   #LneQuantity --------------------------------------------------------------------------------
+    AA=func PUT_PROPXML('LneQuantity','',4,1)
+   #LneQtyExpected
+    If [F:ZSRD2]EXTQTY=0
+      WLNEQTYEXPECTED=[F:ZSRD2]QTY
+    Else
+      WLNEQTYEXPECTED=[F:ZSRD2]EXTQTY
+    Endif
+    AA=func PUT_PROPXML('LneQtyExpected',vireblc(num$(WLNEQTYEXPECTED),2),5,2)
+   #LneQtyFree
+    AA=func PUT_PROPXML('LneQtyFree','0',5,2)
+   #LneQtyUoMCode
+    AA=func PUT_PROPXML('LneQtyUoMCode',vireblc([F:ZSRD2]SAU,2),5,2)
+    AA=func PUT_PROPXML('/LneQuantity','',4,1)
+   #LneQuantity +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   #LneAttributes --------------------------------------------------------------------------------
+    AA=func PUT_PROPXML('LneAttributes','',4,1)
+#   #LneAttSource
+#    If WSUPPLIER
+#      Read [F:ZSTJ]STJ1=[F:ZSHH]FCY;[F:ZSHH]SHIPTYP;[F:ZSHD]SHIPNUM;[F:ZSHD]SHIPLIN
+#      AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#    Else
+#      Read [F:ZSTJ]STJ1=[F:ZSRH]STOFCY;[F:ZSRD]SRHNUM;[F:ZSRD]VDRLIN
+#      AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#    Endif
+   #LneAttWeight
+    If [F:ZSRD2]EXTQTY=0
+      WLNEQTYEXPECTED=[F:ZSRD2]QTY
+    Else
+      WLNEQTYEXPECTED=[F:ZSRD2]EXTQTY
+    Endif
+    Read [F:ZITM]ITM0=[F:ZSRD2]ITMREF
+    AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(WLNEQTYEXPECTED*[F:ZITM]ITMWEI/1000,0.001)),2),3,2)
+    AA=func PUT_PROPXML('/LneAttributes','',4,1)
+   #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   #LneCustomAttributes --------------------------------------------------------------------------------
+    AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+   #LneCstAtt01
+    AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSRD2]ZPALET,2),5,2)
+   #LneCstAtt02
+# JC.22092021.INI
+    WLNECSTATT02=''
+#    Read [ZSTJ]STJ1=[F:ZSRD2]STOFCY;13;[F:ZSRD2]SRHNUM;[F:ZSRD2]SRDLIN
+#    If !fstat
+#      WLNECSTATT02=[F:ZSTJ]BPSLOT
+#    Endif
+    Raz LEXTQTY,LQTYSDD,LCANT
+    Read [ZSDD]SDD0=[F:ZSRD2]SDHNUM;[F:ZSRD2]SDDLIN
+    Filter [ZSTJ] Where STOFCY=[F:ZSRD2]STOFCY and VCRTYP=4 and VCRNUM=[F:ZSRD2]SDHNUM and VCRLIN=[F:ZSRD2]SDDLIN Order By LOT
+    LEXTQTY = [F:ZSRD2]EXTQTY
+    LQTYSDD = [F:ZSDD]QTY
+    LCANT   = LEXTQTY
+    For [F:ZSTJ]
+      If LEXTQTY - abs([F:ZSTJ]QTYPCU) > 0 Then
+#        WLNECSTATT02  -= num$(abs([F:ZSTJ]QTYSTU)) + " unidades loteP " + [F:ZSTJ]BPSLOT
+        WLNECSTATT02  -= [F:ZSTJ]BPSLOT
+        LEXTQTY       -= abs([F:ZSTJ]QTYPCU)
+      Else
+#        WLNECSTATT02  -= num$(LEXTQTY) + " unidades loteP " + [F:ZSTJ]BPSLOT
+        WLNECSTATT02  -= [F:ZSTJ]BPSLOT
+      Endif
+    Next
+    Filter [ZSTJ]
+    AA=func PUT_PROPXML('LneCstAtt02',vireblc(WLNECSTATT02,2),5,2)
+# JC.22092021.FIN
+
+   #LneCstAtt05
+# JC.22092021.INI
+    WLNECSTATT05=''
+#    AA=func PUT_PROPXML('LneCstAtt05',[F:ZSRD2]LOT,5,2)
+    Raz LEXTQTY,LQTYSDD,LCANT
+    Read [ZSDD]SDD0=[F:ZSRD2]SDHNUM;[F:ZSRD2]SDDLIN
+    Filter [ZSTJ] Where STOFCY=[F:ZSRD2]STOFCY and VCRTYP=4 and VCRNUM=[F:ZSRD2]SDHNUM and VCRLIN=[F:ZSRD2]SDDLIN Order By LOT
+    LEXTQTY = [F:ZSRD2]EXTQTY
+    LQTYSDD = [F:ZSDD]QTY
+    LCANT   = LEXTQTY
+    For [F:ZSTJ]
+      If LEXTQTY - abs([F:ZSTJ]QTYPCU) > 0 Then
+#        WLNECSTATT05  -= num$(abs([F:ZSTJ]QTYSTU)) + " unidades lote " + [F:ZSTJ]LOT
+        WLNECSTATT05  -= [F:ZSTJ]LOT
+        LEXTQTY       -= abs([F:ZSTJ]QTYPCU)
+      Else
+#        WLNECSTATT05  -= num$(LEXTQTY) + " unidades lote " + [F:ZSTJ]LOT
+        WLNECSTATT05  -= [F:ZSTJ]LOT
+      Endif
+    Next
+    Filter [ZSTJ]
+    AA=func PUT_PROPXML('LneCstAtt05',vireblc(WLNECSTATT05,2),5,2)
+# JC.22092021.FIN
+    AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+   #LneCustomAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    AA=func PUT_PROPXML('/Line','',3,1)
+   #Line +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    [F:ZSRD2]ZEXPORT=2
+    Rewrite [F:ZSRD2]
+  Next
+Return
+
+##############################################################
+$ABRIRFICHERO
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+
+  WSEQ=1
+  CNOMBREFILE='ROR01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+  Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0              Using [ZECO]
+  Iomode adxifs chr$(9)                                   Using [ZECO]
+  Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+  Iomode adxium 0                                         Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('ReceiptOrders xmlns="urn:wms-schema"','',0,1)
+  WABRIRFICHERO=2
+
+Return
+
+##############################################################
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+##############################################################
+Funprog PUT_CABECERAXML()
+  Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+End ""
+
+##############################################################
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+
+  WCADENA=''
+  WSPACE=''
+  If INDEX<>0
+    For I=1 To INDEX
+     WCADENA+='    '
+    Next
+  Endif
+
+  If CIERRA=2
+    WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+  Else
+    WCADENA=WCADENA+'<'+ETIQUETA+'>'
+  Endif
+  Wrseq WCADENA Using [ZECO]
+
+End ""
+
+##############################################################
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+  Local Integer J
+    I=1
+    I=instr(I,XMLSTRING,VARNAME+'>')
+    If I
+      I=instr(I+len(VARNAME),XMLSTRING,'>')
+      If I
+          J=instr(I+1,XMLSTRING,'<')
+          If J
+            End seg$(XMLSTRING,I+1,J-1)
+          Endif
+      Endif
+    Endif
+
+End ""

@@ -1,0 +1,40 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+## Gestión de la máscara BPRBPC (Especifico)
+#
+#######################################################################################
+### Etiqueta añadida por el supervisor (pantalla BPRBPC) 20/03/2020 13:24:41 (ADMIN)
+#######################################################################################
+$ACTION
+#Infbox ACTION
+Case ACTION
+ When Default
+Endcase
+Return
+#
+#######################################################################################
+#Subprog AM_ZWEB(VALEUR)
+#Variable Integer VALEUR
+#
+#If VALEUR = 2 Then
+# Actzo [M:BPRC]ZEMAIL
+#Else
+# Effzo [M:BPRC]ZEMAIL
+# Diszo [M:BPRC]ZEMAIL
+#Endif
+#
+#Affzo [M:BPRC]ZEMAIL
+#
+#End
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla BPRBPC) 02/12/2020 16:22:48 (MLGA)
+######################################################################################
+Subprog AM_ZWEB(VALEUR)
+Variable Integer VALEUR
+End
+
+
+######################################################################################
+

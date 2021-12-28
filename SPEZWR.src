@@ -1,0 +1,86 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#######################################################################################
+#DEV: JESP  20201010 Generación y envío de facturas por workflow
+#######################################################################################
+
+#######################################################################################
+$ACTION
+
+Case ACTION
+  When Default
+Endcase
+
+Return
+
+#############################################################################
+Subprog AM_ID(VALEUR)
+Variable Char    VALEUR()
+
+Local File ZPARAMWF   [F:ZPW]
+Local File ZPARAMWFD  [F:ZPWD]
+Local File AREPORTD   [F:ARD]
+Local File ATYPE      [F:ATY]
+
+Local Integer I
+
+Raz [M:ZRW1]NBRPAR
+
+Read [F:ZPW]ZPW0 = VALEUR
+If fstat = 0 Then
+  [M:ZRW1]RPTCOD = [F:ZPW]RPTCOD
+
+  For [F:ARD] Where [F:ARD]RPTCOD = [F:ZPW]RPTCOD
+    Call TEXTE([F:ARD]PARNAM,[M:ZRW1]PARDES(I)) From OBJDIV
+    [M:ZRW1]PARCOD(I)   = tolower([F:ARD]PARCOD)
+    [M:ZRW1]DEBFIN(I)   = [F:ARD]PARSTREND
+    [M:ZRW1]CONTROLE(I) = [F:ARD]PARCTL
+    [M:ZRW1]TABCONT(I)  = [F:ARD]PARCTLTAB
+    [M:ZRW1]NOLIB(I)    = [F:ARD]PARNOLIB
+    [M:ZRW1]PARTYP(I)   = [F:ARD]PARTYP
+    [M:ZRW1]LONG(I)     = [F:ARD]PARLNG
+
+    Call LECTURE("ATY",[F:ARD]PARTYP,"") From CONTOBJ
+
+    [M:ZRW1]TYP(I)      = [F:ATY]TYPTYP
+    [M:ZRW1]OBJET(I)    = [F:ATY]OBJLIEN
+    [M:ZRW1]PAROBJ(I)   = [F:ARD]PARPAR
+    [M:ZRW1]PAROPT(I)   = [F:ARD]PAROPT
+
+    If [M:ZRW1]DEBFIN(I) <> 2 Then
+      Grizo [M:ZRW1]VALEUR2(I)
+    Endif
+
+    Read [F:ZPWD]ZPWD0 = VALEUR;[F:ARD]PARNUM;[F:ARD]PARCOD
+    If fstat = 0 and [F:ZPWD]PARSAI <> 2 Then
+      Grizo [M:ZRW1]VALEUR1(I)
+      Grizo [M:ZRW1]VALEUR2(I)
+    Endif
+
+    I += 1
+  Next
+  [M:ZRW1]NBRPAR = I
+Endif
+
+Affzo [M:ZRW1]
+
+Close Local File [F:ZPW],[F:ZPWD],[F:ARD],[F:ATY]
+
+End
+
+######################################################################################
+
+######################################################################################
+## Etiquette ajoutée par le superviseur (écran ZRUNZPW1) 13/11/2020 09:55:20 (JESP)
+######################################################################################
+Subprog AM_VALEUR1(VALEUR)
+Variable Char    VALEUR()
+
+If [M:ZRW1]DEBFIN(nolign-1) = 2 Then
+  [M:ZRW1]VALEUR2(nolign-1) = VALEUR
+  Affzo [M:ZRW1]VALEUR2(nolign-1)
+Endif
+
+End
+
+
+######################################################################################

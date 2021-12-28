@@ -1,0 +1,121 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "DEBUT"    : Gosub DEBUT
+  When "BOUTON"   : Gosub BOUTON
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$DEBUT
+Local Integer LCON
+  If !clalev([F:AXX0]) Then : Local File ZCRITZOEW [F:AXX0] : Endif
+  Filter [F:AXX0] Where ZUSER = GUSER
+  For [AXX0]
+    [M:ZCR0]ZCODIGO(LCON)   = [F:AXX0]ZCODIGO
+    [M:ZCR0]ZUSER(LCON)     = [F:AXX0]ZUSER
+    [M:ZCR0]SOHTYP(LCON)    = [F:AXX0]SOHTYP
+    [M:ZCR0]ZORDDATDEB(LCON)= [F:AXX0]ZORDDATDEB
+    [M:ZCR0]ZORDDATFIN(LCON)= [F:AXX0]ZORDDATFIN
+    [M:ZCR0]ZSOHNUMDEB(LCON)= [F:AXX0]ZSOHNUMDEB
+    [M:ZCR0]ZSOHNUMFIN(LCON)= [F:AXX0]ZSOHNUMFIN
+    [M:ZCR0]ZIMPDIFMIN(LCON)= [F:AXX0]ZIMPDIFMIN
+    [M:ZCR0]ZROTURAFLG(LCON)= [F:AXX0]ZROTURAFLG
+    LCON += 1
+  Next
+  [M:ZCR0]NBLIG = LCON
+  Affzo [M:ZCR0]
+  Close Local File [AXX0]
+
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+##############################################################
+$BOUTON
+  Case BOUT
+    When "g"  : Gosub GUARDAR_
+    When "c"  : Gosub CARGAR_
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$GUARDAR_
+Local Integer LCON
+
+  If !clalev([F:AXX1]) Then : Local File ZCRITZOEW [F:AXX1] : Endif
+  Trbegin [F:AXX1]
+  Delete [F:AXX1] Where ZUSER = GUSER
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+
+  For LCON=0 To [M:ZCR0]NBLIG-1
+    [F:AXX1]ZUSER           = [M:ZCR0]ZUSER(LCON)
+    [F:AXX1]ZCODIGO         = [M:ZCR0]ZCODIGO(LCON)
+    [F:AXX1]SOHTYP          = [M:ZCR0]SOHTYP(LCON)
+    [F:AXX1]ZORDDATDEB      = [M:ZCR0]ZORDDATDEB(LCON)
+    [F:AXX1]ZORDDATFIN      = [M:ZCR0]ZORDDATFIN(LCON)
+    [F:AXX1]ZSOHNUMDEB      = [M:ZCR0]ZSOHNUMDEB(LCON)
+    [F:AXX1]ZSOHNUMFIN      = [M:ZCR0]ZSOHNUMFIN(LCON)
+    [F:AXX1]ZIMPDIFMIN      = [M:ZCR0]ZIMPDIFMIN(LCON)
+    [F:AXX1]ZROTURAFLG      = [M:ZCR0]ZROTURAFLG(LCON)
+    Trbegin [F:AXX1]
+    Write   [F:AXX1]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+  Close Local File [AXX1]
+
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+##############################################################
+$CARGAR_
+  [M:ZEW0]SOHTYP          = [M:ZCR0]SOHTYP(nolign-1)
+  [M:ZEW0]ZORDDATDEB      = [M:ZCR0]ZORDDATDEB(nolign-1)
+  [M:ZEW0]ZORDDATFIN      = [M:ZCR0]ZORDDATFIN(nolign-1)
+  [M:ZEW0]ZSOHNUMDEB      = [M:ZCR0]ZSOHNUMDEB(nolign-1)
+  [M:ZEW0]ZSOHNUMFIN      = [M:ZCR0]ZSOHNUMFIN(nolign-1)
+  [M:ZEW0]ZIMPDIFMIN      = [M:ZCR0]ZIMPDIFMIN(nolign-1)
+  [M:ZEW0]ZROTURAFLG      = [M:ZCR0]ZROTURAFLG(nolign-1)
+  Affzo [M:ZEW0]
+  FIN=1
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+##############################################################
+## Controla que sólo se repitan valores en el campo ZCODIGO
+##############################################################
+Subprog C_ZCODIGO(VALEUR)
+Variable Char    VALEUR()
+
+  If VALEUR <> "" Then
+    Call UNICITE(VALEUR,[M:ZCR0]ZCODIGO(0..[M:ZCR0]NBLIG-1)) From OBJDIV
+    If mkstat = 2 Then
+      VALEUR = ""
+    Endif
+  Endif
+
+End
+
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

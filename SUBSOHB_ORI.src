@@ -1,0 +1,3432 @@
+#<AdxTL>@(#)10.0.0.0 $Revision$
+#MRR01 - 07/07/20 - Ocultar las líneas en el pedido con check línea oculta en el presupuesto activa
+#########################################################################
+#                                                                       #
+# Etiquettes appelées par SUBSOH                                        #
+#                                                                       #
+#  $TEST_INS      : Test d'insertion d'une ligne de commande            #
+#  $TEST_ANU      : Test de suppression d'une ligne de commande         #
+#  $TEST_MOD      : Test de modification d'une ligne de commande        #
+#  $CTR_BPCOST    : Contrôle client bloqué                              #
+#  $CTR_STOFCY    : Contrôle modification site expédition entête        #
+#  $CTR_QTY       : Contrôle qtée cdée avec qtée mini et maxi           #
+#  $CTR_CTM       : Contrôle lié à la contremarque                      #
+#  $CTR_BETFCY    : Contrôle lié à l'intersociete                       #
+#  $CTR_LOC       : Contrôle emplacement client pour les cdes prêts     #
+#  $CTR_LNDBETFCY : Contrôle lié à l'intersociete                       #
+#  $VERIF_LIGNE   : Vérification des lignes (recherche interdit)        #
+#  $RECALC_LIGNE  : Traitement des lignes                               #
+#  $TRT_RPLITM    : Traitement de l'article de remplacement             #
+#                                                                       #
+# Etiquettes appelées par SUBSOHA                                       #
+#                                                                       #
+#  $RECALC_GROUPE : Recalcul des lignes suite à tarif groupé            #
+#  $TR_ALLOC      : Bouton allocation de la commande                    #
+#  $MAJSTASOH     : Recalcul des états de la commande                   #
+#  $MAJADRESSE    : Mise à jour de l'adresse                            #
+#  $CHARGE_ADRBPC : Chargement de l'adresse commande                    #
+#  $CHARGE_ADRBPI : Chargement de l'adresse facture                     #
+#  $CHARGE_ADRBPD : Chargement de l'adresse livraison                   #
+#  $GEN_COM       : Génération commande depuis les devis                #
+#                                                                       #
+# Traitements communs et Etiquettes communes                            #
+#                                                                       #
+#  Subprog LECT_FIC(NLIG)                                               #
+#       Lecture de tous les fichiers utiles à une ligne                 #
+#  Subprog INIT_SOH(NLIG, AFF)                                          #
+#       Init. des zones détails venant de l'entête                      #
+#  Subprog INIT_ITM(NLIG, ITMREF)                                       #
+#       Init. des zones détails venant de l'article                     #
+#  Subprog AVANT_LIGNE(NLIG, AFF)                                       #
+#       Traitement d'avant lignes                                       #
+#  Subprog VERIF_VATCOD(NLIG)                                           #
+#       Vérification des codes taxes                                    #
+#  Subprog APRES_LIGNE(NLIG, AFF)                                       #
+#       Traitement d'apres lignes                                       #
+#  Subprog ADD_TOT(NLIG, AFF)                                           #
+#       Calcul des montants total de la commande en +                   #
+#  Subprog SUB_TOT(NLIG, AFF)                                           #
+#       Calcul des montants total de la commande en -                   #
+#  Subprog SUP_LIG(NLIG, WRET)                                          #
+#       Suppression d'une ligne dans le tableau                         #
+#                                                                       #
+#  $TRT_CLESOQ    : Traitement de solde d'une ligne de commande         #
+#  $CALC_SOQSTA   : Recalcul de l'état de la ligne de commande          #
+#  $CALC_DLR      : Calcul mnts à livrer HT et TTC d'une ligne commnande#
+#  $CALC_ORD      : Calcul mnts ht et ttc d'une ligne commande          #
+#                                                                       #
+#########################################################################
+# Issue 110640 - 20150831 by LD : CCM et article de remplacement
+# Issue 110706 - 20151012 by LD : Picking devis et composé nomenclature
+# Issue 106149 - 20160316 by LD : Entry point ADD_TOT and SUB_TOT
+# Issue 116275 - 20160615 by LD : Compteur commande de vente depuis saisi devis
+# Issue 116789 - 20170106 by LD : Entry point CALC_ORD
+# Issue X3-66385 - 20180221 by LD : Sales order: Default package by shipment site
+# Issue X3-59918 - 20180427 by LD : Grouped pricing doesn't work in an order created from a quote
+# Issue X3-243729 - 2021-05-31 SDEM --> deletion SO lines contracts with status create
+
+#-------------------------------#
+# Test d'insertion de ligne     #
+#-------------------------------#
+$TEST_INS
+If GREP="D"
+# --> Ctrl particulier en dupli. pour l'euro : vérifier que ce n'est pas une devise "in"
+    Call CONTDEV([M:SOH1]CUR,[M:SOH0]ORDDAT) From TRTDEV
+    If mkstat=2 Return Endif
+Endif
+# Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+#If [M:SOH2]STOFCY="" GMESSAGE = mess(174,192,1) : mkstat=2 : Return : Endif
+If [M:SOH2]STOFCY="" GMESSAGE = mess(174,192,1)
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   Else
+    Call ERREUR(GMESSAGE) From GESECRAN
+   Endif
+   Return
+Endif
+# Si transformation d'un devis avec prospect il est possible que la condition de paiement soit à ""
+# Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+#If [M:SOH3]PTE=""    GMESSAGE = mess(264,192,1) : mkstat=2 : Return : Endif
+If [M:SOH3]PTE=""    GMESSAGE = mess(264,192,1)
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   Else
+    Call ERREUR(GMESSAGE) From GESECRAN
+   Endif
+   Return
+Endif
+# Issue X3-186206 - 2020-05-14 by MUARN : as picking
+#If dim([M:SOH4]ITMREF) < [M:SOH4]NBLIG + 2
+If [M:SOH4]NBLIG+1 >= dim([M:SOH4]ITMREF)-1
+   # Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+   #GMESSAGE = mess(122,199,1): mkstat=2: Return
+   GMESSAGE = mess(122,199,1)
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   Else
+     Call ERREUR(GMESSAGE) From GESECRAN
+   Endif
+   Return
+Endif
+# --> pas d'insertion si composant kit/sous-traité
+If ([M:SOH4]LINTYP(NOL)>2 & [M:SOH4]LINTYP(NOL)<=5) | ([M:SOH4]LINTYP(NOL)>10 & [M:SOH4]LINTYP(NOL)<=13)
+   If [M:SOH4]CREFLG(NOL) <> 0 GMESSAGE = mess(97,192,1) Endif
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   # Issue X3-142391 - 2020-04-08 by SR : Write the error in web service mode
+   Else
+     If GMESSAGE <> "" : Call ERREUR(GMESSAGE) From GESECRAN : Endif
+   Endif
+   Return
+Endif
+If [M:SOH4]LINTYP(NOL) > 6 & [M:SOH4]LINTYP(NOL) <=9
+   If [M:SOH4]CREFLG(NOL) <> 0 GMESSAGE = mess(97,192,1) Endif
+   # Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+   #If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2 Endif
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   Else
+     If GMESSAGE <> "" : Call ERREUR(GMESSAGE) From GESECRAN : Endif
+   Endif
+   Return
+Endif
+# --> pas d'insertion si la commande a été générée sur un autre site
+# Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+If [M:SOH0]ORIFCY<>"" & [M:SOH0]ORIFCY<>[M:SOH0]SALFCY
+    #GMESSAGE = mess(122,199,1)-":"-mess(862,196,1) : mkstat=2 : Return
+    GMESSAGE = mess(122,199,1)-":"-mess(862,196,1)
+    If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+    Else
+      Call ERREUR(GMESSAGE) From GESECRAN
+    Endif
+    Return
+Endif
+# --> pas d'insertion si gratuit
+# Issue X3-142391 - 2020-04-08 by SR : Tests web service mode in order to not update mkstat and write the error
+If [M:SOH4]FOCFLG(NOL) = 3
+   #GMESSAGE = mess(98,192,1) : mkstat = 2
+   GMESSAGE = mess(98,192,1)
+   If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2
+   Else
+     Call ERREUR(GMESSAGE) From GESECRAN
+   Endif
+Endif
+Return
+
+#------------------------------#
+# Test de suppression de ligne #
+#------------------------------#
+$TEST_ANU
+Local Integer OK
+Local Integer ICANDELCON
+
+# --> pas de suppression si ligne soldee
+If [M:SOH4]SOQSTA(NOL) = 3
+   GMESSAGE = mess(18,192,1) : mkstat=2 : Return
+Endif
+# --> pour supprimer cette ligne, il faut la désélectionner de la liste 'sélection devis'
+If [M:SOH4]DETSQHNUM(NOL)<>"" & [M:SOH4]CREFLG(NOL)=0
+   GMESSAGE=mess(210,192,1) : mkstat=2 : Return
+Endif
+# --> Pas de suppression si ligne préparée ou livrée ou facturée (partiellement ou totalement)
+If [M:SOH4]TALLQTY(NOL)-[M:SOH4]ALLQTY(NOL)+[M:SOH4]LPRQTY(NOL) > 0
+   GMESSAGE = mess(313,192,1) : mkstat = 2 : Return
+Endif
+# --> Si ligne allouee, dde de confirmation : Si oui, la ligne et les allocations seront supprimées
+If sum([M:SOH4]ALLQTYSTU(NOL), [M:SOH4]SHTQTYSTU(NOL)) <> 0
+    OK=2 : Call AVERTIR(mess(119,191,1)-":"-mess(205,100,1), OK) From GESECRAN
+    If OK=1 mkstat=2 : Return : Endif
+Endif
+# --> pas de suppression sur un composant kit/sous-traité
+If ([M:SOH4]LINTYP(NOL)>2 & [M:SOH4]LINTYP(NOL)<6) | ([M:SOH4]LINTYP(NOL)>10 & [M:SOH4]LINTYP(NOL)<14)
+   GMESSAGE = mess(26,192,1) : mkstat = 2 : Return
+Endif
+# --> Pas de Suppression multiple s'il y a des composants de nomenclatures
+If status = 83 & find([M:SOH4]LINTYP(NOL),7,8,9)
+   GMESSAGE = mess(172,192,1) : mkstat=2 : Return
+Endif
+# --> Pas de Suppression multiple s'il y a des gratuits
+If status = 83 & [M:SOH4]FOCFLG(NOL) = 3
+   GMESSAGE = mess(172,192,1) : mkstat=2 : Return
+Endif
+# --> pas de suppression si ligne en ctm et contremarque générée
+If [M:SOH4]FMINUM(NOL) <> ""
+    Local Integer WOK : WOK=1
+    Call AVERTIR (mess(52,191,1), WOK) From GESECRAN
+    If WOK=1 mkstat=2 : Return : Endif
+Endif
+# --> pas de suppression si la commande a été générée sur un autre site
+If [M:SOH0]ORIFCY<>"" & [M:SOH0]ORIFCY<>[M:SOH0]SALFCY
+    GMESSAGE = mess(54,123,1)-":"-mess(862,196,1) : mkstat=2 : Return
+Endif
+
+# 107890 : Scheduled invoices : (LD:21/12/15)
+# If line tied to a schedule invoice, it is not deletable if the schedule is invoiced
+If [M:SOH4]DINVCND(NOL)<>"" & [M:SOH4]INVQTY(NOL)<>0
+    GMESSAGE = mess(54,123,1)-":"-mess(436,192,1) : mkstat=2 : Return
+Endif
+# 107890 : Scheduled invoices : (LD:21/12/15)
+
+# 200515 : Progress billing / X3-199457 : Control on sales order lines associated to a billing plan  - 2020-07-16 by LD
+# If the line is associated to a billing plan, it is not deletable
+If dim([M:SOH4]PRGBILNUM)> 0 & [M:SOH4]PRGBILNUM(NOL)<>""
+    GMESSAGE = mess(54,123,1)-":"-func AFNC.MES1(mess(291,191,1),"")-[M:SOH4]PRGBILNUM(NOL) : mkstat=2 : Return
+Endif
+# 200515 : Progress billing / X3-199457 : Control on sales order lines associated to a billing plan  - 2020-07-16 by LD
+
+# Issue X3-243729 by SDEM
+If dim([V]G_AC_PREPM)>0 or [V]G_AC_PREPM & [V]GPREFUN = 2
+  If find([M:SOH4]PREPSTA([L]NOL),3,4)<>0
+    GMESSAGE = mess(606,192,1) : mkstat = 2 : Return
+  Elsif [M:SOH4]PREPSTA([L]NOL) = 2
+    [V]GDEL_ARR(maxtab([V]GDEL_ARR)+1) = [M:SOH4]PCNTNUM([L]NOL)
+  Endif
+Endif
+# Issue X3-243729 End
+#######################################################################
+# FGR 14/02/2014 : X3SUIVI96419 (début)
+##Modif CRM 31/10/2000
+##Suppression du contrat de service associé à une ligne de commande.
+#If [M:SOH4]CONNUM(NOL) <> ""
+#    If [M:SOH4]NBLIG > 1
+#        #Souhaitez-vous supprimer le ou les contrats de services associés à cette ligne de commande ?
+#        Call OUINON(mess(337, 196, 2), ICANDELCON) From GESECRAN
+#        If ICANDELCON = 2
+#            Call DELSOHCON(2, [M:SOH0]SOHNUM, [M:SOH4]SOPLIN(NOL)) From SUBCONB1
+#        Endif
+#    Endif
+#Endif
+# FGR 14/02/2014 : X3SUIVI96419 (fin)
+Return
+
+#-------------------------------#
+# Test de modification de ligne #
+#-------------------------------#
+$TEST_MOD
+  NOL=nolign-1
+  # --> pas de modification si ligne soldee
+  #If [M:SOH4]SOQSTA(NOL) = 3 mkstat=2 : GMESSAGE = mess(18,192,1) Endif
+  If zoncou="NBLIG" #--CPO 103367 Eviter affichage erreur 2x si tab sur ligne préc
+    # FGR 04/01/2016 : X3SUIVI112575 (début)
+    #If [M:SOH4]SOQSTA(NOL) = 3 mkstat=2 : GMESSAGE = mess(18,192,1) Endif
+    If [M:SOH4]SOQSTA(NOL) = 3 Then
+      If !(dim(GWEBSERV)=1 & GWEBSERV=1) Then mkstat = 2 Endif
+      GMESSAGE = mess(18,192,1)
+    Endif
+    # FGR 04/01/2016 : X3SUIVI112575 (fin)
+  Endif
+  # --> pas de modification sur un composant kit
+  If ([M:SOH4]LINTYP(NOL)>2 & [M:SOH4]LINTYP(NOL)<6)
+    # --> Test pour ne pas avoir le message en creation !
+    If [M:SOH4]CREFLG(NOL) <> 0 GMESSAGE = mess(26,192,1) Endif
+    If !(dim(GWEBSERV)=1 & GWEBSERV=1) mkstat=2 Endif
+  Endif
+  # FGR 14/02/2014 : X3SUIVI96419 (début)
+  If [M:SOH4]SOQSTA(NOL) <> 3 and [M:SOH4]CONNUM(NOL) <> "" Then
+    # Ligne contrat désoldée pour être supprimée uniquement
+    #mkstat = 2                                               # FGR 04/01/2016 : X3SUIVI112575
+    If !(dim(GWEBSERV)=1 & GWEBSERV=1) Then mkstat = 2 Endif  # FGR 04/01/2016 : X3SUIVI112575
+    GMESSAGE = mess(392,192,1)
+  Endif
+  # FGR 14/02/2014 : X3SUIVI96419 (fin)
+  Gosub LOAD_GUPD_SO_LINE From SUBSOHA1 #Issue X3-243729 by SDEM
+
+Return
+
+#------------------------------------------------------#
+# Contrôles modification site expédition entête        #
+#------------------------------------------------------#
+$CTR_STOFCY
+Local Char    WFCY : WFCY=VALEUR
+Local Integer OK   : OK=1
+
+# --> Site non modifiable si il y a des allocations
+If sum([M]ALLQTY,[M]SHTQTY) <> 0
+    If [M]DME = 3
+        mkstat = 2 : GMESSAGE= mess(90,192,1) : Return
+    Else
+        Call AVERTIR(mess(119,191,1)-":\"-mess(205,100,1),OK) From GESECRAN
+        If OK=1 mkstat=2 : Return : Endif
+    Endif
+Endif
+# --> Site non modifiable si il y a des préparations
+If sum([M]LPRQTY,[M]OPRQTY,[M]PREQTY) <> 0
+    If [M]DME = 3
+        mkstat = 2 : GMESSAGE= mess(9,123,1)-":\"-mess(310,192,1) : Return
+    Else
+        OK=1:Call AVERTIR(mess(310,192,1)-":\"-mess(205,100,1),OK) From GESECRAN
+        If OK=1 mkstat=2 : Return : Endif
+    Endif
+Endif
+# 107888 : Scheduled invoices : (LD:19/05/16)
+#If [M]SOHCAT <> 3 & sum([M]ODLQTY,[M]DLVQTY) <> 0
+#    If [M]DME = 3
+#        mkstat = 2 : GMESSAGE= mess(9,123,1)-":\"-mess(120,191,1) : Return
+#    Else
+#        OK=1:Call AVERTIR(mess(120,191,1)-":\"-mess(205,100,1),OK) From GESECRAN
+#        If OK=1 mkstat=2 : Return : Endif
+#    Endif
+#Endif
+# --> Commande normale/prêt
+# --> Site non modifiable s'il y a des livraisons (pour les articles livrables) ou des factures (pour les articles non livrables)
+If [M]SOHCAT <> 3 & sum([M]ODLQTY,[M]DLVQTY,[M]INVQTY) <> 0
+    If [M]DME = 3
+        mkstat = 2 : GMESSAGE= mess(9,123,1)-":\"-mess(275,191,1) : Return
+    Else
+        OK=1:Call AVERTIR(mess(275,191,1)-":\"-mess(205,100,1),OK) From GESECRAN
+        If OK=1 mkstat=2 : Return : Endif
+    Endif
+Endif
+# 107888 : Scheduled invoices : (LD:19/05/16)
+
+# --> Commande à facturation directe
+# --> Site non modifiable si il y a des factures
+If [M]SOHCAT = 3 & sum([M]ODLQTY, [M]INVQTY) <> 0
+    If [M]DME = 3
+        mkstat = 2 : GMESSAGE= mess(9,123,1)-":\"-mess(58,117,1) : Return
+    Else
+        OK=1:Call AVERTIR(mess(58,117,1)-":\"-mess(205,100,1),OK) From GESECRAN
+        If OK=1 mkstat=2 : Return : Endif
+    Endif
+Endif
+
+# --> Site non modifiable si une contremarque a été générée
+If sum([M]FMINUM) <> ""
+     mkstat = 2 : GMESSAGE= mess(9,123,1)-":\"-mess(53,191,1) : Return
+Endif
+# --> Site non modifiable si un article-site est inexistant
+Gosub VERIF_LIGNE_ITF From TRTVENCDE
+If OK=0 GMESSAGE =GMESSAGE-mess(25,192,1)-WFCY-"\"-mess(9,123,1) : mkstat=2 : Return : Endif
+Return
+
+
+#----------------------------------------#
+# Contrôle qte avec qte mini et qte maxi #
+#----------------------------------------#
+$CTR_QTY
+Local    Decimal QTY_UV
+
+# --> Calcul de la qtée cdée en UV
+If [M:SOH4]SAU(NOL) <> [F:ITM]SAU
+     Call SCAL_QUV(VALEUR, [M:SOH4]ITMREF(NOL),[M]BPCORD,[M:SOH4]SAU(NOL),[F:ITM]SAU, QTY_UV, GBIDD1) From TRTVENQTE
+Else
+     QTY_UV = VALEUR
+Endif
+# --> Controle qte cdee >= a la qte minimale
+If QTY_UV < [F:ITS]MINQTY & [F:ITS]MINQTY > 0
+    GMESSAGE = sum(mess(12,192,1), format$("N:"+GFMTQTY, num$([F:ITS]MINQTY)), " ", [F:ITM]SAU)
+    If GDACLOK = 1 mkstat=2 : Return
+    Else           GERR=2 : Endif
+Endif
+# --> Controle qte cdee <= a la qte maximale
+If QTY_UV > [F:ITS]MAXQTY & [F:ITS]MAXQTY > 0
+    If GERR=2 GMESSAGE += "\" Endif
+    GMESSAGE += sum(mess(13,192,1), format$("N:"+GFMTQTY, num$([F:ITS]MAXQTY)), " ", [F:ITM]SAU)
+    If GDACLOK = 1 mkstat=2
+    Else           GERR=2 : Endif
+Endif
+Return
+
+$CTR_CTM
+Local Integer OK : OK=2
+# -------------------------------------------------- #
+#   Contrôle lié à la contremarque :                 #
+#   La ligne a fait l'objet d'une contremarque       #
+# -------------------------------------------------- #
+
+#If find([M:SOH4]FMI(NOL),2,3,5) & [M:SOH4]FMINUM(NOL) <> ""  : # 88016
+If find([M:SOH4]FMI(NOL),3,5) & [M:SOH4]FMINUM(NOL) <> ""     : # 88016
+# 88016 : # Si Ctm réceptionnée, Ctm production : Msg avertissement
+    # 105605 : CCM - Revision index (LD:18/06/15)
+    #Call AVERTIR(mess(52,191,1),OK) From GESECRAN
+    If [M:SOH4]FMI(NOL)=3
+        # Cette ligne a fait l'objet d'une contremarque réceptionnée
+        Call AVERTIR(mess(271,191,1),OK) From GESECRAN
+    Else
+        # Cette ligne a fait l'objet d'un ordre de fabrication
+        Call AVERTIR(mess(269,191,1),OK) From GESECRAN
+    Endif
+    # 105605 : CCM - Revision index (LD:18/06/15)
+# 88016 : # Si Ctm directe : Ctrl bloquant
+Elsif [M:SOH4]FMI(NOL)=2 & [M:SOH4]FMINUM(NOL) <> ""
+    GMESSAGE = mess(52,191,1): mkstat = 2
+# 88016
+Endif
+
+Return
+
+$CTR_BETFCY
+Local Integer OK : OK=2
+# ----------------------------------------------------------- #
+#   Contrôle lié à l'inter-société :                          #
+#   La commande a été générée à partir d'une commande d'achat #
+# ----------------------------------------------------------- #
+If [M:SOH0]ORIFCY<>"" & [M:SOH0]ORIFCY<>[M:SOH0]SALFCY
+    Call AVERTIR(mess(148,191,1),OK) From GESECRAN
+    If OK=1 mkstat=2 Endif
+Endif
+Return
+
+#----------------------------------------#
+# Contrôles liés à l'inter-société       #
+#----------------------------------------#
+$CTR_LNDBETFCY
+# Bug 56725 : Interdire la saisie d'une commande inter-site de prêt
+# (désactivation du ctrl possible par spécifique si GLNDBETFCY est déclaré et =1)
+If dim(GLNDBETFCY)>0 & GLNDBETFCY=1 Return Endif
+If WLND=2 & WBETFCY=2 GMESSAGE=mess(291,192,1) : mkstat=2 : Return : Endif
+
+Return
+
+$CTR_LOC
+Local Integer OK
+# -------------------------------------------------- #
+#   Si commande de prêt                              #
+#   --> Contrôle de l'emplacement client             #
+# -------------------------------------------------- #
+If [M:SOH0]SOHCAT = 2 & GMODU(7)=2
+   If !clalev ([F:STC]) Local File STOLOC [STC] Endif
+   Read [STC]STC0=WSTOFCY;[F:BPD]BPCLOC
+   If fstat
+      GMESSAGE = mess(117,192,1)
+      mkstat = 2
+# <MG> 31/01/01
+   Elsif [F:STC]LOCCAT <> 3
+      GMESSAGE = mess(118,192,1)
+      mkstat = 2
+   Endif
+   Close Local File [STC]
+Endif
+Return
+
+# 79705 : SAT in SPRICLINK : Step 2
+#-------------------------------------------------------------------------------------#
+# Etiquette de recherche des interdits pour une commande                              #
+#-------------------------------------------------------------------------------------#
+# Déclenchée suite à modification de l'addresse de liv de l'entête                    #
+# Trigered   by    the invoing term modification
+# Avec répercussion sur les lignes détails                                            #
+#                                                                                     #
+# Appelée par l'action de répercussion TRTMAJDET avant lancement de la répercussion   #
+# TRTMAJDET est appelée en am_modif BPAADD                                            #
+# (Si interdit alors Refus de la repercussion si SDACLOK=1,Avertissement si SDACLOK=2)#
+#                                                                                     #
+# TRTMAJDET is  called  in am_modif INVCND                                            #
+#                                                                                     #
+#      FFLGMOD = 1            : Modification de la zone détail                        #
+#      FFLGMOD = 3            : Comparaison et modification de la zone détail         #
+#      FFLGMOD = "",2         : Sur BPAADD, Répercution forcée car GLINREP=1          #
+#-------------------------------------------------------------------------------------#
+$VERIF_LIGNES
+Local Char     NOMD, NOME
+Local Integer  NLIG
+Local Char     WREP(GLONREP), WBPAADD (GLONBPD)
+Local Integer  WOK
+
+Local Integer  SAVNOLIGN : SAVNOLIGN=nolign
+
+If [M]ORDSTA = 2 Return : Endif
+
+Raz NLIG
+While NLIG < [M:SOH4]NBLIG
+    If [M:SOH4]SOQSTA(NLIG) <>  3
+#   Traitement uniquement si la ligne n'est pas soldée
+        If FFLGMOD <> ""
+            NOME = WZONCOU
+            If NOME <> "REP"
+               NOMD = sum ("D", NOME)
+            Else
+               WIND  = indice
+               NOMD = sum(NOME, num$(WIND+1))
+               NOME = sum(NOME, "(", num$(WIND), ")")
+            Endif
+            Gosub VERIF_ZON
+        Endif
+    Endif
+    NLIG+=1
+Wend
+# X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+#If GERR=1 mkstat=2 Endif
+# X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+
+nolign=SAVNOLIGN
+
+Return
+
+#-------------------------------------#
+# Vérification de la zone détail      #
+#-------------------------------------#
+$VERIF_ZON
+
+#--- Comparaison zone entête/zone détail
+If FFLGMOD="3"
+  If evalue("dim([M:SOH4]"+NOMD+"(NLIG))") >0 & evalue("dim([M]"+NOME+")") >0
+     If evalue("[M:SOH4]"+NOMD+"(NLIG)") <> evalue("[M]"+NOME) : Return : Endif
+  Endif
+Endif
+
+# --- Modification de l'adresse de livraison
+If NOME = "BPAADD"
+    # Recherche interdit suite modification de l'adresse
+    If dim([M:SOH4]REP1(NLIG)) > 0
+      WREP=[M:SOH4]REP1(NLIG)
+      If GLINREP=2
+          # Alimentation des représentants s'ils n'ont pas été alimentés par le client commande
+          If [F:BPC]BPCNUM <> [M:SOH0]BPCORD
+              Read [BPC]BPC0 = [M:SOH0]BPCORD
+              If fstat <> 0 Raz [F:BPC] : Endif
+          Endif
+          # Alimentation du 1er représentant
+          If [F:BPC]REP(0) = ""
+              WREP= [F:BPD]REP(0)
+          Endif
+      Endif
+    Endif
+    WBPAADD=[M:SOH4]DBPAADD(NLIG)
+    [M:SOH4]DBPAADD(NLIG)=VALEUR  : # Il faut affecter le champ pour que la recherche interdit ait la bonne valeur
+    nolign=NLIG+1                 : # La recherche interdit utilise nolign
+    Call RECH_INTERDIT ([M:SOH4]ITMREF(NLIG), VALEUR, WREP, 2) From TRTVENTAR
+    If mkstat=2
+      GERR=1 : GMESSAGE=[M:SOH4]ITMREF(NLIG)-":"-GMESSAGE
+      If GTRACE <> "" Call ECR_TRACE(GMESSAGE, 0) From GESECRAN Endif
+      mkstat=0 : Raz GMESSAGE
+    Endif
+    [M:SOH4]DBPAADD(NLIG)=WBPAADD : # Recherche terminée : Réaffectation de la valeur
+# X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+# Invoicing term
+Elsif NOME = "INVCND"
+    # X3-200515 : Progress billing / X3-222013 : Progress billing - general test - 2020-12-15 by LD
+    # we can't modify the invoicing term on a line with scheduled invoices linked with a milestone
+    If find(GREP,"C","D")=0 & func TRTVENDIV.VERF_SVICD_PJTMST([M:SOH0]SOHNUM, [M:SOH4]SOPLIN(NLIG), [M:SOH4]SOPLIN(NLIG), GMESSAGE) = [V]CST_AERROR
+        GMESSAGE = func AFNC.MES1(mess(255,100,1),num$(NLIG+1))-GMESSAGE
+        GERR=1 : NLIG=[M:SOH4]NBLIG
+        Return
+    Endif
+    #If [M:SOH4]PRGBILNUM(NLIG)<>""
+    If dim([M:SOH4]PRGBILNUM)> 0 & [M:SOH4]PRGBILNUM(NLIG)<>""
+    # X3-200515 : Progress billing / X3-222013 : Progress billing - general test - 2020-12-15 by LD
+      GMESSAGE = func AFNC.MES1(mess(291,191,1),num$([M:SOH4]SOPLIN(NLIG)))-[M:SOH4]PRGBILNUM(NLIG)
+      GERR=1 : NLIG=[M:SOH4]NBLIG
+    Endif
+# X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+Endif
+
+Return
+# 79705 : SAT IN SPRICLINK : Step 2
+
+#------------------------------------------------------------------------------#
+# Appelé en am_modif : Date cde, Devise, Régime, Type prix,                    #
+#                      Représ., Demdlvdat, Daylti,                             #
+#                      Shidat, Dlvpîo, Mdl, Bptnum                             #
+#                      Adr livraison si GLINBPD = 1                            #
+#                      Site expédition                                         #
+#  --> Si dde Recherche tarif : GTARFLG= "1"                                   #
+#  --> Si modif.régime        : Recalc. prix, marge, totaux                    #
+#  --> Si modif.type prix     : Bascule prix                                   #
+#  --> Si modif.devise        : Conversion des montants                        #
+#  --> Si modif.des zones entêtes reportées dans les zones détails             #
+#      FFLGMOD = 1            : Modification de la zone détail                 #
+#      FFLGMOD = 3            : Comparaison et modification de la zone détail  #
+#      FFLGMOD = "",2         : Sur BPAADD, Répercution forcée car GLINREP=1   #
+#------------------------------------------------------------------------------#
+$RECALC_LIGNE
+Local Char     NOMD, NOME, ACT(1)
+Local Integer  NLIG, I, J, WIND, SPSTAT, ORI
+Local Decimal  MNTORI, MNTDES
+Local Char     VAT(GLONVAT)(3), WREP
+Local Char     WFLGTOT   : WFLGTOT="N"
+Local Integer  INICPRPRI : INICPRPRI=1
+Local Char     WVACITM(GLONTVI)(3)
+Local Integer  WMSG_SHIDAT, WMSG_EXTDLVDAT    : # Bug 71079
+
+Raz WMSG_SHIDAT, WMSG_EXTDLVDAT               : # Bug 71079
+
+Raz ACT
+
+If [M]ORDSTA = 2 Return : Endif
+
+If GTARFLG= "1" | [M:SOH1]CUR <> WANCCUR | [M:SOH1]VACBPR <> WANCVACBPR | find(WZONCOU,"BPCORD","STOFCY")
+    Raz [M]ORDNOT, ORDATI, DLRNOT, DLRATI, PFMTOT
+    Raz [M:SOH0]DSPTOTQTY,DSPTOTVOL,DSPTOTWEI       :#--CPO 80622 Il faut refaire les totaux
+    # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+    Raz [M]INRNOT, INRATI, INRSCHNOT, INRSCHATI
+    # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+Endif
+
+#----------------------------------------------------------------#
+# Modification des lignes détails en fonction des modifs entetes #
+#----------------------------------------------------------------#
+Local Integer WMODZON_RESPONSE : WMODZON_RESPONSE = 0 # Issue 107888 - 2016-09-09 by CPO : US155 Kit & flexible kit scheduled invoices
+Raz NLIG
+
+While NLIG < [M:SOH4]NBLIG
+
+# 107890 : Scheduled invoices : (LC:28/10/16)
+  If ([M:SOH4]DLVFLG(NLIG)=2 or !find(WZONCOU,"DLVPIO","DEMDLVDAT","DAYLTI","SHIDAT","DEMDLVHOU","DRN","MDL","BPTNUM")
+&     or (WZONCOU="DEMDLVDAT" & [M:SOH0]SOHCAT=3))
+# The modification of these header fields only affects to the deliverable lines
+# 107890 : Scheduled invoices : (LC:28/10/16) (End)
+    If [M:SOH4]SOQSTA(NLIG) <>  3
+#   Traitement uniquement si la ligne n'est pas soldée
+        If FFLGMOD <> ""
+            NOME = WZONCOU
+            If NOME <> "REP"
+               NOMD = sum ("D", NOME)
+            Else
+               WIND  = indice
+               NOMD = sum(NOME, num$(WIND+1))
+               NOME = sum(NOME, "(", num$(WIND), ")")
+            Endif
+            If FFLGMOD  = "3" Gosub COMP_ZON Endif
+            If FFLGMOD <> "3" Gosub MOD_ZON  Endif
+        Endif
+        If WZONCOU = "BPCORD"
+            Gosub REINIT_LIGNE : If mkstat=2 Break : Endif
+        Endif
+        If GTARFLG="1" | [M:SOH1]CUR <> WANCCUR | [M:SOH1]VACBPR <> WANCVACBPR |
+&                        [M:SOH1]PRITYP <> WANCPRITYP
+            Call LECT_FIC(NLIG)
+            If [M:SOH1]VACBPR <> WANCVACBPR
+                WVACITM(0) = [M:SOH4]VACITM1(NLIG)
+                WVACITM(1) = [M:SOH4]VACITM2(NLIG)
+                WVACITM(2) = [M:SOH4]VACITM3(NLIG)
+                #Call ALITAXEV([M:SOH1]VACBPR,WVACITM,VAT) From TRTX3
+                Call RECHVATCOD(1,1,[M:SOH0]BPCORD,[M:SOH4]ITMREF(NLIG),"SOH4",NLIG,VAT) From TRTX3
+                # Bug 75162 : Contrôle que le code taxe1 est bien renseigné
+                Call CTLVAT(VAT(0)) From TRTVENCTL
+                If mkstat=2
+                    GMESSAGE = [M:SOH4]ITMREF(NLIG)-" : "-GMESSAGE : Break
+                Endif
+                # Bug 75162
+                [M:SOH4]VAT1(NLIG) = VAT(0)
+                [M:SOH4]VAT2(NLIG) = VAT(1)
+                [M:SOH4]VAT3(NLIG) = VAT(2)
+            Endif
+#         --> Recherche tarif
+            If GTARFLG = "1"
+                Gosub RECALC_TARIF
+            Else
+#         --> modif. devise en dupplication : Conversion des montants + recalcul totaux
+                If [M:SOH1]CUR <> WANCCUR
+                    Gosub CONV_LIGNE
+                    WFLGTOT="O"
+                Endif
+#         --> Modif. regime de taxe         : Recalcul des prix, de la marge et des totaux
+                If [M:SOH1]VACBPR <> WANCVACBPR
+                    WFLGTOT="O"
+                Endif
+#         --> Modif. Type de prix           : Bascule des prix HT et TTC
+                If [M:SOH1]PRITYP <> WANCPRITYP
+                    Gosub RECALC_PRI
+                Endif
+            Endif
+
+            [M]UPDFLG(NLIG) = 1
+        Endif
+#       --> Nécessité de refaire les totaux
+        If WFLGTOT="O" Gosub RECALC_TOT Endif
+        If [M]UPDFLG(NLIG) = 1 & GREV=2 [M]LINREVNUM(NLIG) = [M:SOH0]REVNUM : Endif
+# Bug 83665
+    Else
+#   Si la ligne est soldée, il faut recalculer les totaux si nécessaire
+      If GTARFLG="1" | [M:SOH1]CUR <> WANCCUR | [M:SOH1]VACBPR <> WANCVACBPR | find(WZONCOU,"BPCORD","STOFCY")
+        Call ADD_TOT(NLIG)
+      Endif
+# Bug 83665
+    Endif  # 107890 : Scheduled invoices : (LC:28/10/16)
+  Endif
+    #---------------------------------------------------------------------#
+    # Point d'entree pour intervenir en spécifique sur une ligne          #
+    #---------------------------------------------------------------------#
+    GPOINT="RECALCLIG" : Gosub ENTREE From EXEFNC
+    # Issue X3-200515/X3-208171 - 2020-09-23 by SR : Control price and/or  amount
+    If GDACLOK = 1 | (dim([M:SOH4]PRGBILNUM) > 1 & [M:SOH4]PRGBILNUM(NLIG) <> "")
+        Call CTLNETPRI([M:SOH0]BPCORD,[M:SOH0]CHGTYP,[M:SOH0]ORDDAT,[M:SOH0]CUR,NLIG) From TRTVENPRI
+        If mkstat = 2 :
+          GMESSAGE = mess(18,197,1) - num$(NLIG+1) - GMESSAGE
+          Break
+        Endif
+    Endif
+    # End issue X3-200515/X3-208171
+    NLIG+=1
+Wend
+Kill WMODZON_RESPONSE # Issue 107888 - 2016-09-09 by CPO : US155 Kit & flexible kit scheduled invoices
+If mkstat=2 Return Endif
+
+# 101874 : V9 : Taxe code control
+#If dim(GVALTTCSOH)>0 & dim(GVALTTC)>0 : GVALTTC=GVALTTCSOH : Endif
+#If !GIMPORT : Call VALTTC ("GESSOH") From TRTVENFACR : Endif
+If !GIMPORT
+    # Valuation is always done in this case
+    GVALTTC=2
+    #---- Paramètres complementaires appel valorisation
+    # PARAM_T(0) : Flag contrôle des taxes             (1=Non/2=Oui)
+    # PARAM_T(1) : Lecture de la trace par le sous-pro (1=Non/2=Oui)
+    # PARAM_T(2) : Flag retour                         (1=KO/2=OK)
+    Local    Char     PARAM_T (25) (0..10)
+    PARAM_T(0)="1"      : # Pas de contrôle des taxes
+    PARAM_T(1)="1"      : # Pas de lecture de la trace
+    PARAM_T(2)="0"
+    Call VALTTC ("GESSOH", PARAM_T) From TRTVENFACR
+    If PARAM_T(2)="1" mkstat=2 : Return Endif
+Endif
+# 101874
+
+If GREV=2 Affzo [M:SOH0]REVNUM Endif
+Affzo [M:SOH4]5,10,15,20
+
+Return
+
+#------------------------------------------------------#
+# Reinitialisation d'une ligne lors d'une dupplication #
+#------------------------------------------------------#
+$REINIT_LIGNE
+Local Integer I
+Local Char    SECTION
+Local Char    WREP, WSTOFCY
+Local Integer WRETOUR
+Local Char    WNUMTEX (12)
+
+
+WSTOFCY=[M:SOH4]DSTOFCY(NLIG)
+nolign=NLIG+1
+Call INIT_SOH (NLIG, 0)
+
+# On vérifie au moins que l'article n'est pas interdit
+If dim([M]REP1(NLIG)) > 0 WREP = [M]REP1(NLIG) : Endif
+[M:SOH0]BPCORD=VALEUR
+Call RECH_INTERDIT ([M]ITMREF(NLIG), [M]DBPAADD(NLIG), WREP, 2) From TRTVENTAR
+If mkstat = 2
+    GMESSAGE = [M]ITMREF(NLIG)-" : "-GMESSAGE
+    GMESSAGE += "\" + mess(206,192,1)
+    Return
+Endif
+
+# 102681 : Duplication commande avec changement de client
+# --> Réinitialisation ligne commande à partir de la fiche article-client
+Gosub REINIT_ITU
+# 102681
+
+# Changement de site
+If WSTOFCY <> [M:SOH4]DSTOFCY(NLIG) Gosub MOD_DSTOFCY : Endif
+# On recharge les sections analytiques
+# A cause de l'INISEC "SOP" qui peut être paramétré avec [F:POP]
+If GMODU(6)=2 & GNBDIE>0 Raz [F:POP] : Endif
+For I = 1 To GNBDIE
+    If evalue("dim([M]CCE"+num$(I)+"(NLIG))") >0
+        Call INISEC(SECTION, "SOP", I) From TRTX3CPT
+        Assign "[M]CCE"+num$(I)+"(NLIG)" With SECTION
+    Endif
+Next
+Raz [M]USEPLC(NLIG)
+# On recherche la désignation traduite si le client a changé de langue
+If WANCLAN<>[M:SOH0]LAN
+    Call CHARGE_ITMDES("DES1AXX", [M:SOH0]LAN,[F:ITM]ITMREF,[M:SOH4]ITMDES(NLIG)) From TRTX3   # FGR 29/06/2009 : X3SUIVI56129 : celui-là reste comme ça
+    If [M:SOH4]ITMDES(NLIG) = "" [M:SOH4]ITMDES(NLIG) = [M:SOH4]ITMDES1(NLIG) Endif
+Endif
+# Le client a changé : On recharge les textes du nouveau client
+#If find(GSALTEXLIN,1,5) & find(left$([M:SOH4]SOQTEX(NLIG),3),"ITS","ITU")
+If find(GSALTEXLIN,1,5)
+    If [F:ITU]ITMREF<>[M:SOH4]ITMREF (NLIG) | [F:ITU]BPCNUM<>[M:SOH0]BPCORD
+        Read [F:ITU]ITU0 = [M:SOH4]ITMREF (NLIG);[M:SOH0]BPCORD
+        If fstat  Raz [F:ITU] : Endif
+    Endif
+    If [F:ITU]ITSTEX <> ""
+       # Récup du texte article du nouveau client s'il existe
+       [M:SOH4]SOQTEX(NLIG) = [F:ITU]ITSTEX
+    Elsif left$([M:SOH4]SOQTEX(NLIG),3)="ITU"
+       # Ecrasement texte article ancien client
+       [M:SOH4]SOQTEX(NLIG) = [F:ITS]ITSTEX
+    Endif
+Endif
+
+# 89275 : Duplication cde et ctrl des prix
+# Faire un ctrl prix si pas de recherche tarif et si nécessaire
+Raz GNETMAR
+If GREP= "D" & WZONCOU= "BPCORD" & GTARFLG<>"1" & GDACLOK=1
+  GNETMAR=1
+  # --> Ctrl prix net
+  Call CTLNETPRI([M:SOH0]BPCORD, [M]CHGTYP, [M]ORDDAT, [M:SOH0]CUR,NLIG) From TRTVENPRI
+  Raz GNETMAR : Raz GMESSAGE
+Endif
+# 89275
+[M]UPDFLG(NLIG)=1
+If GTARFLG <> "1" WFLGTOT="O" Endif
+Return
+
+# 102681 : Duplication commande avec changement de client
+#  --------------------------------------------------------------------  #
+#  Réinitialisation ligne commande à partir de la fiche article-client  #
+#  --------------------------------------------------------------------- #
+$REINIT_ITU
+
+If [F:ITM]ITMREF <> [M:SOH4]ITMREF(NLIG)
+   Read [ITM] ITM0=[M:SOH4]ITMREF(NLIG)
+   If fstat Raz [F:ITM] Endif
+Endif
+If [F:ITU]ITMREF <> [M:SOH4]ITMREF(NLIG) | [F:ITU]BPCNUM <> [M:SOH0]BPCORD
+   Read [ITU] ITU0=[M:SOH4]ITMREF(NLIG);[M:SOH0]BPCORD
+   If fstat Raz [F:ITU] Endif
+Endif
+
+#  Réinitialisation de l'unité de vente si nécessaire
+Gosub REINIT_SAU
+
+#  Réinitialisation de la référence client
+[M:SOH4]ITMREFBPC(NLIG) = [F:ITU]ITMREFBPC
+
+Return
+
+#  -------------------------------------------------------------------  #
+#  Réinitialisation de l'unité de vente                                 #
+#  -------------------------------------------------------------------- #
+$REINIT_SAU
+Local Char    WSAUORI(GLONUOM) : WSAUORI       = [M:SOH4]SAU(NLIG)
+Local Decimal WSAUSTUCOEORI    : WSAUSTUCOEORI = [M:SOH4]SAUSTUCOE(NLIG)
+Local Decimal WDACSAUCOEORI    : WDACSAUCOEORI = [M:SOH4]DACSAUCOE(NLIG)
+Local Decimal WQTYORI          : WQTYORI       = [M:SOH4]QTY(NLIG)
+
+Local Char    WSAU
+Local Decimal WSAUSTUCOE, WQTYSAU, WQTY, WQTYSTU, WCOEINVERSE
+Local Integer WDACSAUCOE
+
+# On vérifie tout d'abord que l'UV est bien une unité de l'article
+# (Dans le cas où elle était l'UV définie pour le client de la cde dupliquée)
+WSAU=WSAUORI
+WSAUSTUCOE=WSAUSTUCOEORI
+WDACSAUCOE=WDACSAUCOEORI
+WQTYSAU=[M:SOH4]QTY(NLIG)
+Call CTLUOM([M:SOH4]ITMREF(NLIG), 2, [M:SOH0]BPCORD, WSAU, WSAUSTUCOE, GBIDC1, GBIDC2, WDACSAUCOE) From STKACT
+If mkstat=2
+    # L'UV de la ligne de cde d'origine n'est pas une unité de l'article
+    # On réinitialise l'UV avec l'UV de l'article client si elle existe ou avec l'UV de l'article
+    mkstat=0 : Raz GMESSAGE
+    WSAU       = [F:ITM]SAU
+    WSAUSTUCOE = [F:ITM]SAUSTUCOE
+    WDACSAUCOE = [F:ITM]DACSAUCOE
+    If [F:ITU]SAU <> "" & find([M:SOH4]LINTYP(NLIG),1,2,6,10) & [M:SOH4]FOCFLG(NLIG) <> 3
+        WSAU       = [F:ITU]SAU
+        WSAUSTUCOE = [F:ITU]SAUSTUCOE
+        WDACSAUCOE = 1
+    Endif
+Endif
+
+# L'UV est une unité de l'article
+# L'UV n'est pas une unité de l'article et elle a été réinitialisée
+While WSAUSTUCOEORI<>WSAUSTUCOE
+    # Le coefficient de conversion a changé
+    # --> Il faut recalculer la qté cdée en UV
+
+    # On recalcule la nouvelle la qté cdée UV en repartant de la qté US et du nouveau coefficient de conversion
+    WQTYSAU=[M:SOH4]QTYSTU(NLIG) / WSAUSTUCOE
+    Call QTEARR(WQTYSAU,WSAU) From TRTDIV
+    # Conversion de la nvelle qté cdée UV en US pour voir si on obtient le même résultat
+    WQTYSTU=WQTYSAU * WSAUSTUCOE
+    Call QTEARR(WQTYSTU,[M:SOH4]STU(NLIG)) From TRTDIV
+    If WQTYSTU=[M:SOH4]QTYSTU(NLIG)
+        # On obtient la même qté US                     : On conserve l'unité
+        Break
+    Else
+        # On obtient pas la même qté US                 : On change l'unité
+        If WSAU=[F:ITU]SAU
+            # Si l'UV était l'UV de l'article client, on prend l'UV de l'article
+            WSAU=[F:ITM]SAU
+            WSAUSTUCOE = [F:ITM]SAUSTUCOE
+            WDACSAUCOE = [F:ITM]DACSAUCOE
+        Elsif WSAU=[F:ITM]SAU
+            # Si l'UV était l'UV de l'article, on prend l'US de l'article
+            WSAU=[F:ITM]STU
+            WSAUSTUCOE = 1
+            WDACSAUCOE = 1
+            WQTYSAU=[M:SOH4]QTYSTU(NLIG)
+            Break
+        Else
+            # Si l'UV était une unité de conditionnement, on prend l'UV de l'article client
+            WSAU=[F:ITU]SAU
+            WSAUSTUCOE = [F:ITU]SAUSTUCOE
+            WDACSAUCOE = 1
+        Endif
+    Endif
+Wend
+
+# On a gardé l'unité de vente et le coefficient d'origine
+If WSAUORI=WSAU & WSAUSTUCOEORI=WSAUSTUCOE Return Endif
+
+# On a modifié l'unité de vente ou le coefficient de conversion
+
+# --> Réinitialisation de la ligne avec les nouvelles valeurs
+[M:SOH4]SAU(NLIG)=WSAU
+[M:SOH4]SAUSTUCOE(NLIG)=WSAUSTUCOE
+[M:SOH4]DACSAUCOE(NLIG)=WDACSAUCOE
+[M:SOH4]QTY(NLIG)=WQTYSAU
+
+# --> Réinitialisation de l'emballage et de la capacité
+# Si l'unité est une unité article client et si l'emballage est différent de celui de la ligne
+If find([M:SOH4]SAU(NLIG), [F:ITU]SAU,[F:ITU]PCU1,[F:ITU]PCU2) & [F:ITU]PCK<>"" & [F:ITU]PCK<>[M:SOH4]PCK(NLIG)
+    [M:SOH4]PCK(NLIG)       = [F:ITU]PCK
+    [M:SOH4]PCKCAP(NLIG)    = [F:ITU]PCKCAP
+Endif
+
+# --> Réinitialisation des qtés
+# Recalcul de la qté à allouer
+WCOEINVERSE=1/[M:SOH4]SAUSTUCOE(NLIG)
+If [M:SOH4]WALLQTYSTU(NLIG)<>0
+    Call CNVQTY([M:SOH4]WALLQTYSTU(NLIG),WCOEINVERSE,[M:SOH4]SAU(NLIG),[M:SOH4]WALLQTY(NLIG)) From TRTVENQTE
+Endif
+
+WFLGTOT="O"
+
+# On a gardé le coefficient d'origine
+If WSAUSTUCOEORI=WSAUSTUCOE Return Endif
+
+# On a modifié le coefficient de conversion
+
+If [M:SOH4]FOCFLG(NLIG)=3 Return Endif
+# --> Réinitialisation des prix
+Gosub REINIT_PRI
+
+Return
+
+#  -------------------------------------------------------------------  #
+#  Réinitialisation des prix                                            #
+#  -------------------------------------------------------------------  #
+$REINIT_PRI
+Local Decimal WGROPRIORI       : WGROPRIORI    = [M:SOH4]GROPRI(NLIG)
+Local Decimal WNETPRIORI       : WNETPRIORI    = [M:SOH4]NETPRI(NLIG)
+Local Decimal WNETPRINOTORI    : WNETPRINOTORI = [M:SOH4]NETPRINOT(NLIG)
+Local Decimal WNETPRIATIORI    : WNETPRIATIORI = [M:SOH4]NETPRIATI(NLIG)
+
+# --> Recalcul des montants de base calcul de taxe
+If WQTYORI<>[M:SOH4]QTY(NLIG)
+    Local    Decimal WUNTCLCAMT1, WUNTCLCAMT2 : Raz WUNTCLCAMT1, WUNTCLCAMT2
+    If WQTYORI <> 0
+        WUNTCLCAMT1=[M:SOH4]CLCAMT1(NLIG): WQTYORI : WUNTCLCAMT2=[M:SOH4]CLCAMT2(NLIG)/WQTYORI
+    Endif
+    Call ALICLCAMT([M:SOH4]ITMREF(NLIG), [M:SOH4]QTY(NLIG), NLIG, "SOH4", [M:SOH4]CLCAMT1(NLIG), [M:SOH4]CLCAMT2(NLIG)) From TRTX3
+Endif
+
+# --> Recalcul du prix brut
+If WGROPRIORI<>0
+    [M:SOH4]GROPRI(NLIG)=WGROPRIORI*(1/WSAUSTUCOEORI)*[M:SOH4]SAUSTUCOE(NLIG)
+Endif
+
+# --> Recalcul du prix net
+If WGROPRIORI<>[M:SOH4]GROPRI(NLIG)
+    # Bug 70861 : Recalcul prix net si recherche tarif ou si ligne directe (car impact des frais/remise par ligne sur le prix net)
+    WNETPRIORI   =[M:SOH4]NETPRI(NLIG)
+    WNETPRINOTORI=[M:SOH4]NETPRINOT(NLIG) : WNETPRIATIORI=[M:SOH4]NETPRIATI(NLIG)
+    Call CLCNETPRI([M:SOH4]QTY(NLIG), [M:SOH0]CUR, NLIG) From TRTVENPRI
+Endif
+
+Return
+# 102681
+
+
+#-------------------------------------#
+# Comparaison zone entête/zone détail #
+#-------------------------------------#
+$COMP_ZON
+#If evalue("[M:SOH4]"+NOMD+"(NLIG)") <> evalue("[M]"+NOME) : Return : ENDIF
+#If evalue("dim([M:SOH4]"+NOMD+"(NLIG))") >0 & evalue("dim([M:SOH2]"+NOME+")") >0
+If evalue("dim([M:SOH4]"+NOMD+"(NLIG))") >0 & evalue("dim([M]"+NOME+")") >0
+    If evalue("[M:SOH4]"+NOMD+"(NLIG)") <> evalue("[M]"+NOME) : Return : Endif
+Else
+    Return
+Endif
+
+#-------------------------------------#
+# Modification de la zone détail      #
+#-------------------------------------#
+$MOD_ZON
+
+#Gbn-86074-Ajout PE pour inhiber le report de modif sur les lignes
+Local Integer WGPE : WGPE=0
+GPOINT="NOUPDLIN" : Gosub ENTREE From EXEFNC
+
+If WGPE=1 & (NOME="STOFCY" | (NOME="BPAADD" & GLINBPD=1)) : WGPE=0 : Endif # Pas de modif de comportement pour STOFCY et BPAADD
+If WGPE=1 : WGPE=0 : Return : Endif                                        # si WGPE=1, pas de report sur les lignes pour les autres infos
+
+If NOME = "STOFCY"
+    If GTARFLG <> "1" WFLGTOT="O" Endif
+    # On ne fait rien si la ligne est partiellement allouée, préparée ou livrée ou facturée
+    If sum([M]ALLQTY(NLIG),[M]SHTQTY(NLIG),[M]LPRQTY(NLIG),[M]OPRQTY(NLIG),[M]PREQTY(NLIG),[M]ODLQTY(NLIG),[M]DLVQTY(NLIG),[M]INVQTY(NLIG)) <> 0
+         Return
+    Endif
+Endif
+# Priorité de livraison : Forcer la mise des encours
+If NOME = "DLVPIO"
+    If [M:SOH4]WIPFLG(NLIG) = "" [M:SOH4]WIPFLG(NLIG) = "M" : Endif
+Endif
+
+# Particularité sur BPAADD : Bien que FFLGMOD="" ou "2" (non) on passe ici :
+# car GLINREP=1 et il faut de toute façon répercuter les représentants
+#If find(FFLGMOD,"1","3") Assign "[M:SOH4]"+NOMD+"(NLIG)" With VALEUR : Endif
+If find(FFLGMOD,"1","3")
+    If evalue("dim([M:SOH4]"+NOMD+"(NLIG))") >0
+        # 107890 : Scheduled invoices : (LD:08/12/15)
+        # Invoicing condition is managed only for undeliverable item
+        # Invoicing condition is modified only if the line is not invoiced
+        #Assign "[M:SOH4]"+NOMD+"(NLIG)" With VALEUR
+        If NOME = "INVCND"
+            # X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+            # we can't modify the invoicing term on a line linked to a progress billing
+            If dim([M:SOH4]PRGBILNUM)> 0 & [M:SOH4]PRGBILNUM(NLIG)<>"" Return : Endif
+            # X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+            # X3-200515 : Progress billing / X3-222013 : Progress billing - general test - 2020-12-15 by LD
+            # we can't modify the invoicing term on a line with scheduled invoices linked with a milestone
+            # this line is not processed
+            If find(GREP,"C","D")=0 and [M:SOH4]DINVCND(NLIG)<>"" and [M:SOH4]DINVCND(NLIG)<>VALEUR
+              If func TRTVENDIV.VERF_SVICD_PJTMST([M:SOH0]SOHNUM, [M:SOH4]SOPLIN(NLIG), [M:SOH4]SOPLIN(NLIG), GBIDC1) = [V]CST_AERROR
+                  Return
+              Endif
+            Endif
+            # X3-200515 : Progress billing / X3-222013 : Progress billing - general test - 2020-12-15 by LD
+            If [M:SOH4]DLVFLG(NLIG)=1 & [M:SOH4]INVFLG(NLIG)=1
+                # Issue 107888 - 2016-09-09 by CPO : US155 Kit & flexible kit scheduled invoices
+                #--An existing invoice condition cannot be changed if at list one invoice condition line
+                #--has a status different then "To be invoiced"
+                If clalev([F:SVICD])=0 : Local File SVCRINVCNDD [SVICD] : Endif
+
+                If find(GREP,"C","D")=0 and [M:SOH4]DINVCND(NLIG)<>"" and [M:SOH4]DINVCND(NLIG)<>VALEUR
+                  Filter [SVICD] Where VCRTYP    = 10   and
+&                      VCRNUMORI = [M:SOH0]SOHNUM       and
+&                      VCRLINORI = [M:SOH4]SOPLIN(NLIG) and
+&                      VCRSEQORI = [M:SOH4]SOPLIN(NLIG) and
+&                      INVCNDSTA > 1
+                  Read [SVICD] First
+                  If fstat=0
+                    Filter [SVICD]
+                    #--Message...
+                    #--"Already existing entry. Creation not suitable !"
+                    mkstat =2
+                    # Issue X3-200515/X3-223633 - 2020-11-25 by SR : change message "Import"
+                    #GMESSAGE = mess(3,61,1)-num$(NLIG+1)-mess(162,154,1)-[M:SOH4]ITMREF(NLIG)+":"+mess(500,192,1) #"L'échéancier est déjà généré et il contient des lignes facturées/soldées !"
+                    GMESSAGE = func AFNC.MES1(mess(255,100,1),num$(NLIG+1))-mess(162,154,1)-[M:SOH4]ITMREF(NLIG)+":"+mess(500,192,1)
+                    # 107888 : Scheduled invoices : X3-4962 (LD:12/10/16)
+                    # We should ended ?
+                    #Return
+                    # 107888 : Scheduled invoices : X3-4962 (LD:12/10/16)
+                  Endif
+                  Filter [SVICD]
+                Endif
+                #--CPO This trigger the warning about deletion of the previous scheduling invoice
+                #--If you don't wont this, then copy here the entire AM_DINVCND code without the wanrning...
+                #Below, code taken from Call AM_DINVCND(VALEUR) From SUBSOH in order to avoid the Call AVERTIR everytime
+                #-----------------------------------------------------------
+                #--The "C_DINVCND" done above will prevent changing an invoice condition if already invoiced lines
+                #--If an existing invoice condition is code is changed, the new one will be generated and the existing deleted
+                #--As the invoice condition is created into the database at the same time at the order,
+                #--the rule only apply while modifying the order lien
+                If [M:SOH4]DINVCND(NLIG)<>VALEUR
+                  #--New invoice condition => we start from scratch
+                  If dim(GSOHVCRINVCND_UPD)>0 and GSOHVCRINVCND_UPD(NLIG)<>null
+                    FreeGroup GSOHVCRINVCND_UPD(NLIG)
+                    GSOHVCRINVCND_UPD(NLIG)=null
+                  Endif
+                Endif
+                If [M:SOH4]DINVCND(NLIG)<>"" and [M:SOH4]DINVCND(NLIG)<>VALEUR
+&                                            and [M:SOH4]DINVCNDTODEL(NLIG)=[V]CST_ANO
+                  If find(GREP,"C","D")=0
+                    If WMODZON_RESPONSE=0 #--in order to trigger the message only once for all elements
+                      GERR=0
+                      WMODZON_RESPONSE=1
+                      # X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+                      #Call AVERTIR(mess(3,61,1)-num$(NLIG+1)-mess(162,154,1)-[M:SOH4]ITMREF(NLIG)+":"+mess(490,192,1),WMODZON_RESPONSE) From GESECRAN
+                      Call AVERTIR(func AFNC.MES1(mess(255,100,1),num$(NLIG+1))-mess(162,154,1)-[M:SOH4]ITMREF(NLIG)+":"+mess(490,192,1),WMODZON_RESPONSE) From GESECRAN
+                      # X3-200515 : Progress billing / X3-220424 : Blocking control on invoicing term update - 2020-11-03 by LD
+                      If WMODZON_RESPONSE<2 : mkstat=2 : Endif
+                      # 107888 : Scheduled invoices : X3-4962 (LD:12/10/16)
+                      # We should ended ?
+                      # If mkstat=2 Return endif
+                      # 107888 : Scheduled invoices : X3-4962 (LD:12/10/16)
+                    Endif
+                    #--Setting the "to delete" flag and filling the invoice condition code to be deleted
+                    If mkstat=0
+                      [M:SOH4]DINVCNDTODEL(NLIG)=[V]CST_AYES
+                      [M:SOH4]DINVCNDPREV (NLIG)=[M:SOH4]DINVCND(NLIG)
+                    Endif
+                  Else
+                    #--In this case, in LIBSAL_INVCND_SOH_BOM we need the flag to set the kit lines's invoice condition to the same value
+                    If [M:SOH4]LINTYP(NLIG)=6 and mkstat = 0
+                      [M:SOH4]DINVCNDUPDK(NLIG)=[V]CST_AYES
+                    Endif
+                  Endif
+                Endif
+                #--Also, if the user re-fill the former value, we have to unset the "to delete" flag
+                If mkstat = 0
+                  If VALEUR=[M:SOH4]DINVCNDPREV(NLIG) and [M:SOH4]DINVCNDTODEL(NLIG)=[V]CST_AYES
+                    [M:SOH4]DINVCNDTODEL(NLIG)=[V]CST_ANO
+                    [M:SOH4]DINVCNDPREV (NLIG)=""
+                    [M:SOH4]DINVCNDUPDK(NLIG)=[V]CST_ANO
+                  Endif
+                [M:SOH4]DINVCNDTOUPD(NLIG)=[V]CST_AYES
+                [M:SOH4]DINVCNDTODIS(NLIG)=[V]CST_ANO
+                #-----------------------------------------------------------
+                # End issue 107888
+                  Assign "[M:SOH4]"+NOMD+"(NLIG)" With VALEUR
+                Else
+                  Raz mkstat : Return #--Avoid setting UPDFLG further below
+                Endif
+            Endif
+        Else
+            Assign "[M:SOH4]"+NOMD+"(NLIG)" With VALEUR
+        Endif
+        # 107890 : Scheduled invoices : (LD:08/12/15)
+    Endif
+Endif
+#SAM 110881
+
+If NOMD="DDEMDLVDAT" and func AFNC.ACTIV("EDIX3")>0
+  If [M:SOH4]DDEMDLVDAT(NLIG)> [M:SOH4]MAXDLVDAT(NLIG):   [M:SOH4]MAXDLVDAT(NLIG)=[M:SOH4]DDEMDLVDAT(NLIG): Endif
+Endif
+#End SAM 110881
+[M:SOH4]UPDFLG(NLIG) = 1
+# --- Modification de l'adresse de livraison
+If NOME = "BPAADD"
+    If W_ALICDE=2
+#       Réalimentation des zones issues du client
+        Gosub MOD_BPAADD
+    Elsif find(FFLGMOD,"1","3")
+#       Pas de réalimentation des zones issues du client on récupère uniquement le contact
+        If dim([M:ADB2]CNTNAM)>0 [M:SOH4]CNDNAM(NLIG) = [M:ADB2]CNTNAM : Endif
+    Endif
+Endif
+# --- Modification du site expédition et livraison commande complète
+If NOME = "STOFCY" Gosub MOD_DSTOFCY : Endif
+# --- Modification de la Date de livraison demandée et du délai
+#     ==> Recalcul de la date d'expédition et de la date de livraison prévue
+If NOME = "DEMDLVDAT" | NOME = "DAYLTI"
+    Gosub CALC_SHIDAT
+    # Bug 71079
+    If mkstat & WMSG_SHIDAT=0
+        #Call MESSAGE([M:SOH4]ITMREF(NLIG)-":"-mess(278,192,1)-format$(GFMD,[M:SOH4]DSHIDAT(NLIG))-"\"-GMESSAGE) From GESECRAN
+        Call MESSAGE(mess(278,192,1)-"\"-GMESSAGE) From GESECRAN
+        WMSG_SHIDAT=1
+    Endif
+    mkstat=0 : Raz GMESSAGE
+    # Bug 71079
+    Gosub CALC_EXTDLVDAT
+    # Bug 71079
+    If mkstat & WMSG_EXTDLVDAT=0
+        #Call MESSAGE([M:SOH4]ITMREF(NLIG)-":"-mess(279,192,1)-format$(GFMD,[M:SOH4]EXTDLVDAT(NLIG))-"\"-GMESSAGE) From GESECRAN
+        Call MESSAGE(mess(279,192,1)-"\"-GMESSAGE) From GESECRAN
+        WMSG_EXTDLVDAT=1
+    Endif
+    mkstat=0 : Raz GMESSAGE
+    # Bug 71079
+Endif
+# --- Modification de la Date d'expédition
+#     ==> Recalcul de la date de livraison prévue
+If NOME = "SHIDAT"
+    Gosub CALC_EXTDLVDAT
+    # Bug 71079
+    If mkstat & WMSG_EXTDLVDAT=0
+        #Call MESSAGE([M:SOH4]ITMREF(NLIG)-":"-mess(279,192,1)-format$(GFMD,[M:SOH4]EXTDLVDAT(NLIG))-"\"-GMESSAGE) From GESECRAN
+        Call MESSAGE(mess(279,192,1)-"\"-GMESSAGE) From GESECRAN
+        WMSG_EXTDLVDAT=1
+    Endif
+    mkstat=0 : Raz GMESSAGE
+    # Bug 71079
+Endif
+# --- Modification des représentants : Recherche des taux de commissions
+If find(NOME,"REP(0)","REP(1)")
+    Assign ("[M:SOH4]REPRAT"+num$(WIND+1)+"(NLIG)") With 0
+    WREP=VALEUR
+    Gosub MOD_REP
+Endif
+
+Return
+
+#--------------------------------------------------------#
+# Modification de l'adresse de livraison                 #
+#--------------------------------------------------------#
+$MOD_BPAADD
+
+# If find(FFLGMOD,"1","3")                           :# 107890 : Scheduled invoices : (LC:28/11/16)
+If find(FFLGMOD,"1","3") and [M:SOH4]DLVFLG(NLIG)<>1 :# 107890 : Scheduled invoices : (LC:28/11/16)
+    [M:SOH4]DDRN(NLIG)    = [M:SOH2]DRN
+    [M:SOH4]DDLVPIO(NLIG) = [M:SOH2]DLVPIO
+    [M:SOH4]DDAYLTI(NLIG) = [M:SOH2]DAYLTI
+    Gosub CALC_SHIDAT    : # Recalcul de la date d'expédition
+    # Bug 71079
+    If mkstat & WMSG_SHIDAT=0
+        #Call MESSAGE([M:SOH4]ITMREF(NLIG)-":"-mess(278,192,1)-format$(GFMD,[M:SOH4]DSHIDAT(NLIG))-"\"-GMESSAGE) From GESECRAN
+        Call MESSAGE(mess(278,192,1)-"\"-GMESSAGE) From GESECRAN
+        WMSG_SHIDAT=1
+    Endif
+    mkstat=0 : Raz GMESSAGE
+    # Bug 71079
+    Gosub CALC_EXTDLVDAT : # Recalcul de la date de livraison prévue
+    # Bug 71079
+    If mkstat & WMSG_EXTDLVDAT=0
+        #Call MESSAGE([M:SOH4]ITMREF(NLIG)-":"-mess(279,192,1)-format$(GFMD,[M:SOH4]EXTDLVDAT(NLIG))-"\"-GMESSAGE) From GESECRAN
+        Call MESSAGE(mess(279,192,1)-"\"-GMESSAGE) From GESECRAN
+        WMSG_EXTDLVDAT=1
+    Endif
+    mkstat=0 : Raz GMESSAGE
+    # Bug 71079
+    [M:SOH4]DMDL(NLIG)    = [M:SOH2]MDL
+    [M:SOH4]DBPTNUM(NLIG) = [M:SOH2]BPTNUM
+    If dim([M:ADB2]CNTNAM)>0
+        [M:SOH4]CNDNAM(NLIG) = [M:ADB2]CNTNAM
+    Endif
+Endif
+# Particularité si GLINREP=1 il faut de toute façon répercuter les représentants
+# --> Alimentation des commissions représentants
+For WIND=0 To dim([M:SOH1]REP)-1
+  WREP = evalue("[M:SOH1]REP("+num$(WIND)+")")
+  Assign ("[M:SOH4]REP"+num$(WIND+1)+"(NLIG)") With WREP
+  Assign ("[M:SOH4]REPRAT"+num$(WIND+1)+"(NLIG)") With 0
+  Gosub MOD_REP
+Next
+Return
+#--------------------------------------------------------#
+# Modification du site expédition de la zone détail      #
+#--------------------------------------------------------#
+$MOD_DSTOFCY
+Local Integer WFMI
+Local Integer WSTOMGTCOD, WI
+Local Char    WTSCCOD(GLONADI) (0..5)
+Local Char    WTSICOD(GLONADI) (0..5)
+
+# Changement de site : il faudra reinitialiser le prix de revient
+INICPRPRI=2
+
+WSTOMGTCOD=[M:SOH4]STOMGTCOD(NLIG)
+# Si modification du site, il faut recharger STOMGTCOD
+If [F:ITM]ITMREF <> [M]ITMREF(NLIG)
+    Read [ITM]ITM0=[M]ITMREF(NLIG)
+    If fstat Raz [F:ITM] Endif
+Endif
+[M:SOH4]STOMGTCOD(NLIG)  = [F:ITM]STOMGTCOD
+[M:SOH4]YSTOMGTCOD(NLIG) = [F:ITM]STOMGTCOD : # Bug 55476
+If [F:ITM]STOMGTCOD>1
+    If [F:ITF]ITMREF<>[M]ITMREF(NLIG) | [F:ITF]STOFCY<>[M]DSTOFCY(NLIG)
+        Read [ITF] ITF0=[M]ITMREF(NLIG);[M]DSTOFCY(NLIG)
+        If fstat Raz [F:ITF] : Endif
+    Endif
+    [M:SOH4]STOMGTCOD(NLIG)  = [F:ITF]STOMGTCOD
+    [M:SOH4]YSTOMGTCOD(NLIG) = [F:ITF]STOMGTCOD : # Bug 55476
+Endif
+
+# Réalimenter le code FMI qui vient de l'article site
+Call ALIFMI([M]ITMREF(NLIG), [M]DSTOFCY(NLIG), WFMI) From TRTVENCDE
+[M]FMI(NLIG)=WFMI
+If find([M]FMI(NLIG),3,5) [M]DALLTYP(NLIG)=2 Endif
+
+# L'article devient non géré en stock, il faudra supprimer l'encours
+If WSTOMGTCOD<>[M:SOH4]STOMGTCOD(NLIG) & [M:SOH4]STOMGTCOD(NLIG)=1 [M]WIPFLG(NLIG) = "A"
+Elsif [M]WIPFLG(NLIG) = "" [M]WIPFLG(NLIG) = "M" Endif
+
+# Si modification du site, réinitialisation du code prépa
+If dim([M:SOH0]TSCCOD) <> -1
+    For WI = 1 To dim([M:SOH0]TSCCOD)
+        WTSCCOD(WI-1) = [M:SOH0]TSCCOD(WI-1)
+    #--CPO 90371 Lors de la correction de cette fiche - ici on fait For WI et Next I
+    #Next I
+    Next WI
+    #--/
+Endif
+If dim([M:SOH4]TSICOD1)>0: WTSICOD(0) = [M:SOH4]TSICOD1(NLIG): Endif
+If dim([M:SOH4]TSICOD2)>0: WTSICOD(1) = [M:SOH4]TSICOD2(NLIG): Endif
+If dim([M:SOH4]TSICOD3)>0: WTSICOD(2) = [M:SOH4]TSICOD3(NLIG): Endif
+If dim([M:SOH4]TSICOD4)>0: WTSICOD(3) = [M:SOH4]TSICOD4(NLIG): Endif
+If dim([M:SOH4]TSICOD5)>0: WTSICOD(4) = [M:SOH4]TSICOD5(NLIG): Endif
+If [F:BPC]BPCNUM<>[M:SOH0]BPCORD
+   Read [BPC]BPC0=[M:SOH0]BPCORD : If fstat Raz [F:BPC] Endif
+Endif
+Call REC_PRECOD([M]DSTOFCY(NLIG),[M:SOH4]ITMREF(NLIG),[F:ITM]TCLCOD,WTSICOD(0),
+&               WTSICOD(1),WTSICOD(2),WTSICOD(3),WTSICOD(4),[M:SOH0]BPCORD,
+&               [F:BPC]BCGCOD,WTSCCOD(0),WTSCCOD(1),WTSCCOD(2),WTSCCOD(3),
+&               WTSCCOD(4),[M:SOH4]PRECOD(NLIG)) From STKLIB
+
+WFLGTOT="O"
+
+# V6 Règle affectation : # GH 19/11/13 bug 94472
+If dim([M:SOH4]PTOCOD)>0
+   [M:SOH4]PTOCOD(NLIG) = func ITMLIB.GET_PTOCOD([M:SOH4]ITMREF(NLIG),[M]DSTOFCY(NLIG))
+Endif
+Return
+
+#--------------------------------------------------------#
+# Modification du site expédition de la zone détail      #
+#--------------------------------------------------------#
+$SVGMOD_DSTOFCY
+Local Integer WFMI
+Local Integer WSTOMGTCOD
+
+# Changement de site : il faudra reinitialiser le prix de revient
+INICPRPRI=2
+# Réalimenter le code FMI qui vient de l'article site
+Call ALIFMI([M]ITMREF(NLIG), [M]DSTOFCY(NLIG), WFMI) From TRTVENCDE
+If WFMI <> [M]FMI(NLIG)
+    If [F:ITM]ITMREF <> [M]ITMREF(NLIG)
+       Read [ITM]ITM0=[M]ITMREF(NLIG)
+       If fstat Raz [F:ITM] Endif
+    Endif
+    WSTOMGTCOD=[F:ITM]STOMGTCOD
+Else
+    WSTOMGTCOD=[M]STOMGTCOD(NLIG)
+Endif
+[M]STOMGTCOD(NLIG) = WSTOMGTCOD
+[M]FMI(NLIG)=WFMI
+If find([M]FMI(NLIG),3,5) [M]DALLTYP(NLIG)=2 Endif
+
+If [M]WIPFLG(NLIG) = "" [M]WIPFLG(NLIG) = "M" Endif
+WFLGTOT="O"
+Return
+#-------------------------------------#
+# Recalcul date expedition            #
+#-------------------------------------#
+$CALC_SHIDAT
+Call CALC_SHIDAT([M:SOH4]DDEMDLVDAT(NLIG), [M:SOH4]DDAYLTI(NLIG), [M:SOH4]DSTOFCY(NLIG), 1, 1,[M:SOH0]ORDDAT, [M:SOH4]DSHIDAT(NLIG)) From TRTVENDAT
+#mkstat=0 : Raz GMESSAGE    : # Bug 71079
+Return
+#-------------------------------------#
+# Recalcul date livraison prévue      #
+#-------------------------------------#
+$CALC_EXTDLVDAT
+Call CALC_DLVDAT([M:SOH4]DSHIDAT(NLIG), [M:SOH4]DDAYLTI(NLIG), [M:SOH4]DBPAADD(NLIG), [M:SOH0]BPCORD, 0,0,
+&                [M:SOH4]EXTDLVDAT(NLIG)) From TRTVENDAT
+#mkstat=0 : Raz GMESSAGE    : # Bug 71079
+Return
+#---------------------------------------------------------------------------------#
+#  Suite à la modification d'un représentant : Recherche des taux de commissions  #
+#---------------------------------------------------------------------------------#
+$MOD_REP
+If WREP <> ""
+    If [F:REP]REPNUM <> WREP
+        Read [F:REP]REP0 = WREP
+        If fstat Raz [F:REP] : Endif
+    Endif
+    If [F:BPC]BPCNUM <> [M:SOH0]BPCORD
+        Read [F:BPC]BPC0 = [M:SOH0]BPCORD
+        If fstat Raz [F:BPC] :Endif
+    Endif
+    If [F:BPC]COMCAT <> 0
+        Assign ("[M:SOH4]REPRAT"+num$(WIND+1)+"(NLIG)") With evalue("[F:REP]COMRAT"+num$(WIND+1)+"([F:BPC]COMCAT-1)")
+    Endif
+Endif
+Return
+
+#-------------------------------------#
+# Convertion des montants lignes      #
+#-------------------------------------#
+$CONV_LIGNE
+
+Call CONVERT2(WANCCUR, [M:SOH1]CUR, GLOCALDEV, [M]CHGTYP, date$, [M]GROPRI(NLIG), MNTDES, SPSTAT) From TRTDEV
+[M]GROPRI(NLIG) = arr(MNTDES, 10^-GDECPRI)
+
+For I = 1 To 9
+    If evalue ("dim([m:soh4]discrgval"+num$(I)+"(nlig))")>0
+        If GFMTREM(I-1)="M"
+            MNTORI = evalue("[m:soh4]discrgval"+num$(I)+"(NLIG)")
+            Call CONVERT(WANCCUR, [M:SOH1]CUR, GLOCALDEV, [M]CHGTYP, date$, MNTORI, MNTDES, SPSTAT) From TRTDEV
+            Assign "[m:soh4]discrgval"+num$(I)+"(NLIG)" With MNTDES
+        Endif
+    Endif
+Next
+Call CONVERT2(WANCCUR, [M:SOH1]CUR, GLOCALDEV, [M]CHGTYP, date$, [M]NETPRI(NLIG), MNTDES, SPSTAT) From TRTDEV
+[M]NETPRI(NLIG) = arr(MNTDES, 10^-GDECPRI)
+
+Call CONVERT2(WANCCUR, [M:SOH1]CUR, GLOCALDEV, [M]CHGTYP, date$, [M]CPRPRI(NLIG), MNTDES, SPSTAT) From TRTDEV
+[M]CPRPRI(NLIG) = arr(MNTDES, 10^-GDECPRI)
+
+# Traitement des montants de base de calcul
+If [M]CLCAMT1(NLIG) <> 0 | [M]CLCAMT2(NLIG) <> 0
+    # Ces montants dépendent d'une formule donc d'opérandes divers
+    # Pas de conversion mais Recalcul
+    Call ALICLCAMT([M]ITMREF(NLIG), [M]QTY(NLIG), NLIG, "SOH4", [M]CLCAMT1(NLIG), [M]CLCAMT2(NLIG)) From TRTX3
+Endif
+Return
+
+#-------------------------------------#
+# Rebascul des prix HT et TTC         #
+#-------------------------------------#
+$RECALC_PRI
+If [M]PRITYP=1
+   [M]NETPRI(NLIG) = [M]NETPRINOT(NLIG)
+Else
+   [M]NETPRI(NLIG) = [M]NETPRIATI(NLIG)
+Endif
+Return
+
+#-------------------------------------#
+# Recalcul des totaux                 #
+#-------------------------------------#
+$RECALC_TOT
+If WFLGTOT="O"                                               : # 89275 : Duplication cde et ctrl des prix
+    Call CLCPFM([M]DSTOFCY(NLIG), [M:SOH1]PRITYP, [M]CHGTYP, [M:SOH0]ORDDAT, [M:SOH0]CUR,
+&           NLIG,INICPRPRI) From TRTVENPRI
+Endif                                                         : # 89275
+If GREP= "D" & WZONCOU= "BPCORD" & GDACLOK=1 GNETMAR=1 Endif  : # 89275
+Call CTLPFM([M:SOH0]CUR,[M:SOH4]CPRPRI(NLIG), NLIG) From TRTVENPRI
+# 89275
+If GREP= "D" & WZONCOU= "BPCORD" & GDACLOK=1
+  Raz GNETMAR : Raz GMESSAGE
+Endif
+# 89275
+
+mkstat=0
+Gosub CALC_ORD
+Gosub CALC_DSP From TRTVENDIV
+If [M]DEMSTA(NLIG) =  1 Gosub CALC_DLR : Endif
+Call ADD_TOT(NLIG)
+Return
+
+#-------------------------------------#
+# Recalcul des tarifs                 #
+#-------------------------------------#
+$RECALC_TARIF
+Local Integer TYPRECH
+Local Decimal GROPRI
+
+If find([M]LINTYP(NLIG),1,2,6,10)
+    TYPRECH = 1
+Else
+    Local Integer ORI : ORI=NLIG
+    While !find([M]LINTYP(ORI),2,6,10) & ORI >= 0 ORI-=1 Wend
+    If find([M]LINTYP(ORI),2,6,10) GPNTITMREF=[M]ITMREF(ORI) Endif
+    TYPRECH = 4
+Endif
+If [M]FOCFLG(NLIG) = 3  Return : Endif
+
+Call ALICLCAMT([M:SOH4]ITMREF(NLIG), [M:SOH4]QTY(NLIG), NLIG, "SOH4", [M:SOH4]CLCAMT1(NLIG), [M:SOH4]CLCAMT2(NLIG)) From TRTX3
+Call RECH_TARIF(TYPRECH,[M]ITMREF(NLIG),NLIG,[M]QTY(NLIG),"SOH",GROPRI) From TRTVENTAR
+# Action sur les gratuits
+# La ligne était à l'origine d'un gratuit et la nvelle recherche ne ramène aucun gratuit
+# -- > Suppression du gratuit
+If GFOCITMREF  = "" & [M]FOCFLG(NLIG) = 2  ACT = "S":[M]FOCFLG(NLIG)=1: Endif
+# La ligne était à l'origine d'un gratuit et la nvelle recherche ramène un gratuit
+# -- > Remplacement du gratuit
+If GFOCITMREF <> "" & [M]FOCFLG(NLIG) = 2  ACT = "C": Endif
+# La ligne n'était pas à l'origine d'un gratuit et la nvelle recherche ramène un gratuit
+# -- > Insertion du gratuit
+If GFOCITMREF <> "" & [M]FOCFLG(NLIG) = 1  ACT = "I": Endif
+[M]GROPRI(NLIG)= GROPRI
+Call CLCNETPRI([M]QTY(NLIG), [M]CUR, NLIG) From TRTVENPRI
+Call CLCPFM([M]DSTOFCY(NLIG), [M]PRITYP, [M]CHGTYP, [M]ORDDAT, [M]CUR, NLIG, INICPRPRI) From TRTVENPRI
+
+# 89275 : Duplication cde et ctrl des prix
+# Avec chgmnt de client
+# --> Ctrl prix net
+Raz GNETMAR
+If GREP= "D" & WZONCOU= "BPCORD" & GDACLOK=1
+    GNETMAR=1
+    Call CTLNETPRI([M:SOH0]BPCORD, [M]CHGTYP, [M]ORDDAT, [M:SOH0]CUR,NLIG) From TRTVENPRI
+    Raz GNETMAR : Raz GMESSAGE
+Endif
+# --> Recalcul des totaux avec ctrl de la marge
+Gosub RECALC_TOT
+#Call APRES_LIGNE(NLIG, 0)
+# 89275
+
+# Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+If [M:SOH4]DINVCND(NLIG)<>"" and [M:SOH4]DINVCNDTOUPD(NLIG)=[V]CST_AYES
+  NOL=NLIG
+  Gosub P1_NBLIG_DINVCND_UPD From LIBSAL_INVCND_SOH
+  If mkstat=2 : Return : Endif
+Endif
+# End issue 107888
+
+ORI = NLIG
+# Traitement des gratuits
+Gosub TRTGRA
+Return
+
+#--------------------------------------------------------------------------------------#
+# Traitement des gratuits                                                              #
+#--------------------------------------------------------------------------------------#
+# ACT = "S" : Suppression  gratuit précédente recherche                                #
+# ACT = "C" : Remplacement gratuit précédente recherche par gratuit nouvelle recherche #
+# ACT = "I" : Insertion    gratuit nouvelle recherche                                  #
+#--------------------------------------------------------------------------------------#
+$TRTGRA
+Local Integer LIGGRA
+Local Integer RET
+
+# Suppression ou remplacement
+If ACT = "S" | ACT = "C"
+    LIGGRA = find(3, [M]FOCFLG(NLIG+1..[M]NBLIG-1))
+    If LIGGRA <> 0
+        LIGGRA = LIGGRA + NLIG
+#       Suppression du gratuit
+        If ACT = "S"
+            Call SUPGRA(ORI, 2, RET) From TRTVENBOM
+            If RET = 0 [M]FOCFLG(ORI)=1 : Endif
+        Endif
+#       Remplacement du gratuit
+#       --> L'article est différent : Suppression et création
+        If ACT = "C" & [M]ITMREF(LIGGRA) <> GFOCITMREF
+            Call SUPGRA(LIGGRA-1, 2, RET) From TRTVENBOM
+            If RET = 0
+                Call CREGRA("G",0, ORI, [M:SOH0]ORDDAT, 2, LIGGRA, RET) From TRTVENBOM
+                If RET = 0 [M]UPDFLG(LIGGRA-1) = 1:Endif
+            Endif
+#       Remplacement du gratuit
+#       --> L'article est identique : Modification de la qté
+        Elsif ACT = "C" & [M]QTY(LIGGRA) <> GFOCQTY
+            [M]QTY(LIGGRA) = GFOCQTY
+            [M]UPDFLG(LIGGRA) = 1
+            If GREV=2 [M]LINREVNUM(LIGGRA) = [M:SOH0]REVNUM:Endif
+        Endif
+    Endif
+Endif
+# Insertion
+If ACT = "I"
+    LIGGRA = NLIG + 1
+    While LIGGRA < [M:SOH4]NBLIG & !find([M:SOH4]LINTYP(LIGGRA),1,2,6,10)
+        LIGGRA += 1
+    Wend
+    Call CREGRA("G", 0, ORI, [M:SOH0]ORDDAT, 2, LIGGRA, RET) From TRTVENBOM
+    # Issue 107888 - 2016-09-09 by CPO : US150 Free products not deliverable invoicing
+    #TODO 107888 US150 içi, création échéancier
+
+Endif
+Raz ACT
+Return
+
+#-----------------------------------------------------------------------#
+#     Traitement de l'article de remplacement                           #
+#-----------------------------------------------------------------------#
+#---------------------------------------------------#
+#     Utilisée avec Action de modélisée SPRLITM     #
+#---------------------------------------------------#
+$TRT_RPLITM
+
+Local Char    WSAU(GLONUOM), UNIVEN
+Local Char    REP, SECTION
+Local Integer RET
+Local Integer I
+
+# --------------------------------------------------- #
+# Penser à mettre en phase avec C_ITMREF et AM_ITMREF #
+# --------------------------------------------------- #
+
+If [F:ITS]ITMREF <> WITM
+    Read [ITS]ITS0=WITM
+    If fstat mkstat=2 : GERR=1 : Return : Endif
+Endif
+Raz [M]PCK(NOL)
+Raz [M]LOT(NOL)
+Raz [M]LOC(NOL)
+WSAU = [M]SAU(NOL)
+[M]LINTYP(NOL) = 1
+If [F:ITS]ITMTYP = 2 [M]LINTYP(NOL) = 6 :Endif
+If [F:ITS]ITMTYP = 3 [M]LINTYP(NOL) = 2 :Endif
+
+# --> Etape n°1 : Remplacement par article de substitution
+Call CTLSBSITM(WITM, [M:SOH0]ORDDAT, RET) From TRTVENCTL
+If RET = 1
+    GMESSAGE = mess(40,192,1) : GERR=1 : mkstat=2: Return
+Elsif RET = 2
+    GMESSAGE = mess(10,191,1) : GERR=2
+    WITM = [F:ITS]ITMREF
+Endif
+# --> Etape n°2 : Lecture article
+If [F:ITM]ITMREF <> WITM
+    Read [ITM]ITM0=WITM
+    If fstat GMESSAGE = mess(8,192,1) : mkstat=2 : GERR=1 : Return : Endif
+Endif
+# --> Etape n°3 : Ctrl du statut de l'article : Ctrl statut non utilisable
+#     Les autres statuts dépendent du code FMI
+If [F:ITM]ITMSTA = 6
+   GMESSAGE = mess(3,196,1)+" ("+mess([F:ITM]ITMSTA,246,1)+")"
+   mkstat=2 : GERR=1 : Return
+Endif
+# On vérifie que la date de commande est bien >= la date de début de vie de l'article
+If [F:ITM]LIFSTRDAT<>[0/0/0] & [M:SOH0]ORDDAT<[F:ITM]LIFSTRDAT
+   mkstat=2 : GERR=1 : GMESSAGE=mess(331,199,1)-":"-format$(GFMDAT,[F:ITM]LIFSTRDAT) : Return
+Endif
+# On vérifie que l'article est toujours vendu
+If clalev([F:ITG])= 0 Local File ITMCATEG [ITG] : Endif
+If [F:ITG]TCLCOD <> [F:ITM]TCLCOD
+    Read [ITG]ITG1=[F:ITM]TCLCOD;""
+    If fstat GMESSAGE = [F:ITM]TCLCOD-":"-mess(338,199,1) : mkstat=2 : End : Endif
+Endif
+If [F:ITG]SALFLG<>2 GMESSAGE = mess(221,199,1)-"("-[F:ITM]TCLCOD-")" : mkstat=2 : End : Endif
+
+# --> Etape n°4 : Controle de l'unite
+Call CONTSAUIMP(WSAU, WITM,[M]BPCORD,UNIVEN) From TRTVENCTL
+If UNIVEN = "" GMESSAGE = mess(9,192,1) : mkstat=2 : GERR=1 : Return : Endif
+
+# --> Etape n°5 : Recherche interdit
+If dim([M]REP1(NOL)) > 0 REP = [M]REP1(NOL):Endif
+Call RECH_INTERDIT (WITM, [M]DBPAADD(NOL), REP, 2) From TRTVENTAR
+If mkstat = 2 : GERR=1 : Return : Endif
+
+# --> Etape n°6 : Si cde de prêt, l'article doit etre géré en pret
+If [M:SOH0]SOHCAT = 2 & [F:ITS]LNDFLG = 1
+    GMESSAGE=mess(34,192,1) : GERR=1 : mkstat=2 : Return
+Endif
+# --> Etape n°6 : Si cde de prêt et article géré en stock, il doit être géré en emplacement
+If [M:SOH0]SOHCAT = 2 & [F:ITM]STOMGTCOD <> 1
+    If [F:ITF]ITMREF <> WITM | [F:ITF]STOFCY <> [M]DSTOFCY(NOL)
+        Read [ITF] ITF0=WITM;[M]DSTOFCY(NOL)
+        If fstat Raz [F:ITF] : Endif
+    Endif
+    If [F:ITF]LOCMGTCOD <> 2
+        GMESSAGE = mess(119,192,1) : GERR=1 : mkstat=2 : Return
+    Endif
+Endif
+# --> Etape n°7 : Si cde à facturation directe inter-site, l'article ne doit pas être réceptionné
+# Issue 113089/130 - 2016-10-14 by SR : Message 269,194 remplacé par 578,194
+If [M:SOH0]SOHCAT=3 & [M:SOH1]BETFCY=2
+    If [F:ITM]RCPFLG=2 GMESSAGE=mess(578,194,1) : GERR=1 : mkstat=2 : Return : Endif
+Endif
+# --> Etape n°8 : Réinitialiser les zones venant de l'article
+Call INIT_ITM (NOL, WITM)
+
+# --> Etape n°9 :     Gestion du FMI
+Local Integer WFMI, WOK : WOK=1
+Call ALIFMI(WITM, [M:SOH4]DSTOFCY(NOL), WFMI) From TRTVENCDE
+Case WFMI
+    When 1 : # Stock
+        If [F:ITM]ITMSTA>1
+            Call AVERTIR (WITM-mess(3,196,1)+" ("+mess([F:ITM]ITMSTA,246,1)+")", WOK) From GESECRAN
+            If WOK=1 GERR=1 : mkstat=2 : Return Endif
+        Endif
+    When 3 : # Contremarque achat
+        If [F:ITM]ITMSTA=3
+            Call AVERTIR (WITM-mess(281,197,1)-":\"-mess(3,196,1)+" ("+mess([F:ITM]ITMSTA,246,1)+")", WOK) From GESECRAN
+            If WOK=1 GERR=1 : mkstat=2 : Return Endif
+        Elsif [F:ITM]ITMSTA>1
+            GMESSAGE=WITM-mess(281,197,1)-":\"-mess(3,196,1)+" ("+mess([F:ITM]ITMSTA,246,1)+")" : GERR=1 : mkstat=2 : Return
+        Endif
+    When 5 : # Contremarque production
+        Call CONTMFGITM([M]DSTOFCY(NOL), 1) From MFGLIB : If mkstat=2 GERR=1 : Return Endif
+Endcase
+
+[M]ITMREF(NOL) = WITM
+# On conserve l'unite de l'article d'origine
+If [M]SAU(NOL) <> WSAU
+#    Call ALISAUCOE(WITM, [M]BPCORD, WSAU, [M]STU(NOL), [M]SAUSTUCOE(NOL)) From TRTVENQTE
+    Call CTLUOM([M]ITMREF(NOL), 2, [M]BPCORD, WSAU, [M]SAUSTUCOE(NOL), GBIDC1, GBIDC2, [M]DACSAUCOE(NOL)) From STKACT
+    If mkstat=2 GERR=1 : Return : Endif
+    [M]SAU(NOL) = WSAU
+Endif
+# --- Réinitialisation
+# A cause de l'INISEC "SOP" qui peut être paramétré avec [F:POP]
+If GMODU(6)=2 & GNBDIE>0 Raz [F:POP] : Endif
+For I = 1 To GNBDIE
+    If evalue("dim([M]CCE"+num$(I)+"(NOL))") >0
+        Call INISEC(SECTION, "SOP", I) From TRTX3CPT
+        Assign "[M]CCE"+num$(I)+"(NOL)" With SECTION
+    Endif
+Next
+[M:SOH4]FMI(NOL)=WFMI
+
+If find([M]FMI(NOL),3,5) [M]DALLTYP(NOL)=2 Endif
+
+# 105605 : CCM - Revision index (LD:29/07/15)
+# Init versions for the alternate product
+If dim([M:SOH4]ECCVALMAJ) > 0
+    Raz [M:SOH4]ECCVALMAJ(NOL)
+    Raz [M:SOH4]ECCVALMIN(NOL)
+    If WFLDNAM = "QTY"
+        Call STKINIECC([M:SOH4]ITMREF(NOL),"","SOH4",1,2,NOL,2,[M:SOH4]ECCVALMAJ(NOL),"ECCVALMAJ","ECCVALMIN","","",2,[M:SOH0]BPCORD) From STKACT
+        # 110640
+        # Issue 110640
+        Call INIECCSTA([M:SOH4]ITMREF(NOL), "SOH4",NOL) From STKECR
+        # End issue 110640
+    Endif
+Endif
+# 105605 : CCM - Revision index (LD:29/07/15)
+
+If WFLDNAM = "ITMREF" & [M:SOH4]QTY(NOL) <> 0 | WFLDNAM = "QTY"
+    If WFLDNAM = "ITMREF"
+    # ------------------------------------------ #
+    # Traitement propre sur la référence article #
+    # ------------------------------------------ #
+    #   Si la quantité a déjà été saisie on refait le traitement apres_modif qté
+    #   Sinon tout sera fait à la saisie de la quantité
+#       --- Controle article-site
+        Call CONTITF([M:SOH4]ITMREF(NOL),[M:SOH4]DSTOFCY(NOL),[M:SOH4]STOMGTCOD(nolign-1)) From TRTVENCTL
+        If mkstat = 2 GERR=1 : Return : Endif
+#       --- Ctrls qté et nouvelle recherche tarif
+        Call CNVQTY([M]QTY(NOL),[M]SAUSTUCOE(NOL),[M]STU(NOL),[M]QTYSTU(NOL)) From TRTVENQTE
+    Endif
+
+#   --- Calcul des montants de base de calcul de la taxe
+    Call ALICLCAMT([M:SOH4]ITMREF(NOL), [M:SOH4]QTY(NOL), NOL, "SOH4", [M:SOH4]CLCAMT1(NOL), [M:SOH4]CLCAMT2(NOL)) From TRTX3
+
+    If WFLDNAM = "ITMREF"
+#       --- Nouvelle recherche tarif
+        Call RECH_TARIF(1,[M]ITMREF(NOL),NOL,[M]QTY(NOL),"SOH",[M]GROPRI(NOL)) From TRTVENTAR
+    Endif
+
+    # Sauvegarde de gmessage car raz
+    Local Char SAVMSG(255) : SAVMSG=GMESSAGE : # ACA - 48862
+
+#   --- Calcul du prix net
+    Call CLCNETPRI([M]QTY(NOL),[M:SOH0]CUR, NOL) From TRTVENPRI
+    If GDACLOK=1
+        Call CTLNETPRI([M:SOH0]BPCORD, [M]CHGTYP, [M]ORDDAT, [M:SOH0]CUR,NOL) From TRTVENPRI
+        If mkstat=2 Return Endif
+    Endif
+#   --- Calcul de la marge
+    Call CLCPFM([M]DSTOFCY(NOL), [M:SOH1]PRITYP, [M]CHGTYP, [M:SOH0]ORDDAT, [M:SOH0]CUR, NOL,2) From TRTVENPRI
+    If GDACLOK=1
+        Call CTLPFM([M:SOH0]CUR,[M:SOH4]CPRPRI(NOL), NOL) From TRTVENPRI
+        If mkstat=2 Return Endif
+    Endif
+
+    GMESSAGE=SAVMSG : # ACA - 48862
+
+    If WFLDNAM = "ITMREF" & find([M]LINTYP(NOL),1,2,6,10)
+        If [M]FOCFLG(NOL) <> 3 & [M]GROPRI(NOL) =0
+          If !([M:SOH1]BETFCY = 2 & [M:SOH1]BETCPY <> 2) or GCTLBETFCY = 2 Then          # FGR 10/03/2015 : X3SUIVI23273 - Si pas (Intersit & non intersoc) ou si Ctrl intersit encours&prix
+            GERR = 3
+            GMESSAGE = mess(62,194,1)
+          Endif
+        Endif
+    Endif
+Endif
+
+
+Local Integer WRETOUR
+Local Char    WNUMTEX (12)
+
+# récupération du texte de l'article
+If find(GSALTEXLIN, 1,5)
+    If ([F:ITU]ITMREF<>[M:SOH4]ITMREF (NOL)) | ([F:ITU]BPCNUM<>[M:SOH0]BPCORD)
+        Read [F:ITU]ITU0 = [M:SOH4]ITMREF (NOL);[M:SOH0]BPCORD
+        If fstat  Raz [F:ITU] : Endif
+    Endif
+    If [F:ITU]ITSTEX = ""
+        If [F:ITS]ITMREF <> [M:SOH4]ITMREF (NOL)
+            Read [F:ITS]ITS0 = [M:SOH4]ITMREF (NOL)
+            If fstat  Raz [F:ITS] : Endif
+        Endif
+#        WNUMTEX = [F:ITS]ITSTEX
+        [M:SOH4]SOQTEX(NOL) = [F:ITS]ITSTEX
+    Else
+#        WNUMTEX = [F:ITU]ITSTEX
+        [M:SOH4]SOQTEX(NOL) = [F:ITU]ITSTEX
+    Endif
+#    If WNUMTEX <> ""
+#        WRETOUR = 0
+#        Call TEX(5,"SOQ1","","","",WNUMTEX,"X",WRETOUR) From TRTX3TEX
+#        If WRETOUR <> 99
+#            [M:SOH4]SOQTEX (NOL) = WNUMTEX
+#        Endif
+#    Endif
+Endif
+
+Return
+###########################################################################
+# Traitements appelés par SUBSOHA                                         #
+###########################################################################
+#------------------------------------------#
+# Recalcul des lignes suite à tarif groupé #
+#------------------------------------------#
+$RECALC_GROUPE
+Local Integer I
+
+# Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+Local Integer WSAVE_NOL,IS_RECALC_GROUP
+IS_RECALC_GROUP = [V]CST_AYES
+WSAVE_NOL=-1
+If dim(NOL)<0
+  Local Integer NOL
+Else
+  WSAVE_NOL = NOL
+Endif
+# End issue 107888
+
+# --> Recalcul prix net, marge des lignes modifiées et recalcul totaux
+If sum([M:SOH4]GRPFLG) <> 0
+    For I=0 To [M]NBLIG-1
+        If [M:SOH4]GRPFLG(I) = 1
+           # X3-85542 : Apply a grouping price list equal to zero on an invoicing element - Sales orders/Sales quotes : (LD:04/27/18)
+           # (Bug story for Issue X3-59918)
+           # Simulation Netpri calcul to see if it is necessary to trigger all the calculs for the line
+           # (Calculs trigger calculs of invoicing elts with transfer rules)
+           Local Decimal  WNETPRI
+           # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+           Local Decimal  WQTY : WQTY=[M:SOH4]QTY(I)
+           # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+           Gosub SIMUL_NETPRI
+           # Issue X3-38233 - 2019-03-19 by SR : If GERR = 2
+           If GERR = 2 : Gosub NETPRI_AFF_MESS : Endif
+           If [M:SOH4]NETPRI(I)<>WNETPRI
+           # Netpri has been changed by the group price search : recalculs for the line
+           # X3-85542 : Apply a grouping price list equal to zero on an invoicing element - Sales orders/Sales quotes : (LD:04/27/18)
+                Call SUB_TOT(I)
+                GNETMAR = 0
+                Call CLCNETPRI([M]QTY(I), [M:SOH0]CUR, I) From TRTVENPRI
+                # Issue X3-38233 - 2019-03-19 by SR : If GERR = 2
+                If GERR = 2 : Gosub NETPRI_AFF_MESS : Endif
+                Call CLCPFM([M]DSTOFCY(I), [M:SOH1]PRITYP, [M]CHGTYP, [M:SOH0]ORDDAT, [M:SOH0]CUR, I, 0) From TRTVENPRI
+                Call APRES_LIGNE(I,0)
+                # Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+                If [M:SOH4]DINVCND(I)<>"" and [M:SOH4]DINVCNDTOUPD(I)=[V]CST_AYES
+                  NOL=I
+                  Gosub P1_NBLIG_DINVCND_UPD From LIBSAL_INVCND_SOH
+                  If mkstat=2
+                    GERR=1 : OK=0 : Break
+                  Endif
+                Endif
+                # End issue 107888
+                GNETMAR = 1
+                [M:SOH4]UPDFLG(I) = 1
+                If GREV=2 [M]LINREVNUM(NOL)=[M:SOH0]REVNUM Endif
+           # X3-85542 : Apply a grouping price list equal to zero on an invoicing element - Sales orders/Sales quotes : (LD:04/27/18)
+           Endif
+           # X3-85542 : Apply a grouping price list equal to zero on an invoicing element - Sales orders/Sales quotes : (LD:04/27/18)
+        Endif
+    Next
+    Raz [M:SOH4]GRPFLG
+Endif
+
+# Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+IS_RECALC_GROUP = [V]CST_ANO
+If WSAVE_NOL>-1 : NOL = WSAVE_NOL : Endif
+# End issue 107888
+
+Return
+
+#-------------------------------------------------------------------------#
+# Issue X3-38233 - 2019-03-19 by SR :  GERR may be broken by lines below
+# so the error is sent at this time and GERR/GEMSSAGE razed
+$NETPRI_AFF_MESS
+If  GMESSAGE <> ""
+    GMESSAGE -= mess(18,197,1)-":"-  num$(I+1)
+    Call MESSAGE(GMESSAGE) From GESECRAN
+    Raz GMESSAGE
+Endif
+Raz GERR
+Return
+# End issue X3-38233
+
+# Issue X3-59918
+#------------------------------------------#
+# Simulation netpri calcul                 #
+#------------------------------------------#
+$SIMUL_NETPRI
+Local Decimal  WMAJREM(0..8)
+Local Shortint WJ
+
+For WJ=1 To 9
+    If evalue("dim([M:SOH4]DISCRGVAL"+num$(WJ)+"(I))")>0
+       WMAJREM(WJ-1)=evalue("[M:SOH4]DISCRGVAL"+num$(WJ)+"(I)")
+    Endif
+Next WJ
+If [M:SOH4]FOCFLG(I) = 3 Return Endif
+
+# --> Calcul du prix net
+If dim(GCALNETLIN)>0 : GCALNETLIN=I+1      : Endif
+If dim(GCALNETABR)>0 : GCALNETABR="[M:SOH4]"  : Endif
+# 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+#Call CALNET (1, [M:SOH0]PLISTC, [M:SOH4]GROPRI(I), WMAJREM, [M:SOH4]QTY(I), WNETPRI, [M:SOH1]CUR) From TRTPRICE
+Call CALNET (1, [M:SOH0]PLISTC, [M:SOH4]GROPRI(I), WMAJREM, WQTY, WNETPRI, [M:SOH1]CUR) From TRTPRICE
+# 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+
+Return
+# End issue X3-59918
+
+#--------------------------------------------------------------------#
+#     Bouton allocation                                              #
+#--------------------------------------------------------------------#
+#---------------------------------------------------#
+#     Utilisée avec Action de modélisée TRTORDALL   #
+#---------------------------------------------------#
+$TR_ALLOC
+Local Char    WTRTLIG(1), WMESS(80), WMESS1(80)  :    Raz WMESS1
+Local Integer OK
+Local Integer WKIT : # Bug 56680
+
+# Bug 84932 : Allocation ruptures à tord si alloc ligne normale après un kit
+Local Integer WWGENSHT : WWGENSHT=WGENSHT
+If GMODU(6)=2 & clalev([F:POQ])=0 : Local File PORDERQ [POQ] : Endif
+GOK=1
+Trbegin ADOVAL
+    For I=0 To [M:SOH4]NBLIG-1
+        nolign=I+1
+        OK=2
+        WMESS = mess(80,197,1)+" "+[M:SOH4]ITMREF(I)
+# Trt si statut ferme
+        If [M:SOH4]DEMSTA(I) <> 1 WMESS1=mess(279,197,1):OK = 1: Endif
+# Pas d'allocation des articles gérés en contremarque
+# Pas d'allocation des articles géré avec un ordre de production
+        If WTRTALL = 1 & [M:SOH4]FMI(I) = 3 WMESS1=mess(281,197,1) : OK = 1 : Endif
+        If WTRTALL = 1 & [M:SOH4]FMI(I) = 5 WMESS1=mess(280,197,1) : OK = 1 : Endif
+# Désallocation des articles gérés en contremarque
+        If WTRTALL = 2 & WALLCTM = 1 & [M:SOH4]FMI(I) = 3 WMESS1=mess(281,197,1) : OK = 1 : Endif
+        If WTRTALL = 2 & WALLCTM = 1 & [M:SOH4]FMI(I) = 5 WMESS1=mess(280,197,1) : OK = 1 : Endif
+# Trt si article non soldé
+        If [M:SOH4]SOQSTA(I)  = 3 WMESS1=mess(282,197,1) : OK = 1 : Endif
+# Trt si article géré en stock (sf pour les composés de kit/sous-traité et ses composants)
+        If [M:SOH4]STOMGTCOD(I)=1 & find([M:SOH4]LINTYP(I),1,6,7,8,9)
+            If [M:SOH4]FMI(I) = 2 WMESS1=mess(281,197,1)
+            Else                  WMESS1=mess(283,197,1) : Endif
+            OK = 1
+        Endif
+        # Bug 72631 : Pb failure to allocate kit component lines when kit header is allocated
+        ## Bug 56680 : Pb kit géré en ctm
+        ## Si un kit n'est pas à allouer, les composants ne sont pas à allouer
+        #If !find([M]LINTYP(I),3,4,5)
+        #    Raz WKIT
+        #Elsif [M]LINTYP(I)=2
+        #    WKIT=I
+        #Elsif find([M]FMI(WKIT),3,5)
+        #    OK=1
+        #Endif
+        If [M]LINTYP(I)=2
+            WKIT=I
+        Elsif !find([M]LINTYP(I),3,4,5)
+            Raz WKIT
+        Elsif find([M]FMI(WKIT),3,5)
+            OK=1
+        Endif
+        # Bug 72631
+        #---------------------------------------------------------------------#
+        # Point d'entree contrôle autorisation lignes à allouer               #
+        #---------------------------------------------------------------------#
+        GPOINT="SOHALLSEL" : Gosub ENTREE From EXEFNC
+        If OK = 1
+            Call ECR_TRACE(WMESS,0) From GESECRAN
+            If WTRTALL=1 Call ECR_TRACE(WMESS1+":"+mess(278,197,1),0) From GESECRAN : Endif
+            If WTRTALL=2 Call ECR_TRACE(WMESS1+":"+mess(526,197,1),0) From GESECRAN : Endif
+            Goto NXTLIG
+        Endif
+# Allocation si tout n'est pas alloué
+        If WTRTALL = 1 & WSHTFLG = 1
+            If [M:SOH4]TALLQTYSTU(I) >= [M:SOH4]QTYSTU(I) & [M:SOH4]SHTQTYSTU(I) = 0 Goto NXTLIG : Endif
+        Endif
+# Allocation des ruptures s'il y a des ruptures
+        If WTRTALL = 1 & WSHTFLG = 2 & [M:SOH4]SHTQTYSTU(I) = 0 Goto NXTLIG : Endif
+        If WTRTALL = 1
+# ------ Allocation -------------------------------------------------
+            WALLSTU = 0
+            WSHTSTU = [M:SOH4]SHTQTYSTU(I)
+#           Calcul de la qté à allouer
+            If WSHTFLG = 1 | (find([M:SOH2]DME, 2,3) & WALLPAR = 1)
+                If [M:SOH4]TALLQTYSTU(I) + WSHTSTU < [M:SOH4]QTYSTU(I)
+                    WALLSTU = [M:SOH4]QTYSTU(I) - ([M:SOH4]TALLQTYSTU(I) + WSHTSTU)
+                Endif
+            Endif
+            #---------------------------------------------------------------------#
+            # Point d'entree modification de la quantité à allouer                #
+            #---------------------------------------------------------------------#
+            GPOINT="MODQTEALL" : Gosub ENTREE From EXEFNC
+            If GOK=0 Goto AB_ALLOC : Return Endif
+        Else
+# ------ Desallocation -------------------------------------------------
+            WALLSTU = [M:SOH4]ALLQTYSTU(I)
+            WSHTSTU = [M:SOH4]SHTQTYSTU(I)
+        Endif
+        If WALLSTU + WSHTSTU <> 0
+           Readlock [SOQ] SOQ0 = [M:SOH0]SOHNUM;[M:SOH4]SOPLIN(I);[M:SOH4]SOPLIN(I)
+           If fstat=1
+               GOK=-1
+               GLOCK="$SORDERQ"-[M]SOHNUM-num$([M:SOH4]SOPLIN(I))-num$([M:SOH4]SOPLIN(I))
+               Goto ROLL_ALLOC
+           Elsif fstat
+               GOK=0
+               Call RSTA("SOQ",[M]SOHNUM+num$([M]SOPLIN(I))+num$([M]SOPLIN(I))) From GLOCK
+               Goto AB_ALLOC
+           Endif
+           Read     [SOP] SOP0 = [M:SOH0]SOHNUM;[M:SOH4]SOPLIN(I);[M:SOH4]SOPLIN(I)
+           If fstat
+               GOK=0 :
+               Call RSTA("SOP",[M]SOHNUM+num$([M]SOPLIN(I))+num$([M]SOPLIN(I))) From GLOCK
+               Goto AB_ALLOC
+           Endif
+           If WTRTALL = 2 WTRTLIG = "A"
+           Elsif [F:SOQ]ALLQTYSTU = 0 & [F:SOQ]SHTQTYSTU = 0 WTRTLIG = "C"
+           Else WTRTLIG="M" : Endif
+
+           If [M:SOH4]STOMGTCOD(I) <> 1
+#               Génération des ruptures
+#               On génère toujours les ruptures sur un kit/sous-traité et ses composants (sinon déphasage possible)
+                WGENSHT=WWGENSHT   : # Bug 84932 : Allocation ruptures à tord si alloc ligne normale après un kit
+                If find([M:SOH4]LINTYP(I),2,3,4,5,10,11,12,13) WGENSHT=2 Endif
+#               Allocations partielles sf si livraison ligne/cde complète
+#               Un kit/sous-traité et ses composants ne peuvent être alloués partiellement (sinon déphasage possible)
+                If WALLPAR=1 & find([M:SOH2]DME,2,3) & !find([M:SOH4]LINTYP(I),2,3,4,5,10,11,12,13) WALLPAR=1
+                Else WALLPAR=0 : Endif
+                Call GENALLORD("","",WTRTLIG, WIMPCLI, WGENSHT, WALLPAR, WALLSTU, WSHTSTU, WRET) From TRTVENALL
+                If WRET <> 0
+                    Call ECR_TRACE(WMESS,0) From GESECRAN
+                    If WRET=2 & GOK=1
+                              Call ECR_TRACE(mess(504,197,1)-"\"-mess(44,192,1),0) From GESECRAN
+                              #--- Bug 55688 puis Bug 55688 suite
+                              # Une suppression des ruptures a été faite avant la tentative d'allocations
+                              # --> il faut raz la quantité rupture de la ligne de commande
+                              #If WTRTLIG<>"A" & WSHTSTU<>0
+                              #   [F:SOQ]SHTQTY     = 0
+                              #   [F:SOQ]SHTQTYSTU  = 0
+                              #   Rewrite [SOQ]
+                              #   If fstat GOK=0 : Call FSTA("SOQ") From GLOCK : Goto AB_ALLOC : endif
+                              #   [M:SOH4]SHTQTY(I)    = [F:SOQ]SHTQTY
+                              #   [M:SOH4]SHTQTYSTU(I) = [F:SOQ]SHTQTYSTU
+                              #   # --- Qté à allouer = Qté déjà allouée
+                              #   [M]WALLQTY(I)        = [F:SOQ]ALLQTY + [F:SOQ]SHTQTY
+                              #   [M]WALLQTYSTU(I)     = [F:SOQ]ALLQTYSTU + [F:SOQ]SHTQTYSTU
+                              #   [M]YSHTQTY(I)        = [M]SHTQTY(I)
+                              #Endif
+                              #--- Fin bug 55688
+                              If WTRTLIG<>"A" & WSHTSTU<>0
+                                 Local Integer WRUPTYP
+                                 If [M:SOH4]DALLTYP(I)=1
+                                    WRUPTYP=5
+                                 Else
+                                    WRUPTYP=4
+                                 Endif
+                                 # FGR 29/04/2015 : X3SUIVI105605 (début)
+                                 # Recréation de l'allocation de rupture qui a été supprimée
+#                                 Call CREALL(WRUPTYP,[F:SOQ]STOFCY,[F:SOQ]ITMREF,0,[31/12/2999],
+#&                                            0,WSHTSTU,2,[F:SOQ]SOHNUM,[F:SOQ]SOPLIN,[F:SOQ]SOQSEQ,
+#&                                            "",max(date$,[F:SOQ]SHIDAT),[F:SOQ]LOT,"","",
+#&                                            [F:SOQ]LOC,"","",0,0,"","","","",1,WRET) From STKALL
+                                 #--- TS 106217 ajout paramètre LECC (avant dernier)
+                                 # Recréation de l'allocation de rupture qui a été supprimée
+#                                 Call CREALL(WRUPTYP,[F:SOQ]STOFCY,[F:SOQ]ITMREF,0,[31/12/2999],
+#&                                            0,WSHTSTU,2,[F:SOQ]SOHNUM,[F:SOQ]SOPLIN,[F:SOQ]SOQSEQ,
+#&                                            "",max(date$,[F:SOQ]SHIDAT),[F:SOQ]LOT,"","",
+#&                                            [F:SOQ]LOC,"","",0,0,"","","","",1,"",WRET) From STKALL
+                                 Call CREALL(WRUPTYP,[F:SOQ]STOFCY,[F:SOQ]ITMREF,0,[31/12/2999],
+&                                            0,WSHTSTU,2,[F:SOQ]SOHNUM,[F:SOQ]SOPLIN,[F:SOQ]SOQSEQ,
+&                                            "",max(date$,[F:SOQ]SHIDAT),[F:SOQ]LOT,"","",
+&                                            [F:SOQ]LOC,"","",0,0,"","","","",1,[F:SOQ]ECCVALMAJ,WRET) From STKALL
+                                 # FGR 29/04/2015 : X3SUIVI105605 (début)
+                              Endif
+                              #--- Fin bug 55688 suite
+                              Goto NXTLIG
+                    Else
+                              Call ECR_TRACE(mess(96,197,1), 0) From GESECRAN
+                              Goto AB_ALLOC
+                    Endif
+                Endif
+           Endif
+
+           WALL=WALLSTU*(1/[F:SOP]SAUSTUCOE)
+           Call QTEARR(WALL, [F:SOP]SAU) From TRTDIV
+           WSHT=WSHTSTU*(1/[F:SOP]SAUSTUCOE)
+           Call QTEARR(WSHT, [F:SOP]SAU) From TRTDIV
+# -------- Réalimentation de la classe [F] ---
+           If WTRTLIG = "A"
+               [F:SOQ]ALLQTYSTU -= WALLSTU
+               [F:SOQ]ALLQTY    -= WALL
+#              Annulation alloc.: Diminution de la qté rupture
+               [F:SOQ]SHTQTYSTU -= WSHTSTU
+               [F:SOQ]SHTQTY    -= WSHT
+               WALL *=-1
+               WSHT *=-1
+           Else
+               [F:SOQ]ALLQTY    += WALL
+               [F:SOQ]ALLQTYSTU += WALLSTU
+#              Nouvelle alloc.  : Ecrasement avec la nouvelle qte rupture
+               [F:SOQ]SHTQTY     = WSHT
+               [F:SOQ]SHTQTYSTU  = WSHTSTU
+           Endif
+
+# -------- Si desallocation d'une contremarque : il faut raz le n°contremarque
+           ## GH 02/07/2014 bug 93888
+           #If WRAZCTM=2 & ([M:SOH4]FMI(I) = 3 | [M:SOH4]FMI(I) = 5)
+           #     Raz [F:SOQ]FMINUM, [F:SOQ]FMILIN, [F:SOQ]FMISEQ
+           #Endif
+           If WRAZCTM=2 & [F:SOQ]FMINUM<>""
+                Gosub RAZFMIMFG From SUBSOHA
+                Gosub RAZFMIPOH From SUBSOHA
+                Raz [F:SOQ]FMINUM, [F:SOQ]FMILIN, [F:SOQ]FMISEQ
+           Endif
+           ##
+
+           Rewrite [SOQ]
+           If fstat GOK=0 : Call FSTA("SOQ") From GLOCK : Goto AB_ALLOC : Endif
+
+           # Point d'entrée mise à jour de la ligne de commande
+           GPOINT="MAJSOQALL" : Gosub ENTREE From EXEFNC
+           If GOK=0 Goto AB_ALLOC : Return Endif
+
+           Call ECR_TRACE(WMESS,0) From GESECRAN
+           WMESS1 = mess(106,197,1)+":"+format$("N:15F", WALL)-[F:SOP]SAU
+           WMESS2 = mess(107,197,1)+":"+format$("N:15F", WSHT)-[F:SOP]SAU
+           Call ECR_TRACE(sum(WMESS1, " ",WMESS2),0) From GESECRAN
+
+# -------- Mise à jour de l'encours
+           If [M:SOH4]STOMGTCOD(I) <> 1
+                If [F:SOH]SOHCAT = 3
+                    WCPLQTY = [F:SOQ]INVQTYSTU
+                Else
+                    WCPLQTY = [F:SOQ]DLVQTYSTU
+                Endif
+                WTRTORD = "M" : Gosub APPELWIP From TRTVENMAJ
+                If GOK < 1 Goto AB_ALLOC Endif
+
+                # v6 affectations
+                #Gosub MAJ_MTO_SOQ From SALMTOLIB : # GH 02/07/14 bug 93888
+                If WRAZCTM=2
+                    Gosub SUP_MTO_AV_SOQ From SALMTOLIB
+                Else
+                    Gosub MAJ_MTO_SOQ From SALMTOLIB
+                Endif
+           Endif
+
+# -------- Réalimentation de la classe [M] ---
+           [M:SOH4]ALLQTY(I)     = [F:SOQ]ALLQTY
+           [M:SOH4]ALLQTYSTU (I) = [F:SOQ]ALLQTYSTU
+           [M:SOH4]TALLQTYSTU(I) = [F:SOQ]ALLQTYSTU+[F:SOQ]OPRQTYSTU+[F:SOQ]PREQTYSTU+[F:SOQ]ODLQTYSTU
+           [M:SOH4]TALLQTY(I)    = [F:SOQ]ALLQTY+[F:SOQ]OPRQTY+[F:SOQ]PREQTY+[F:SOQ]ODLQTY
+           # 107888 : Scheduled invoices : (LD:19/05/16)
+           #If [M:SOH0]SOHCAT = 3
+           If [M:SOH0]SOHCAT = 3 | ([M:SOH0]SOHCAT = 1 & [M:SOH4]DLVFLG(I)=1)
+               # --> Commande à facturation directe
+               # --> Commande normale et ligne non livrable
+           # 107888 : Scheduled invoices : (LD:19/05/16)
+               [M:SOH4]TALLQTYSTU(I)  += [F:SOQ]INVQTYSTU
+               [M:SOH4]TALLQTY(I)     += [F:SOQ]INVQTY
+           Else
+               # --> Commande normale/prêt et ligne livrable    : # 107888 : Scheduled invoices : (LD:19/05/16)
+               [M:SOH4]TALLQTYSTU(I) += [F:SOQ]DLVQTYSTU
+               [M:SOH4]TALLQTY(I)    += [F:SOQ]DLVQTY
+           Endif
+           # 107888 : Scheduled invoices : (LD:19/05/16)
+           [M:SOH4]SHTQTY(I)     =  [F:SOQ]SHTQTY
+           [M:SOH4]SHTQTYSTU(I)  = [F:SOQ]SHTQTYSTU
+           # --- Qté à allouer = Qté déjà allouée
+           [M:SOH4]WALLQTY(I)         = [F:SOQ]ALLQTY + [F:SOQ]SHTQTY
+           [M:SOH4]WALLQTYSTU(I)      = [F:SOQ]ALLQTYSTU + [F:SOQ]SHTQTYSTU
+           [M:SOH4]YALLQTY(I)         = [M:SOH4]ALLQTY(I)
+           [M:SOH4]YSHTQTY(I)         = [M:SOH4]SHTQTY(I)
+        Endif
+        $NXTLIG
+    Next
+
+    Gosub MAJSTASOH
+    #---------------------------------------------------------------------#
+    #    Point d'entree mise à jour de la commande                        #
+    #---------------------------------------------------------------------#
+    GPOINT="MAJCDEALL" : Gosub ENTREE From EXEFNC
+    If GOK=0 Goto AB_ALLOC : Return Endif
+
+Commit
+
+Return
+
+
+$ROLL_ALLOC
+Rollback : Call ROLL From GLOCK
+If GROLL
+      Call ECR_TRACE(mess(17,107,1),1) From GESECRAN
+#      Gosub RELIT From GOBJSUB
+Else  Goto TR_ALLOC : Endif
+FIN=1
+
+Return
+
+$AB_ALLOC
+
+Rollback
+Call ECR_TRACE(mess(17,107,1),1) From GESECRAN
+#Gosub RELIT From GOBJSUB
+FIN=1
+
+Return
+
+#-----------------------------------------------------------------------#
+# Recalcul des statuts de la commande                                   #
+# -----------------------------------                                   #
+# Attention :                                                           #
+#    Utilisation de la classe F car tout n'est pas ds l'écran           #
+#                                                                       #
+# Appelé depuis LIENS,CREATION,MODIF                                    #
+#-----------------------------------------------------------------------#
+$MAJSTASOH
+Local Integer I, WAALLLINNBR, WALLLINNBR, WLINNBR, WDLVLINNBR, WINVLINNBR
+Local Integer WALLSTA, WDLVSTA, WINVSTA
+Local Decimal WTOTQTY
+Local Integer WADLVLINNBR  : # Nombre de lignes livrables : # 107888 : Scheduled invoices : (LD:20/05/16)
+
+WALLSTA = 1
+WDLVSTA = 1
+WINVSTA = 1
+For I=0 To [M:SOH4]NBLIG-1
+    If [M:SOH4]STOMGTCOD(I) <> 1 & sum([M:SOH4]ALLQTY(I), [M:SOH4]OPRQTY(I), [M:SOH4]PREQTY(I)) <> 0 WALLSTA = 2 : Endif
+
+    # 107888 : Scheduled invoices : (LD:19/05/16)
+#    If [M:SOH0]SOHCAT = 3
+#        If [M:SOH4]DLVQTY(I) > 0 WDLVSTA = 2 : Endif
+#    Else
+#        If [M:SOH4]DLVQTY(I) > 0 | [M:SOH4]ODLQTY(I) > 0 WDLVSTA = 2 : Endif
+#    Endif
+#    If [M:SOH0]SOHCAT = 3
+#       If [M:SOH4]INVQTY(I) > 0 | [M:SOH4]ODLQTY(I) > 0 WINVSTA = 2 Endif
+#    Else
+#       If [M:SOH4]INVQTY(I) > 0 WINVSTA = 2 Endif
+#    Endif
+    If [M:SOH0]SOHCAT=3 | ([M:SOH0]SOHCAT=1 & [M:SOH4]DLVFLG(I)=1)
+        # --> Commande à facturation directe
+        # --> Commande normale et ligne non livrable
+        # Calcul du statut livré
+        # Ce cas là ne devrait jamais arriver ...
+        If [M:SOH4]DLVQTY(I) > 0 WDLVSTA = 2 : Endif
+        # Calcul du statut facturé
+        If [M:SOH4]INVQTY(I) > 0 | [M:SOH4]ODLQTY(I) > 0 WINVSTA = 2 Endif
+    Else
+        # --> Commande normale/prêt et ligne livrable
+        # Calcul du statut livré
+        If [M:SOH4]DLVQTY(I) > 0 | [M:SOH4]ODLQTY(I) > 0 WDLVSTA = 2 : Endif
+        # Calcul du statut facturé
+        If [M:SOH4]INVQTY(I) > 0 WINVSTA = 2 Endif
+    Endif
+    # 107888 : Scheduled invoices : (LD:19/05/16)
+
+#   --- Recalcul du nbre de lignes à allouer
+#       Pour les lignes gérées en stock (donc livrables) et non soldées
+    If [M:SOH4]STOMGTCOD(I) <> 1 & [M:SOH4]SOQSTA(I) <> 3
+        WLINNBR+=1
+        WTOTQTY = sum([M:SOH4]ALLQTY(I),[M:SOH4]OPRQTY(I),[M:SOH4]PREQTY(I),[M:SOH4]ODLQTY(I))
+        If [M:SOH0]SOHCAT = 3
+            WTOTQTY += sum([M:SOH4]INVQTY(I))
+        Else
+            WTOTQTY += sum([M:SOH4]DLVQTY(I))
+        Endif
+#       --- Tout n'est pas alloué : Incrémentation du nbre de lignes restant a allouer
+        If WTOTQTY < [M:SOH4]QTY(I) | [M:SOH4]SHTQTY(I) <> 0
+            WAALLLINNBR += 1
+        Elsif WTOTQTY >= [M:SOH4]QTY(I) & [M:SOH4]SHTQTY(I) = 0
+#       --- Tout est alloué : Incrémentation du nbre de lignes allouées
+            WALLLINNBR += 1
+        Endif
+    Endif
+
+#   --- Recalcul du nbre de lignes livrées
+    # 107888 : Scheduled invoices : (LD:19/05/16)
+#    If [M:SOH0]SOHCAT <> 3
+#        If [M:SOH4]DLVQTY(I) + [M:SOH4]ODLQTY(I) >= [M:SOH4]QTY(I)
+#            WDLVLINNBR += 1
+#        Endif
+#    Endif
+    If [M:SOH0]SOHCAT <> 3 & [M:SOH4]DLVFLG(I)=2
+        # --> Commande normale/prêt et ligne livrable
+        # Calcul du nombre de lignes livrables
+        WADLVLINNBR+=1
+        # Calcul du nombre de lignes livrées
+        If [M:SOH4]DLVQTY(I) + [M:SOH4]ODLQTY(I) >= [M:SOH4]QTY(I)
+            WDLVLINNBR += 1
+        Endif
+    Endif
+    # 107888 : Scheduled invoices : (LD:19/05/16)
+
+#   --- Recalcul du nbre de lignes facturées
+    If [M:SOH4]INVFLG(I) = 2
+        WINVLINNBR += 1
+    Endif
+Next
+
+
+# Cde allouée ssi il y a des lignes gérées en stock et
+#                 le nbre lignes à allouer = 0 et la cde n'est pas soldée
+#If [M]ORDSTA <> 2 & sum([M:SOH4]STOMGTCOD) <> [M:SOH4]NBLIG
+#    If WAALLLINNBR = 0
+#        WALLSTA = 3
+#    Endif
+#Endif
+# Cde allouée ssi cde non soldée et les lignes gérées en stock et non soldées sont totalement allouées
+If [M:SOH1]ORDSTA <> 2 & WLINNBR<>0 & WALLLINNBR = WLINNBR WALLSTA = 3 : Endif
+
+# 107888 : Scheduled invoices : (LD:19/05/16)
+#If WDLVLINNBR >= [F:SOH]LINNBR WDLVSTA = 3 : Endif
+#If WINVLINNBR >= [F:SOH]LINNBR WINVSTA = 3 : Endif
+
+# Cde livrée  ssi toutes les lignes livrables sont livrées
+If WADLVLINNBR>0 & WDLVLINNBR >= WADLVLINNBR WDLVSTA = 3 : Endif
+# Cde facturée ssi toutes les lignes sont facturées
+If WINVLINNBR >= [F:SOH]LINNBR WINVSTA = 3 : Endif
+# 107888 : Scheduled invoices : (LD:19/05/16)
+
+If WALLSTA <> [F:SOH]ALLSTA | WAALLLINNBR <> [F:SOH]ALLLINNBR |
+&  WDLVSTA <> [F:SOH]DLVSTA | WDLVLINNBR <> [F:SOH]DLVLINNBR |
+&  WINVSTA <> [F:SOH]INVSTA | WINVLINNBR <> [F:SOH]INVLINNBR
+    Readlock [SOH]SOH0=[M:SOH0]SOHNUM
+    If !fstat
+       Update [SOH] Where SOHNUM=[M:SOH0]SOHNUM With ALLSTA=WALLSTA, ALLLINNBR=WAALLLINNBR,
+&                                                    INVSTA=WINVSTA, DLVLINNBR=WDLVLINNBR,
+&                                                    DLVSTA=WDLVSTA, INVLINNBR=WINVLINNBR
+       # --------------------------------------
+       # FGR 25/06/2015 : X3SUIVI109125 (début)
+       #If fstat GOK=0 : Call FSTA("SOH") From GLOCK : Endif
+       If fstat
+         GOK=0
+         Call FSTA("SOH") From GLOCK
+       Else
+         [M:SOH0]ALLLINNBR = WAALLLINNBR
+         [M:SOH1]ALLSTA = WALLSTA
+         [M:SOH1]DLVSTA = WDLVSTA
+         [M:SOH1]INVSTA = WINVSTA
+       Endif
+       # FGR 25/06/2015 : X3SUIVI109125 (fin)
+       # --------------------------------------
+    Endif
+    #[M:SOH0]ALLLINNBR = WAALLLINNBR  # FGR 25/06/2015 : X3SUIVI109125
+    #[M:SOH1]ALLSTA = WALLSTA         # FGR 25/06/2015 : X3SUIVI109125
+    #[M:SOH1]DLVSTA = WDLVSTA         # FGR 25/06/2015 : X3SUIVI109125
+    #[M:SOH1]INVSTA = WINVSTA         # FGR 25/06/2015 : X3SUIVI109125
+Endif
+
+If sum([M:SOH4]STOMGTCOD) = [M:SOH4]NBLIG
+   Grizo [M:SOH1]ALLSTA
+Else
+   Actzo [M:SOH1]ALLSTA
+Endif
+
+Return
+
+#--------------------------------------------------------------------#
+# Mise à jour de l'adresse                                           #
+#--------------------------------------------------------------------#
+$MAJADRESSE
+Call DEBTRANS From GLOCK
+$TR_ADR
+GOK=1
+Trbegin [SOH]
+  Readlock [SOH] SOH0=[M]SOHNUM
+  If fstat=1  GOK=-1 : GLOCK="$SORDER"-[M]SOHNUM             : Goto ROLL_ADR
+  Elsif fstat GOK=0  : Call RSTA("SOH",[M]SOHNUM) From GLOCK : Goto AB_ADR : Endif
+  If BOUT="H"
+     [F:SOH]CNTNAM = [M:ADB1]CNTNAM
+     If [M:ADB1]ADBFLG = 2 Gosub CHARGE_ADRBPC Endif
+  Elsif BOUT = "J"
+     [F:SOH]CNINAM    = [M:ADB3]CNTNAM
+#     If dim([M:ADB3]EECNUM)>0 [F:SOH]BPIEECNUM = [M:ADB3]EECNUM Endif
+     If dim([M:SOH0]BPIEECNUM)>0 : [F:SOH]BPIEECNUM = [M:SOH0]BPIEECNUM : Endif #RMA #82772
+     If [M:ADB3]ADBFLG = 2 Gosub CHARGE_ADRBPI Endif
+  Else
+     [F:SOH]CNDNAM = [M:ADB2]CNTNAM
+     If [M:ADB2]ADBFLG = 2 Gosub CHARGE_ADRBPD Endif
+  Endif
+  Rewrite [SOH]
+  If fstat GOK=0 : Call FSTA("SOH") From GLOCK : Goto AB_ADR : Endif
+Commit
+Gosub RELIT From GOBJSUB  # FGR 24/07/2014 : X3SUIVI100377
+Return
+
+$ROLL_ADR
+Rollback : Call ROLL From GLOCK
+#if GROLL Gosub RELIT From GOBJSUB
+#else     Goto TR_ADR : ENDIF
+If !GROLL Goto TR_ADR : Endif
+Return
+
+$AB_ADR
+Rollback
+#osub RELIT From GOBJSUB
+Return
+
+# -------------------------------------- #
+# Alimentation de l'adresse commande     #
+# -------------------------------------- #
+$CHARGE_ADRBPC
+[F:SOH]BPAORD       = [M:ADB1]BPAADD
+#If GACTSAD=2     : # Bug 67868
+    [F:SOH]BPCNAM(0)    = [M:ADB1]BPRNAM(0)
+    [F:SOH]BPCNAM(1)    = [M:ADB1]BPRNAM(1)
+    [F:SOH]BPCADDLIG(0) = [M:ADB1]BPAADDLIG(0)
+    [F:SOH]BPCADDLIG(1) = [M:ADB1]BPAADDLIG(1)
+    [F:SOH]BPCADDLIG(2) = [M:ADB1]BPAADDLIG(2)
+    [F:SOH]BPCPOSCOD    = [M:ADB1]POSCOD
+    [F:SOH]BPCCTY       = [M:ADB1]CTY
+    [F:SOH]BPCSAT       = [M:ADB1]SAT
+    [F:SOH]BPCCRY       = [M:ADB1]CRY
+    [F:SOH]BPCCRYNAM    = [M:ADB1]CRYNAM
+#Endif            : # Bug 67868
+Return
+# -------------------------------------- #
+# Alimentation de l'adresse facturation  #
+# -------------------------------------- #
+$CHARGE_ADRBPI
+[F:SOH]BPAINV       = [M:ADB3]BPAADD
+#If GACTSAD=2     : # Bug 67868
+  [F:SOH]BPINAM(0)    = [M:ADB3]BPRNAM(0)
+  [F:SOH]BPINAM(1)    = [M:ADB3]BPRNAM(1)
+  [F:SOH]BPIADDLIG(0) = [M:ADB3]BPAADDLIG(0)
+  [F:SOH]BPIADDLIG(1) = [M:ADB3]BPAADDLIG(1)
+  [F:SOH]BPIADDLIG(2) = [M:ADB3]BPAADDLIG(2)
+  [F:SOH]BPIPOSCOD    = [M:ADB3]POSCOD
+  [F:SOH]BPICTY       = [M:ADB3]CTY
+  [F:SOH]BPISAT       = [M:ADB3]SAT
+  [F:SOH]BPICRY       = [M:ADB3]CRY
+  [F:SOH]BPICRYNAM    = [M:ADB3]CRYNAM
+  # Issue X3-159652 by VAVIL: Webservices: ECMSOH don't update the field EECNUMX
+  If func AFNC.ACTIV("KPO")>0
+    If [M:ADB3]EECNUMX <> "" : [F:SOH]BPIEECNUM = [M:ADB3]EECNUMX : Endif
+  Endif
+  # Issue X3-159652 end
+#Endif            : # Bug 67868
+Return
+# -------------------------------------- #
+# Alimentation de l'adresse livraison    #
+# -------------------------------------- #
+$CHARGE_ADRBPD
+#If GACTSAD=2     : # Bug 67868
+    [F:SOH]BPDNAM(0)    = [M:ADB2]BPRNAM(0)
+    [F:SOH]BPDNAM(1)    = [M:ADB2]BPRNAM(1)
+    [F:SOH]BPDADDLIG(0) = [M:ADB2]BPAADDLIG(0)
+    [F:SOH]BPDADDLIG(1) = [M:ADB2]BPAADDLIG(1)
+    [F:SOH]BPDADDLIG(2) = [M:ADB2]BPAADDLIG(2)
+    [F:SOH]BPDPOSCOD    = [M:ADB2]POSCOD
+    [F:SOH]BPDCTY       = [M:ADB2]CTY
+    [F:SOH]BPDSAT       = [M:ADB2]SAT
+    [F:SOH]BPDCRY       = [M:ADB2]CRY
+    [F:SOH]BPDCRYNAM    = [M:ADB2]CRYNAM
+    If dim([M:ADB2]ADRVAL) > 0 : [F:SOH]ADRVAL = [M:ADB2]ADRVAL : Endif #LTA.n
+#Endif
+Return
+#########################################################################
+# Traitements communs                                                   #
+#########################################################################
+#--------------------------------------------------------------------#
+# Lecture de ts les fichiers utiles à une ligne                      #
+#--------------------------------------------------------------------#
+Subprog LECT_FIC(NLIG)
+Value Integer NLIG
+
+If [F:ITS]ITMREF <> [M:SOH4]ITMREF(NLIG)
+     Read [F:ITS]ITS0 = [M:SOH4]ITMREF(NLIG)
+     If fstat  Raz [F:ITS] : Endif
+Endif
+If [F:ITM]ITMREF <> [M:SOH4]ITMREF(NLIG)
+     Read [F:ITM]ITM0 = [M:SOH4]ITMREF(NLIG)
+     If fstat  Raz [F:ITM] : Endif
+Endif
+End
+#--------------------------------------------------------------------#
+# Initialisation des zones venant de l'entete commande               #
+#--------------------------------------------------------------------#
+Subprog INIT_SOH(NLIG, AFF)
+Value Integer NLIG
+Value Integer AFF
+Local Integer I
+Local Char    WREP(GLONREP)             # hcb v6
+
+[M:SOH4]DBPAADD(NLIG)         = [M:SOH1]BPAADD
+If dim([M:ADB2]CNTNAM)>0
+    [M:SOH4]CNDNAM(NLIG)      = [M:ADB2]CNTNAM
+Endif
+[M:SOH4]DSTOFCY(NLIG)         = [M:SOH2]STOFCY
+[M:SOH4]DDLVPIO(NLIG)         = [M:SOH2]DLVPIO
+[M:SOH4]DDRN(NLIG)            = [M:SOH2]DRN
+[M:SOH4]DDAYLTI(NLIG)         = [M:SOH2]DAYLTI
+If GREP <> "C" & GREP <> "D" & date$ > [M:SOH2]SHIDAT
+    [M:SOH4]DSHIDAT(NLIG) = date$
+# --> Initialisation de la date de livraison demandée
+    Call CALC_DLVDAT([M:SOH4]DSHIDAT(NLIG), [M:SOH4]DDAYLTI(NLIG), [M:SOH4]DBPAADD(NLIG), [M:SOH0]BPCORD, 0,0,
+&                    [M:SOH4]DDEMDLVDAT(NLIG)) From TRTVENDAT
+    If func AFNC.ACTIV("EDIX3")>0    [M:SOH4]MAXDLVDAT(NLIG)  = [M:SOH4]DDEMDLVDAT(NLIG): Endif #SAM 110881
+Else
+    [M:SOH4]DDEMDLVDAT(NLIG) = [M:SOH2]DEMDLVDAT
+    [M:SOH4]DSHIDAT(NLIG)    = [M:SOH2]SHIDAT
+    If func AFNC.ACTIV("EDIX3")>0    [M:SOH4]MAXDLVDAT(NLIG)  = [M:SOH2]DEMDLVDAT: Endif  #SAM 110881
+Endif
+# --> Calcul de la date de livraison prevue
+Call CALC_DLVDAT([M:SOH4]DSHIDAT(NLIG), [M:SOH4]DDAYLTI(NLIG), [M:SOH4]DBPAADD(NLIG), [M:SOH0]BPCORD, 0,0,
+&                [M:SOH4]EXTDLVDAT(NLIG)) From TRTVENDAT
+Raz GMESSAGE
+# --> Alimentation des commissions représentants
+For I=0 To dim([M:SOH1]REP)-1
+
+  WREP = evalue("[M:SOH1]REP("+num$(I)+")")
+
+  Assign ("[M:SOH4]REP"+num$(I+1)+"(NLIG)") With WREP
+
+  If WREP <> ""
+        If [F:REP]REPNUM <> WREP
+            Read [F:REP]REP0 = WREP
+            If fstat Raz [F:REP] : Endif
+        Endif
+        If [F:BPC]BPCNUM <> [M:SOH0]BPCORD
+            Read [F:BPC]BPC0 = [M:SOH0]BPCORD
+            If fstat Raz [F:BPC] :Endif
+        Endif
+        If [F:BPC]COMCAT <> 0
+            Assign ("[M:SOH4]REPRAT"+num$(I+1)+"(NLIG)") With evalue("[F:REP]COMRAT"+num$(I+1)+"([F:BPC]COMCAT-1)")
+        Endif
+  Endif
+
+Next
+
+[M:SOH4]DMDL(NLIG)            = [M:SOH2]MDL
+[M:SOH4]DBPTNUM(NLIG)         = [M:SOH2]BPTNUM
+#[M:SOH4]DEMSTA(NLIG) = 1
+[M:SOH4]DALLTYP(NLIG) = [M:SOH2]ALLTYP
+
+# Ini X3-175968_Expected_Max_delivery_times_on_lines_arent_defaulted (JUCON 2020-02-13)
+If dim([M:SOH4]DEMDLVHOU)>0
+  If [M:SOH4]DEMDLVHOU(NLIG)="": [M:SOH4]DEMDLVHOU(NLIG)=[M:SOH2]DEMDLVHOU: Endif
+  If [M:SOH4]MAXDLVHOU(NLIG)="": [M:SOH4]MAXDLVHOU(NLIG)=[M:SOH2]DEMDLVHOU: Endif
+Endif
+# End X3-175968_Expected_Max_delivery_times_on_lines_arent_defaulted (JUCON 2020-02-13)
+
+
+End
+#--------------------------------------------------------------------#
+# Initialisation des zones venant de l'article dans une ligne        #
+#--------------------------------------------------------------------#
+Subprog INIT_ITM(NLIG, ITM)
+Value    Integer NLIG
+Value    Char    ITM
+
+Local    Char    VAT(GLONVAT)(3)
+Local    Char    WTSCCOD(GLONADI) (0..5)
+Local    Char    WTSICOD(GLONADI) (0..5)
+Local    Integer WI
+
+[M]FMI(NLIG) = 1
+[M]DEMSTA(NLIG) = 1
+[M]INVFLG(NLIG) = 1 : # 107890 : Scheduled invoices : (LD:08/12/15)
+
+# --> Recherche taxe (même en transformation devis)
+[M:SOH4]VACITM1(NLIG)  = [F:ITM]VACITM(0)
+[M:SOH4]VACITM2(NLIG)  = [F:ITM]VACITM(1)
+[M:SOH4]VACITM3(NLIG)  = [F:ITM]VACITM(2)
+#Call ALITAXEV([M:SOH1]VACBPR,[F:ITM]VACITM,VAT) From TRTX3
+Call RECHVATCOD(1,1,[M:SOH0]BPCORD,ITM,"SOH4",NLIG,VAT) From TRTX3
+[M:SOH4]VAT1(NLIG)  = VAT(0)
+[M:SOH4]VAT2(NLIG)  = VAT(1)
+[M:SOH4]VAT3(NLIG)  = VAT(2)
+If dim([M:SOH4]SSTCOD) >0      : [M:SOH4]SSTCOD(NLIG)  = [F:ITM]SSTCOD   :Endif #101380.n
+If dim([M:SOH4]TSICOD1(NLIG))>0: [M:SOH4]TSICOD1(NLIG) = [F:ITM]TSICOD(0):Endif
+If dim([M:SOH4]TSICOD2(NLIG))>0: [M:SOH4]TSICOD2(NLIG) = [F:ITM]TSICOD(1):Endif
+If dim([M:SOH4]TSICOD3(NLIG))>0: [M:SOH4]TSICOD3(NLIG) = [F:ITM]TSICOD(2):Endif
+If dim([M:SOH4]TSICOD4(NLIG))>0: [M:SOH4]TSICOD4(NLIG) = [F:ITM]TSICOD(3):Endif
+If dim([M:SOH4]TSICOD5(NLIG))>0: [M:SOH4]TSICOD5(NLIG) = [F:ITM]TSICOD(4):Endif
+
+[M:SOH4]SAU(NLIG)       = [F:ITM]SAU
+[M:SOH4]STU(NLIG)       = [F:ITM]STU
+[M:SOH4]SAUSTUCOE(NLIG) = [F:ITM]SAUSTUCOE
+[M:SOH4]DACSAUCOE(NLIG) = [F:ITM]DACSAUCOE
+
+[M:SOH4]STOMGTCOD(NLIG) = [F:ITM]STOMGTCOD
+If [F:ITM]STOMGTCOD>1
+    If [F:ITF]ITMREF<>ITM | [F:ITF]STOFCY<>[M:SOH4]DSTOFCY(NLIG)
+        Read [ITF] ITF0=ITM;[M:SOH4]DSTOFCY(NLIG)
+        If fstat Raz [F:ITF] : Endif
+    Endif
+
+    # 111481 To init new EDI field USELIMDAT
+    If func AFNC.ACTIV("EDIX3")>0
+      If [F:ITM]EXYMGTCOD >1 and [M:SOH4]FOCFLG(NLIG)=1
+        Local Shortint EXYDAYS
+        If [F:ITM]SHLUOM =1: EXYDAYS=[F:ITM]SHL Else EXYDAYS=[F:ITM]SHL*30: Endif
+        [M:SOH4]USELIMDAT(NLIG)=[M:SOH4]MAXDLVDAT(NLIG)+EXYDAYS
+      Endif
+    Endif
+    # End 111481
+
+    If [F:ITF]STOMGTCOD>0 [M:SOH4]STOMGTCOD(NLIG) = [F:ITF]STOMGTCOD Endif
+Endif
+# Désignation standard
+#[M:SOH4]ITMDES1(NLIG)   = [F:ITS]ITMDES1
+Call CHARGE_DEFITMDES("DES1AXX", GLANGUE,[F:ITM]ITMREF,[M:SOH4]ITMDES1(NLIG), "[F:ITM]") From TRTX3   # FGR 29/06/2009 : X3SUIVI56129
+# Désignation traduite
+#Call CHARGE_ITMDES("DES1AXX", [M:SOH0]LAN,[F:ITM]ITMREF,[M:SOH4]ITMDES(NLIG)) From TRTX3
+#If [M:SOH4]ITMDES(NLIG) = "" [M:SOH4]ITMDES(NLIG) = [M:SOH4]ITMDES1(NLIG) Endif
+Call CHARGE_DEFITMDES("DES1AXX", [M:SOH0]LAN,[F:ITM]ITMREF,[M:SOH4]ITMDES(NLIG), "[F:ITM]") From TRTX3   # FGR 29/06/2009 : X3SUIVI56129
+
+# Si contrat de service --> article non géré en stock
+If [F:ITM]TPLCONSRV <> "" [M:SOH4]STOMGTCOD(NLIG) = 1 Endif
+
+#[M:SOH4]PCK(NLIG)        = [F:ITS]PCK
+#[M:SOH4]PCKCAP(NLIG)     = [F:ITS]PCKCAP
+# Issue X3-66385
+##CPO 63410 - pb découvert lors de la correction de cette fiche
+## -- l'unité de vente de la ligne doit être égale à l'UV de l'article
+#If [M:SOH4]SAU(NLIG) = [F:ITM]SAU
+#  Call ALIPCK (ITM, [M:SOH4]DSTOFCY(NLIG), [M:SOH4]PCK(NLIG), [M:SOH4]PCKCAP(NLIG)) From TRTVENDIV
+#Endif
+# End issue X3-66385
+
+# 107890 : Scheduled invoices : (LD:08/12/15)
+[M:SOH4]DLVFLG(NLIG)       = [F:ITM]DLVFLG
+# Invoicing condition managed only for Normal order and
+# For Service/Generic category and type of flow sales and not deliverable
+If [M:SOH0]SOHCAT=1 & [F:ITM]DLVFLG=1
+    [M:SOH4]DINVCND(NLIG)=[M:SOH3]INVCND
+    If [M:SOH4]DINVCND(NLIG)=""
+        [M:SOH4]DINVCND(NLIG)=[F:ITS]INVCND
+    Endif
+Endif
+# 107890 : Scheduled invoices : (LD:08/12/15)
+
+If [F:ITU]ITMREF <> ITM | [F:ITU]BPCNUM <> [M:SOH0]BPCORD
+   Read [ITU] ITU0=ITM;[M:SOH0]BPCORD
+   If fstat Raz [F:ITU] Endif
+Endif
+[M:SOH4]ITMREFBPC(NLIG) = [F:ITU]ITMREFBPC
+If [F:ITU]SAU <> "" & find([M:SOH4]LINTYP(NLIG),1,2,6,10) & [M:SOH4]FOCFLG(NLIG) <> 3
+    [M:SOH4]SAU(NLIG) = [F:ITU]SAU
+    [M:SOH4]SAUSTUCOE(NLIG) = [F:ITU]SAUSTUCOE
+    [M:SOH4]DACSAUCOE(NLIG) = 1
+    # Si on récupère l'unité de vente de l'article-client, on récupère aussi l'emballage et la capacité
+    [M:SOH4]PCK(NLIG)       = [F:ITU]PCK
+    [M:SOH4]PCKCAP(NLIG)    = [F:ITU]PCKCAP
+Endif
+#Call ALISAUCOE(ITM, [M:SOH0]BPCORD, [M:SOH4]SAU(NLIG), [M:SOH4]STU(NLIG), [M:SOH4]SAUSTUCOE(NLIG)) From TRTVENQTE
+
+# Issue X3-66385
+# L'emballage est initialisé en priorité avec l'article client
+# Il est initialisé avec l'article (article site ou catégorie article) uniquement si l'UV de l'article = l'UV de la ligne
+# et si l'UV de l'article client = l'UV de la ligne mais il n'y a pas d'emballage pour l'article client
+# ou si l'UV de l'article client est différente de l'UV de la ligne
+# Package is initialized in priority with product customer
+# It is initialized  with product (product site or product category) only if UV product= UV line
+# and if UV product customer = UV line but there is no package for product customer
+# or  if UV product customer <> UV line
+If [M:SOH4]PCK(NLIG) = ""
+    If [M:SOH4]SAU(NLIG) = [F:ITM]SAU
+      Call ALIPCK (ITM, [M:SOH4]DSTOFCY(NLIG), [M:SOH4]PCK(NLIG), [M:SOH4]PCKCAP(NLIG)) From TRTVENDIV
+    Endif
+Endif
+# End issue X3-66385
+
+Raz [M:SOH4]SOQTEX(NLIG)
+If find(GSALTEXLIN,1,5)
+   [M:SOH4]SOQTEX(NLIG) = [F:ITU]ITSTEX
+   If [M:SOH4]SOQTEX(NLIG)=""
+      [M:SOH4]SOQTEX(NLIG) = [F:ITS]ITSTEX
+   Endif
+Endif
+
+[M:SOH4]CTMFLG(NLIG)     = [F:ITS]CTMFLG           : # Bug 55476
+[M:SOH4]YSTOMGTCOD(NLIG) = [M:SOH4]STOMGTCOD(NLIG) : # Bug 55476
+
+# Initialisation du code prépa
+If dim([M:SOH0]TSCCOD) <> -1
+    For WI = 1 To dim([M:SOH0]TSCCOD)
+        WTSCCOD(WI-1) = [M:SOH0]TSCCOD(WI-1)
+    #--CPO 90371 Lors de la correction de cette fiche - ici on fait For WI et Next I
+    #Next I
+    Next WI
+    #--/
+Endif
+If dim([M:SOH4]TSICOD1)>0: WTSICOD(0) = [M:SOH4]TSICOD1(NLIG): Endif
+If dim([M:SOH4]TSICOD2)>0: WTSICOD(1) = [M:SOH4]TSICOD2(NLIG): Endif
+If dim([M:SOH4]TSICOD3)>0: WTSICOD(2) = [M:SOH4]TSICOD3(NLIG): Endif
+If dim([M:SOH4]TSICOD4)>0: WTSICOD(3) = [M:SOH4]TSICOD4(NLIG): Endif
+If dim([M:SOH4]TSICOD5)>0: WTSICOD(4) = [M:SOH4]TSICOD5(NLIG): Endif
+If [F:BPC]BPCNUM<>[M:SOH0]BPCORD
+   Read [BPC]BPC0=[M:SOH0]BPCORD : If fstat Raz [F:BPC] Endif
+Endif
+Call REC_PRECOD([M:SOH4]DSTOFCY(NLIG),ITM,[F:ITM]TCLCOD,WTSICOD(0),
+&               WTSICOD(1),WTSICOD(2),WTSICOD(3),WTSICOD(4),[M:SOH0]BPCORD,
+&               [F:BPC]BCGCOD,WTSCCOD(0),WTSCCOD(1),WTSCCOD(2),WTSCCOD(3),
+&               WTSCCOD(4),[M:SOH4]PRECOD(NLIG)) From STKLIB
+
+
+# 107890 : Scheduled invoices : (LC:28/10/16)
+If [M:SOH4]DLVFLG(NLIG)<>2
+
+   If [M:SOH0]SOHCAT=1
+      Raz [M:SOH4]TDLQTY(NLIG)
+      Raz [M:SOH4]DDEMDLVDAT(NLIG)
+   Endif
+
+   Raz [M:SOH4]DDAYLTI(NLIG)
+   Raz [M:SOH4]DSHIDAT(NLIG)
+   Raz [M:SOH4]EXTDLVDAT(NLIG)
+
+   Raz [M:SOH4]CNDNAM(NLIG)
+   Raz [M:SOH4]USEPLC(NLIG)
+   Raz [M:SOH4]DDLVPIO(NLIG)
+   Raz [M:SOH4]DDRN(NLIG)
+   Raz [M:SOH4]DMDL(NLIG)
+   Raz [M:SOH4]DBPTNUM(NLIG)
+   Raz [M:SOH4]PRECOD(NLIG)
+   Raz [M:SOH4]PCK(NLIG)
+   Raz [M:SOH4]PCKCAP(NLIG)
+   Raz [M:SOH4]DEMSTA(NLIG)
+   If func AFNC.ACTIV("EDIX3")>0   #SAM 121329 (JUCON 03/02/2017)
+     Raz [M:SOH4]DEMDLVHOU(NLIG)
+     Raz [M:SOH4]MAXDLVHOU(NLIG)
+     Raz [M:SOH4]MAXDLVDAT(NLIG)
+     Raz [M:SOH4]BPCSALPRI(NLIG)
+     Raz [M:SOH4]USELIMDAT(NLIG)
+  Endif                           #SAM 121329 (JUCON 03/02/2017)
+Endif
+# 107890 : Scheduled invoices : (LC:28/10/16)
+
+End
+#---------------------------------------#
+# Traitement avant ligne                #
+#---------------------------------------#
+Subprog AVANT_LIGNE(NOL)
+Value Integer NOL
+
+Local   Integer  WRETOUR
+Local   Char     WNUMTEX(12)
+
+If GMODIF = 1
+# --> Suppression
+    If find([M]LINTYP(NOL),2,10) GMODIF=3 Endif
+    If find([M]LINTYP(NOL),6) GMODIF=4 Endif
+      # Issue X3-38242 - 2019-03-20 by MUARN : Suppression d'une ligne à l'origine d'un gratuit ou suppression d'un gratuit
+      # Si la ligne à l'origine d'un gratuit est issue d'un devis, le gratuit lié n'est pas forcément sur cette commande
+      # --> Ne pas gérer la suppression du gratuit
+      # Si la ligne de gratuit est issue d'une cde, la ligne à l'origine du gratuit lié n'est pas forcément sur cette commande
+      # --> Ne pas gérer la modification de la ligne à l'origine du gratuit
+      # deletion of a line at the source of a free product, if the line is from a quote, the free product is not delete
+      # deletion of a free product line, if the line is from a quote, do not modify the line at the source of a free produc
+      #GFOCFLG = [M]FOCFLG(NOL)
+      GFOCFLG = 1
+      If [M:SOH4]DETSQHNUM(NOL)=""
+         GFOCFLG = [M]FOCFLG(NOL)
+      Endif
+#   -----------------------------------------------------#
+#   Suppression du texte si la ligne vient d'être créée  #
+#   -----------------------------------------------------#
+#    If [M]CREFLG(NOL) = 0
+#        WRETOUR = 0
+#        WNUMTEX = [M:SOH4]SOQTEX (NOL)
+#        Call TEX(5,"SOQ1","","","",WNUMTEX,"A",WRETOUR) From TRTX3TEX
+#    Endif
+Endif
+Call SUB_TOT(NOL)
+
+End
+
+
+#-------------------------------------------#
+# Recherche tarif si modif qte ou creation  #
+#-------------------------------------------#
+If GMODIF = 0
+    WRECH_TAR = 1
+    If [M:SOH4]FOCFLG(NOL) = 2
+        GMESSAGE = mess(7,191,1)+"\"+mess(21,191,1)
+    Else
+        GMESSAGE = mess(21,191,1)
+    Endif
+    Call OUINON(GMESSAGE,WRECH_TAR) From GESECRAN
+    Raz GMESSAGE
+Else
+    WRECH_TAR= 2
+Endif
+If WRECH_TAR = 2
+    # --------------- Recherche tarif -----------------
+    # Article normal ou composé
+    TYP=1
+    # Composant
+    If find([M:SOH4]LINTYP(NOL),3,4,5,7,8,9,11,12)
+        Local Integer ORI : ORI=NOL
+        While !find([M]LINTYP(ORI),2,6,10) & ORI >= 0 ORI-=1 Wend
+        If find([M]LINTYP(ORI),2,6,10) GPNTITMREF=[M]ITMREF(ORI) Endif
+        TYP=4
+    Endif
+    # --> Recherche tarif
+    Call RECH_TARIF(TYP,[M]ITMREF(NOL),NOL,VALEUR,"SOH",[M]GROPRI(NOL)) From TRTVENTAR
+    # --> Calcul du prix net
+    Call CLCNETPRI(VALEUR, [M:SOH0]CUR, NOL) From TRTVENPRI
+    # Issue X3-200515/X3-208171 - 2020-09-08 by SR : Progress billing
+    #If GDACLOK = 1
+    If GDACLOK = 1 | (dim([M:SOH4]PRGBILNUM) > 1 & [M:SOH4]PRGBILNUM(NOL) <> "")
+        Call CTLNETPRI([M:SOH0]BPCORD,[M:SOH0]CHGTYP,[M:SOH0]ORDDAT,[M:SOH0]CUR,NOL) From TRTVENPRI
+        If mkstat=2 End Endif
+    Endif
+Endif
+
+#----------------------------------------------------------------------------------#
+# Vérification des codes taxes :                                                   #
+# Appelé en fin de saisie de ligne pour vérifier si les codes taxes ont changé     #
+#        suite à modification d'un champs entrant dans la détermination de la taxe #
+# --> Si changement : Chargement des codes taxes                                   #
+#                     Recalcul des montants de base calcul taxe (CLCAMT1 et 2)     #
+#                     Dde recherche tarif si TTC                                   #
+#                     Recalcul de la marge                                         #
+#----------------------------------------------------------------------------------#
+Subprog VERIF_VATCOD (NLIG)
+Value Integer NLIG
+
+Local Char    WVAT(GLONVAT)(3)
+Local Integer INICPRPRI : INICPRPRI=1
+
+Call RECHVATCOD(1,1,[M:SOH0]BPCORD,[M:SOH4]ITMREF(NLIG),"SOH4",NLIG,WVAT) From TRTX3
+
+If [M:SOH4]VAT1(NLIG)<>WVAT(0) | [M:SOH4]VAT2(NLIG)<>WVAT(1) | [M:SOH4]VAT3(NLIG)<>WVAT(2)
+    [M:SOH4]VAT1(NLIG) = WVAT(0)
+    [M:SOH4]VAT2(NLIG) = WVAT(1)
+    [M:SOH4]VAT3(NLIG) = WVAT(2)
+    # 101874 : V9 : Taxe code control
+    #Call TRTRECTARD("SOH", [M:SOH1]CUR, NLIG) From TRTVENTAR
+    Local Integer WOK : WOK=1
+    # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+    # If the sales order line is linked to a progress billing
+    # If there is scheduled invoices linked to a billing situation not invoiced we can't modify the price (to avoid bad price when invoicing)
+    # So price calculation has to be inhibited
+    # This working flag indicates if, for the sales order line, there is scheduled invoices linked to a billing situation not invoiced
+    If dim([M:SOH4]PBILDTOINV) <= 0 | [M:SOH4]PBILDTOINV(NOL)=1
+    #   Price calculation can be done only if progress billing is not activated or if there is no scheduled invoices linked to a billing situation not invoiced
+    # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+      If !GIMPORT Call OUINON (mess(247,191,1)-":"-mess(21,191,1),WOK) From GESECRAN : Endif
+    # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+    Endif
+    # 200515 : Progress billing / X3-217465 : Control on sales order line price search - 2020-10-12 by LD
+    If WOK=2
+      Call TRTRECTARD("SOH", [M:SOH1]CUR, NLIG) From TRTVENTAR
+    Endif
+    # 101874
+    Call CLCPFM([M:SOH4]DSTOFCY(NLIG), [M:SOH1]PRITYP, [M]CHGTYP, [M:SOH0]ORDDAT, [M:SOH0]CUR,
+&           NLIG,INICPRPRI) From TRTVENPRI
+Endif
+
+End
+
+#-------------------------------------#
+# Traitement apres ligne              #
+#-------------------------------------#
+Subprog APRES_LIGNE(NLIG, AFF)
+Value Integer NLIG
+Value Integer AFF
+
+# --> Contrôle du prix net
+Call CTLNETPRI([M:SOH0]BPCORD, [M]CHGTYP, [M]ORDDAT, [M:SOH0]CUR,NLIG) From TRTVENPRI
+#If mkstat=2 End Endif
+# --> Contrôle de la marge
+Call CTLPFM([M:SOH0]CUR,[M:SOH4]CPRPRI(NLIG), NLIG) From TRTVENPRI
+#If mkstat=2 End Endif
+# --> Recalcul de l'état de la ligne de commande
+Gosub CALC_SOQSTA
+# --> Calcul du montant cde ht et ttc de la ligne
+Gosub CALC_ORD
+Gosub CALC_DSP From TRTVENDIV
+# --> Calcul des mnts à livrer ht et ttc de la ligne
+If [M:SOH4]DEMSTA(NLIG) <> 1
+     Raz [M:SOH4]LINDLRNOT(NLIG)
+     Raz [M:SOH4]LINDLRATI(NLIG)
+     # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+     Raz [M:SOH4]LININRSCHNOT(NLIG)
+     Raz [M:SOH4]LININRSCHATI(NLIG)
+     # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+Else Gosub CALC_DLR   : Endif
+Call ADD_TOT(NLIG)
+
+If AFF=1
+   Affzo [M:SOH4]LINORDNOT(NLIG),LINORDATI(NLIG),LINPFM(NLIG), SOQSTA(NLIG)
+   Affzo [M:SOH4]10,15,20
+Endif
+
+If func AFNC.ACTIV("EDIX3")>0   # SAM 120075
+  If [M:SOH4]MAXDLVDAT(NLIG)=[00/00/00]: [M:SOH4]MAXDLVDAT(NLIG)=[M:SOH4]DDEMDLVDAT(NLIG) : Endif
+Endif                           # SAM 120075
+
+
+End
+#-------------------------------------------------------------#
+# Calcul des montants total de la commande                    #
+#-------------------------------------------------------------#
+Subprog ADD_TOT(NLIG)
+Value Integer NLIG
+Local Decimal MNTPFM
+
+[M:SOH4]ORDNOT += [M:SOH4]LINORDNOT(NLIG)
+[M:SOH4]ORDATI += [M:SOH4]LINORDATI(NLIG)
+[M:SOH4]DLRNOT += [M:SOH4]LINDLRNOT(NLIG)
+[M:SOH4]DLRATI += [M:SOH4]LINDLRATI(NLIG)
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+[M:SOH4]INRSCHNOT += [M:SOH4]LININRSCHNOT(NLIG)
+[M:SOH4]INRSCHATI += [M:SOH4]LININRSCHATI(NLIG)
+
+If [M:SOH0]SOHCAT<>2 & !([M:SOH1]BETFCY=2 & [M:SOH1]BETCPY<=1)
+    # To invoice amount not managed for loan order and intracompany order
+    [M:SOH4]INRNOT += ([M:SOH4]LINDLRNOT(NLIG)+[M:SOH4]LININRSCHNOT(NLIG))
+    [M:SOH4]INRATI += ([M:SOH4]LINDLRATI(NLIG)+[M:SOH4]LININRSCHATI(NLIG))
+Endif
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+[M:SOH4]PFMTOT += [M:SOH4]LINPFM(NLIG)
+[M:SOH0]DSPTOTQTY += [M:SOH4]QTYSTU(NLIG)
+# Issue 107888 - 2016-06-20 by CPO : US120 Normal order -> Invoices (by using a scheduling invoice)
+#[M:SOH0]DSPTOTWEI += [M:SOH4]DSPLINWEI(NLIG)
+#[M:SOH0]DSPTOTVOL += [M:SOH4]DSPLINVOL(NLIG)
+If [M:SOH4]DLVFLG=2
+  [M:SOH0]DSPTOTWEI += [M:SOH4]DSPLINWEI(NLIG)
+  [M:SOH0]DSPTOTVOL += [M:SOH4]DSPLINVOL(NLIG)
+Else
+  Raz [M:SOH4]DSPLINWEI(NLIG), [M:SOH4]DSPLINVOL(NLIG)
+Endif
+# End issue 107888 US120
+
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+#Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), [M:SOH4]QTYSTU(NLIG), [M:SOH4]LINDLRNOT(NLIG), [M:SOH4]DSPLINWEI(NLIG), [M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+If [M:SOH0]SOHCAT=1 & [M:SOH4]DLVFLG(NLIG)=1
+    # Normal order and Undeliverable product
+    Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), [M:SOH4]QTYSTU(NLIG), [M:SOH4]LININRSCHNOT(NLIG), [M:SOH4]DSPLINWEI(NLIG), [M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+Else
+    # Normal order, loan order and Deliverable product
+    # Direct invoice order and all products
+    Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), [M:SOH4]QTYSTU(NLIG), [M:SOH4]LINDLRNOT(NLIG), [M:SOH4]DSPLINWEI(NLIG), [M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+Endif
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+
+# Issue 106149
+#---------------------------------------------------------------------#
+# Point d'entree pour le calcul  de montants spécifiques              #
+#---------------------------------------------------------------------#
+GPOINT="ADD_TOT" : Gosub ENTREE From EXEFNC
+# End issue 106149
+
+End
+
+Subprog SUB_TOT(NLIG)
+Value Integer NLIG
+Local Decimal MNTPFM
+
+[M:SOH4]ORDNOT -= [M:SOH4]LINORDNOT(NLIG)
+[M:SOH4]ORDATI -= [M:SOH4]LINORDATI(NLIG)
+[M:SOH4]DLRNOT -= [M:SOH4]LINDLRNOT(NLIG)
+[M:SOH4]DLRATI -= [M:SOH4]LINDLRATI(NLIG)
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+[M:SOH4]INRSCHNOT -= [M:SOH4]LININRSCHNOT(NLIG)
+[M:SOH4]INRSCHATI -= [M:SOH4]LININRSCHATI(NLIG)
+
+If [M:SOH0]SOHCAT<>2 & !([M:SOH1]BETFCY=2 & [M:SOH1]BETCPY<=1)
+    # To invoice amount not managed for loan order and intracompany order
+    [M:SOH4]INRNOT -= ([M:SOH4]LINDLRNOT(NLIG)+[M:SOH4]LININRSCHNOT(NLIG))
+    [M:SOH4]INRATI -= ([M:SOH4]LINDLRATI(NLIG)+[M:SOH4]LININRSCHATI(NLIG))
+Endif
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+[M:SOH4]PFMTOT -= [M:SOH4]LINPFM(NLIG)
+[M:SOH0]DSPTOTQTY -= [M:SOH4]QTYSTU(NLIG)
+# Issue 107888 - 2016-06-20 by CPO : US120 Normal order -> Invoices (by using a scheduling invoice)
+#[M:SOH0]DSPTOTWEI -= [M:SOH4]DSPLINWEI(NLIG)
+#[M:SOH0]DSPTOTVOL -= [M:SOH4]DSPLINVOL(NLIG)
+If [M:SOH4]DLVFLG=2
+  [M:SOH0]DSPTOTWEI -= [M:SOH4]DSPLINWEI(NLIG)
+  [M:SOH0]DSPTOTVOL -= [M:SOH4]DSPLINVOL(NLIG)
+Else
+  Raz [M:SOH4]DSPLINWEI(NLIG), [M:SOH4]DSPLINVOL(NLIG)
+Endif
+# End issue 107888 US120
+
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+#Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), -1*[M:SOH4]QTYSTU(NLIG), -1*[M:SOH4]LINDLRNOT(NLIG), -1*[M:SOH4]DSPLINWEI(NLIG), -1*[M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+If [M:SOH4]DLVFLG(NLIG)=1
+    # Normal order and Undeliverable product
+    Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), -1*[M:SOH4]QTYSTU(NLIG), -1*[M:SOH4]LININRSCHNOT(NLIG), -1*[M:SOH4]DSPLINWEI(NLIG), -1*[M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+Else
+    # Normal order, loan order and Deliverable product
+    # Direct invoice order and all products
+    Call MAJ_SFIT_QTY("M", "SOH3", [M:SOH4]DETSQHNUM(NLIG), -1*[M:SOH4]QTYSTU(NLIG), -1*[M:SOH4]LINDLRNOT(NLIG), -1*[M:SOH4]DSPLINWEI(NLIG), -1*[M:SOH4]DSPLINVOL(NLIG)) From SUBSFIT
+Endif
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+
+# Issue 106149
+#---------------------------------------------------------------------#
+# Point d'entree pour le calcul  de montants spécifiques              #
+#---------------------------------------------------------------------#
+GPOINT="SUB_TOT" : Gosub ENTREE From EXEFNC
+# End issue 106149
+
+End
+
+
+#-----------------------------------------#
+# Suppression d'une ligne dans le tableau #
+#-----------------------------------------#
+Subprog SUP_LIG(NLIG, WRET)
+Value    Integer NLIG
+Variable Integer WRET    : WRET = 0
+
+# --> pas de suppression si ligne préparée/livrée/facturée
+If ([M]TALLQTY(NLIG)-[M]ALLQTY(NLIG)+[M]LPRQTY(NLIG)) <> 0 WRET = 1 : End : Endif
+
+Call SUB_TOT(NLIG) From SUBSOHB
+If dim([M]ITMREF) = [M]NBLIG
+     Dela NLIG,1 [M:SOH4]NBLIG
+Else Dela NLIG,1,[M:SOH4]NBLIG-1 [M:SOH4]NBLIG : Endif
+
+[M:SOH4]NBLIG -=1
+End
+
+#---------------------------------------------------------------------------------#
+#             Traitement de solde d'une ligne de commande                         #
+#---------------------------------------------------------------------------------#
+#   Appelé depuis le bouton solde d'une ligne de commande                         #
+#   Appelé depuis le composant GENSOH (Génération d'une commande de vente)        #
+#---------------------------------------------------------------------------------#
+$TRT_CLESOQ
+
+# --> Solde de la ligne, les mnts à livrer passent à 0
+If [M]SOQSTA(NLIG) <> 3
+   [M]SOQSTA(NLIG) = 3
+#  -- Raz de la quantité à allouer
+   Raz [M:SOH4]WALLQTY(NLIG), WALLQTYSTU(NLIG)
+   [M:SOH4]DLRNOT -= [M:SOH4]LINDLRNOT(NLIG)
+   [M:SOH4]DLRATI -= [M:SOH4]LINDLRATI(NLIG)
+   # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+   [M:SOH4]INRSCHNOT -= [M:SOH4]LININRSCHNOT(NLIG)
+   [M:SOH4]INRSCHATI -= [M:SOH4]LININRSCHATI(NLIG)
+   # To invoice amount not managed for loan order and intracompany order
+   If [M:SOH0]SOHCAT<>2 & !([M:SOH1]BETFCY=2 & [M:SOH1]BETCPY<=1)
+      [M:SOH4]INRNOT -= ([M:SOH4]LINDLRNOT(NLIG)+[M:SOH4]LININRSCHNOT(NLIG))
+      [M:SOH4]INRATI -= ([M:SOH4]LINDLRATI(NLIG)+[M:SOH4]LININRSCHATI(NLIG))
+   Endif
+   Raz [M:SOH4]LININRSCHNOT (NLIG), [M:SOH4]LININRSCHATI(NLIG)
+   # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+   Raz [M:SOH4]LINDLRNOT (NLIG), [M:SOH4]LINDLRATI(NLIG)
+
+   # 107888 : Scheduled invoices : (LD:20/05/16)
+   #If [M:SOH0]SOHCAT <> 3
+   If [M:SOH0]SOHCAT <> 3 & [M]DLVFLG(NLIG)=2
+      # Commande normale/prêt et ligne livrable
+   # 107888 : Scheduled invoices : (LD:20/05/16)
+#  -- La ligne est facturée si tout ce qui est livré est facturé
+      If [M]INVQTY(NLIG) <> 0 & [M]INVQTY(NLIG) >= [M]DLVQTY(NLIG) + [M]ODLQTY(NLIG)
+          [M]INVFLG(NLIG) = 2
+      Endif
+   Else
+      # Commande à facturation directe              : # 107888 : Scheduled invoices : (LD:20/05/16)
+      # Commande normale et ligne non livrable      : # 107888 : Scheduled invoices : (LD:20/05/16)
+#  -- La ligne est facturée si tout ce qui est commandé est facturé
+      If ([M]INVQTY(NLIG) <> 0 | [M]ODLQTY(NLIG) <> 0)
+&       & [M]INVQTY(NLIG) + [M]ODLQTY(NLIG) >= [M]QTY(NLIG)
+         [M]INVFLG(NLIG) = 2
+      Endif
+   Endif
+
+   If [M:SOH4]DCCLREN(NLIG) <> "" [M:SOH4]DCCLDAT(NLIG)=date$ Endif
+   # Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+   #--All invoice schedule line that have a status other than "invoiced"/"credit memo" are set to "closed"
+   If [M:SOH4]DINVCND(NLIG)<>""
+      Gosub TRT_CLESOQ_CLOSED From LIBSAL_INVCND_SOH
+      If GERR=1 : Return : Endif
+   Endif
+   # End issue 107888
+Else
+# --> Réactivation de la ligne, les mnts à livrer sont recalculés
+   [M]SOQSTA(NLIG) = 1
+   Gosub CALC_DLR From SUBSOHB
+   [M:SOH4]DLRNOT += [M:SOH4]LINDLRNOT(NLIG)
+   [M:SOH4]DLRATI += [M:SOH4]LINDLRATI(NLIG)
+   # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+   [M:SOH4]INRSCHNOT += [M:SOH4]LININRSCHNOT(NLIG)
+   [M:SOH4]INRSCHATI += [M:SOH4]LININRSCHATI(NLIG)
+   # To invoice amount not managed for loan order and intracompany order
+   If [M:SOH0]SOHCAT<>2 & !([M:SOH1]BETFCY=2 & [M:SOH1]BETCPY<=1)
+      [M:SOH4]INRNOT += ([M:SOH4]LINDLRNOT(NLIG)+[M:SOH4]LININRSCHNOT(NLIG))
+      [M:SOH4]INRATI += ([M:SOH4]LINDLRATI(NLIG)+[M:SOH4]LININRSCHATI(NLIG))
+   Endif
+   # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+   [M]INVFLG(NLIG) = 1
+   Raz [M:SOH4]DCCLREN(NLIG),[M:SOH4]DCCLDAT(NLIG)
+   # Issue 107888 - 2015-10-28 by CPO : Scheduled invoices object management
+   #--All invoice schedule line that have a status other than "invoiced"/"credit memo" are set to "not invoiced"
+   If [M:SOH4]DINVCND(NLIG)<>""
+      Gosub TRT_CLESOQ_NOTCLOSED From LIBSAL_INVCND_SOH
+      If GERR=1 : Return : Endif
+   Endif
+   # End issue 107888
+Endif
+[M]UPDFLG(NLIG)     = 1
+[M]WUPDAPPFLG(NLIG) = 2
+If GREV=2 [M]LINREVNUM(NLIG) = [M:SOH0]REVNUM:Endif
+
+Return
+#---------------------------------------------------------------------------------#
+#             Recalcul de l'état solde de la ligne commande                       #
+#---------------------------------------------------------------------------------#
+#   Solde automatique si aucune allocation en cours et si tout est livré/facturé  #
+#   (Pas de désolde automatique puisqu'on ne peut plus modifier une ligne soldée) #
+#---------------------------------------------------------------------------------#
+$CALC_SOQSTA
+#If [M]SOQSTA(NLIG) <> 3 & [M]ALLQTY(NLIG) = 0 & [M]WALLQTY(NLIG) = 0 & [M]QTY(NLIG) <> 0
+If [M]SOQSTA(NLIG) <> 3 & ([M]WALLQTY(NLIG)-[M]SHTQTY(NLIG)) = 0 & [M]QTY(NLIG) <> 0
+
+    # 107888 : Scheduled invoices : (LD:20/05/16)
+    #If [M:SOH0]SOHCAT <> 3
+    If [M:SOH0]SOHCAT <> 3 & [M]DLVFLG(NLIG) = 2
+#       -- Commande normale /prêt et ligne livrable
+    # 107888 : Scheduled invoices : (LD:20/05/16)
+        If [M]DLVQTY(NLIG) + [M]ODLQTY(NLIG) >= [M]QTY(NLIG)
+            [M]SOQSTA(NLIG)=3
+#           -- La ligne est facturée si tout ce qui est livré est facturé
+            If [M]INVQTY(NLIG) <> 0 & [M]INVQTY(NLIG) >= [M]DLVQTY(NLIG) + [M]ODLQTY(NLIG)
+                [M]INVFLG(NLIG) = 2
+            Endif
+        Endif
+    Else
+# 107888 : Scheduled invoices : (LD:20/05/16)
+#       -- Commande à facturation directe
+#       -- Commande normale et ligne non livrable
+# 107888 : Scheduled invoices : (LD:20/05/16)
+        If [M]INVQTY(NLIG) + [M]ODLQTY(NLIG) >= [M]QTY(NLIG)
+            [M]SOQSTA(NLIG)=3
+#           -- La ligne est facturée si tout ce qui est commandé est facturé
+            If ([M]INVQTY(NLIG) <> 0 | [M]ODLQTY(NLIG) <> 0)
+&             & [M]INVQTY(NLIG) + [M]ODLQTY(NLIG) >= [M]QTY(NLIG)
+                [M]INVFLG(NLIG) = 2
+            Endif
+        Endif
+    Endif
+Endif
+Return
+
+#--------------------------------------------------------------#
+# Calcul des montants à livrer HT et TTC d'une ligne commnande #
+# Calcul To invoice amount - tax and + tax for an order line   # : # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+#--------------------------------------------------------------#
+$CALC_DLR
+Local Decimal WMNTCALCNOT, WMNTCALCATI : # 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+Local Decimal QTY
+
+# 107888 : Scheduled invoices : (LD:20/05/16)
+#If [M:SOH0]SOHCAT = 3
+If [M:SOH0]SOHCAT = 3 | ([M:SOH0]SOHCAT = 1 & [M]DLVFLG(NLIG) = 1)
+#       -- Commande à facturation directe
+#       -- Commande normale et ligne non livrable
+# 107888 : Scheduled invoices : (LD:20/05/16)
+    QTY    = [M:SOH4]QTY(NLIG) - [M:SOH4]INVQTY(NLIG) - [M:SOH4]ODLQTY(NLIG)
+Else
+# 107888 : Scheduled invoices : (LD:20/05/16)
+#       -- Commande normale /prêt et ligne livrable
+# 107888 : Scheduled invoices : (LD:20/05/16)
+    QTY    = [M:SOH4]QTY(NLIG) - [M:SOH4]DLVQTY(NLIG) - [M:SOH4]ODLQTY(NLIG)
+Endif
+If QTY < 0 QTY = 0 Endif
+
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+## Montant net HT à livrer de la ligne
+#MNTCALC = QTY*[M:SOH4]NETPRINOT(NLIG)
+#Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+#[M:SOH4]LINDLRNOT(NLIG) = MNTCALC
+## Montant net TTC à livrer de la ligne
+#MNTCALC = QTY*[M:SOH4]NETPRIATI(NLIG)
+#Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+#[M:SOH4]LINDLRATI(NLIG) = MNTCALC
+#If [M:SOH4]SOQSTA(NLIG) = 3
+#   Raz [M:SOH4]LINDLRNOT(NLIG)
+#   Raz [M:SOH4]LINDLRATI(NLIG)
+#Endif
+
+WMNTCALCNOT = QTY*[M:SOH4]NETPRINOT(NLIG)
+Call ARRDEV (WMNTCALCNOT, [M:SOH0]CUR) From TRTDIV
+WMNTCALCATI = QTY*[M:SOH4]NETPRIATI(NLIG)
+Call ARRDEV (WMNTCALCATI, [M:SOH0]CUR) From TRTDIV
+
+# Alimentation To deliver - tax and + tax amount
+# -- Loan           order
+# -- Direct invoice order
+# -- Normal         order and deliverable product
+If find([M:SOH0]SOHCAT,2,3) | [M]DLVFLG(NLIG) = 2
+    # To deliver - tax for the line
+    [M:SOH4]LINDLRNOT(NLIG) = WMNTCALCNOT
+    # To deliver + tax for the line
+    [M:SOH4]LINDLRATI(NLIG) = WMNTCALCATI
+    If [M:SOH4]SOQSTA(NLIG) = 3
+       Raz [M:SOH4]LINDLRNOT(NLIG)
+       Raz [M:SOH4]LINDLRATI(NLIG)
+    Endif
+Endif
+# Alimentation To scheduled invoice - tax and + tax amount
+# -- Normal         order and undeliverable product
+If [M:SOH0]SOHCAT = 1 & [M]DLVFLG(NLIG) = 1
+    # To scheduled invoice - tax for the line
+    [M:SOH4]LININRSCHNOT(NLIG) = WMNTCALCNOT
+    # To scheduled invoice + tax for the line
+    [M:SOH4]LININRSCHATI(NLIG) = WMNTCALCATI
+    If [M:SOH4]SOQSTA(NLIG) = 3
+       Raz [M:SOH4]LININRSCHNOT(NLIG)
+       Raz [M:SOH4]LININRSCHATI(NLIG)
+    Endif
+Endif
+# 107888 : Scheduled invoices : New fields 'To invoice' - X3-15763 (LD:12/12/16)
+
+Return
+
+#-------------------------------------------------------------#
+# Calcul des montants commande ht et ttc d'une ligne commande #
+#-------------------------------------------------------------#
+$CALC_ORD
+Local Decimal MNTCALC
+
+# Bug 65534
+Local Char VAT(GLONVAT)(3)
+VAT (0) = [M]VAT1(NLIG)
+VAT (1) = [M]VAT2(NLIG)
+VAT (2) = [M]VAT3(NLIG)
+If [M:SOH1]PRITYP=1
+    # Montant net HT commandé de la ligne
+    MNTCALC = [M]QTY(NLIG) * [M]NETPRINOT(NLIG)
+    Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+    [M]LINORDNOT(NLIG) = MNTCALC
+    # Montant net TTC commandé de la ligne
+    #MNTCALC = [M]QTY(NLIG) * [M]NETPRIATI(NLIG)
+    # Bug 45662 : Calcul Montant TTC en repartant du Montant HT pr éviter les pbs d'arrondis
+#    Call CLCTAXEMNT([M]LINORDNOT(NLIG),VAT,[M:SOH1]PRITYP,GSOCIETE,[M:SOH0]ORDDAT,[M]CLCAMT1(NLIG),[M]CLCAMT2(NLIG),                : # Bug 71296
+#&                   MNTCALC) From TRTX3                                                                                             : # Bug 71296
+    Call CLCTAXEMNTV([M]LINORDNOT(NLIG),VAT,[M:SOH1]PRITYP,GSOCIETE,[M:SOH0]ORDDAT,[M:SOH1]VACBPR,[M]CLCAMT1(NLIG),[M]CLCAMT2(NLIG),
+&                   MNTCALC) From TRTX3
+    #X3-122517
+    If func AFNC.ACTIV("LTA") & [F:CPY]SSTTAXACT = 2
+        MNTCALC = [M]QTY(NLIG) * [M]NETPRIATI(NLIG)
+    Endif
+    #X3-122517                                                                                : # Bug 71296
+    Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+    [M]LINORDATI(NLIG) = MNTCALC
+Else
+    # Bug 65534
+    # Montant net TTC commandé de la ligne
+    MNTCALC = [M]QTY(NLIG) * [M]NETPRIATI(NLIG)
+    Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+    [M]LINORDATI(NLIG) = MNTCALC
+
+    # Montant net HT commandé de la ligne
+    # Calcul Montant HT en repartant du Montant TTC pr éviter les pbs d'arrondis
+#    Call CLCTAXEMNT([M]LINORDATI(NLIG),VAT,[M:SOH1]PRITYP,GSOCIETE,[M:SOH0]ORDDAT,[M]CLCAMT1(NLIG),[M]CLCAMT2(NLIG),                : # Bug 71296
+#&                   MNTCALC) From TRTX3                                                                                             : # Bug 71296
+    Call CLCTAXEMNTV([M]LINORDATI(NLIG),VAT,[M:SOH1]PRITYP,GSOCIETE,[M:SOH0]ORDDAT,[M:SOH1]VACBPR,[M]CLCAMT1(NLIG),[M]CLCAMT2(NLIG),
+&                   MNTCALC) From TRTX3                                                                                              : # Bug 71296
+     Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+    [M]LINORDNOT(NLIG) = MNTCALC
+Endif
+
+# Marge de la ligne
+MNTCALC = [M]QTY(NLIG) * [M]PFM(NLIG)
+Call ARRDEV (MNTCALC, [M:SOH0]CUR) From TRTDIV
+[M]LINPFM(NLIG) = MNTCALC
+
+If [F:ITM]ITMREF <> [M]ITMREF(NLIG)
+    Read [ITM]ITM0=[M]ITMREF(NLIG)
+    If fstat Raz [F:ITM] Endif
+Endif
+
+# Issue 116789
+#---------------------------------------------------------------------#
+# Point d'entree pour le calcul  de montants spécifiques              #
+#---------------------------------------------------------------------#
+GPOINT="CALC_ORD" : Gosub ENTREE From EXEFNC
+# End issue 116789
+
+Return
+
+#########################################################################
+#     GENERATION d'une COMMANDE à partir du bouton COMMANDE             #
+#     de la gestion des devis                                           #
+#########################################################################
+#- X3Suivi 69847 Génération commande depuis devis --#
+$GEN_COM
+Local Integer I
+Local Char WSOHTYP(GLONTSO)
+Local Integer  WSOHCAT
+Local Char WSDHTYP(GLONTSD)
+
+  Default Mask [SOH1]
+  Gosub RAZCRE From SUBSOHA1 # SAM 120556
+  GREP="C"
+  GOK = 1
+  Read [SQH]SQH0=[M:SQH0]SQHNUM
+  If fstat
+    Call RSTA ("SQH",[M:SQH0]SQHNUM) From GLOCK
+    Raz GOK
+    Return
+  Endif
+  Call TEMPON("V") From GESECRAN
+  Raz WSOHTYP                          # FGR 26/02/2015 : X3SUIVI104383
+  #If GFCY<>[F:SQH]SALFCY              # FGR 26/02/2015 : X3SUIVI104383 : je ne vois pas pourquoi ce test ?
+    GFCY = [F:SQH]SALFCY
+    # Ctrl site par défaut par rapport au critère, si aucun site par défaut, charge le 1er site correspondant au critere
+    Call GETFCYDEF(GFCY,"[F:FCY]SALFLG=2") From TRTX3
+    Call GLOBVAR(GFCY,"VEN") From TRTX3 : #--- Récup param vente site / société
+    Gosub CHARG_PARAM From SUBSOHA      : #-- Chargement globales référenciels, comptes et sections de la société
+    ## Alimentation du type de commande avec le premier existant
+    # --------------------------------------
+    # FGR 23/02/2015 : X3SUIVI104383 (début)
+    #Gosub SOHTYP From TRTVENCDE
+    WSOHTYP = [F:SQH]SOHTYP             # 1°) on prend celui qui est sur le devis
+    If WSOHTYP = "" Then
+      If GQUOORDCAT = 2 Then
+        WSOHTYP = GSOHTYPINV           # 2°) s'il est vide on prend celui du paramètre SOHTYPINV
+      Else
+        WSOHTYP = GSOHTYPNOR           # 2°) s'il est vide on prend celui du paramètre SOHTYPNOR
+      Endif
+    Endif
+    # Issue X3-218177/245890 - 2021-05-11 by MUARN : Check leg before
+    #If WSOHTYP = "" Then
+    #  Gosub SOHTYP From TRTVENCDE       # 3°) S'il est vide on prend le premier par ordre alpha.
+    # Issue 116275
+    #Else
+    #  Local Integer IRET
+
+    #  Call LEC_TSO_LEG(GCURLEG, WSOHTYP, IRET) From TRTLECLEG
+    #  WSOHCAT = [F:TSO]SOHCAT
+    #  WSDHTYP = [F:TSO]SDHTYP
+    #  GCPT    = [F:TSO]CODNUM
+    #  GMANCOU = [F:TSO]MANCOU
+    # End issue 116275
+    #Endif
+    # Issue X3-218177/245890 - 2021-05-11 by MUARN : Check leg
+    If WSOHTYP<>""
+      Call CONTTSO(WSOHTYP,GCURLEG,"SOH0","SOHTYP",GFCY,"",GSOCIETE) From SUBTSO
+      If mkstat
+        Raz WSOHTYP
+      Endif
+    Endif
+    If WSOHTYP = ""
+      Raz GMESSAGE
+      Raz mkstat
+      # Search for first type available
+      Gosub SOHTYP From TRTVENCDE
+    Endif
+    If WSOHTYP<>""
+      [M:SOH0]SOHTYP =  WSOHTYP
+      [M:SOH0]SOHCAT = [F:TSO]SOHCAT
+      [M:SOH2]SDHTYP = [F:TSO]SDHTYP
+      WRECTYP = [F:TSO]RECTYP
+      WSOHCAT = [F:TSO]SOHCAT
+      WSDHTYP = [F:TSO]SDHTYP
+      GCPT    = [F:TSO]CODNUM
+      GMANCOU = [F:TSO]MANCOU
+      Call AP_SOHTYP([M:SOH0]SOHTYP) From SUBSOH
+      If GERR=1 Return Endif
+      Call AM_SOHTYP([M:SOH0]SOHTYP) From SUBSOH
+    Endif
+    # End issue X3-218177/245890
+
+
+    # FGR 23/02/2015 : X3SUIVI104383 (fin)
+    # --------------------------------------
+    [M:SOH0]SOHTYP=WSOHTYP
+    # FGR 15/11/2012 : X3SUIVI71937 (début)
+    Call C_SOHTYP([M:SOH0]SOHTYP) From W1SOH0
+    If mkstat Then
+      Goto NO_ORDRE_CREATE
+    Endif
+    # FGR 15/11/2012 : X3SUIVI71937 (fin)
+    # [M:SOH0]SOHCAT=WSOHCAT # Issue X3-218177/245890 - 2021-05-11 by MUARN : not necessayr, done before
+    # 75115 : V7 : Extension of Digital Signature : New field delivery type
+    #[M:SOH2]SDHTYP=WSDHTYP # Issue X3-218177/245890 - 2021-05-11 by MUARN : not necessayr, done before
+  #Endif
+  If clalev([F:SQD2])=0  : Local File SQUOTED [SQD2]   : Endif  # Devis
+#MRR01 ini.AUREN
+#  Filter [SQD2] Where SQHNUM=[M:SQH0]SQHNUM
+  Filter [SQD2] Where SQHNUM=[M:SQH0]SQHNUM and ZLINOCU<> 2
+#MRR01 fin.AUREN
+  For [SQD2]
+    # Issue 110013 - 20150807 by LD
+    # Issue 110706
+#    # Components for Fixed Kit/Flexible Kit/Subcontract are generated with parent item so they are not considered there
+#    If find([F:SQD2]LINTYP,1,2,6,10)
+    # Components for Fixed Kit/Subcontract are generated with parent item so they are not considered there
+    If !find([F:SQD2]LINTYP,3,4,5,11,12,13)
+    # End issue 110706
+    # Issue 110013
+        [F:SQD]SQDLIN = [F:SQD2]SQDLIN
+        #-- Lecture du détail lignes devis et génération commandes  --#
+        Gosub SEL From SUBSOHC
+        # 101841 : Recherche interdit si adresse de livraison vide sur le devis
+        # Si l'article est interdit, on ne génère pas la ligne
+        If GERR=1
+          Call ERREUR(GMESSAGE) From GESECRAN
+        Endif
+        # 101841
+        # 108767 (LD:15/06/15) : Il faut dépositionner mkstat pour traiter correctement les lignes suivantes
+        Raz mkstat
+        # 108767 (LD:15/06/15)
+        Raz GERR              # FGR 02/12/2011 : X3SUIVI71065
+    # Issue 110013
+    Endif
+    # Issue 110013
+  Next
+  Filter [SQD2]
+  Call PJT_INFO_MSG() From TRTPJT   # FGR 15/12/2011 : X3SUIVI71065
+  GREP="" : # On gère le mode création
+  #Raz currbox
+$NO_ORDRE_CREATE  # FGR 15/11/2012 : X3SUIVI71937
+  If [M:SOH4]NBLIG=0
+    GERR=1
+    GMESSAGE=mess(322,192,1)
+    Raz GOK  # Commande non créee
+  Endif
+  If GOK=0
+    Goto GEN_COM_FIN
+  Endif
+  # Création de la commande
+  Gosub CREATION From GOBJET1
+$GEN_COM_FIN
+  Call TEMPOFF From GESECRAN
+Return
+
+#--CPO 82311 Acomptes sur commande et modification du client facturé ou du tiers payeur
+#--Mise à jour du client facture/tiers payeur sur les échéances d'acomptes d'une commandes
+#-------------GMODBPCINV = 1 si modif du client facture
+#-------------GMODBPCPYR = 1 si modif du tiers payeur
+$UPDATE_DUD_SOH_MODBPC
+#--Pas de maj si nous ne sommes pas sur la gestion des cdes ou si on ne vient pas des cdes d'achat (inter-site)
+If GFONC1<>"GESSOH" & GFONC1<>"GESPOH" Return Endif
+#--
+If dim(MODBPCINV)<0 | dim(MODBPCPYR)<0 : Return : Endif
+
+#--Pas de maj si nous sommes en création ou duplication
+If GREP="C" or GREP="D" Return Endif
+
+Local Integer WOUVDUD : WOUVDUD=0
+If clalev([F:DUD])=0 : WOUVDUD=1 : Local File GACCDUDATE [DUD] : Endif
+
+#--On reporte la modification sur les échéances (qu'elles soient réglées ou non)
+If MODBPCINV=1 and [F:SOH]BPCINV<>""
+  Update [F:DUD] Where TYP="*SO" and NUM=[F:SOH]SOHNUM With BPR=[F:SOH]BPCINV
+  If fstat GOK=0 : Call FSTA("DUD") From GLOCK : Goto FIN_RETURN : Endif
+Endif
+#--On reporte la modification sur les échéances (non réglées ou partiellement réglées ???)
+If MODBPCPYR=1 and [F:SOH]BPCPYR<>"" and [F:SOH]BPAPYR<>""
+  #--Attente réponse CH (par rapport aux commentaires de CP sur fiche SAM)
+  Update [F:DUD] Where TYP="*SO" and NUM=[F:SOH]SOHNUM and (PAYCUR=0 and TMPCUR=0 and FLGCLE<2)
+&                With BPRPAY=[F:SOH]BPCPYR,BPAPAY=[F:SOH]BPAPYR
+  If fstat GOK=0 : Call FSTA("DUD") From GLOCK : Goto FIN_RETURN : Endif
+Endif
+
+#--Appel du traitement d'historisation des modifs des échéances
+If (MODBPCINV=1 and [F:SOH]BPCINV<>"") | (MODBPCPYR=1 and [F:SOH]BPCPYR<>"" and [F:SOH]BPAPYR<>"")
+  For [F:DUD]DUD0 Where TYP="*SO" and NUM=[F:SOH]SOHNUM
+    If MODBPCINV=1 | (MODBPCPYR=1 and ([F:DUD]PAYCUR=0 and [F:DUD]TMPCUR=0 and [F:DUD]FLGCLE<2))
+      #--Si modif client facture => on historise sans condition (on a mis à jour les échéances)
+      Call HISTOECH("DUD",1,[F:SOH]ORDDAT)From MODECHE
+    Endif
+  Next
+Endif
+#--
+
+$FIN_RETURN
+Raz MODBPCINV,MODBPCPYR
+If WOUVDUD=1
+  Close Local File [DUD]
+  Default File [SOH]
+Endif
+
+Return
+#--/CPO

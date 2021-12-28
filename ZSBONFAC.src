@@ -1,0 +1,27 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+##########################################################################################################
+## PROGRAM ZSBONFAC: Especifico informes para  factura                                                  ##
+## AUTOR: AUREN                                                                                         ##
+## FECHA: 25/08/2021                                                                                    ##
+## VERSION: 1.0                                                                                         ##
+##########################################################################################################
+$ACTION
+#If GUSER = "ADMIN" Infbox ACTION +"/"+ FICHIER Endif
+Case ACTION
+  When "FICHIER" : Gosub FICHIER
+  When Default
+Endcase
+
+Return
+
+$FICHIER
+If dim(GZNOMFIC)>0
+  FICHIER =  GZNOMFIC
+  #FICHIER = "E:\Sage\X3APL\folders\NBZTEST\FTP\Magento\EXPORT\pepito.pdf"
+Endif
+Return
+
+Subprog IMPRIME(NBPAR2,PARAMETRE2)
+Value    Integer NBPAR2
+Variable Char    PARAMETRE2()()
+End

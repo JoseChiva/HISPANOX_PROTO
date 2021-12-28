@@ -1,0 +1,2690 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$ Expéditions
+########################################################################################################
+#MRR01 - 24/02/2020 - COMP-029 - Campo palet entero
+#Se añade esto en el estándar porque en si se pone en el específico el estándar borra el valor de ZPALENT
+#ASR COMP-51 - campo arancel
+########################################################################################################
+#mlga - generacion SGA ROR - 01/08/20
+########################################################################################################
+#---------------------------------------------------------------------------------------------------------
+$DECL_VAR_LOCAL
+#----------------------------------#
+# Déclaration des variable locales #
+#----------------------------------#
+Local  Char     WNUM(GLONVCR), WPOQLNK(16)
+Local  Integer  I, J, K, WERR
+Local  Shortint NOL, WPICK, SAVNBLIG, WRET
+Local  Libelle  WDEBPICK
+Local  Decimal  WQTESTU
+Return
+#-------------------------------------------------------------#
+$DEFLIG
+#----------------------------------#
+# Définition du fichier des lignes #
+#----------------------------------#
+Default Mask [SHIP1]
+Default File [SHD]
+CRIT   = 'SHIPNUM="'+[M:SHIP0]SHIPNUM+'"'
+FICLIG = "SHIPMENTD"
+ABLIG  = "SHD"
+ZONLIG = "SHIPLIN"
+Return
+#-------------------------------------------------------------#
+$VALLIG
+#----------------------------------#
+Case TRTLIG
+  When  "C"   Gosub VALLIG_CRE
+  When  "M"   Gosub VALLIG_UPD
+  When  "A"   Gosub VALLIG_DEL
+Endcase
+Return
+$VALLIG_CRE
+#--------------------------------#
+# After creation lines           #
+#--------------------------------#
+Gosub INS_LIG
+Return
+#-------------------------------------------------------------#
+$VALLIG_UPD
+#--------------------------------#
+# After modification lines       #
+#--------------------------------#
+If SIGN = -1 Gosub UPD_LIG Endif
+Return
+#-------------------------------------------------------------#
+$VALLIG_DEL
+#--------------------------------#
+# After deletion lines           #
+#--------------------------------#
+# Issue X3-134651 - 2019-04-12 by MAE : Suppression des lignes
+Gosub DEL_LIG
+Return
+#-------------------------------------------------------------#
+# Insertion d'une ligne dans la classe des shipments           #
+#-------------------------------------------------------------#
+$INS_LIG
+Local Integer WPOS, WRET
+Local Shortint NOL: NOL = nolign-1
+# Issue X3-134651 - 2019-04-04 by MAE : PERF
+#WPOS = fmet WSHIPMENT.ADDLINE("SHD", [V]CST_ALASTPOS)
+#If WPOS = [V]CST_ANOTDEFINED
+#  # The insertion was not possible
+#  GMESSAGE = func ASYRFNC.MES2(mess(266,133,1), 'SHD', 'SHIPMENT')
+#  GOK=0 : GERR=1
+#  Return
+#Endif
+##TODO cfavre: Pass WSHIPMENT.SHD in first parameter instead of WSHIPMENT like this: Call FILL_CLASS(WSHIPMENT.SHD(WPOS), NOL)
+#Call FILL_CLASS(WSHIPMENT, WPOS, NOL)
+Call OPE_MANAGE_QTY([M:SHIP1]POHNUM(nolign-1),[M:SHIP1]POPLIN(nolign-1),[M:SHIP1]POQSEQ(nolign-1),2,WRET) From SHIP_FUNC
+If !WRET
+  If [M:SHIP1]CTRNUM(nolign-1)<> AVOID.ACHAR
+    Call SET_SHIPNUM([M:SHIP1]CTRNUM(nolign-1),[M:SHIP0]SHIPNUM,WRET) From SHIP_FUNC
+    If WRET : GOK = 0 : GERR = 1 : Return : Endif
+  Endif
+Endif
+# End issue X3-134651
+
+# Issue X3-69530 - 2018-01-16 by MAE : ajout dans COSTSTCD
+If [M:SHIP0]SHIPTYP = 1 & GREP = "M" # Issue 114607
+  If [M:SHIP1]WSTCSEQ(nolign-1) <> 0
+    Call STCMAJ("SHIP1", nolign-1,38, [M:SHIP0]SHIPNUM, [M:SHIP1]SHIPLIN(nolign-1), 0, WRET) From STCLIB
+    If WRET : GOK = 0 : GERR = 1 : Return : Endif
+  Endif
+Endif
+# End issue X3-69530
+
+Return
+
+#-------------------------------------------------------------#
+# Mise à jour d'une ligne de la classe des shipments           #
+#-------------------------------------------------------------#
+$UPD_LIG
+Local Integer WIND, WRET
+Local Shortint NOL : NOL = nolign-1
+# Issue X3-134651 - 2019-04-04 by MAE : PERF
+# Recherche de l'AUUID de la ligne modifiée : classe F qui est renvoyé par le trt tableaux
+#WIND = find([F:SHD]AUUID, WSHIPMENT.SHD(1..maxtab(WSHIPMENT.SHD)).AUUID)
+#If WIND = 0
+#  #--The insertion was not possible
+#  GMESSAGE = "<Message>"
+#  GOK=0 : GERR=1
+#  Return
+#Endif
+#Call FILL_CLASS(WSHIPMENT, WIND, NOL)
+If ([F:SHD]SHIQTYSTU <> [M:SHIP1]SHIQTYSTU(nolign-1)&[M:SHIP1]CTRNUM(nolign-1)= AVOID.ACHAR) | ([M:SHIP1]CLEFLG(nolign-1) <> [F:SHD]CLEFLG )
+& |find([M:SHIP1]POHCLE(nolign-1),1,2)
+  Call OPE_MANAGE_QTY([M:SHIP1]POHNUM(nolign-1),[M:SHIP1]POPLIN(nolign-1),[M:SHIP1]POQSEQ(nolign-1),0,WRET) From SHIP_FUNC
+  If ([F:SHD]SHIQTYSTU = [M:SHIP1]SHIQTYSTU(nolign-1))
+      If (([M:SHIP1]CLEFLG(nolign-1)<>[F:SHD]CLEFLG) & ([M:SHIP1]CLEFLG(nolign-1) = 2))
+        #régularisation FCC en solde
+        If [M:SHIP1]RCPQTYSTU(nolign-1) <> 0
+          Call REGPRIX_FCC(5,"",0) From TRTACHFAC1
+        Endif
+      Elsif (([M:SHIP1]CLEFLG(nolign-1)<>[F:SHD]CLEFLG) & ([M:SHIP1]CLEFLG(nolign-1) = 1))
+        #régularisation FCC en désolde d'une ligne d'expé
+        If [M:SHIP1]RCPQTYSTU(nolign-1) <> 0
+          Call REGPRIX_FCC(6,"",0) From TRTACHFAC1
+        Endif
+      Endif
+    Endif
+Endif
+If find([M:SHIP1]POHCLE(nolign-1),1,2)
+  # Issue 110325/125 - 2016-05-23 by SR
+  Call DIVPOQCLE([M:SHIP1]POHNUM(nolign-1),[M:SHIP1]POPLIN(nolign-1),[M:SHIP1]POQSEQ(nolign-1),[M:SHIP1]POHCLE(nolign-1),1) From TRTACHDIV1
+Endif
+# End issue X3-134651
+
+
+# Issue 110325 - 2015-10-19 by MAE : landed cost
+If [M:SHIP0]SHIPTYP = 1 # Issue 114607
+  If [M:SHIP1]WSTCSEQ(nolign-1) <> 0
+    Call STCMAJ("SHIP1", nolign-1,38, [M:SHIP0]SHIPNUM, [M:SHIP1]SHIPLIN(nolign-1), 0, WRET) From STCLIB
+    If WRET : GOK = 0 : GERR = 1 : Return : Endif
+  Endif
+Endif
+Return
+
+#-------------------------------------------------------------#
+#Suppression d'une ligne dans la classe des shipments         #
+#-------------------------------------------------------------#
+$DEL_LIG
+# Issue X3-134651 - 2019-04-05 by MAE : $SHD_ADELETE_AFTER
+#Local Integer WPOS
+#Raz WRET
+#WPOS = find([F:SHD]AUUID, WSHIPMENT.SHD(1..maxtab(WSHIPMENT.SHD)).AUUID)
+#If WPOS <> 0
+#  WRET = fmet WSHIPMENT.ADELLINE("SHD", WSHIPMENT.SHD(WPOS).AORDER)
+#  If WRET <> [V]CST_AOK
+#    GMESSAGE = func ASYRFNC.MES2(mess(273,133,1), 'SHD', 'SHIPMENT')
+#    GOK=0 : GERR=1
+#    Return
+#  Endif
+#Endif
+Local Integer WRET
+Call OPE_MANAGE_QTY([F:SHD]POHNUM,[F:SHD]POPLIN,[F:SHD]POQSEQ,1,WRET) From SHIP_FUNC
+If !WRET
+  If [F:SHD]CTRNUM <> AVOID.ACHAR
+    Call SET_SHIPNUM([F:SHD]CTRNUM,AVOID.ACHAR,WRET) From SHIP_FUNC
+    If WRET : GOK = 0 : GERR = 1 : Return : Endif
+  Endif
+Endif
+# End issue X3-134651
+# Issue X3-69530 - 2018-01-16 by MAE : suppression de la ligne dans COSTSTCD
+If [M:SHIP0]SHIPTYP=1
+  Delete [F:STCD] Where VCRTYP =38 & VCRNUM = [F:SHD]SHIPNUM & VCRLIN =[F:SHD]SHIPLIN
+  If fstat=1 GOK=-1 : GLOCK="$COSTSTCD"-[F:SHD]SHIPNUM-num$([F:SHD]SHIPLIN) : Return : Endif
+Endif
+# End issue X3-69530
+Return
+
+#-------------------------------------------------------------#
+$INICRE_LIG
+#----------------------------#
+# Avant le Write de la ligne #
+#----------------------------#
+[F:SHD]=[M:SHIP0]
+
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  [F:SHD]=[M:SHIP2]
+Endif
+# Issue X3-134651 - 2019-04-09 by MAE : déplacé depuis $QTYEXPFLG_INIT et $PRCPFLG_INIT
+[F:SHD]PRCPFLG = 1
+[F:SHD]QTYEXPFLG = 1
+# End issue X3-134651
+Return
+#-------------------------------------------------------------#
+$OUVRE
+#------------------------------------------------------------#
+# Ouverture masques de critères picking                      #
+#------------------------------------------------------------#
+If !clalev([M:PLCW])    Local Mask PCRITLCC  [PLCW]     : Endif
+If !clalev ([F:TCTR])   Local File TABCONTAINER  [TCTR] : Endif
+If !clalev ([F:BPA])    Local File BPADDRESS  [BPA]     : Endif
+If !clalev ([F:PID])    Local File PINVOICED  [PID]     : Endif
+If !clalev ([F:SHIPD])  Local File SHIPDOC  [SHIPD]     : Endif #111257 US 20
+If !clalev ([F:SHIPT])  Local File SHIPTRACK [SHIPT]    : Endif#111257 US 42
+If !clalev([TCA]) Local File TABCOUAFF[TCA] : Endif
+# MAE, landed cost 110325
+If !clalev([M:STCP])  Local Mask STCPAR  [STCP]  : Endif
+If !clalev([M:STCDW]) Local Mask STCDW   [STCDW] : Endif
+If !clalev([M:STCD])  Local Mask STCD    [STCD]  : Endif
+
+Raz [M:STCDW]
+Raz [M:STCD]
+Local  Integer  WCREOUVSTC : WCREOUVSTC = 0
+Local Integer WTRKCMP, WNBLIG # Issue 111257 US 42
+
+If dim(GOUVSTC)<1 : Global Integer  GOUVSTC :WCREOUVSTC = 1 : Endif
+# MAE, End landed cost 110325
+Raz [M:PLCW]
+Local Char WTIT(150)
+#----- Variables locales pour gestion picking liste de gauche, etc ... -----#
+Gosub DECL_VAR_LOCAL
+#----- Déclaration des variables pour tableau lignes -----#
+Gosub DECLARE From TABLEAUX
+# Issue RIN - 2016-03-14 by MAE : Déclaration des variables pour les requetes
+Local Char REQUETE(255)(2)
+Local Integer BASE
+Local Decimal WSHIQTYSTU, WRCPQTYSTU
+Case GTYPDBA
+    When 1 : BASE=3 : # Oracle
+    When 2 : BASE=5 : # Sql
+    When 3 : BASE=2 : # Cisam
+    When 4 : BASE=4 : # DB2
+  Endcase
+# End issue RIN
+Local Integer WDEL
+Local Char WMESS(250)
+Local Integer MY_STATUS, WRET, I
+Return
+#-------------------------------------------------------------#
+$OUVRE_BOITE
+#-------------------------------#
+# Après ouverture de la fenêtre #
+#-------------------------------#
+# Issue 114607 pour déterminer si on est en pré-reception de commandes ou en expédition
+If dim([M:SHIP2]TRNNUM)>0
+  [M:SHIP0]SHIPTYP = 1    #expédition ou pré-réception d'expédition
+Else
+  [M:SHIP0]SHIPTYP = 2    #pré-réception de commande
+Endif
+#----- Chargement des noms des Currbox de chaque tiroir -----#
+Global Char     GBOXPO6(10), GBOXCTRH(10)
+GBOXPO6="GAU_CHE"+num$(find("PO6",OBJLIS(1..8))) : # Picking des commandes
+If [M:SHIP0]SHIPTYP= 1    # Issue 114607
+  GBOXCTRH="GAU_CHE"+num$(find("CTRH1",OBJLIS(1..8))) : # Picking des conteneurs
+Endif
+Return
+$SETBOUT
+#-------------------------------------------#
+# pas de duplication                        #
+#-------------------------------------------#
+Call VIREBOUT (CHAINE,"D")    From GOBJET
+
+If !find(GREP,"C","D") and !find("CONSPIA",GNAVIG(1..GPILNAV)) Then CHMEN += "O" Endif # FGR 01/06/2015 : X3SUIVI104697
+
+
+#Pas d'annulation si il y a des factures complémentaires
+Look [PID] PID1(2)=1;[M:SHIP0]SHIPNUM
+[G:PID]currind=1 : [G:PID]currlen=0 : # Réinitialisation clé par défaut
+If !fstat  Call VIREBOUT (CHAINE,"A") From GOBJET : Endif
+
+#Pas de nouveau enregistrement en pré reception des expéditions
+#Pas de critère de Picking
+#pas de suppression du document
+If GPILNAV>1
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONC1
+  If GNAVIG(GPILNAV-1) = "GESPPTS" | GFONC1 = "GESPPTS"
+    Call VIREBOUT(CHAINE,"C1A2") From GOBJET
+    Call VIREBOUT(CHMEN,"34") From GOBJET
+ # Issue 44464 - 2017-06-26 by MAE : pas de pré réception en expédition
+  Else
+    Call VIREBOUT(CHMEN,"5") From GOBJET
+  Endif
+Endif
+
+# Issue 111257 US 70
+#si l'expédition est réceptionnée ou pré-réceptionnée, on ne peut pas la solder:
+#il faut soit supprimer la réception, soit solder la pré-réception
+# Issue 6079
+# Issue X3-176399 - 2020-01-10 by MAE : on peut solder une expédition pré-réceptionnée ou réceptionnée
+#If find([M:SHIP0]SHIPSTAT, 2,3)
+#If find([M:SHIP0]SHIPSTAT, 3,4)
+#  Call VIREBOUT(CHMEN,"345") From GOBJET
+#Endif
+# End issue X3-176399
+
+If !find(GREP,"C","D")
+# Issue 6079
+ #If [M:SHIP0]SHIPSTAT<> 4
+ If [M:SHIP0]SHIPSTAT<> 5
+  CHMEN += "3"
+ Else
+  CHMEN += "4"
+ Endif
+ # Issue 44464 - 2017-06-22 by MAE : on peut pré-réceptionné une expé uniquement si le statut est créé ou expédié.
+ If find([M:SHIP0]SHIPSTAT,1,2) and GNAVIG(GPILNAV-1) = "GESPPTS"
+  CHMEN += "5"
+ Endif
+Endif
+#si une ligne est pré-réceptionnée, on ne peut pas solder l'expédition, il faut solder la pré-réception
+For I=0 To [M:SHIP1]NBLIG-1
+  # Issue 57542 - 2017-09-28 by MAE : test sur le flag plutot que sur la qté pré-réceptionnée
+  #If [M:SHIP1]PRCPQTY(I) <> 0 | [M:SHIP1]RCPQTYSTU(I) <> 0
+  If [M:SHIP1]PRCPFLG(I) = 2 | [M:SHIP1]RCPQTYSTU(I) <> 0
+    If GPILNAV>1
+      # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+      If GNAVIG(GPILNAV-1) = "GESSHIP"
+        #Call VIREBOUT(CHMEN,"45") From GOBJET
+        Call VIREBOUT(CHMEN,"5") From GOBJET
+        Break
+      Endif
+      # Issue 44464 - 2017-06-22 by MAE : Si une ligne est pré réceptionné, on ne peut pas pré réceptionné la pré réception
+       If GNAVIG(GPILNAV-1) = "GESPPTS"
+        Call VIREBOUT(CHMEN,"5") From GOBJET
+        Break
+      Endif
+    Endif
+  Endif
+Next
+
+# End issue 111257 US70
+Return
+#-------------------------------------------------------------#
+$RAZCRE
+Raz [M:PLCW]
+#MAE, landed cost 110325 : plus besoin en classique
+# Issue X3-134651 - 2019-04-09 by MAE
+#If WSHIPMENT<> null : FreeGroup WSHIPMENT :Endif
+#WSHIPMENT = NewInstance C_SHIPMENT AllocGroup null
+#[L]MY_STATUS = fmet WSHIPMENT.AINIT()
+#If [L]MY_STATUS >= [V]CST_AERROR
+#  #--- Header errors
+#  GMESSAGE = func LCCLIB.MAXMSG(WSHIPMENT)
+#  If GMESSAGE <> AVOID.ACHAR :  GOK=0 : GERR=1: Return
+#  Endif
+#Endif
+## Les champs initialisés par la classe sont remis dans la classe et dans la classe F
+#SetInstance [F:SHH] With WSHIPMENT
+#If GPILNAV > 1
+#  #si on est sur les pré-receptions des commandes, shiptyp = 2
+#  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+#  If GNAVIG(GPILNAV-1) = "GESPPTO" | GFONCTION = "GESPPTO"
+#    WSHIPMENT.SHIPTYP = 2
+#  Else
+#    WSHIPMENT.SHIPTYP = 1
+#  Endif
+#Endif
+#[M:SHIP0]SHIPTYP = WSHIPMENT.SHIPTYP
+
+# Issue X3-134651 - 2019-04-09 by MAE : déplacé depuis $SHIPSTAT_INIT et $SHIPDAT_INIT du SHIPMENT_CPRO
+#[F:SHH]SHIPSTAT = 1
+[F:SHH]SHIPDAT = date$
+GFCY=GFCYDEF(6)
+Call GETCPY(GFCY,"",0,"")From TRTX3CPT
+If GPILNAV > 1
+  #si on est sur les pré-receptions des commandes, shiptyp = 2
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+  If GNAVIG(GPILNAV-1) = "GESPPTO" | GFONCTION = "GESPPTO"
+    [F:SHH]SHIPTYP = 2
+  Else
+    [F:SHH]SHIPTYP = 1
+  Endif
+Endif
+# End issue X3-134651
+[M:SHIP0]=[F:SHH]
+
+
+Affzo [M:SHIP0]
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  Call RAZSTCDW From STCLIB
+  # Issue 110325  - 2015-10-30 by MAE : landed cost
+  #----- Affichage entêtes de colonne variables -----#
+  Gosub AFF_TITCOL
+Endif
+Return
+#-------------------------------------------------------------#
+$INICRE
+# Issue X3-134651 - 2019-04-08 by MAE :$AINSERT_BEFORE dans SHIPMENT_CMET
+Local Integer WOK
+
+# 1 - Gestion de la numérotation automatique
+# Lecture du compteur
+If [M:SHIP0]SHIPNUM = AVOID.ACHAR
+  Call LECTCA(6, WOK)From SUBTCA
+  If fstat | !WOK  Raz [F:TCA] : Endif
+  GMANCOU=[F:TCA]MANCOU(17) : GCODNUM=[F:TCA]CODNUM(17)
+  # Appel du numéro
+  Call NUMERO(GCODNUM,[M:SHIP0]FCY,date$,"",[M:SHIP0]SHIPNUM,WOK) From SUBANM
+  [F:SHH]SHIPNUM = [M:SHIP0]SHIPNUM
+  If GOK<0
+    Return
+  Elsif GOK<1 | WOK<>0
+    GOK=0 : GERR=1 : GMESSAGE=GCODNUM-mess(60,199,1)
+    Return
+  Endif
+Endif
+# End issue X3-134651
+Return
+#-------------------------------------------------------------#
+$FILTRE
+#-----------------------------#
+# Filtre                      #
+#-----------------------------#
+Default File [SHH]
+If GPILNAV > 1
+  #si on est sur les pré-receptions des commandes, picking container vide
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+  If GNAVIG(GPILNAV-1) = "GESPPTO" | GFONCTION ="GESPPTO"
+    # Issue X3-158974 - 2019-09-04 by MAE : le filtre est renseigné par la sélection avancée
+    If (FILTRE = AVOID.ACHAR) | (FILTRE = "[F:SHH]SHIPTYP=2")
+      FILTRE = "[F:SHH]SHIPTYP=2"
+    Elsif (instr(1,FILTRE,"[F:SHH]SHIPTYP=2")=0)
+      FILTRE += "&[F:SHH]SHIPTYP=2"
+    Endif
+    # End issue X3-158974
+    Return
+  #si on est sur les pré-receptions des expéditions, picking commande et container vides
+  Else
+     # Issue X3-158974 - 2019-09-04 by MAE : le filtre est renseigné par la sélection avancée
+    If (FILTRE = AVOID.ACHAR)
+      FILTRE = "[F:SHH]SHIPTYP=1"
+    Elsif (instr(1,FILTRE,"[F:SHH]SHIPTYP=1")=0)
+      FILTRE += "&[F:SHH]SHIPTYP=1"
+    Endif
+  Endif
+Endif
+Return
+#-------------------------------------------------------------#
+$EXEBOUT
+#-------------------------------------------#
+# Après exécution des boutons de la ToolBar #
+# H = Critères picking                      #
+#-------------------------------------------#
+Case BOUT
+  When "1"  : Gosub APRESBOUT_CRIT
+  When "2"  : Gosub CALCUL_TOTAUX
+Endcase
+Return
+#-------------------------------------------------------------#
+$APRESBOUT_CRIT
+#---------------------#
+# Critères de picking #
+#---------------------#
+If !GIMPORT  : Gosub TIROIR : Endif
+Return
+#-------------------------------------------------------------#
+$HINTCLE
+#-----------------------------------------------------------#
+# Clé pour optimisation du remplissage des listes de gauche #
+#-----------------------------------------------------------#
+Case currbox
+  When GBOXPO6 : HINTLIS(val(right$(GBOXPO6,8)))="POQ2"
+Endcase
+Return
+#-------------------------------------------------------------#
+$CREATION
+#----------------------------------#
+# Création des lignes de shipment #
+#----------------------------------#
+# Issue 110325
+# Issue X3-134651 - 2019-04-09 by MAE : Suppression de toute la gestion de la classe
+#Local Integer I
+## Reinit de la collection en cas de modification aprés une première création.
+#For I=1 To maxtab(WSHIPMENT.SHD)
+#  If (WSHIPMENT.SHD(I) <> null and find(WSHIPMENT.SHD(I).ASTALIN, [V]CST_ADEL, [V]CST_ANEWDEL) = 0)
+#    WRET=fmet WSHIPMENT.ADELLINE ("SHD", WSHIPMENT.SHD(I).AORDER)
+#      If WRET<>[V]CST_AOK
+#        GMESSAGE = func ASYRFNC.MES2(mess(273,133,1),'SHD','SHIPMENT')
+#        GOK=0 : GERR=1
+#        Return
+#      Endif
+#  Endif
+#Next
+# End issue X3-134651
+# End issue 110325
+Gosub CREATION From TABLEAUX
+If GOK<1 : Return : Endif
+#SetInstance WSHIPMENT With [F:SHH]
+# Issue X3-134651 - 2019-04-09 by MAE : Suppression de toute la gestion de la classe
+#SetInstance WSHIPMENT With [M:SHIP0]
+#
+If [M:SHIP0]SHIPTYP= 1  # Issue 114607
+#  # Issue 111256 US3
+#  SetInstance WSHIPMENT With [M:SHIP2]
+#  # End issue 111256 US3
+#  # Issue 111257 US20 - 2016-01-11 by MAE : REMPLISSAGE DE LA COLLECTION DES DOCUMENTS
+  WDEL = 0
+  Gosub MANAGE_DOCUMENTS
+  Gosub MANAGE_TRACKING
+#  # Issue 111257 US 42 - 2016-04-25 by MAE : remplissage de la collection des STEP TRACKING
+#  Call COPY_SCREEN_TO_CLASS()
+#Endif # Issue 114607
+#MY_STATUS = fmet WSHIPMENT.AINSERT()
+#If [L]MY_STATUS <> [V]CST_AOK
+#  Call GET_ERRORS(WSHIPMENT)
+#  If GOK=0 : Return : Endif
+Endif
+#[M:SHIP0]SHIPNUM = WSHIPMENT.SHIPNUM
+[F:SHH]SHIPNUM = [M:SHIP0]SHIPNUM
+#MAE, landed cost 110325
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  For I=0 To [M:SHIP1]NBLIG
+    If [M:SHIP1]WSTCSEQ(I) <> 0
+      Call STCMAJ("SHIP1",I,38,[M:SHIP0]SHIPNUM,[M:SHIP1]SHIPLIN(I),
+&             0,WRET) From STCLIB
+    If WRET : GOK = 0 :GERR=1 : Return : Endif
+    # remise à 0 de WSTCSEQ pour recharger l'écran de travail
+    [M:SHIP1]WSTCSEQ(I) = 0
+    Endif
+  Next
+  #Modification de valeurs en AINSERT_CONTROL, donc reaffectation des valeurs ds l'écran
+  #SetInstance [M:SHIP2] With WSHIPMENT
+Endif
+Return
+#-------------------------------------------------------------#
+$INIMOD
+Return
+#-------------------------------------------------------------#
+
+#-------------------------------------------------------------#
+$MODIF
+#--------------------------------------#
+# Modification des lignes de shipment #
+#--------------------------------------#
+Local Shortint NOL
+Local Integer MYSTATUS
+Gosub MODIF From TABLEAUX : If GOK<1  Return : Endif
+# Issue X3-134651 - 2019-04-09 by MAE : comment
+#remplissage de la classe des shipments
+#WSHIPMENT.SHIPUID = [M:SHIP0]SHIPUID
+#SetInstance WSHIPMENT With [M:SHIP0]
+If [M:SHIP0]SHIPTYP = 1 # Issue 114607
+#  SetInstance WSHIPMENT With [M:SHIP2]
+#  # Issue 111257-US20 - 2016-01-11 by MAE : modification de l'onglet documents
+  WDEL = 0
+  Gosub MANAGE_DOCUMENTS
+  Gosub MANAGE_TRACKING
+Endif # Issue 114607
+#MY_STATUS = fmet WSHIPMENT.AUPDATE()
+#If [L]MY_STATUS <> [V]CST_AOK
+#  Call GET_ERRORS(WSHIPMENT)
+#  If GOK=0 : Return : Endif
+#Endif
+#If [M:SHIP0]SHIPTYP = 1 # Issue 114607
+#  SetInstance [M:SHIP2] With WSHIPMENT
+#Endif   # Issue 114607
+#For I=1 To maxtab(WSHIPMENT.SHD)
+#  If (WSHIPMENT.SHD(I) <> null and find(WSHIPMENT.SHD(I).ASTALIN, [V]CST_ADEL, [V]CST_ANEWDEL) = 0)
+#    NOL = I-1
+#    Call FILL_SCREEN(WSHIPMENT,NOL, I) From SUBSHIPA
+#  Endif
+#Next
+# End issue X3-134651
+Gosub LIENS
+Return
+#-------------------------------------------------------------#
+$AV_ANNULE
+#--------------------------------------#
+# avant annulation des lignes de shipments   #
+#--------------------------------------#
+# Issue X3-134651
+#ANOWRITE = 1
+Return
+#------------------------------------#
+# Après modification de chaque champ #
+#------------------------------------#
+$APRES_MODIF
+
+#MAE, landed cost 110325
+If (COUZON = "SHIQTY"|COUZON="PRCPQTY" | COUZON = "PRCPFLG")
+         [M:SHIP1]WSTCUPD(nolign-1) = 2
+Endif
+
+If (find(currbox,GBOXPO6,GBOXCTRH) & find(COUZON,"FCY","BPSNUM")) | GIMPORT<>1
+  If (FILGAUSUP(0)<>"[F:POQ]LINCLEFLG=9" )
+    Gosub TIROIR
+Endif
+Endif
+
+
+
+Return
+#-------------------------------------------------------------#
+$ANNULE
+#--------------------------------------#
+# Annulation des lignes de shipments   #
+#--------------------------------------#
+Local Integer I,MY_STATUS
+Gosub ANNULE From TABLEAUX
+# Issue X3-134651 - 2019-04-09 by MAE : comment
+WDEL = 1
+Gosub MANAGE_DOCUMENTS
+Gosub MANAGE_TRACKING
+Return
+#-------------------------------------------------------------#
+$FERME
+#--------------------------------------#
+# Annulation des lignes de shipments   #
+#--------------------------------------#
+# Issue X3-134651 - 2019-04-09 by MAE : comment
+#If WSHIPMENT<> null
+#  FreeGroup WSHIPMENT
+#Endif
+# MAE, landed cost, 110325
+If dim(GOUVSTC)>0 & WCREOUVSTC = 1  Kill GOUVSTC        : Endif
+Return
+#-------------------------------------------------------------#
+$ABANDON
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  Raz [M:PLCW]
+  #MAE, landed cost 110325
+  Call RAZSTCDW From STCLIB
+Endif
+#----- Mise à jour des listes de gauche picking -----#
+If GREP="C" & !GIMPORT & BOUT="A"
+  # Issue number 114607, raz SHIP0 sauf SHIPTYP
+  Raz [M:SHIP0]CHGCOE,[M:SHIP0]SHIPDAT, [M:SHIP0]SHIPNUM,[M:SHIP0]TRNDES, [M:SHIP0]TRNNUM, [M:SHIP0]SHIPSTAT,[M:SHIP0]SHIPUID
+  Raz [M:SHIP1]
+  If [M:SHIP0]SHIPTYP = 1 # Issue number 114607
+    Raz[M:SHIP2]
+    Actzo [SHIP2]
+  Endif # Issue 114607
+  Actzo [SHIP0] : Actzo [SHIP1]10-99 : : Gosub TIROIR
+Endif
+Return
+#-------------------------------------------------------------#
+$APRES_CRE
+Gosub LIENS From TABLEAUX
+#Relecture de l'enregistrement
+Gosub RELIT From GOBJSUB
+#----- Mise à jour des listes de gauche picking -----#
+If !GIMPORT  Gosub TIROIR : Endif
+#mlga - ini.AUREN
+#If GUSER="MLGA" : Dbgaff : Endif
+#If !GIMPORT
+#  If GZPRE = 1 Then
+#    Call ZSGAROR([M:SHIP0]SHIPNUM,'') From ZSGAROR
+#  Endif
+#Endif
+#Gosub LIENS
+#mlga - fin.AUREN
+Return
+#-------------------------------------------------------------#
+$APRES_MOD
+Gosub LIENS From TABLEAUX
+#Relecture de l'enregistrement
+Gosub RELIT From GOBJSUB
+#----- Mise à jour des listes de gauche picking -----#
+If !GIMPORT  Gosub TIROIR : Endif
+#mlga - ini.AUREN
+#If GUSER="MLGA" : Dbgaff : Endif
+#If !GIMPORT
+#  If GZPRE = 1 Then
+#    Call ZSGAROR([M:SHIP0]SHIPNUM,'') From ZSGAROR
+#  Endif
+#Endif
+#Gosub LIENS
+#mlga - fin.AUREN
+Return
+#-------------------------------------------------------------#
+$FILGAUCHE
+#----------------------------------------------#
+# Filtrer les enregistrements listes de gauche #
+#----------------------------------------------#
+# Issue FRW - 2017-01-27 by MAE : Probléme sur les pré-réceptions de commande, remonté par FRW
+If dim([M:SHIP2]TRNNUM)>0
+  [M:SHIP0]shiptyp = 1    #expédition ou pré-réception d'expédition
+Else
+  [M:SHIP0]SHIPTYP = 2    #pré-réception de commande
+Endif
+GBIDI2=1
+If GREP<>"C"
+  GBIDC2="M"
+  # Issue 114607 : [m:SHIP0]SHIPTYP n'est plus alimenté aprés abandon
+  If dim([M:SHIP2]FCY)>0 : GFCY=[M:SHIP2]FCY : Endif
+  Gosub AUTORIS_OPT From CONTX3
+Endif
+# Si pas de clé courante (sauf si création) ou shipment récéptionné ou pré-réceptionné,
+# rien dans la liste de picking
+# Issue 6079
+#If (GREP="" & !CLECUR) | [M:SHIP0]SHIPSTAT=2 |[M:SHIP0]SHIPSTAT=3 | [M:SHIP0]SHIPSTAT = 4
+If (GREP="" & !CLECUR) | [M:SHIP0]SHIPSTAT=3 |[M:SHIP0]SHIPSTAT=4 | [M:SHIP0]SHIPSTAT = 5
+  If currbox=GBOXPO6
+        FILGAUSUP(0) = "[F:POQ]ITMREF=''"
+    Return
+  Elsif currbox=GBOXCTRH
+        FILGAUSUP(0) = "[F:CTRH]CTRNUM=''"
+    Return
+  Endif
+Endif
+#pas de picking sur les containers si il existe une ligne sur les commandes et inversement
+If[M:SHIP1]CTRNUM(0)<>"" & currbox = GBOXPO6
+  FILGAUSUP(0) = "[F:POQ]ITMREF=''"
+  Return
+Elsif [M:SHIP1]CTRNUM(0) = "" & [M:SHIP1]POHNUM<> "" & currbox = GBOXCTRH
+  If GNAVIG(GPILNAV-1) = "GESSHIP" | GNAVIG(GPILNAV-1) = "GESTRNP"  #si on est sur les expéditions ou si on vient des transports en tunnel
+    FILGAUSUP(0) = "[F:CTRH]CTRNUM=''"
+    Return
+  Endif
+Endif
+
+If GPILNAV > 1
+  #si on est sur les pré-receptions des commandes, picking container vide
+  If GNAVIG(GPILNAV-1) = "GESPPTO" & currbox=GBOXCTRH
+    FILGAUSUP(0) = "[F:CTRH]CTRNUM=''"
+    Return
+  #si on est sur les pré-receptions des expéditions, picking commande et container vides
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONC1
+  Elsif GNAVIG(GPILNAV-1) = "GESPPTS" | GFONC1 = "GESPPTS"
+    If currbox = GBOXPO6
+      FILGAUSUP(0) = "[F:POQ]ITMREF=''"
+      Return
+    Else
+      FILGAUSUP(0) = "[F:CTRH]CTRNUM=''"
+      Return
+    Endif
+  Endif
+Endif
+
+# Issue 111256 US3 - 2016-03-30 by MAE : Pas de picking de commandes si TCTRNUM est renseigné
+If [M:SHIP0]SHIPTYP = 1
+  If [M:SHIP2]TCTRNUM <> AVOID.ACHAR & currbox = GBOXPO6
+    FILGAUSUP(0) = "[F:POQ]ITMREF=''"
+    Return
+  Endif
+Endif
+# End issue 111256 US3
+
+#-----
+
+If (GREP="C" | GREP="D" | GREP="1" | [M:SHIP0]SHIPNUM<>"") & GBIDI2=1
+  #----- Picking des commandes d'achat -----#
+  If currbox=GBOXPO6
+    #-----
+    # Issue 117176
+    FILGAUSUP(0)="[F:POQ]LINCLEFLG=1 & [F:POQ]WIPSTA<2 "
+    If [M:PLCW]WFCY<>""    FILGAUSUP(0)-="& pat([F:POQ]POHFCY,[M:PLCW]WFCY)<>0"       : Endif
+    If [M:SHIP0]FCY<>""    FILGAUSUP(0)-="& pat([F:POQ]POHFCY,[M:SHIP0]FCY)<>0"       : Endif
+    If [M:PLCW]WBPSNUM<>""    FILGAUSUP(0)-="& pat([F:POQ]BPSNUM,[M:PLCW]WBPSNUM)<>0"       : Endif
+    If [M:SHIP0]BPSNUM<>""    FILGAUSUP(0)-="& pat([F:POQ]BPSNUM,[M:SHIP0]BPSNUM)<>0"       : Endif
+
+    If [M:PLCW]WPOHNUM<>""    FILGAUSUP(0)-="& pat([F:POQ]POHNUM,[M:PLCW]WPOHNUM)<>0"       : Endif
+    If [M:PLCW]WITMREF<>""    FILGAUSUP(0)-="& pat([F:POQ]ITMREF,[M:PLCW]WITMREF)<>0"       : Endif
+    # Issue X3-4746 : ajout de la date mini de commande
+    If [M:PLCW]WORDDAT<>AVOID.ADATE    FILGAUSUP(0)-="& [F:POQ]ORDDAT>=[M:PLCW]WORDDAT"       : Endif
+    # Issue 112754 - 2016-11-29 by MAE : On prend uniquement les commandes normales (pas de service ni de sous traitance)
+    # Issue X3-134651 - 2019-05-24 by MAE : Pour être comptatible avec la V11
+    #FILGAUSUP(2)-="& [F:POQ]ITMKND=1"
+    #-----
+    FILGAUSUP(1)-="& [F:POQ]LINSTA<>3 & [F:POQ]ORI<>2 & [F:POQ]LINTYP=1"    #pas de commandes de sous traitance
+    FILGAUSUP(1)-="& (([F:POQ]QTYSTU>[F:POQ]RCPQTYSTU) "
+    FILGAUSUP(1)-="| (GRCPORD<>1 & [F:ITM]SCSFLG<>2))"
+    FILGAUSUP(1)-="& [F:ITM]RCPFLG=2 & [F:POH]APPFLG>2 & [F:POH]SALFCY=''"
+    #Pas de commande ouverte
+    FILGAUSUP(1)-="& [F:POQ]POHTYP<>2"
+    #pas de commande inter site ou inter soc
+    FILGAUSUP(1)-="& [F:POH]BETFCY<>2 & [F:POH]BETCPY<>2"
+    #pas de commande si la qté expédiée + la qté réceptionnée est supérieure ou égale à la qté commandée
+    FILGAUSUP(2)-="& [F:POQ]QTYSTU-[F:POQ]RCPQTYSTU-[F:POQ]SHIQTYSTU>0"
+
+  Endif
+  If currbox=GBOXCTRH
+    FILGAUSUP(0) = "1=1"
+    #-----
+    If [M:PLCW]WFCY<>""    FILGAUSUP(0)-="&pat([F:CTRH]FCY,[M:PLCW]WFCY)<>0"       : Endif
+    If [M:SHIP0]FCY<>""    FILGAUSUP(0)-="& pat([F:CTRH]FCY,[M:SHIP0]FCY)<>0"       : Endif
+    If [M:SHIP0]BPSNUM<>""    FILGAUSUP(0)-="& pat([F:CTRH]BPSNUM,[M:SHIP0]BPSNUM)<>0"       : Endif
+    If [M:SHIP0]SHIPTYP= 1  # Issue 114607
+      # Issue 111256 US3
+      If [M:SHIP2]TCTRNUM<>""
+        FILGAUSUP(0)-="& pat([F:CTRH]TCTRNUM,[M:SHIP2]TCTRNUM)<>0"
+      Endif
+      # End issue 111256 US3
+    Endif
+    If [M:PLCW]WBPSNUM<>""    FILGAUSUP(0)-="& pat([F:CTRH]BPSNUM,[M:PLCW]WBPSNUM)<>0"       : Endif
+    If [M:PLCW]WCTRNUM<>""    FILGAUSUP(0)-="& pat([F:CTRH]CTRNUM,[M:PLCW]WCTRNUM)<>0"       : Endif
+    #MAE, bug 110886, ajout de GREP=1 car GREP est à 1 qd on referme la fenêtre de critére
+    If GREP="C"
+      FILGAUSUP(0)-="& [F:CTRH]SHIPNUM=''"
+    Else
+      If [M:PLCW]WEXP<>2
+        FILGAUSUP(0)-="& [F:CTRH]SHIPNUM=''"
+      Else
+        FILGAUSUP(0)-="& [F:CTRH]SHIPNUM='"+[M:SHIP0]SHIPNUM+"'"
+      Endif
+    Endif
+  Endif
+Elsif find(currbox,GBOXPO6)
+  FILGAUSUP(1)=""
+  Case currbox
+    When GBOXPO6 : FILGAUSUP(0) ="[F:POQ]LINCLEFLG=9"
+  Endcase
+Endif
+Return
+
+$AP_FILGAUCHE
+#---------------------------------------------------------#
+# Après pagination avant ou arrière d'une liste de gauche #
+#---------------------------------------------------------#
+If !find(currbox,GBOXPO6,GBOXCTRH) Return : Endif
+WPICK=2 : Gosub ACTUALIS_MARQUAGE
+Return
+
+$TIROIR
+#---------------------------------------------------#
+# Click sur un tiroir                               #
+# Désormais entièrement géré par l'objet :          #
+# - le remplissage                                  #
+# - et l'actualisation (boules bleues)              #
+#   par l'appel à la suite de l'action AP_FILGAUCHE #
+# ------------------------------------------------- #
+# Autres appels par l'applicatif dans les cas       #
+# d'abandon, d'après création, d'après modif ...etc #
+#---------------------------------------------------#
+If !find(currbox,GBOXPO6,GBOXCTRH)  Return : Endif
+#-----
+ILIS=val(right$(currbox,8))
+Gosub REMP_LISGAU From GOBJSUB
+Return
+
+$DEB_PICK
+#---------------#
+# Début picking #
+#---------------#
+If !find(currbox,GBOXPO6,GBOXCTRH) Return : Endif
+SAVNBLIG=[M:SHIP1]NBLIG
+Raz WERR
+WDEBPICK=1 : GPTH_PICK=1
+Return
+
+$PICKE
+#----------------------#
+# Nouvel élément pické #
+#----------------------#
+If !find(currbox,GBOXPO6,GBOXCTRH) Return : Endif
+If REP=""
+  If !CLECUR | !VERROU | !ACTMOD | GCONSULT  OK=0 : Return : Endif
+Endif
+
+Case currbox
+  When GBOXPO6 : Gosub PICKE_CDE
+  When GBOXCTRH : Gosub PICKE_CTRH
+Endcase
+Gosub GRISAGE
+Return
+
+$DEPICK
+#------------------------#
+# Nouvel élément dépické #
+#------------------------#
+If !find(currbox,GBOXPO6,GBOXCTRH) Return : Endif
+Case currbox
+  When GBOXPO6 : Gosub DEPICK_CDE
+  When GBOXCTRH :
+    If [M:SHIP0]SHIPTYP = 1 # Issue 114607
+      Gosub DEPICK_CTRH
+    Endif
+Endcase
+Gosub GRISAGE
+Return
+
+$FIN_PICK
+#-------------#
+# Fin picking #
+#-------------#
+WDEBPICK=0 : GPTH_PICK=0
+If REP=""
+  If !VERROU
+    GMESSAGE=mess(10,100,1) : GERR=1 : OK=0 : Return
+  Elsif !CLECUR | !ACTMOD | GCONSULT
+    GMESSAGE=mess(9,123,1)  : GERR=1 : OK=0 : Return
+  Endif
+Endif
+#-----
+If !GIMPORT
+  Affzo [SHIP0]1-99
+  If [M:SHIP0]SHIPTYP= 1  # Issue 114607
+    Affzo [SHIP2]1-99
+  Endif
+  Affzo [SHIP1]
+  If WPICK=9
+    WPICK=2 : Affzo [SHIP0]1-99:
+    If [M:SHIP0]SHIPTYP= 1  # Issue 114607
+      Affzo [SHIP2]1-99
+    Endif
+    Gosub TIROIR
+   Endif
+Endif
+zonsui="[M:SHIP1]NBLIG(max(0,nolign-1))"
+Return
+
+########################################################################
+#-----------------------------------#
+# Sélection d'une ligne de commande #
+#-----------------------------------#
+$PICKE_CDE
+SAVNBLIG=nolign
+WNUM=[F:POQ]POHNUM : WPOQLNK=[F:POQ]POQLNK
+Read [POQ] POQ3=WNUM;WPOQLNK  : If fstat Raz [F:POQ] : Endif
+If WDEBPICK | [F:POH]POHNUM<>[F:POQ]POHNUM
+  Read [POH] POH0=[F:POQ]POHNUM : If fstat Raz [F:POH] : Endif
+Endif
+#-----
+If !evalue(FILGAUSUP)  OK=0 : Return : Endif
+#-----
+#----- Lecture des autres tables liées au picking -----#
+Gosub LECFIC_PICKE_CDE
+#-----
+WDEBPICK=0
+#----- Calcul de la quantité pouvant être expédiée : qté cdée - qté receptionnée - qté expédiée -----#
+#qté pouvant être expédiée : somme des qtés expédiées - somme des qtés réceptionnées
+# Issue 111257 US 70
+#Somme des qtés expédiées
+REQUETE(0) = "SELECT SUM(SHIQTYSTU_0)"
+REQUETE(1)=" from SHIPMENTD WHERE POHNUM_0='"+[F:POQ]POHNUM+"'AND POPLIN_0 ="+num$([F:POQ]POPLIN)+ "AND POQSEQ_0 ="+num$([F:POQ]POQSEQ) + "AND QTYEXPFLG_0<>2"
+
+  For (Decimal WSHIQTYSTU) From num$(BASE) Sql REQUETE As [SSHIP]
+    WQTESTU = [F:POQ]QTYSTU - [SSHIP]WSHIQTYSTU
+  Next
+
+#Somme des qtés réceptionnées
+REQUETE(0) = "SELECT SUM(QTYSTU_0)"
+REQUETE(1)=" from PRECEIPTD WHERE POHNUM_0='"+[F:POQ]POHNUM+"'AND POPLIN_0 ="+num$([F:POQ]POPLIN)+"AND POQSEQ_0 ="+num$([F:POQ]POQSEQ)
+& +" AND SHIPNUM_0 = ' '"
+
+  For (Decimal WRCPQTYSTU) From num$(BASE) Sql REQUETE As [SRCP]
+    WQTESTU = WQTESTU - [SRCP]WRCPQTYSTU
+  Next
+
+#WQTESTU=WQTESTU-[F:POQ]RCPQTYSTU
+# End issue 111257 US 70
+
+Read [CTRD] CTRD1=[F:POQ]POHNUM;[F:POQ]POPLIN;[F:POQ]POQSEQ
+If !fstat
+  # La ligne de commande est dans un conteneur, elle ne peut pas être sélectionnée.
+  GMESSAGE=mess(498,194,1)
+  GERR=1
+  Return
+# Issue X3-134651 - 2019-04-04 by MAE : PERF
+Else
+  Gosub CTR_CDE
+  If GMESSAGE<>AVOID.ACHAR : GERR=1 : Return : Endif
+Endif
+# End issue X3-134651
+
+
+If WQTESTU<0 WQTESTU=0 : Endif
+#----- Quantité à réceptionner nulle -----#
+If WQTESTU=0
+  GMESSAGE=[F:POQ]POHNUM-[F:POQ]ITMREF+"\"+ mess(482,194,1)
+  OK=2 : Call OUINON (GMESSAGE,OK) From GESECRAN : Raz GMESSAGE
+  If OK<>2  OK=0 : Return : Endif
+Endif
+#Vérification du site de la commande (doit appartenir à la même sté juridique)
+For I=0 To [M:SHIP1]NBLIG
+  If [M:SHIP1]LEGCPY(I)<> "" & [F:POQ]CPY <> [M:SHIP1]LEGCPY(I)
+    GMESSAGE=mess(484,194,1)
+    GERR=1
+    Return
+  Endif
+Next
+Gosub CHARG_LIG_SHIP_CDE
+If !mkstat
+  status=0 :
+Endif
+# Issue 110325 - 2015-10-08 by MAE : landed cost
+If [F:POQ]STCNUM<>""
+  If GPILNAV>1
+    If !find(GNAVIG(GPILNAV-1),"GESPPTS","GESPPTO") : # en pré-réception d'expé ou de cde, pas de calcul de charges
+     Gosub ALIM_STCP From SUBSHIP
+     Call GES_STCDW("SHIP1",nolign-1,WRET) From STCCLC
+    Endif
+  Endif
+Endif
+
+Return
+#--------------------------------------------------------------#
+# Lectures des tables après le picking d'une ligne de commande #
+#--------------------------------------------------------------#
+$LECFIC_PICKE_CDE
+#-----
+If [F:ITM]ITMREF<>[F:POQ]ITMREF
+  Read [ITM] ITM0=[F:POQ]ITMREF : If fstat  Raz [F:ITM] : Endif
+Endif
+If [F:POP]POHNUM<>[F:POQ]POHNUM | [F:POP]POPLIN<>[F:POQ]POPLIN | [F:POP]POPSEQ<>[F:POQ]POQSEQ
+  Read [POP] POP0=[F:POQ]POHNUM;[F:POQ]POPLIN;[F:POQ]POQSEQ
+    If fstat Raz [F:POP] : Endif
+Endif
+Return
+########################################################################
+#------------------------------------#
+# Sélection d'une ligne de container #
+#------------------------------------#
+$PICKE_CTRH
+#MRR01 ini.AUREN
+If clalev([F:ITM1])=0 Local File ITMMASTER[ITM1]  : Endif
+#MRR01 fin.AUREN
+
+GERR = 0
+SAVNBLIG=nolign
+WNUM=[F:CTRH]CTRNUM
+Read [CTRH] CTRH0=WNUM : If fstat Raz [F:CTRH] : Endif
+Filter [CTRD] Where [F:CTRD]CTRNUM = [F:CTRH]CTRNUM
+For [CTRD]
+  If [F:POH]POHNUM<>[F:CTRD]POHNUM
+    Read [POH] POH0=[F:CTRD]POHNUM
+    If fstat  Raz [F:POH] : Endif
+  Endif
+  If [F:POQ]POHNUM<>[F:CTRD]POHNUM | [F:POQ]POPLIN<>[F:CTRD]POPLIN | [F:POQ]POQSEQ<>[F:CTRD]POQSEQ
+    Read [POQ] POQ0=[F:CTRD]POHNUM;[F:CTRD]POPLIN;[F:CTRD]POQSEQ
+    If fstat  Raz [F:POQ] : Endif
+  Endif
+  If [F:POP]POHNUM<>[F:CTRD]POHNUM | [F:POP]POPLIN<>[F:CTRD]POPLIN | [F:POP]POPSEQ<>[F:CTRD]POQSEQ
+    Read [POP] POP0=[F:CTRD]POHNUM;[F:CTRD]POPLIN;[F:CTRD]POQSEQ
+    If fstat  Raz [F:POP] : Endif
+  Endif
+  #Vérification du site de la commande (doit appartenir à la même sté juridique)
+  For I=0 To [M:SHIP1]NBLIG
+    If [M:SHIP1]LEGCPY(I)<> "" & [F:POQ]CPY <> [M:SHIP1]LEGCPY(I)
+      GMESSAGE=mess(484,194,1)
+      GERR=1
+      Break
+    Endif
+  Next
+  #MAE, bg 110787
+  If GERR = 1 : Break  : Endif
+  # Ouverture de la ligne
+  nolign = [M:SHIP1]NBLIG
+  Insa nolign,1,[M:SHIP1]NBLIG [M:SHIP1]NBLIG
+  [M:SHIP1]NBLIG += 1
+  nolign = [M:SHIP1]NBLIG
+  NOL = nolign-1
+  status = 0
+  NOL=nolign-1
+    #----- Ligne de shipment issue d'un container -----#
+  If [F:CTRD]CTRNUM<>""
+      # MAE, landed cost, 110325, ne pas modifier l'ordre des transclasses
+      [M:SHIP1]=[F:POQ]
+      [M:SHIP1]LBPSNUM(NOL) = [F:POQ]BPSNUM
+      # End issue 110325
+      [M:SHIP1]=[F:CTRD]
+      [M:SHIP1]CTRUID(NOL)=[F:CTRH]CTRUID
+      [M:SHIP1]FULFLG(NOL)=[F:CTRH]FULFLG
+      #affectation des quantités
+      [M:SHIP1]SHIQTY(NOL) = [F:CTRD]QTYUOM
+      [M:SHIP1]SHIQTYPUU(NOL) = [F:CTRD]QTYPUU
+      [M:SHIP1]SHIQTYSTU(NOL) = [F:CTRD]QTYSTU
+      #ASR COMP-15 ini.AUREN
+      [M:SHIP1]CPRCOE(NOL) = [F:CTRD]ZCPRCOE
+      #ASR COMP-15 fin.AUREN
+      [M:SHIP1]ITMDES(NOL)=[F:POP]ITMDES
+      [M:SHIP1]ITMDES1(NOL)=[F:POP]ITMDES1
+      [M:SHIP1]LEGCPY(NOL) = [F:POQ]CPY
+      [M:SHIP1]NETCUR(NOL) = [F:POH]CUR
+      [M:SHIP1]EECICT(NOL) = [F:POH]EECICT
+      # Issue 110325 - 2015-12-01 by MAE : chargement du prix net
+      [M:SHIP1]CHGCOE(NOL) = [F:POH]CHGCOE
+      [M:SHIP1]NETPRI(NOL) = [F:POP]NETPRI
+      # End issue 110325
+      # Issue 111256 US3
+      If [M:SHIP0]SHIPTYP = 1
+        If [M:SHIP2]DSPWEU = AVOID.ACHAR
+          [M:SHIP2]DSPWEU = [F:CTRH]DSPWEU
+        Endif
+        If [M:SHIP2]DSPVOU = AVOID.ACHAR
+          [M:SHIP2]DSPVOU = [F:CTRH]DSPVOU
+        Endif
+        # Issue 134651 - 2019-04-12 by MAE : Remplissage du TCTRNUM
+#        If [M:SHIP2]TCTRNUM = AVOID.ACHAR
+#          [M:SHIP2]TCTRNUM = [F:CTRH]TCTRNUM
+#        Endif
+        [M:SHIP2]MAXWEI = [F:TCTR]MAXWEI + [F:TCTR]TARWEI
+        [M:SHIP2]MAXVOL = [F:TCTR]TCTRVOL
+        # End issue X3-134651
+      Endif
+      # End issue 111256 US3
+      # Issue X3-76010 - 2018-02-20 by MAE : Raz des qtés réceptionnées aprés le transclasse avec les commandes
+      [M:SHIP1]RCPQTYSTU(NOL) = 0
+      [M:SHIP1]RCPQTYPUU(NOL) = 0
+      #MRR01 ini.AUREN
+#      Filter [F:ITM1] Where ITMREF = [M:SHIP1]ITMREF(NOL)
+#      Read [F:ITM1] First
+#      If !fstat Then
+#        If [F:ITM1]ZPALENT = 2 Then
+#          [M:SHIP1]ZPALENT(NOL) = 2
+#        Else
+#          [M:SHIP1]ZPALENT(NOL) = 1
+#        Endif
+#      Endif
+      [M:SHIP1]ZPALENT(NOL) = [F:POQ]ZPALENT
+      [M:SHIP1]ZLBPSPRI(NOL) = [F:POP]ZLBPSPRI
+      [M:SHIP1]ZLPRIDIV(NOL) = [F:POP]ZLPRIDIV
+      [M:SHIP1]ZDISCRGVAL1(NOL) = [F:POP]DISCRGVAL1
+      [M:SHIP1]ZLPORCTOL(NOL) = [F:POP]ZLPORCTOL
+      [M:SHIP1]ZQTYTOL(NOL) = [F:POQ]QTYSTU*([F:POP]ZLPORCTOL)/100
+      If [F:POQ]ZSTA <> ""
+        [M:SHIP1]STA(NOL) = [F:POQ]ZSTA
+      Else
+        [M:SHIP1]STA(NOL) = "A"
+      Endif
+      #MRR01 fin.AUREN
+  Endif
+  If !mkstat
+    status=0 : Call LINNUM("SHIPLIN") From TABLEAUX
+  Endif
+  # Issue 110325 - 2015-10-08 by MAE : landed cost
+  If [F:POQ]STCNUM<>""
+    If GPILNAV>1
+      #If GNAVIG(GPILNAV-1) <> "GESPPTS" #en pré-réception d'expé, pas de recalcul des charges
+      If !find(GNAVIG(GPILNAV-1),"GESPPTS","GESPPTO") : # en pré-réception d'expé ou de cde, pas de calcul de charges
+        Gosub ALIM_STCP From SUBSHIP
+        Call GES_STCDW("SHIP1",nolign-1,WRET) From STCCLC
+      Endif
+    Endif
+  Endif
+Next
+#MAE, bg 110787
+If GERR=1
+  Filter [CTRD]
+  Return
+Endif
+Gosub GESSHIP
+Affzo [M:SHIP1]
+Filter [CTRD]
+
+Return
+
+
+$ACTUALIS_MARQUAGE
+#---------------------------------------------------------------#
+# Actualisation des éléments "pickés" dans les listes de gauche #
+# WPICK : 0 = On ne fait rien                                   #
+#         1 = Enlever le marquage des éléments "pickés"         #
+#         2 = Marquer les éléments "pickés"                     #
+#---------------------------------------------------------------#
+If [M:SHIP1]NBLIG>0
+  For I=0 To [M:SHIP1]NBLIG-1
+    Gosub MARQUAGE_LIGNE
+  Next I
+Endif
+Return
+
+$MARQUAGE_LIGNE
+#--------------------------------------------------------------#
+# Actualisation d'un élément "pické" dans les listes de gauche #
+# WPICK : 0 = On ne fait rien                                  #
+#         1 = Enlever le marquage de l'élément "pické"         #
+#         2 = Marquer l'élément "pické"                        #
+#     I : indice de la ligne du tableau à traiter              #
+#--------------------------------------------------------------#
+#----- Si appel depuis Subprog (C_NBLIG.. etc) les variables locales n'existent pas !
+If dim(FILGAUSUP)<1
+  #----- Variables locales superviseur -----#
+  Local Integer FILTREG : FILTREG=1
+  Local Integer INDCUR  : INDCUR=1
+  Local Integer ICRITERE, IFILROLE, IFILSUITE, IFILGAUSUP
+  Local Char    FILTSUP(240), FILROLE(250)(0..2) , FILSUITE(250)(0..5), CRITERE(250)
+  Local Char    FILGAUSUP(240)(0..3)
+  Local Char    WINPROG(GLONADC), ACTION(20)
+  Local Char    HINTLIS(10)(0..8)
+  #-----
+  # Issue 114607
+  If [M:SHIP0]SHIPTYP = 1
+    WINPROG="WGOSHIP"
+  Else
+    WINPROG="WGOPPTO"
+  Endif
+  # End issue 114607
+
+  If currbox = GBOXPO6
+    HINTLIS(val(right$(GBOXPO6,8)))="POQ2"
+  Endif
+  #----- Variables locales pour gestion picking liste de gauche -----#
+  Local Char     WNUM(GLONVCR), WPOQLNK(16)
+  Local Integer  WLIN
+  Local Shortint J, K
+Endif
+#-----
+J=WPICK
+
+If currbox=GBOXPO6    : #----- Commandes -----#
+  If [M:SHIP1]POHNUM(I)<>"" & [M:SHIP1]CTRNUM(I)=""
+      WNUM=[M:SHIP1]POHNUM(I)
+      WPOQLNK=mid$("00000000",1,8-len(num$([M:SHIP1]POPLIN(I))))+num$([M:SHIP1]POPLIN(I))
+&          +mid$("00000000",1,8-len(num$([M:SHIP1]POQSEQ(I))))+num$([M:SHIP1]POQSEQ(I))
+      Read [POQ] POQ3=WNUM;WPOQLNK  : If fstat Raz [F:POQ] : Endif
+      Read [POH] POH0=[F:POQ]POHNUM : If fstat Raz [F:POH] : Endif
+      If [F:POH]POHNUM="" : WPICK=0 : Endif
+  Endif
+   Case WPICK
+      When 1 : Gosub DEPICK From GOBJSUB
+      When 2 : Gosub REPICK From GOBJSUB
+  Endcase
+Endif
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  If currbox=GBOXCTRH    : #----- Container -----#
+    If [M:SHIP1]CTRNUM(I)<>""
+      WNUM=[M:SHIP1]CTRNUM(I)
+      #Read [CTRD] CTRD0=WNUM;WLIN  : If fstat Raz [F:CTRD] : Endif
+      Read [CTRH] CTRH0=WNUM : If fstat Raz [F:CTRH] : Endif
+      If [F:CTRH]CTRNUM="" : WPICK=0 : Endif
+    Endif
+    Case WPICK
+      When 1 : Gosub DEPICK From GOBJSUB
+      When 2 : Gosub REPICK From GOBJSUB
+    Endcase
+  Endif
+  WPICK=J
+Endif
+
+
+Return
+
+$GRISAGE
+#-----------------------------------------------------#
+# Traitement du grisage et dégrisage des champs écran #
+#-----------------------------------------------------#
+If [M:SHIP1]NBLIG=0 & GREP="C"
+  Actzo [M:SHIP0]FCY, BPSNUM
+Else
+  Diszo [M:SHIP0]FCY, BPSNUM
+Endif
+If GNAVIG(GPILNAV-1) <> "GESPPTO" & GFONCTION <> "GESPPTO"
+  If[M:SHIP2]SHIPMGT = 1
+    Diszo [M:SHIP2]TCTRNUM
+    Diszo [M:SHIP2]SHIPNBCTR
+  Else
+    Actzo [M:SHIP2]TCTRNUM
+    Actzo [M:SHIP2]SHIPNBCTR
+  Endif
+Endif
+
+Return
+
+#-------------------------------------#
+# Déselection d'une ligne de commande #
+#-------------------------------------#
+$DEPICK_CDE
+WNUM=[F:POQ]POHNUM : WPOQLNK=[F:POQ]POQLNK
+Read [POQ] POQ3=WNUM;WPOQLNK  : If fstat Raz [F:POQ] : Endif
+If WDEBPICK | [F:POH]POHNUM<>[F:POQ]POHNUM
+  Read [POH] POH0=[F:POQ]POHNUM : If fstat Raz [F:POH] : Endif
+Endif
+WDEBPICK=0
+
+Gosub RECHSUP_LIG_CDE   : # Recherche et suppression ligne
+
+Return
+
+#-------------------------------------#
+# Déselection d'une ligne de commande #
+#-------------------------------------#
+$DEPICK_CTRH
+WNUM=[F:CTRH]CTRNUM
+Read [CTRH] CTRH0=WNUM : If fstat Raz [F:CTRH] : Endif
+#If WDEBPICK | [F:CTRD]CTRNUM<>[F:CTRH]CTRNUM
+#  Read [CTRH] CTRH0=[F:CTRD]CTRNUM : If fstat Raz [F:CTRH] : Endif
+#Endif
+WDEBPICK=0
+Filter [F:CTRD] Where [F:CTRD]CTRNUM=[F:CTRH]CTRNUM
+For [CTRD]
+  Raz J
+  While J<[M:SHIP1]NBLIG
+    K=find([F:CTRH]CTRNUM,[M:SHIP1]CTRNUM(J..[M:SHIP1]NBLIG-1))
+    I=J+(K-1)
+    If K=0
+      J=[M:SHIP1]NBLIG
+    Elsif [M:SHIP1]CTRLIN(I)=[F:CTRD]CTRLIN
+      nolign=I+1 : status=65 : Call AVANT_NBLIG From SUBSHIP
+      Dela I,1,[M:SHIP1]NBLIG-1 [M:SHIP1]NBLIG : [M:SHIP1]NBLIG-=1
+      J+=K-1 : K=0 : status=0
+    Else
+      J+=K : K=0
+  Endif
+  Wend
+Next
+Filter [CTRD]
+Affzo [M:SHIP1]
+
+#----- Suppression éventuelle sélection fournisseur -----#
+If [M:SHIP1]NBLIG=0 & [M:SHIP0]BPSNUM=""  [M:PLCW]WBPSNUM="" : Endif
+
+Return
+#-------------------------------------------------------------#
+# Recherche et suppression de la ligne de commande "dépickée" #
+#-------------------------------------------------------------#
+$RECHSUP_LIG_CDE
+#-----
+If [F:ITM]ITMREF<>[F:POQ]ITMREF
+  Read [ITM] ITM0=[F:POQ]ITMREF : If fstat Raz [F:ITM] : Endif
+Endif
+#-----
+Raz J
+While J<[M:SHIP1]NBLIG
+  K=find([F:POQ]POHNUM,[M:SHIP1]POHNUM(J..[M:SHIP1]NBLIG-1))
+  I=J+(K-1)
+  If K=0
+    J=[M:SHIP1]NBLIG
+  Elsif [M:SHIP1]POPLIN(I)=[F:POQ]POPLIN &
+&       [M:SHIP1]POQSEQ(I)=[F:POQ]POQSEQ
+#&       [M:SHIP1]CREFLG(I)=0
+    nolign=I+1 : status=65 : Call AVANT_NBLIG From SUBSHIP
+    Dela I,1,[M:SHIP1]NBLIG-1 [M:SHIP1]NBLIG : [M:SHIP1]NBLIG-=1
+    J+=K-1 : K=0 : status=0
+  Else
+    J+=K : K=0
+  Endif
+Wend
+Affzo [M:SHIP1]
+Return
+
+# Issue X3-134651 - 2019-04-04 by MAE : PERF
+#-------------------------------------------------------------#
+# Chargement dans l'écran de la ligne pickée                  #
+#-------------------------------------------------------------#
+$CTR_CDE
+ # 2 - La ligne de commande est soldée : error ou 3 - La ligne de commande n'est pas ferme : error
+  If [F:POQ]LINCLEFLG = CST_AYES | [F:POQ]WIPSTA >= 2
+    GMESSAGE = mess(101,194,1)
+    Return
+  Endif
+  # 4 - La ligne de commande est de contremarque : error
+  If [F:POQ]ORI = 2
+    GMESSAGE =  mess(270,183,1)
+    Return
+  Endif
+  # 5 - La ligne de command est sur une commande ouverte : error
+  If [F:POQ]POHTYP = 2
+    GMESSAGE = mess(3,512,1)
+    Return
+  Endif
+  # 6 - La ligne de commande est composé, composant ou sous traitance : error
+  If [F:POQ]LINTYP <> 1
+    GMESSAGE = mess(2,436,1)
+    Return
+  Endif
+  # 7 - la qté commandée < qté réceptionnée : error
+  If ([F:POQ]QTYSTU <= [F:POQ]RCPQTYSTU)
+    GMESSAGE = mess(170,194,1)
+    Return
+  Endif
+Return
+
+#-------------------------------------------------------------#
+# Chargement dans l'écran de la ligne pickée                  #
+#-------------------------------------------------------------#
+$CHARG_LIG_SHIP_CDE
+#-----
+# Ouverture de la ligne
+nolign = [M:SHIP1]NBLIG
+Insa nolign,1,[M:SHIP1]NBLIG [M:SHIP1]NBLIG
+[M:SHIP1]NBLIG += 1
+nolign = [M:SHIP1]NBLIG
+status = 0
+NOL=nolign-1
+#----- Ligne de shipment issue d'une commande d'achat -----#
+If [F:POQ]POHNUM<>""
+  [M:SHIP1]=[F:POQ]
+  [M:SHIP1]LBPSNUM(NOL) = [F:POQ]BPSNUM
+  # Issue 111256 US3
+  If [M:SHIP0]SHIPTYP = 1
+    If [M:SHIP2]DSPWEU = AVOID.ACHAR
+      [M:SHIP2]DSPWEU = [F:POQ]LINWEU
+    Endif
+    If [M:SHIP2]DSPVOU = AVOID.ACHAR
+      [M:SHIP2]DSPVOU = [F:POQ]LINVOU
+    Endif
+  Endif
+  # End issue 111256 US3
+  #Quantité max restant à mettre en shipment en unité de stock
+  [M:SHIP1]SHIQTYSTU(NOL) = WQTESTU
+  #Quantité max restant à mettre en shipment en UOM
+  If [F:POQ]QTYSTU <>0
+    [M:SHIP1]SHIQTY(NOL) = [F:POQ]QTYUOM * WQTESTU /[F:POQ]QTYSTU
+    [M:SHIP1]SHIQTYPUU(NOL) = [F:POQ]QTYPUU * WQTESTU /[F:POQ]QTYSTU
+    [M:SHIP1]LINAMT(NOL) = [F:POQ]LINAMT * WQTESTU /[F:POQ]QTYSTU   #Recalcul du montant
+    Call ARRDEV([M:SHIP1]LINAMT(NOL),[F:POH]CUR) From TRTDIV  # Issue X3-70790 - 2018-01-15 by MAE
+  Else
+    [M:SHIP1]SHIQTY(NOL) = [F:POQ]QTYUOM
+    [M:SHIP1]SHIQTYPUU(NOL) = [F:POQ]QTYPUU
+    [M:SHIP1]LINAMT(NOL) = [F:POQ]LINAMT
+  Endif
+  #Calcul du coefficient UOM/UA
+  If [M:SHIP1]SHIQTY<>0
+    #----- Dans tous le cas calcul coefficient conversion UOM vers UA -----#
+    [M:SHIP1]UOMPUUCOE =arr([M:SHIP1]SHIQTYPUU/[M:SHIP1]SHIQTY,0.00000001)
+  Endif
+  If [M:SHIP1]UOMPUUCOE=0 : [M:SHIP1]UOMPUUCOE=1 : Endif
+  #recalcul des poids et volume en fonction des quantités max restant à mettre en shipment
+  Call CONVERT_VOUWEU("SHIP1",NOL,[M:SHIP1]LINWEU(NOL),[M:SHIP1]LINVOU(NOL),[M:SHIP1]SHIQTYSTU(NOL),[F:POQ]QTYSTU) From STCLIB
+
+  [M:SHIP1]LEGCPY(NOL) = [F:POQ]CPY
+  [M:SHIP1]NETCUR(NOL) = [F:POH]CUR
+  # MAE, landed cost, 110325
+  [M:SHIP1]EECICT(NOL) = [F:POH]EECICT
+  [M:SHIP1]CHGCOE(NOL) = [F:POH]CHGCOE
+#----- Chargement des désignations commandes -----#
+  [M:SHIP1]ITMDES(NOL)=[F:POP]ITMDES
+  [M:SHIP1]ITMDES1(NOL)=[F:POP]ITMDES1
+  # Issue 110325 - 2015-12-01 by MAE : chargement du prix net
+  [M:SHIP1]NETPRI(NOL) = [F:POP]NETPRI
+  #si je suis en préreception des commandes
+  #la quantité pré réceptionnée est alimentée avec la quantité expédiée
+  If GPILNAV>1
+    # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+    If GNAVIG(GPILNAV-1) = "GESPPTO" | GFONCTION = "GESPPTO"
+      # Issue 57736 - 2017-09-28 by MAE : Affectation directement dans le AM_PRCPQTY
+      #[M:SHIP1]PRCPQTY(NOL)=[M:SHIP1]SHIQTY(NOL)
+      # Issue 110325 - 2015-10-23 by MAE : landed cost
+      #Call AM_PRCPQTY([M:SHIP1]PRCPQTY(NOL)) From SUBSHIP
+      Call AM_PRCPQTY([M:SHIP1]SHIQTY(NOL)) From SUBSHIP
+      # End issue 57736
+    Endif
+  Endif
+  #--- Issue 111257 US 51 by TS
+  [M:SHIP1]RCPQTYSTU(NOL) = 0
+  [M:SHIP1]RCPQTYPUU(NOL) = 0
+  #---
+Endif
+#MAE, landed cost 110325
+[M:SHIP1]WSTCUPD(NOL)=2
+# Issue 111257 US 70
+[M:SHIP1]QTYEXPFLG(NOL)=1
+[M:SHIP1]PRCPFLG(NOL)=1
+Call LINNUM("SHIPLIN") From TABLEAUX
+
+#MRR01 ini.AUREN
+#If [F:ITM]ZPALENT = 2 Then
+#  [M:SHIP1]ZPALENT(NOL) = 2
+#Else
+#  [M:SHIP1]ZPALENT(NOL) = 1
+#Endif
+#MRR01 fin.AUREN
+
+Gosub GESSHIP
+# Issue X3-222007 - 2020-11-13 by MAE : remove the affzo, it's done in the FIN_PICK action
+#Affzo [M:SHIP1]
+Return
+#-------------------------------------------------------------#
+# Chargement dans l'écran de la ligne pickée                  #
+#-------------------------------------------------------------#
+$CHARG_LIG_SHIP_CTRH
+#-----
+# Ouverture de la ligne
+nolign = [M:SHIP1]NBLIG
+Insa nolign,1,[M:SHIP1]NBLIG [M:SHIP1]NBLIG
+[M:SHIP1]NBLIG += 1
+nolign = [M:SHIP1]NBLIG
+NOL = nolign-1
+status = 0
+#----- Ligne de shipment issue d'un container -----#
+If [F:CTRD]CTRNUM<>""
+  [M:SHIP1]=[F:CTRD]
+  [M:SHIP1]CTRUID(NOL)=[F:CTRH]CTRUID
+  [M:SHIP1]FULFLG(NOL)=[F:CTRH]FULFLG
+  #affectation des quantités
+  [M:SHIP1]SHIQTY(NOL) = [F:CTRD]QTYUOM
+  [M:SHIP1]SHIQTYPUU(NOL) = [F:CTRD]QTYPUU
+  [M:SHIP1]SHIQTYSTU(NOL) = [F:CTRD]QTYSTU
+  [M:SHIP1]ITMDES(NOL)=[F:POP]ITMDES
+  [M:SHIP1]ITMDES1(NOL)=[F:POP]ITMDES1
+  [M:SHIP1]POHFCY(NOL) = [F:POQ]POHFCY
+  # Issue 119360 - 2016-11-02 by MAE : ajout du site de réception
+  [M:SHIP1]PRHFCY(NOL) = [F:POQ]PRHFCY
+  [M:SHIP1]LEGCPY(NOL) = [F:POQ]CPY
+  [M:SHIP1]LBPSNUM(NOL) = [F:POQ]BPSNUM
+  [M:SHIP1]EXTRCPDAT(NOL) = [F:POQ]EXTRCPDAT
+  # MAE, landed cost, 110325
+  [M:SHIP1]STCNUM(NOL) = [F:POQ]STCNUM
+  [M:SHIP1]CPRCOE(NOL) = [F:POQ]CPRCOE
+  [M:SHIP1]EECICT(NOL) = [F:POH]EECICT
+  [M:SHIP1]CHGCOE(NOL) = [F:POH]CHGCOE
+  #MRR01 ini.AUREN
+  [M:SHIP1]ZPALENT(NOL) = [F:POQ]ZPALENT
+  #MRR01 fin.AUREN
+Endif
+#MAE, landed cost 110325
+[M:SHIP1]WSTCUPD(NOL)=2
+Gosub GESSHIP
+Affzo [M:SHIP1]
+Return
+#-------------------------------------------------------------#
+#Affectation du titre de la fenêtre                           #
+#-------------------------------------------------------------#
+$TITRE_TRT
+Local Char WTIT (100)
+If GPILNAV > 1
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+  If GNAVIG(GPILNAV-1) = "GESPPTO" | GFONCTION = "GESPPTO"
+    Call TEXTE(53915,WTIT) From OBJDIV
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONC1
+  Elsif GNAVIG(GPILNAV-1) = "GESPPTS" | GFONC1 = "GESPPTS"
+    Call TEXTE(53916,WTIT) From OBJDIV
+  Else
+      Call TEXTE(8571,WTIT) From OBJDIV
+  Endif
+Endif
+TIT = WTIT
+Return
+
+#-------------------------------------------------------------#
+#Lecture                                                      #
+#-------------------------------------------------------------#
+$LIENS
+#------------------------------------#
+#lecture de la classe
+# Issue X3-134651 - 2019-04-09 by MAE : comment
+#WSHIPMENT = NewInstance C_SHIPMENT AllocGroup null
+#WSHIPMENT.SHIPNUM=[M:SHIP0]SHIPNUM
+#WRET = fmet WSHIPMENT.AREAD([M:SHIP0]SHIPNUM)
+#If WRET <> [V]CST_AOK
+#   Call GET_ERRORS(WSHIPMENT)
+#  If GOK=0 : Return : Endif
+#Endif
+# End issue X3-134651
+#MAE, landed cost 110325
+If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+  Call RAZSTCDW From STCLIB
+Endif
+Gosub LIENS From TABLEAUX
+Gosub LIENS_SCR
+
+
+# Issue 110325  - 2015-10-30 by MAE : landed cost
+If [M:SHIP0]SHIPTYP = 1 # Issue 114607
+  #----- Affichage entêtes de colonne variables -----#
+  Gosub AFF_TITCOL
+  Affzo [M:CSTS]0-99
+Endif   # Issue 114607
+Return
+
+$LIENS_SCR
+Local Char WCTRNUM (GLONVCR), LVCRNUM(GLONVCR)
+
+#--- Traitement des conditions de saisie
+Raz [M:PLCW] : # Effacement masque des critères de sélection
+# Issue 110325 - 2015-12-07 by MAE : Raz de WCTRNUM pour l'écran SHIP3
+Raz WCTRNUM
+If [M:SHIP0]SHIPTYP = 1 [M:SHIP3]NBCONT = 0 : Endif
+# Issue 110325 - 2015-10-15 by MAE : Modif sur PRCPFLG
+For I=0 To [M:SHIP1]NBLIG-1
+  # Issue 58081 - 2017-12-06 by MAE : init du GLOCALDEV
+  If I=0
+    [M:SHIP0]CHGCOE = [M:SHIP1]CHGCOE(I)
+    # Issue 58081 - 2017-12-06 by MAE : init du GLOCALDEV
+    Call GETDEV([M:SHIP1]POHFCY(I)) From DEVSUB
+  Else
+    If [M:SHIP0]CHGCOE <> [M:SHIP1]CHGCOE(I)
+      [M:SHIP0]CHGCOE = 0
+    Endif
+  Endif
+  # Issue X3-4746
+  If [M:SHIP1]RCPQTYSTU(I) = 0
+     [M:SHIP1]RECEIPT(I) = 1
+  Elsif [M:SHIP1]RCPQTYSTU(I) < [F:POQ]QTYSTU
+     [M:SHIP1]RECEIPT(I) = 2
+  Else
+     [M:SHIP1]RECEIPT(I) = 3
+  Endif
+  # end Issue X3-4746
+
+  # Issue 6079 - 2016-12-12 by MAE : ajout du statut expédié
+If [M:SHIP0]SHIPSTAT <> 1
+  If [M:SHIP1]SHIQTYSTU(I) = 0
+    [M:SHIP1]SHIPP(I) = 1
+  Elsif [M:SHIP1]SHIQTYSTU(I) < [F:POQ]QTYSTU
+    [M:SHIP1]SHIPP(I) = 2
+  Else
+    [M:SHIP1]SHIPP(I) = 3
+  Endif
+Else
+  [M:SHIP1]SHIPP(I) = 1
+Endif
+# end Issue X3-6079
+
+   If [M:SHIP0]SHIPTYP = 1   # Issue 114607
+    #remplissage du tableau des conteneurs
+     If [M:SHIP1]CTRNUM(I) <> WCTRNUM
+     #WCTRCLEFLG = 2
+      If [F:CTRH]CTRNUM <> [M:SHIP1]CTRNUM(I)
+        Read [CTRH]CTRH0=[M:SHIP1]CTRNUM(I)
+        If fstat Raz [F:CTRH]
+        Endif
+      Endif
+      If [F:CTRH]CTRNUM<>"" Gosub CHARG_CTRH Endif
+      WCTRNUM = [M:SHIP1]CTRNUM(I)
+    Endif
+   Endif # Issue 114607
+Next
+# Issue X3-57542 - 2017-09-27 by MAE :pb  sur désolde d'expé, trouvé pdt les tests du bug 57542
+If [M:SHIP0]SHIPSTAT = 5
+  [M:SHIP0]SHIPCLEFLG = 2
+Else
+  [M:SHIP0]SHIPCLEFLG = 1
+Endif
+# End issue X3-57542
+
+
+#lecture du transport
+#en pré-reception d'expé ou de commandes, ttes les infos du transpport st inaccessibles, sauf les dates
+If GPILNAV>1
+    # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONC1
+    If GNAVIG(GPILNAV-1) = "GESPPTS" | GFONC1 = "GESPPTS"  # Issue 114607
+      Diszo [M:SHIP2]25   # Issue X3-134651 - 2019-04-05 by MAE : dizso du bloc 25
+      Actzo [M:SHIP2]DPEDAT,ARVDAT,ARVEXPDAT
+      # Issue 118124 - 2016-08-23 by MAE : Code tiers inaccessible
+      Diszo [M:SHIP0]BPRNUM
+    # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+    Else If GNAVIG(GPILNAV-1) = "GESSHIP" | GFONC1 = "GESSHIP" # Issue 114607
+      If [M:SHIP2]TRNNUM <> ""
+        Diszo [M:SHIP2]25   # Issue X3-134651 - 2019-04-05 by MAE : dizso du bloc 25
+        Actzo [M:SHIP2]TRNNUM
+        Actzo [M:SHIP2]SHIPSLAG # Issue X3-134651 - 2019-04-05 by MAE : actzo du délai
+        # Issue 118124 - 2016-08-23 by MAE : Code tiers inaccessible
+        Diszo [M:SHIP0]BPRNUM
+      Else
+        If [M:SHIP0]SHIPSTAT = 3
+          Diszo [M:SHIP2]25
+          Actzo [M:SHIP2]ARVDAT
+        Elsif [M:SHIP0]SHIPSTAT = 5
+          Diszo [M:SHIP2]25
+        Else
+          Actzo [M:SHIP2]25 # Issue X3-134651 - 2019-04-05 by MAE : actzo du bloc 25
+        Endif
+        # Issue 118124 - 2016-08-23 by MAE : Code tiers accessible
+        Actzo [M:SHIP0]BPRNUM
+      Endif
+    Endif
+   Endif  # Issue 114607
+Endif
+If [M:SHIP0]SHIPTYP = 1  # Issue 114607
+  Gosub GRISAGE   # Issue X3-134651 - 2019-04-08 by MAE : pour le site
+  # Issue 111257
+  If [M:SHIP2]TRNNUM <> ""
+    Read [TRNP] TRNP0=[M:SHIP2]TRNNUM
+    If !fstat
+      [M:SHIP2] = [F:TRNP]
+      [M:SHIP0]BPRNUM = [F:TRNP]BPRNUM
+    Endif
+    Call LECTEXTRA([M:SHIP2]TRNDES,"TRANSPORT","DESAXX",[M:SHIP0]TRNNUM,"") From ATEXTRA
+  Endif
+  # Issue 111257 US 20
+  #affichage de l'onglet documents
+  LVCRTYP = 38
+  LVCRNUM = [F:SHD]SHIPNUM
+  Actzo [M:SHIPD]
+  nolign = 1
+  Filter[SHIPD] Where [F:SHIPD]VCRNUM = LVCRNUM & [F:SHIPD]VCRTYP = LVCRTYP
+  For [F:SHIPD]
+    [M:SHIPD] = [F:SHIPD]
+    nolign += 1
+  Next
+  [M:SHIPD]NBLIG = nolign - 1
+  Filter[SHIPD]
+  # End issue 111257 US 20
+  # Issue 111257 US 42
+  #affichage de l'onglet suivi
+  WNBLIG = 0 : WTRKCMP = 0
+  nolign = 1
+  Filter[SHIPT] Where [F:SHIPT]VCRNUM = [F:SHH]SHIPNUM & [F:SHIPT]VCRTYP = 38
+& Order By [F:SHIPT]TRKSORT Asc
+  For [SHIPT]
+    [M:SHIPT] = [F:SHIPT]
+    # Issue X3-134651 - 2019-04-10 by MAE : plus de classe
+    #[M:SHIPT]COLLIN(nolign-1) = fmet WSHIPMENT.SHIPT_GET_INDEX([F:SHIPT]STLIN)
+    [M:SHIPT]COLLIN(nolign-1)=find([F:SHIPT]STLIN, [M:SHIPT]STLIN(0..[M:SHIPT]NBLIGNE-1))
+    If [M:SHIPT]TRKMDY(nolign-1) = CST_AYES
+      WNBLIG += 1
+      If [M:SHIPT]TRKENDDAT(nolign-1) <> AVOID.ADATE
+        WTRKCMP += 1
+      Endif
+    Endif
+    nolign += 1
+  Next
+  If WTRKCMP = WNBLIG & WNBLIG <> 0
+    [M:SHIPT]TRKSTAT = 3
+  Else  [M:SHIPT]TRKSTAT = 1
+  Endif
+  [M:SHIPT]NBLIGNE = nolign - 1
+  # End issue 111257 US 42
+Endif
+
+# Remplissage des boites de picking et marquage des éléments déjà pické
+If dim(OBJLIS)>0 #Liens_scr est appelé depuis B2_NBCONT, OBJLIS n'est pas déclaré ds ce sous-pro
+  ILIS=val(right$(currbox,8))
+  Gosub REMP_LISGAU From GOBJSUB
+  WPICK=2 : Gosub ACTUALIS_MARQUAGE
+Endif
+If [M:SHIP0]SHIPTYP = 1  # Issue 114607
+  # Issue 110325 - 2015-11-03 by MAE : remplissage de l'onglet couts
+  If GFONCTION = "GESSHIP" & [M:SHIP0]CHGCOE <> 0
+    Call CSTDOC("SHIP1","POH3", [M:SHIP0]SHIPNUM, 38,[M:SHIP0]CHGCOE) From STCLIB
+  Endif
+Endif
+Affzo [M:SHIP0]
+Affzo [M:SHIP1]
+If [M:SHIP0]SHIPTYP = 1  # Issue 114607
+  Affzo [M:SHIP2]
+  Affzo [M:SHIP3]
+  For I=0 To [M:SHIPD]NBLIG
+    If [M:SHIPD]SDFILNAM(I) <> AVOID.ACHAR
+      [M:SHIPD]SDDOC(I) = "175"
+    Endif
+  Next
+  Affzo [M:SHIPD] # Issue 111257 US 20
+  Affzo [M:SHIPT] #111257 US 42
+Endif
+#GESTION DES CHAMPS DU TABLEAU
+Gosub GESSHIP
+Return
+#------------------------------------#
+#Gestion des champds de l'écran      #
+#------------------------------------#
+$GESSHIP
+If GPILNAV>1
+  # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONCTION
+  If GNAVIG(GPILNAV-1) = "GESSHIP" | GFONC1 = "GESSHIP"
+    If  [M:SHIP0]SHIPSTAT > 1 # Pour gérer la création
+      #pas acces à l'écran
+      Diszo[M:SHIP1]1-99
+    Elsif [M:SHIP1]CTRNUM(0)<>""
+      # Si ligne container : acces uniquement à la date de réception prévue
+      Actzo[M:SHIP1]1-99
+      Diszo[M:SHIP1]SHIQTY
+      Diszo[M:SHIP1]PRCPQTY
+      Diszo[M:SHIP1]QTYWEU
+      Diszo[M:SHIP1]QTYVOU
+      Diszo[M:SHIP1]PRCPFLG
+    Else
+      Actzo[M:SHIP1]1-99
+      Actzo[M:SHIP1]SHIQTY
+      Actzo[M:SHIP1]QTYWEU
+      Actzo[M:SHIP1]QTYVOU
+      Diszo[M:SHIP1]PRCPQTY
+      Diszo[M:SHIP1]PRCPFLG
+    Endif
+    # Issue 111257 US 33
+    If [M:SHIP2]TRNNUM <> ""
+      Diszo [M:SHIP2]SHIPSLAG
+    Else
+      Actzo [M:SHIP2]SHIPSLAG
+    Endif
+    # End issue 111257 US 33
+    # Issue 111257 US 70
+    Diszo[M:SHIP1]QTYEXPFLG
+    Diszo[M:SHIP1]PRCPREN
+  Else
+    If [M:SHIP0]SHIPSTAT = 5
+      #pas acces à l'écran
+      Diszo[M:SHIP1]1-99
+    Else
+      Actzo[M:SHIP1]1-99
+      Diszo[M:SHIP1]SHIQTY
+      Diszo[M:SHIP1]QTYWEU
+      Diszo[M:SHIP1]QTYVOU
+    Endif
+    # Issue 121685 - 2017-02-24 by MAE : Ajout de GFONC1
+    If GNAVIG(GPILNAV-1) = "GESPPTS" | GFONC1 = "GESPPTS"
+      Diszo[M:SHIPD]1-99
+      Diszo[M:SHIPT]1-99
+      Diszo[M:SHIP2]1-5
+    Endif
+  Endif
+Endif
+Return
+#------------------------------------#
+#Lecture des lignes                  #
+#------------------------------------#
+$LIENS_LIG
+#------------------------------------#
+#Attention, le transclasse entre la classe [F:POQ] et l'écran écrase le AUUID de l'écran. Les AM des champs ne fonctionnent plus ensuite.
+NOL = nolign-1
+I = nolign
+# Issue 110325 - 2015-10-15 by MAE : Modif sur PRCPFLG
+If [M:SHIP1]PRCPFLG(NOL) = 0
+  [M:SHIP1]PRCPFLG(NOL) = 1
+Endif
+#Lecture de la commande
+# Issue X3-134651 - 2019-04-10 by MAE : plus de WSHIPMENT
+#If WSHIPMENT.SHD(I)<>null and find(WSHIPMENT.SHD(I).ASTALIN,[V]CST_ADEL,[V]CST_ANEWDEL)<1
+  # MAE, landed cost, 110325
+  # Read porder table in order to fill the EECICT field
+  #Read [POH] POH0=WSHIPMENT.SHD(I).POHNUM
+  Read [POH] POH0=[F:SHD]POHNUM
+  If fstat Raz [F:POH] : Endif
+  Read [POQ] POQ0=[F:SHD]POHNUM;[F:SHD]POPLIN;[F:SHD]POQSEQ
+  If fstat Raz [F:POQ] : Endif
+  Read [POP] POP0=[F:SHD]POHNUM;[F:SHD]POPLIN;[F:SHD]POQSEQ
+  If fstat Raz [F:POP] : Endif
+  If [M:SHIP1]CTRNUM(NOL) <> AVOID.ACHAR
+    Read [CTRH]CTRH0=[F:SHD]CTRNUM
+    If fstat Raz [F:CTRH]
+    Else
+      [M:SHIP1]CTRUID(NOL) = [F:CTRH]CTRUID
+      [M:SHIP1]FULFLG(NOL) = [F:CTRH]FULFLG
+    Endif
+  Endif
+  [M:SHIP1]ITMREF(NOL) = [F:SHD]ITMREF
+  [M:SHIP1]LEGCPY(NOL) = [F:POQ]CPY
+  [M:SHIP1]LBPSNUM(NOL)=[F:POQ]BPSNUM
+  #plus necessaire, ajouter ds SHIPMENTD (table et classe)
+#  [M:SHIP1]POHFCY(NOL)=[F:POQ]POHFCY
+#MAE, 119360, ajout du site de reception
+  [M:SHIP1]PRHFCY(NOL)=[F:POQ]PRHFCY
+  # Issue 121704 - 2017-03-09 by MAE : Affectation de la classe avec le site de réception qui n'est pas dans la table des shipment
+  #WSHIPMENT.SHD(I).PRHFCY = [F:POQ]PRHFCY
+  [M:SHIP1]ITMDES(NOL)=[F:POP]ITMDES
+  [M:SHIP1]ITMDES1(NOL)=[F:POP]ITMDES1
+  # MAE, landed cost, 110325
+  [M:SHIP1]NETPRI(NOL)=[F:POP]NETPRI
+  [M:SHIP1]STCNUM(NOL) = [F:POQ]STCNUM
+  [M:SHIP1]CPRCOE(NOL) = [F:POQ]CPRCOE
+  #ASR COMP-51 ini.AUREN
+  [M:SHIP1]CPRCOE(NOL) = [F:SHD]CPRCOE
+  #ASR COMP-51 fin.AUREN
+  [M:SHIP1]CPRAMT(NOL) = [F:POQ]CPRAMT
+  [M:SHIP1]EECICT(NOL) = [F:POH]EECICT
+  [M:SHIP1]CHGCOE(NOL) = [F:POH]CHGCOE
+  [M:SHIP1]CHGTYP(NOL) = [F:POH]CHGTYP
+  [M:SHIP1]LINCSTPUR(NOL) = [F:POQ]LINCSTPUR
+  [M:SHIP1]LINTYP(NOL) = [F:POQ]LINTYP
+# End issue X3-134651
+#Endif
+
+Return
+#------------------------------------#
+#Affichage des colonnes onglet cout  #
+#------------------------------------#
+$AFF_TITCOL
+# Issue 84130 - 2013-01-24 by MUARN : landed cost
+If GFONCTION = "GESSHIP" & !GIMPORT
+  #Titcol [M:CSTS]NBCST mess(796,197,1) + " (" + GCUR + ")" For TOTDOC # MAE, pas necessaire : modifie le titre de l'onglet cout
+  Titcol [M:CSTS]NBCST mess(797,197,1) + " (" + GLOCALDEV + ")" For TOTSOC
+Endif
+
+Return
+
+#------------------------------------#
+#--- Get the errors                  #
+#------------------------------------#
+#Subprog GET_ERRORS(WSHIPMENT)
+#Variable Instance WSHIPMENT Using C_SHIPMENT
+#
+#Local Integer I
+#Local Char WTEXTE(50)
+##GMESSAGE = func SYRSTACKTOOLS.MSGSTACK_GET_FIRST_MAX_MESSAGE(WSHIPMENT)
+#GMESSAGE = func LCCLIB.MAXMSG(WSHIPMENT)
+# If GMESSAGE = AVOID.ACHAR | fmet WSHIPMENT.AGETMAXERROR("") < [V]CST_AERROR
+# #  --- LINES ERRORS
+#  For I=1 To maxtab(WSHIPMENT.SHD)
+#    GMESSAGE = func LCCLIB.MAXMSG(WSHIPMENT.SHD(I))
+#    If GMESSAGE <> AVOID.ACHAR
+#      Call TEXTE(54020, WTEXTE) From OBJDIV
+#      GMESSAGE = WTEXTE + " : " + GMESSAGE
+#      Break:  Endif
+#  Next I
+#  If GMESSAGE = AVOID.ACHAR | fmet WSHIPMENT.SHD.AGETMAXERROR("") < [V]CST_AERROR
+#    # Issue 111257 US 20
+#    #Erreurs des lignes de documents
+#    For I=1 To maxtab(WSHIPMENT.SHIPD)
+#      GMESSAGE = func LCCLIB.MAXMSG(WSHIPMENT.SHIPD(I))
+#      If GMESSAGE <> AVOID.ACHAR :   GOK=0 : GERR=1: Break
+#      Endif
+#    Next I
+#  Endif
+#    # End issue 111257 US 20
+#  # Issue 111257 US 42
+#  If GMESSAGE = AVOID.ACHAR | fmet WSHIPMENT.SHD.AGETMAXERROR("") < [V]CST_AERROR
+#    #Erreurs des lignes de step tracking
+#    For I=1 To maxtab(WSHIPMENT.SHIPT)
+#      GMESSAGE = func LCCLIB.MAXMSG(WSHIPMENT.SHIPT(I))
+#      If GMESSAGE <> AVOID.ACHAR :   GOK=0 : GERR=1: Break
+#      Endif
+#    Next I
+#  Endif
+#  # End issue 111257 US 42
+#Endif
+#
+#GOK=0 : GERR=1
+#
+#End
+#**
+#* Remplit une ligne de la collection SHD par une ligne du tableau écran
+#* @param WSHIPMENT : classe des shipments
+#* @param WPOS : Position dans la collection
+#* @param NOL : numéro de ligne du tableau
+#*!
+#Subprog FILL_CLASS(WSHIPMENT, WPOS, NOL)
+#Variable Instance WSHIPMENT Using C_SHIPMENT
+#Variable Integer WPOS
+#Variable Shortint NOL
+#If WPOS = 0 : End : Endif
+## Issue 49737 - 2017-09-04 by MAE : setinstance instead of filling fiel by field
+#SetInstanceNoSys WSHIPMENT.SHD(WPOS) With [M:SHIP1] 5
+#WSHIPMENT.SHD(WPOS).SHIPNUM = [M:SHIP0]SHIPNUM
+##WSHIPMENT.SHD(WPOS).SHIPLIN = [M:SHIP1]SHIPLIN(NOL)
+##WSHIPMENT.SHD(WPOS).POHNUM = [M:SHIP1]POHNUM(NOL)
+##WSHIPMENT.SHD(WPOS).POPLIN = [M:SHIP1]POPLIN(NOL)
+##WSHIPMENT.SHD(WPOS).POQSEQ = [M:SHIP1]POQSEQ(NOL)
+##WSHIPMENT.SHD(WPOS).CTRNUM = [M:SHIP1]CTRNUM(NOL)
+##WSHIPMENT.SHD(WPOS).CTRLIN = [M:SHIP1]CTRLIN(NOL)
+##WSHIPMENT.SHD(WPOS).CTRUID = [M:SHIP1]CTRUID(NOL)
+##WSHIPMENT.SHD(WPOS).ITMREF = [M:SHIP1]ITMREF(NOL)
+##WSHIPMENT.SHD(WPOS).SHIQTYPUU = [M:SHIP1]SHIQTYPUU(NOL)
+##WSHIPMENT.SHD(WPOS).SHIQTYSTU = [M:SHIP1]SHIQTYSTU(NOL)
+##WSHIPMENT.SHD(WPOS).SHIQTY = [M:SHIP1]SHIQTY(NOL)
+##WSHIPMENT.SHD(WPOS).PRCPQTYPUU = [M:SHIP1]PRCPQTYPUU(NOL)
+##WSHIPMENT.SHD(WPOS).PRCPQTYSTU = [M:SHIP1]PRCPQTYSTU(NOL)
+### Issue 111257 US 51
+##WSHIPMENT.SHD(WPOS).RCPQTYSTU = [M:SHIP1]RCPQTYSTU(NOL)
+### Issue 110325 - 2015-10-15 by MAE : Landed cost
+##WSHIPMENT.SHD(WPOS).CLEFLG = [M:SHIP1]CLEFLG(NOL)
+##WSHIPMENT.SHD(WPOS).PRCPFLG = [M:SHIP1]PRCPFLG(NOL)
+##WSHIPMENT.SHD(WPOS).PRCPQTY = [M:SHIP1]PRCPQTY(NOL)
+##WSHIPMENT.SHD(WPOS).STCNUM = [M:SHIP1]STCNUM(NOL)
+##WSHIPMENT.SHD(WPOS).FCSCSTPUR = [M:SHIP1]FCSCSTPUR(NOL)
+##WSHIPMENT.SHD(WPOS).FCSCPR = [M:SHIP1]FCSCPR(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT1 = [M:SHIP1]DISCRGAMT1(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT2 = [M:SHIP1]DISCRGAMT2(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT3 = [M:SHIP1]DISCRGAMT3(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT4 = [M:SHIP1]DISCRGAMT4(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT5 = [M:SHIP1]DISCRGAMT5(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT6 = [M:SHIP1]DISCRGAMT6(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT7 = [M:SHIP1]DISCRGAMT7(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT8 = [M:SHIP1]DISCRGAMT8(NOL)
+##WSHIPMENT.SHD(WPOS).DISCRGAMT9 = [M:SHIP1]DISCRGAMT9(NOL)
+##WSHIPMENT.SHD(WPOS).TAXRCP = [M:SHIP1]TAXRCP(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXLIN1 = [M:SHIP1]AMTTAXLIN1(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXLIN2 = [M:SHIP1]AMTTAXLIN2(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXLIN3 = [M:SHIP1]AMTTAXLIN3(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXISS = [M:SHIP1]AMTTAXISS(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXOTH1 = [M:SHIP1]AMTTAXOTH1(NOL)
+##WSHIPMENT.SHD(WPOS).AMTTAXOTH2 = [M:SHIP1]AMTTAXOTH2(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXLIN1 = [M:SHIP1]DEDTAXLIN1(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXLIN2 = [M:SHIP1]DEDTAXLIN2(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXLIN3 = [M:SHIP1]DEDTAXLIN3(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXRCP = [M:SHIP1]DEDTAXRCP(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXISS = [M:SHIP1]DEDTAXISS(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXOTH1 = [M:SHIP1]DEDTAXOTH1(NOL)
+##WSHIPMENT.SHD(WPOS).DEDTAXOTH2 = [M:SHIP1]DEDTAXOTH2(NOL)
+### End issue 110325
+##WSHIPMENT.SHD(WPOS).UOM = [M:SHIP1]UOM(NOL)
+##WSHIPMENT.SHD(WPOS).PUU = [M:SHIP1]PUU(NOL)
+##WSHIPMENT.SHD(WPOS).STU = [M:SHIP1]STU(NOL)
+##WSHIPMENT.SHD(WPOS).QTYWEU = [M:SHIP1]QTYWEU(NOL)
+##WSHIPMENT.SHD(WPOS).LINWEU = [M:SHIP1]LINWEU(NOL)
+##WSHIPMENT.SHD(WPOS).QTYVOU = [M:SHIP1]QTYVOU(NOL)
+##WSHIPMENT.SHD(WPOS).LINVOU = [M:SHIP1]LINVOU(NOL)
+##WSHIPMENT.SHD(WPOS).LINAMT = [M:SHIP1]LINAMT(NOL)
+##WSHIPMENT.SHD(WPOS).NETCUR = [M:SHIP1]NETCUR(NOL)
+##WSHIPMENT.SHD(WPOS).UOMPUUCOE = [M:SHIP1]UOMPUUCOE(NOL)
+##WSHIPMENT.SHD(WPOS).LEGCPY = [M:SHIP1]LEGCPY(NOL)
+##WSHIPMENT.SHD(WPOS).EXTRCPDAT = [M:SHIP1]EXTRCPDAT(NOL)
+##WSHIPMENT.SHD(WPOS).POHFCY = [M:SHIP1]POHFCY(NOL)
+### Issue 119360 - 2016-11-02 by MAE : Ajout du site de réception
+##WSHIPMENT.SHD(WPOS).PRHFCY = [M:SHIP1]PRHFCY(NOL)
+### Issue 111257 US70
+##WSHIPMENT.SHD(WPOS).QTYEXPFLG = [M:SHIP1]QTYEXPFLG(NOL)
+##WSHIPMENT.SHD(WPOS).PRCPREN = [M:SHIP1]PRCPREN(NOL)
+## End issue 49737
+#End
+
+#**
+#* Remplit une ligne du tableau écran avec une ligne de la collection SHD des shipments
+#* @param WSHIPMENT : classe des shipments
+#* @param NOL : numéro de ligne du tableau
+#* @param WPOS : Position dans la collection
+#*!
+#Subprog FILL_SCREEN(WSHIPMENT, NOL, WPOS)
+#Variable Instance WSHIPMENT Using C_SHIPMENT
+#Variable Shortint NOL
+#Variable Integer WPOS
+#If WPOS = 0 : End : Endif
+#[M:SHIP0]SHIPNUM = WSHIPMENT.SHD(WPOS).SHIPNUM
+## Issue 49737 - 2017-09-04 by MAE : setinstance instead of filling field by field
+#SetInstanceNoSys [M:SHIP1] 5 With WSHIPMENT.SHD(WPOS)
+##[M:SHIP1]SHIPLIN(NOL) = WSHIPMENT.SHD(WPOS).SHIPLIN
+##[M:SHIP1]POHNUM(NOL) = WSHIPMENT.SHD(WPOS).POHNUM
+##[M:SHIP1]POPLIN(NOL) = WSHIPMENT.SHD(WPOS).POPLIN
+##[M:SHIP1]POQSEQ(NOL) = WSHIPMENT.SHD(WPOS).POQSEQ
+##[M:SHIP1]CTRNUM(NOL) = WSHIPMENT.SHD(WPOS).CTRNUM
+##[M:SHIP1]CTRLIN(NOL) = WSHIPMENT.SHD(WPOS).CTRLIN
+##[M:SHIP1]CTRUID(NOL) = WSHIPMENT.SHD(WPOS).CTRUID
+##[M:SHIP1]ITMREF(NOL) = WSHIPMENT.SHD(WPOS).ITMREF
+##[M:SHIP1]SHIQTY(NOL) = WSHIPMENT.SHD(WPOS).SHIQTY
+##[M:SHIP1]PRCPQTY(NOL) = WSHIPMENT.SHD(WPOS).PRCPQTY
+##[M:SHIP1]UOM(NOL) = WSHIPMENT.SHD(WPOS).UOM
+##[M:SHIP1]SHIQTYPUU(NOL) = WSHIPMENT.SHD(WPOS).SHIQTYPUU
+##[M:SHIP1]PRCPQTYPUU(NOL) = WSHIPMENT.SHD(WPOS).PRCPQTYPUU
+##[M:SHIP1]PUU(NOL) = WSHIPMENT.SHD(WPOS).PUU
+##[M:SHIP1]SHIQTYSTU(NOL) = WSHIPMENT.SHD(WPOS).SHIQTYSTU
+##[M:SHIP1]PRCPQTYSTU(NOL)= WSHIPMENT.SHD(WPOS).PRCPQTYSTU
+### Issue 111257 US 51
+##[M:SHIP1]RCPQTYSTU(NOL)= WSHIPMENT.SHD(WPOS).RCPQTYSTU
+##[M:SHIP1]STU(NOL) = WSHIPMENT.SHD(WPOS).STU
+##[M:SHIP1]QTYWEU(NOL) = WSHIPMENT.SHD(WPOS).QTYWEU
+##[M:SHIP1]LINWEU(NOL) = WSHIPMENT.SHD(WPOS).LINWEU
+##[M:SHIP1]QTYVOU(NOL) = WSHIPMENT.SHD(WPOS).QTYVOU
+##[M:SHIP1]LINVOU(NOL) = WSHIPMENT.SHD(WPOS).LINVOU
+##[M:SHIP1]LINAMT(NOL) = WSHIPMENT.SHD(WPOS).LINAMT
+##[M:SHIP1]NETCUR(NOL) = WSHIPMENT.SHD(WPOS).NETCUR
+##[M:SHIP1]UOMPUUCOE(NOL) = WSHIPMENT.SHD(WPOS).UOMPUUCOE
+##[M:SHIP1]CLEFLG(NOL) = WSHIPMENT.SHD(WPOS).CLEFLG
+##[M:SHIP1]LEGCPY(NOL) = WSHIPMENT.SHD(WPOS).LEGCPY
+##[M:SHIP1]EXTRCPDAT(NOL) = WSHIPMENT.SHD(WPOS).EXTRCPDAT
+### Issue 110O325 - 2015-10-15 by MAE : Landed cost
+##[M:SHIP1]STCNUM(NOL) = WSHIPMENT.SHD(WPOS).STCNUM
+##[M:SHIP1]PRCPFLG(NOL) = WSHIPMENT.SHD(WPOS).PRCPFLG
+##[M:SHIP1]FCSCSTPUR(NOL) = WSHIPMENT.SHD(WPOS).FCSCSTPUR
+##[M:SHIP1]FCSCPR(NOL) = WSHIPMENT.SHD(WPOS).FCSCPR
+##[M:SHIP1]DISCRGAMT1(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT1
+##[M:SHIP1]DISCRGAMT2(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT2
+##[M:SHIP1]DISCRGAMT3(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT3
+##[M:SHIP1]DISCRGAMT4(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT4
+##[M:SHIP1]DISCRGAMT5(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT5
+##[M:SHIP1]DISCRGAMT6(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT6
+##[M:SHIP1]DISCRGAMT7(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT7
+##[M:SHIP1]DISCRGAMT8(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT8
+##[M:SHIP1]DISCRGAMT9(NOL) = WSHIPMENT.SHD(WPOS).DISCRGAMT9
+##[M:SHIP1]TAXRCP(NOL)   = WSHIPMENT.SHD(WPOS).TAXRCP
+##[M:SHIP1]AMTTAXLIN1(NOL) = WSHIPMENT.SHD(WPOS).AMTTAXLIN1
+##[M:SHIP1]AMTTAXLIN2(NOL) = WSHIPMENT.SHD(WPOS).AMTTAXLIN2
+##[M:SHIP1]AMTTAXLIN3(NOL) = WSHIPMENT.SHD(WPOS).AMTTAXLIN3
+##[M:SHIP1]AMTTAXISS(NOL)  = WSHIPMENT.SHD(WPOS).AMTTAXISS
+##[M:SHIP1]AMTTAXOTH1(NOL) = WSHIPMENT.SHD(WPOS).AMTTAXOTH1
+##[M:SHIP1]AMTTAXOTH2(NOL) = WSHIPMENT.SHD(WPOS).AMTTAXOTH2
+##[M:SHIP1]DEDTAXLIN1(NOL) = WSHIPMENT.SHD(WPOS).DEDTAXLIN1
+##[M:SHIP1]DEDTAXLIN2(NOL) = WSHIPMENT.SHD(WPOS).DEDTAXLIN2
+##[M:SHIP1]DEDTAXLIN3(NOL) = WSHIPMENT.SHD(WPOS).DEDTAXLIN3
+##[M:SHIP1]DEDTAXRCP(NOL)  = WSHIPMENT.SHD(WPOS).DEDTAXRCP
+##[M:SHIP1]DEDTAXISS(NOL)  = WSHIPMENT.SHD(WPOS).DEDTAXISS
+##[M:SHIP1]DEDTAXOTH1(NOL) = WSHIPMENT.SHD(WPOS).DEDTAXOTH1
+##[M:SHIP1]DEDTAXOTH2(NOL) = WSHIPMENT.SHD(WPOS).DEDTAXOTH2
+##[M:SHIP1]POHFCY(NOL) = WSHIPMENT.SHD(WPOS).POHFCY
+### Issue 119360 - 2016-11-02 by MAE : Ajout du site de réception
+##[M:SHIP1]PRHFCY(NOL) = WSHIPMENT.SHD(WPOS).PRHFCY
+### Issue 111257 US70
+##[M:SHIP1]QTYEXPFLG(NOL) = WSHIPMENT.SHD(WPOS).QTYEXPFLG
+##[M:SHIP1]PRCPREN(NOL) = WSHIPMENT.SHD(WPOS).PRCPREN
+## End issue 49737
+#
+#End
+#-------------------------------------------------------------#
+# Chargement dans l'écran des conteneurs                      #
+#-------------------------------------------------------------#
+$CHARG_CTRH
+Local Integer SAVNOLIGN
+# Issue 111256 US3
+#read TABCONTAINER class
+# Issue X3-134651 - 2019-04-10 by MAE : comment
+#Local Instance WTABCONTAINER Using C_TABCONTAINER
+#WTABCONTAINER = NewInstance C_TABCONTAINER AllocGroup null
+If !clalev([TCTR]) Local File TABCONTAINER[TCTR] : Endif
+# End issue 111256 US3
+#----
+# Ouverture de la ligne
+SAVNOLIGN = nolign
+nolign = [M:SHIP3]NBCONT
+Insa nolign,1,[M:SHIP3]NBCONT [M:SHIP3]NBCONT
+[M:SHIP3]NBCONT += 1
+nolign = [M:SHIP3]NBCONT
+status = 0
+# Issue 111256 US3
+# Issue X3-134651 - 2019-04-10 by MAE : Remplacement du AREAD de la classe par read
+#If fmet WTABCONTAINER.AREAD([F:CTRH]TCTRNUM) = [V]CST_AOK
+Read[TCTR]TCTR0=[F:CTRH]TCTRNUM
+If !fstat
+  [M:SHIP3]TCTRVOL(nolign-1) = [F:TCTR]TCTRVOL
+  # Issue 111256 US3
+  If [F:CTRH]TCTRNUM <> AVOID.ACHAR
+    [M:SHIP3]TCTRNUMCNT(nolign-1) = [F:CTRH]TCTRNUM
+    [M:SHIP3]DSPWEUCNT(nolign-1) = [F:CTRH]DSPWEU
+    [M:SHIP3]DSPVOUCNT(nolign-1) = [F:CTRH]DSPVOU
+  Endif
+Endif
+
+# End issue 111256 US3
+# Issue 111257 US 70
+#Par défaut le conteneur est soldé
+# Issue 44464 - 2017-06-21 by MAE : Par defaut le conteneur est pré réceptionné
+[M:SHIP3]PRCPFLG(nolign-1) = 1
+[M:SHIP3]CTRCLEFLG(nolign-1) = 2
+Filter [SHD] Where CTRNUM = [F:CTRH]CTRNUM
+For [SHD]
+  If [F:SHD]CLEFLG <> 2 : [M:SHIP3]CTRCLEFLG(nolign-1) = 1 : Endif
+  # Issue 44464
+  If [F:SHD]PRCPFLG = 2 :  [M:SHIP3]PRCPFLG(nolign-1) = 2  : Endif
+Next
+Filter [SHD]
+# end Issue 111257 US 70
+
+[M:SHIP3]=[F:CTRH]
+[M:SHIP3]CTRCRRWEI = [F:CTRH]CRRWEI
+nolign = SAVNOLIGN
+#FreeGroup WTABCONTAINER
+Return
+
+# Issue 111257 US 20
+#**
+#* Gére la création des lignes de l'onglet "Documents"
+#*!
+$MANAGE_DOCUMENTS
+#clean the collection
+Local Shortint I
+
+Delete[SHIPD] Where [F:SHIPD]VCRNUM = [M:SHIP0]SHIPNUM
+If fstat
+  GOK = 0 : Call FSTA("SHIPD") From GLOCK : Return
+Endif
+If WDEL = 0
+  For I=0 To [M:SHIPD]NBLIG - 1
+    nolign = I + 1
+    [M:SHIPD]SDLIN(I) = nolign
+    Call FILL_TABLE_DOC(I)
+    Write [F:SHIPD]
+    If fstat
+      GOK = 0 : Call FSTA("SHIPD") From GLOCK : Break
+    Endif
+  Next
+Endif
+If (GOK = 0) : Return : Endif
+Return
+
+#**
+#* gere la modification des lignes de l'onglet "documents"
+#*!
+#$MODIF_DOCUMENTS
+#Local Integer I, INDEX
+#Local Shortint NOL,WENDL, WBEGL
+#For I = 0 To [M:SHIPD]NBLIG - 1
+#  nolign = I + 1
+#  NOL = nolign-1
+#  # Retrieve the element using the screen's AUUID
+#  If [M:SHIPD]AUUID(I)<>""
+#    INDEX = find(toUuid([M:SHIPD]AUUID(I)), WSHIPMENT.SHIPD(1..maxtab(WSHIPMENT.SHIPD)).AUUID)
+#  Else
+#    INDEX=0
+#  Endif
+#  If (INDEX = 0)
+#    # We did not find the element matching with the array line.
+#    # We add a line.
+#    INDEX = fmet WSHIPMENT.ADDLINE("SHIPD", [V]CST_ALASTPOS)
+#    If (INDEX = [V]CST_ANOTDEFINED)
+#        #--The insertion was not possible
+#        GMESSAGE = func ASYRFNC.MES2(mess(266,133,1),'SHIPD','SHIPMENT')
+#        GOK = 0 : GERR = 1
+#        Break
+#    Endif
+#    #GESTION DU NUMÉRO DE LIGNE
+#    #on ne peut pas utiliser LINNUM de Tableaux, car il modifie tous les nums de ligne
+#    #insertion en première ligne, debut = 0
+#    If NOL-1<=0
+#      WBEGL = 0
+#    Else
+#      WBEGL = NOL-1
+#    Endif
+#    #insertion en derniére ligne
+#    If [M:SHIPD]SDLIN(NOL+1) = 0
+#      [M:SHIPD]SDLIN(NOL) = [M:SHIPD]SDLIN(WBEGL) + 1000
+#      Goto NEXTL
+#    Else
+#      WENDL = NOL+1
+#    Endif
+#    [M:SHIPD]SDLIN(NOL) = [M:SHIPD]SDLIN(WBEGL) + int(([M:SHIPD]SDLIN(WENDL) - [M:SHIPD]SDLIN(WBEGL))/2)
+#  Endif
+#$NEXTL
+#  Call FILL_CLASS_DOC(WSHIPMENT,INDEX,NOL)
+#Next
+#
+#If (GERR = 1) : Return : Endif
+#
+## NOW, ALL ELEMENTS THAT DON't have the status Updated or Created must be deleted, because it means they don'T MATCH With LINES IN THE ARRAY
+#For I=1 To maxtab(WSHIPMENT.SHIPD)
+#  If !(find(WSHIPMENT.SHIPD(I).ASTALIN, [V]CST_ANEW, [V]CST_AUPD))
+#&   and      num$(WSHIPMENT.SHIPD(I).AUUID)<>""
+#&   and find(num$(WSHIPMENT.SHIPD(I).AUUID),[M:SHIPD]AUUID(0..[M:SHIPD]NBLIG-1))=0
+#    If (fmet WSHIPMENT.ADELLINE("SHIPD", WSHIPMENT.SHIPD(I).AORDER) <> [V]CST_AOK)
+#      #--The insertion was not possible
+#      GMESSAGE = func ASYRFNC.MES2(mess(273,133,1),'SHIPD','SHIPMENT')
+#      GOK = 0 : GERR = 1
+#      Break
+#    Endif
+#  Endif
+#Next
+#If (GERR = 1) : Return : Endif
+#Return
+
+##**
+##* Remplit une ligne de la collection SHD par une ligne du tableau écran
+##* @param WSHIPMENT : classe des expéditions
+##* @param WPOS : Position dans la collection
+##* @param NOL : numéro de ligne du tableau
+##*!
+Subprog FILL_TABLE_DOC(NOL)
+Variable Shortint NOL
+
+[F:SHIPD]VCRNUM = [M:SHIP0]SHIPNUM
+[F:SHIPD]VCRTYP = 38
+[F:SHIPD]SDLIN = [M:SHIPD]SDLIN(NOL)
+[F:SHIPD]SDTYPE = [M:SHIPD]SDTYPE(NOL)
+[F:SHIPD]SDORI = [M:SHIPD]SDORI(NOL)
+[F:SHIPD]SDDATE = [M:SHIPD]SDDATE(NOL)
+[F:SHIPD]SDREF1 = [M:SHIPD]SDREF1(NOL)
+[F:SHIPD]SDREF2 = [M:SHIPD]SDREF2(NOL)
+[F:SHIPD]SDBP = [M:SHIPD]SDBP(NOL)
+[F:SHIPD]SDNTYP = [M:SHIPD]SDNTYP(NOL)
+[F:SHIPD]SDFILNAM = [M:SHIPD]SDFILNAM(NOL)
+[F:SHIPD]SDCMT = [M:SHIPD]SDCMT(NOL)
+# End issue 49737
+
+End
+
+#**
+#* Remplit une ligne du tableau de l'écran SHIPD avec une ligne de la collection SHIPD
+#* @param WSHIPMENT : classe des expéditions
+#* @param NOL : numéro de ligne du tableau
+#* @param WPOS : Position dans la collection
+#*!
+#Subprog FILL_SCREEN_DOC(NOL)
+#Variable Shortint NOL
+#[M:SHIPD]SDLIN(NOL) = [F:SHIPD]SDLIN
+#[M:SHIPD]SDTYPE(NOL) = [F:SHIPD]SDTYPE
+#[M:SHIPD]SDORI(NOL) = [F:SHIPD]SDORI
+#[M:SHIPD]SDDATE(NOL) = [F:SHIPD]SDDATE
+#[M:SHIPD]SDREF1(NOL) =[F:SHIPD]SDREF1
+#[M:SHIPD]SDREF2(NOL) =[F:SHIPD]SDREF2
+#[M:SHIPD]SDBP(NOL) = [F:SHIPD]SDBP
+#[M:SHIPD]SDNTYP(NOL) = [F:SHIPD]SDNTYP
+#[M:SHIPD]SDFILNAM(NOL) = [F:SHIPD]SDFILNAM
+#[M:SHIPD]SDCMT(NOL) = [F:SHIPD]SDCMT
+#[M:SHIPD]AUUID(NOL) = [F:SHIPD]AUUID
+## End issue 49737
+#End
+
+#**
+#* Remplit l'onglet "Documents" à partir de la classe avec les documents du transport ou de l'expédition
+#* Attention, il faut faire l'affzo de l'écran aprés l'appel
+#*!
+#A supprimer
+#Subprog LEC_DOC()
+#Local Integer I
+#Local Shortint NOL
+#If [M:SHIP2]TRNNUM <> AVOID.ACHAR
+##si transport : l'écran est rempli a partir de la classe F pour ne pas enregistrer
+# Filter [SHIPD] Where VCRNUM = [M:SHIP2]TRNNUM and VCRTYP = 39
+#  For [SHIPD]
+#    # Ouverture de la ligne
+#    nolign = [M:SHIPD]NBLIG
+#    Insa nolign,1,[M:SHIPD]NBLIG [M:SHIPD]NBLIG
+#    [M:SHIPD]NBLIG += 1
+#    nolign = [M:SHIPD]NBLIG
+#    NOL = nolign-1
+#    status = 0
+#    [M:SHIPD]=[F:SHIPD]
+#  Next
+# Filter [SHIPD]
+# Raz WSHIPMENT.SHIPD
+#Else
+#  #sinon, l'écran est rempli de la collection SHIPD pour pouvoir enregistrer les modifs
+#  For I=1 To maxtab(WSHIPMENT.SHIPD)
+#    If (WSHIPMENT.SHIPD(I) <> null and find(WSHIPMENT.SHIPD(I).ASTALIN, [V]CST_ADEL, [V]CST_ANEWDEL) = 0)
+#       # Ouverture de la ligne
+#      nolign = [M:SHIPD]NBLIG
+#      Insa nolign,1,[M:SHIPD]NBLIG [M:SHIPD]NBLIG
+#      [M:SHIPD]NBLIG += 1
+#      nolign = [M:SHIPD]NBLIG
+#      NOL = nolign-1
+#      status = 0
+# #     Call FILL_SCREEN_DOC(WSHIPMENT,NOL,I)
+#  Endif
+#Next
+#Endif
+#End
+# End issue 111257 US 20
+# Issue 111256 US3- 2016-03-30 by MAE : comment
+#------------------------------------#
+#--- Calcul the header totals        #
+#------------------------------------#
+$CALCUL_TOTAUX
+#------------------------------------#
+#--- Using another instance for not modify the principal
+Local Instance WSHIPMENT2 Using C_SHIPMENT
+Local Integer WPOS, WRET
+Local Decimal WLINAMT,WDECIMAL
+Local Char SAVCTRNUM (GLONTCTR)
+Local Shortint NOL
+
+[M:SHIP2]AVAVOL=0
+[M:SHIP2]CRRWEI=0
+[M:SHIP2]CRRVOL=0
+[M:SHIP2]AVAWEI=0
+
+For I=0 To [M:SHIP1]NBLIG-1
+  NOL = I
+  # Issue X3-57542 - 2017-09-27 by MAE : affectation du nolign
+  nolign = NOL +1
+  # Issue X3-134651 - 2019-04-10 by MAE : a la place de la classe, on utilise [M:SHIP1]
+  If [M:SHIP1]CTRNUM(I) <> SAVCTRNUM &[M:SHIP1]CTRNUM(I)<> AVOID.ACHAR
+    TYPCALC = 1
+    Gosub CALC_TOTAUX
+    SAVCTRNUM = [M:SHIP1]CTRNUM(I)
+  Elsif [M:SHIP1]CTRNUM(I)  = AVOID.ACHAR     #calcul des totaux pour les commandes
+    TYPCALC = 2
+    Gosub CALC_TOTAUX
+  Endif
+Next I
+
+#calcul du poids disponible : poids max - poids total des lignes
+[M:SHIP2]AVAWEI = [M:SHIP2]MAXWEI - [M:SHIP2]CRRWEI
+If [M:SHIP2]AVAWEI <0 [M:SHIP2]AVAWEI = 0 Endif
+#calcul du volume disponible
+[M:SHIP2]AVAVOL = [M:SHIP2]MAXVOL - [M:SHIP2]CRRVOL
+If [M:SHIP2]AVAVOL <0 [M:SHIP2]AVAVOL = 0 Endif
+
+Affzo [M:SHIP2]AVAVOL,CRRWEI,CRRVOL,AVAWEI
+Return
+# End issue 111256 US3
+
+$STATUT
+If (BOUT="3" | BOUT="4" | BOUT="5") & mkstat=4 & REP=""
+  REP = "M"
+Endif
+Return
+#------------------------------------------------------------------------#
+#--- Step tracking screen SHIPT                                          #
+#------------------------------------------------------------------------#
+# Issue 111257 US 42
+#**
+#* gere la modification des lignes de l'onglet "Suivi"
+#*!
+#$MODIF_TRACKING
+#Local Integer I, INDEX
+#Local Shortint NOL, WENDL, WBEGL
+#
+#For I = 0 To [M:SHIPT]NBLIGNE - 1
+#  nolign = I + 1
+#  NOL = nolign-1
+#  # Retrieve the element using the screen's AUUID
+#  If [M:SHIPT]AUUID(I)<>""
+#    INDEX = find(toUuid([M:SHIPT]AUUID(I)), WSHIPMENT.SHIPT(1..maxtab(WSHIPMENT.SHIPT)).AUUID)
+#  Else
+#    INDEX=0
+#  Endif
+#  Call FILL_CLASS_TRACK(WSHIPMENT,INDEX,NOL)
+#Next
+## Now, all elements that don't have the status Updated or Created must be deleted, because it means they don't match with lines in the array
+#For I=1 To maxtab(WSHIPMENT.SHIPT)
+#  # Issue 53822 - 2017-10-06 by MAE : Suppression du CST_ANEW
+#  #If WSHIPMENT.SHIPT(I)<>null & !(find(WSHIPMENT.SHIPT(I).ASTALIN, [V]CST_ANEW,[V]CST_ADEL, [V]CST_ANEWDEL ))
+#  If WSHIPMENT.SHIPT(I)<>null & !(find(WSHIPMENT.SHIPT(I).ASTALIN, [V]CST_ADEL, [V]CST_ANEWDEL ))
+#&   and      num$(WSHIPMENT.SHIPT(I).AUUID)<>""
+#&   and find(num$(WSHIPMENT.SHIPT(I).AUUID),[M:SHIPT]AUUID(0..[M:SHIPT]NBLIGNE-1))=0
+#    If (fmet WSHIPMENT.ADELLINE("SHIPT", WSHIPMENT.SHIPT(I).AORDER) <> [V]CST_AOK)
+#      #--The insertion was not possible
+#      GMESSAGE = func ASYRFNC.MES2(mess(273,133,1),'SHIPT','SHIPMENT')
+#      GOK = 0 : GERR = 1
+#      Break
+#    Endif
+#  Endif
+#Next
+#Return
+#-------------------------------------------------------------#
+$MANAGE_TRACKING
+Local Shortint I
+Delete[SHIPT] Where [F:SHIPT]VCRNUM = [M:SHIP0]SHIPNUM
+If fstat
+  GOK = 0 : Call FSTA("SHIPT") From GLOCK : Return
+Endif
+If WDEL = 0
+  For I=0 To [M:SHIPT]NBLIGNE - 1
+    nolign = I + 1
+    [M:SHIPT]STLIN(I) = nolign * 10
+    [M:SHIPT]TRKSORT(I) = nolign * 10
+    If [M:SHIPT]TRKDEPLIN(I) <> AVOID.ADEC & [M:SHIPT]TRKDEPCOD(I)<>AVOID.ACHAR
+    WPOSITION = instr(1,[M:SHIPT]TRKDEPCOD(I),"/")
+    WTRKCOD = left$([M:SHIPT]TRKDEPCOD(I),WPOSITION-1)
+    WIND = find(WTRKCOD, [M:SHIPT]TRKCOD(0..[M:SHIPT]NBLIGNE-1))
+    If WIND <> 0
+      WTRKSORT_NEW   = [M:SHIPT]TRKSORT(WIND-1)
+      WTRKDEPCOD = [M:SHIPT]TRKDEPCOD(I)
+      WPOSITION = instr(1,[M:SHIPT]TRKDEPCOD(I),"/")
+      If WPOSITION > 0
+        WTRKCOD = left$([M:SHIPT]TRKDEPCOD(I),WPOSITION-1)
+        WTRKSORT_CUR = val(right$([M:SHIPT]TRKDEPCOD(I),WPOSITION +1))
+      Endif
+      If WTRKSORT_CUR <> WTRKSORT_NEW
+        [M:SHIPT]TRKDEPCOD(I) = WTRKCOD +"/"+num$(WTRKSORT_NEW)
+      Endif
+    Endif
+Endif
+    Call FILL_TABLE_TRACK(I)
+    Write [F:SHIPT]
+    If fstat
+      GOK = 0 : Call FSTA("SHIPT") From GLOCK : Break
+    Endif
+  Next
+Endif
+If (GOK = 0) : Return : Endif
+Return
+#**
+#* Remplit une ligne de la collection SHIPT par une ligne du tableau écran
+#* @param WSHIPMENT : classe des transports
+#* @param WPOS : Position dans la collection
+#* @param NOL : numéro de ligne du tableau
+#*!
+# Issue X3-134651 - 2019-04-25 by MAE : remplacement de la classe par la table
+Subprog FILL_TABLE_TRACK(NOL)
+Variable Shortint NOL
+
+[F:SHIPT]VCRNUM = [M:SHIP0]SHIPNUM
+[F:SHIPT]VCRTYP = 38
+[F:SHIPT]STLIN = [M:SHIPT]STLIN(NOL)
+[F:SHIPT]TRKSORT = [M:SHIPT]TRKSORT(NOL)
+[F:SHIPT]TRKDEPLIN = [M:SHIPT]TRKDEPLIN(NOL)
+#[F:SHIPT]TRKNUM = [M:SHIPT]TRKNUM
+[F:SHIPT]TRKCOD = [M:SHIPT]TRKCOD(NOL)
+[F:SHIPT]TRKPLNDAT = [M:SHIPT]TRKPLNDAT(NOL)
+[F:SHIPT]TRKENDDAT = [M:SHIPT]TRKENDDAT(NOL)
+[F:SHIPT]TRKMDY = [M:SHIPT]TRKMDY(NOL)
+[F:SHIPT]TRKDEPCOD = [M:SHIPT]TRKDEPCOD(NOL)
+[F:SHIPT]TRKCMT = [M:SHIPT]TRKCMT(NOL)
+[F:SHIPT]TRKUSR = [M:SHIPT]TRKUSR(NOL)
+[F:SHIPT]TRKLIGSTAT = [M:SHIPT]TRKLIGSTAT(NOL)
+# End issue 49737
+End
+#--------------------------------------------------------------------------------
+#################################################################################
+# Issue X3-134651 - 2019-04-05 by MAE : Déplacé de SHIPMENT_CMET : CTR_SHIPMENT
+$VERIF_CRE
+Local Integer TYPCALC
+Local Char WCPYLIN(GLONCPY)
+Local Char WTEXTE(50)
+Local Integer WLTI, WSHIPMGTOK, WCTRNUM
+Local Char SAVCTRNUM (GLONVCR)    # Issue 111256 US3
+Local Integer WNBRECEPT,WNBPRECEPT,WNBCREE, LVCRTYP,WNBSOLDE  # Issue 15350
+WSHIPMGTOK = 0
+#déplacé de $AINSERT_OR_UPDATE_CONTROL_BEFORE du SHIPMENT_CMET
+# 1- Controle qu'une ligne a été saisie
+If [M:SHIP1]NBLIG = 0
+    GMESSAGE = mess(17,106,1)
+    OK = 0: Return
+  Endif
+#2 - unités de poids et unités de volume obligatoires si on est pas en pré-réception de commandes
+If [M:SHIP2]DSPWEU = AVOID.ACHAR & [M:SHIP0]SHIPTYP = 1
+  GMESSAGE= mess(169,192,1)
+  OK = 0: Return
+Endif
+If [M:SHIP2]DSPVOU = AVOID.ACHAR & [M:SHIP0]SHIPTYP = 1
+  GMESSAGE = mess(628,199,1)
+  OK = 0: Return
+Endif
+# Issue X3-1343651 - 2019-04-08 by MAE : Déplacé depuis CTR_CAPACITY
+#1 - number of container filled : TCTRNUM msut be filled
+If [M:SHIP2]SHIPNBCTR <> 0 & [M:SHIP2]TCTRNUM = AVOID.ACHAR
+  Call TEXTE(52437, WTEXTE) From OBJDIV
+  GMESSAGE = WTEXTE + mess(10,123,1)
+  OK = 0: Return
+Endif
+# End issue X3-134651:Déplacé depuis CTR_CAPACITY
+
+#controle sur les dates et lieux
+# 1 - DATES : SI Date D'arrivée renseignée : date de départ obligatoire, date d'ARRIVÉE SUP À Date DE DÉPART ET INF À Date DU JOUR
+  If [M:SHIP2]ARVDAT <> AVOID.ADATE
+    If [M:SHIP2]DPEDAT = AVOID.ADATE
+      GEMESSAGE = mess(521,194,1) + " : " + mess(10,123,1)
+      OK = 0: Return
+    Endif
+    If [M:SHIP2]ARVDAT < [M:SHIP2]DPEDAT | [M:SHIP2]ARVDAT > date$
+      GMESSAGE = mess(536,194,1)
+      OK = 0: Return
+    Endif
+  Endif
+
+  If [M:SHIP2]ARVEXPDAT <> AVOID.ADATE & [M:SHIP2]ARVEXPDAT < [M:SHIP2]DPEDAT
+    GMESSAGE = mess(538,194,1)
+    OK=0 : Return
+  Endif
+
+  # 2 - Lieux : si lieu de départ renseigné : lieu d'arrivée renseigné (et inversement) et différent
+  If [M:SHIP2]DPETPC <> AVOID.ACHAR
+    If [M:SHIP2]ARVTPC <> AVOID.ACHAR
+      If [M:SHIP2]ARVTPC = [M:SHIP2]DPETPC
+        GMESSAGE = mess(626,199,1)
+        OK =0 : Return
+      Endif
+    Else
+      Call TEXTE(53837, WTEXTE) From OBJDIV
+      GMESSAGE = WTEXTE + mess(10,123,1)
+      OK=0:Return
+    Endif
+  Endif
+
+[M:SHIP2]CRRWEI = 0
+[M:SHIP2]CRRVOL = 0
+WCTRNUM = 0
+# End issue 111256 US3
+WNBRECEPT=0:WNBPRECEPT=0:WNBCREE=0:WNBSOLDE=0  # Issue 15350 - 2016-12-07 by MAE
+For I=0 To [M:SHIP1]NBLIG-1
+  # 3 - Tous les sites des lignes de commande doivent faire partie de la même sté juridique
+    If [M:SHIP1]LEGCPY(I) <> AVOID.ACHAR & WCPYLIN = AVOID.ACHAR
+      WCPYLIN = [M:SHIP1]LEGCPY(I)
+    Endif
+    If WCPYLIN <> AVOID.ACHAR & [M:SHIP1]LEGCPY(I) <> AVOID.ACHAR & WCPYLIN <> [M:SHIP1]LEGCPY(I)
+      GMESSAGE= mess(485,194,1)
+      OK = 0
+      Break
+    Endif
+    #4 - La qté ne peut pas être nulle si expédition
+    If [M:SHIP0]SHIPTYP = 1
+      If [M:SHIP1]SHIQTY(I) = AVOID.ADEC
+        Call TEXTE(29285, WTEXTE) From OBJDIV
+        GMESSAGE = WTEXTE + mess(10,123,1)
+        OK = 0
+        Break
+      Endif
+    Endif
+    #4.2 - If container : chek that order and qty are OK
+    If [M:SHIP1]CTRNUM(I)<> AVOID.ACHAR
+      If WCTRNUM = 2  #si une ligne est par commande => erreur
+        GMESSAGE = mess(570,194,1)
+        OK = 0
+        Break
+      Endif
+      WCTRNUM = 1 #par conteneur
+      If !clalev ([F:CTRD]) Local File CONTAINERD [CTRD] : Endif
+      Read [CTRD] CTRD2=[M:SHIP1]CTRNUM(I);[M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
+      If fstat <> 0
+        WMESSAGE = func AFNC.MES2(mess(567,194,1), mess(16,535,1), mess(10,159,1))
+        GMESSAGE = WMESSAGE : OK =0:  Break
+      Elsif [F:CTRD]QTYUOM <> [M:SHIP1]SHIQTY(I)
+        WMESSAGE = func AFNC.MES2(mess(567,194,1), mess(16,535,1), mess(163,154,1))
+        MESSAGE = WMESSAGE : OK =0:  Break
+      Endif
+    Else
+      If WCTRNUM = 1  #si une ligne par conteneur => erreur
+        GMESSAGE = mess(570,194,1)
+        OK =0:  Break
+      Endif
+      WCTRNUM = 2 #par commande
+    Endif
+    # Issue 111256 US3
+    #5- is all lines are in container
+    If [M:SHIP2]TCTRNUM <> AVOID.ACHAR & [M:SHIP1]CTRNUM(I) = AVOID.ACHAR
+      GMESSAGE = mess(554,194,1)
+      OK = 0 : Break
+    Endif
+    # Issue 111257 US 33
+    #7- update the expected receipt date with the expected arrival date
+    # Issue 119360 - 2016-11-03 by MAE : site de réception à la place du site de la commande
+    If [M:SHIP1]PRHFCY(I) <> AVOID.ACHAR & (([M:SHIP2]ARVEXPDAT <> [F:SHH]ARVEXPDAT | [M:SHIP2]ARVDAT<>[F:SHH]ARVDAT))
+      # Issue 119360 - 2016-11-03 by MAE : site de réception à la place du site de la commande
+      Call CAL_LEADTIME(2, [M:SHIP2]ARVTPC, [M:SHIP1]PRHFCY(I), "", 6, WLTI) From STCLIB
+        If [M:SHIP2]ARVDAT <> AVOID.ADATE
+          [M:SHIP1]EXTRCPDAT(I) = [M:SHIP2]ARVDAT + WLTI
+          [M:SHIP1]UPDFLG(I)=1
+        Elsif [M:SHIP2]ARVEXPDAT <> AVOID.ADATE
+          [M:SHIP1]EXTRCPDAT(I) = [M:SHIP2]ARVEXPDAT + WLTI
+          [M:SHIP1]UPDFLG(I)=1
+        Endif
+    Endif
+    # End issue 111257 US 33
+    # Issue 111256 US3
+    If [M:SHIP1]CTRNUM(I) <> SAVCTRNUM & [M:SHIP1]CTRNUM(I)<> AVOID.ACHAR
+      #6- is that all container types are equal to that of the header ?
+      If [M:SHIP2]TCTRNUM <> AVOID.ACHAR
+        #read CONTAINER class
+        Read [CTRH]CTRH0 = [M:SHIP1]CTRNUM(I)
+          If [M:SHIP2]TCTRNUM <> [F:CTRH]TCTRNUM
+            GMESSAGE = mess(553,194,1)
+            OK= 0 : Break
+          Endif
+      Endif
+      TYPCALC = 1
+      Gosub CALC_TOTAUX #(1)  #calcul des totaux pour les conteneurs
+      SAVCTRNUM =  [M:SHIP1]CTRNUM(I)
+    Elsif [M:SHIP1]CTRNUM(I)  = AVOID.ACHAR     #calcul des totaux pour les commandes
+      TYPCALC = 2
+      Gosub CALC_TOTAUX #(2)
+    Endif
+    # End issue 111256 US3
+     # Issue 111256 US3
+    #1 - remplissage de la zone SHIMGT
+    If WSHIPMGTOK =  0
+      If [M:SHIP2]TCTRNUM <> ""   #Mono-container
+        [M:SHIP2]SHIPMGT = 3 : WSHIPMGTOK = 1
+      Elsif [M:SHIP1]CTRNUM(I) <> ""  #Multi-container
+        [M:SHIP2]SHIPMGT = 2 : WSHIPMGTOK = 1
+      Else
+        [M:SHIP2]SHIPMGT = 1  : WSHIPMGTOK = 1  #lignes de commandes
+      Endif
+    Endif
+    # Issue 15350 - 2016-12-01 by MAE : calcul du statut de l'expé
+    If ([M:SHIP1]CLEFLG(I) = 2)
+      WNBSOLDE += 1
+    Elsif ([M:SHIP1]RCPQTYPUU(I)=[M:SHIP1]SHIQTYPUU(I)) #receptionné
+      WNBRECEPT += 1
+    Elsif ([M:SHIP1]PRCPFLG(I)=2)  #pre receptionné
+      WNBPRECEPT += 1
+    Else
+      WNBCREE += 1
+    Endif
+Next I
+
+# Issue 15350 - 2016-12-01 by MAE : Affectation du statut
+If WNBCREE > 0 & [M:SHIP0]SHIPFLG<>2 : [M:SHIP0]SHIPSTAT = 1
+Elsif WNBCREE > 0 & [M:SHIP0]SHIPFLG=2 : [M:SHIP0]SHIPSTAT = 2
+Elsif WNBPRECEPT > 0 : [M:SHIP0]SHIPSTAT = 3
+Elsif WNBRECEPT > 0 : [M:SHIP0]SHIPSTAT = 4
+Elsif WNBSOLDE >0 : [M:SHIP0]SHIPSTAT = 5
+Endif
+
+#8- calculation of available weight
+[M:SHIP2]AVAWEI = [M:SHIP2]MAXWEI - [M:SHIP2]CRRWEI
+If [M:SHIP2]AVAWEI<0 : [M:SHIP2]AVAWEI=0 : Endif
+
+#9- calculation of available volume
+[M:SHIP2]AVAVOL = [M:SHIP2]MAXVOL - [M:SHIP2]CRRVOL
+If [M:SHIP2]AVAVOL<0 : [M:SHIP2]AVAVOL=0 : Endif
+#10- calculation of total delay
+[M:SHIP2]SHIPLAG += [M:SHIP2]SHIPSLAG
+[M:SHIP2]SHIPSLAG = 0
+# End issue X3-134651 : fin $CTR_SHIPMENT
+
+# Issue X3-134651 - 2019-04-11 by MAE : déplacé depuis SHIPTRACK_CSTD
+Local Integer WPOSITION
+Local Integer WTRKSORT_CUR,  WTRKSORT_NEW
+Local Char WTRKCOD(20)
+
+Return
+#################################################################################
+#--------------------------------------------------------------------------------
+#################################################################################
+# Issue X3-134651 - 2019-04-05 by MAE : Déplacé de SHIPMENT_CMET : $ADELETE_CONTROL_AFTER
+$VERF_ANU
+If [M:SHIP0]SHIPSTAT <> 1 & [M:SHIP0]SHIPSTAT <> 2
+  GMESSAGE = mess(54,123,1) + " : " + mess(502,194,1)
+  OK = 0 : Return
+Endif
+Local Integer I
+For I=0 To [M:SHIP1]NBLIG
+If [M:SHIP1]RCPQTYSTU(I) <> 0
+  GMESSAGE = mess(54,123,1) + " : " + mess(502,194,1)
+  OK = 0 : Break
+Endif
+Next
+
+Return
+
+
+#######################################################################################
+# Issue X3-134651 - 2019-04-05 by MAE : déplacé de _CALC_TOTAUX du SHIPMENTD_CMET
+$CALC_TOTAUX
+Local Decimal WQTYWEU, WQTYVOU
+Local Integer WSTAT
+If TYPCALC = 1       #calcul par conteneur
+  If !clalev ([F:CTRH]) Local File CONTAINER [CTRH]    : Endif
+  If !clalev ([F:TCTR]) Local File TABCONTAINER [TCTR] : Endif
+  Read[CTRH]CTRH0=[M:SHIP1]CTRNUM(I)
+    If !fstat
+      WQTYWEU = [F:CTRH]CRRWEI
+      Call CONVERT_QTY([F:CTRH]DSPWEU,[M:SHIP2]DSPWEU,WQTYWEU)From TRTX3
+      [M:SHIP2]CRRWEI += WQTYWEU
+      Read[TCTR]TCTR0=[F:CTRH]TCTRNUM
+      If !fstat
+        WQTYVOU = [F:TCTR]TCTRVOL
+        Call CONVERT_QTY([F:TCTR]VOU,[M:SHIP2]DSPVOU,WQTYVOU)From TRTX3
+        [M:SHIP2]CRRVOL += WQTYVOU
+      Endif
+    Endif
+Else                  #calcul par somme des lignes de PO
+ #conversion du poids
+  WQTYWEU = [M:SHIP1]QTYWEU(I)
+  Call CONVERT_QTY([M:SHIP1]LINWEU(I),[M:SHIP2]DSPWEU,WQTYWEU)From TRTX3
+  [M:SHIP2]CRRWEI += WQTYWEU
+  #conversion du volume
+  WQTYVOU = [M:SHIP1]QTYVOU(I)
+  Call CONVERT_QTY([M:SHIP1]LINVOU(I),[M:SHIP2]DSPVOU,WQTYVOU)From TRTX3
+  [M:SHIP2]CRRVOL += WQTYVOU
+Endif
+Return

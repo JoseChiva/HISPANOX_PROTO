@@ -1,0 +1,324 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#FILTRO EXTERNO
+#WVALORSHH - Documento seleccionado
+#WVALORSRH - Documento seleccionado
+#WFILTERSHH - Filtro a aplicar SHH
+#WFILTERSRH - Filtro a aplicar SRH
+
+Call ZSGARORPTH("") From ZSGARORPTH
+
+End
+
+
+Subprog ZSGARORPTH(WVALORPTH)
+Value Char WVALORPTH
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULT(250)
+Local Char WTIPOMENSAJE(250), WSHIPNUM(250), WTIPOOPER(1), FICH2(250)
+Local Char WZSGATMP(250), WSGADEFINITIVO(250)
+Local Integer LNGTH, LONG, I, WSEQ, WSUPPLIER, WABRIRFICHERO, WPREREPEXP, WPREREPPED, WDEVCLIENT, NFICH2
+Raz LNGTH
+Raz I
+
+If !clalev([F:ZPTH]) : Local File PRECEIPT    [ZPTH] : Endif
+If !clalev([F:ZPTD]) : Local File PRECEIPTD   [ZPTD] : Endif
+If !clalev([F:ZSTJ]) : Local File STOJOU      [ZSTJ] : Endif
+If !clalev([F:ZITM]) : Local File ITMMASTER   [ZITM] : Endif
+If !clalev([F:ZPOH]) : Local File PORDER      [ZPOH] : Endif
+If !clalev([F:ZSTJ]) : Local File STOJOU      [ZSTJ] : Endif
+
+If !clalev([F:ZPTH2]) : Local File PRECEIPT    [ZPTH2] : Endif
+If !clalev([F:ZPTD2]) : Local File PRECEIPTD   [ZPTD2] : Endif
+
+
+
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+
+WABRIRFICHERO=1
+If WABRIRFICHERO=1
+  Gosub ABRIRFICHERO
+Endif
+
+WNDENTRO=1
+WPTHNUM=''
+
+#FILTRO EXTERNO
+#WVALORSHH - Documento seleccionado
+#WVALORSRH - Documento seleccionado
+#WFILTERSHH - Filtro a aplicar SHH
+#WFILTERSRH - Filtro a aplicar SRH
+
+WFILTERPTH='1=1'
+WTRAZA=1
+
+If WVALORPTH<>''
+  If GTRACE=''
+    WTRAZA=2
+    Call OUVRE_TRACE('Recep:'+WVALORPTH) From LECFIC
+  Else
+    Call ECR_TRACE('Recep:'+WVALORPTH,0) From GESECRAN
+  Endif
+  WFILTERPTH+=' & PTHNUM=WVALORPTH'
+Endif
+  For [ZPTH] Where evalue(WFILTERPTH)
+
+    WPTHNUM=[F:ZPTH]PTHNUM
+    WTIPOMENSAJE=''
+    Filter [ZPTD] Where PTHNUM=[F:ZPTH]PTHNUM and (ZEXPORT=1 or ZEXPORT=0)
+    For [ZPTD]
+      WTIPOMENSAJE='CREATE'
+      WNDENTRO=2
+      Gosub CREAHTML_CABPTH
+      Break
+      Filter
+    Next
+
+    Filter [ZPTD] Where PTHNUM=[F:ZPTH]PTHNUM and ZEXPORT=3
+    WTIPOMENSAJE='UPDATE'
+    For [ZPTD]
+      Gosub CREAHTML_CABPTH
+      WNDENTRO=2
+      Break
+      Filter
+    Next
+  Next
+
+If WABRIRFICHERO=2
+  AA=func PUT_PROPXML('/ReceiptOrders','',0,1)
+  Openo Using [ZECO]
+
+  If WNDENTRO<>2
+    ORDSYS = "ae_rm " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml"
+    Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+    Call ECR_TRACE(CNOMBREFILE+'.xml - No Generado - No hay documentos ROR - Recepcion',1) From GESECRAN
+  Else
+    Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+  Endif
+Endif
+
+If WNDENTRO=2
+  Gosub MUEVE_FILE
+Endif
+If WVALORPTH<>'' or WTRAZA=2
+  Call FERME_TRACE From LECFIC
+Endif
+End
+
+$CREAHTML_CABPTH
+  For [ZPTH2] Where PTHNUM=WPTHNUM
+   AA=func PUT_PROPXML('ReceiptOrder ignoreNull="false"','',1,1)
+     #ReceiptOrder ----------------------------------------------------------
+       If WTIPOMENSAJE='CREATE'
+        WTIPOOPER='C'
+       Else
+        WTIPOOPER='S'
+       Endif
+       AA=func PUT_PROPXML('Operation',WTIPOOPER, 2,2)
+       AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+       #RorCode
+        AA=func PUT_PROPXML('RorCode',[F:ZPTH2]PTHNUM,2,2)
+       #RorType
+       WSUBCONTRATACION=1
+       Filter [ZPTD2] Where ITMKND=2 and PTHNUM=[F:ZPTH2]PTHNUM
+       For [ZPTD2]
+        WSUBCONTRATACION=2
+       Next
+       Filter [ZPTD2]
+       Read [ZPTD2]PTD0=[F:ZPTH2]PTHNUM
+       Read [ZPOH]POH0=[F:ZPTD2]POHNUM
+       If WSUBCONTRATACION=2
+        AA=func PUT_PROPXML('RorType','Supplier',2,2)
+       Else
+        AA=func PUT_PROPXML('RorType','Return',2,2)
+       Endif
+       #SupplierCode
+       If WSUBCONTRATACION=2 # Articulo Subcontratacion
+         WSUPPLIERCODE=[F:ZPOH]BPSNUM
+         WRECEIVINGCLASSCODE='Devolucion Sub.'
+       Else
+         WSUPPLIERCODE=''
+         WRECEIVINGCLASSCODE=''
+       Endif
+        AA=func PUT_PROPXML('SupplierCode',WSUPPLIERCODE,2,2)
+       #AccountCode
+        AA=func PUT_PROPXML('AccountCode','',2,2)
+       #ReceivingClassCode
+        AA=func PUT_PROPXML('ReceivingClassCode',WRECEIVINGCLASSCODE,2,2)
+
+        Gosub LINEAPTH
+
+      AA=func PUT_PROPXML('/Lines','',2,1)
+      #Lines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  AA=func PUT_PROPXML('/ReceiptOrder','',1,1)
+  Next
+Return
+
+$LINEAPTH
+       #Lines --------------------------------------------------------------------------------
+       AA=func PUT_PROPXML('Lines transactional="true" complete="false"','',2,1)
+         #Line --------------------------------------------------------------------------------
+
+        Case WTIPOMENSAJE
+            When 'CREATE' : Filter [ZPTD2] Where PTHNUM=[F:ZPTH]PTHNUM and (ZEXPORT=0 or ZEXPORT=1) and ITMKND<>2
+            When 'UPDATE' : Filter [ZPTD2] Where PTHNUM=[F:ZPTH]PTHNUM and ZEXPORT=3 and ITMKND<>2
+         Endcase
+
+         For [ZPTD2]
+             Call ECR_TRACE("Recep: "+[F:ZPTD2]PTHNUM+' '+num$([F:ZPTD2]PTDLIN)+' '+[F:ZPTD2]ITMREF,0) From GESECRAN
+             AA=func PUT_PROPXML('Line','',3,1)
+              #Operation
+              If WTIPOMENSAJE='CREATE'
+               WTIPOOPER='C'
+              Else
+               WTIPOOPER='S'
+              Endif
+              AA=func PUT_PROPXML('Operation',WTIPOOPER,4,2)
+             #LneNumber
+              AA=func PUT_PROPXML('LneNumber',num$([F:ZPTD2]PTDLIN),4,2)
+             #LneItemCode
+              AA=func PUT_PROPXML('LneItemCode',[F:ZPTD2]ITMREF,4,2)
+             #LneOwnerCode
+             AA=func PUT_PROPXML('LneOwnerCode','OWN_HISPANOX',4,2)
+             #LneStockStatus
+             Filter [ZSTJ] Where VCRNUM=[F:ZPTH2]PTHNUM and ITMREF=[F:ZPTD2]ITMREF
+             Read [ZSTJ] First
+             If !fstat
+              WLNESTOCKSTATUS=[F:ZSTJ]STA
+             Else
+               WLNESTOCKSTATUS='Q'
+             Endif
+              AA=func PUT_PROPXML('LneStockStatus',WLNESTOCKSTATUS ,4,2)
+             #LneQuantity --------------------------------------------------------------------------------
+             AA=func PUT_PROPXML('LneQuantity','',4,1)
+              #LneQtyExpected
+              If 1=1 #[F:ZSHH]SHIPTYP=1
+                AA=func PUT_PROPXML('LneQtyExpected',num$([F:ZPTD2]QTYUOM),5,2)
+              Else
+                AA=func PUT_PROPXML('LneQtyExpected',num$([F:ZPTD2]QTYUOM),5,2)
+                #AA=func PUT_PROPXML('LneQtyExpected',num$([F:ZSHD]PRCPQTY),5,2)
+              Endif
+               #LneQtyFree
+                AA=func PUT_PROPXML('LneQtyFree','0',5,2)
+               #LneQtyUoMCode
+                AA=func PUT_PROPXML('LneQtyUoMCode',[F:ZPTD2]UOM,5,2)
+            AA=func PUT_PROPXML('/LneQuantity','',4,1)
+            #LneQuantity +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            #LneAttributes --------------------------------------------------------------------------------
+            AA=func PUT_PROPXML('LneAttributes','',4,1)
+#               #LneAttSource
+#               If WSUPPLIER
+#                Read [F:ZSTJ]STJ1=[F:ZSHH]FCY;[F:ZSHH]SHIPTYP;[F:ZSHD]SHIPNUM;[F:ZSHD]SHIPLIN
+#                AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#               Else
+#                Read [F:ZSTJ]STJ1=[F:ZSRH]STOFCY;[F:ZSRD]SRHNUM;[F:ZSRD]VDRLIN
+#                AA=func PUT_PROPXML('LneAttSource',[F:ZSTJ]LOT,5,2)
+#               Endif
+               #LneAttWeight
+                AA=func PUT_PROPXML('LneAttWeight',num$(arr([F:ZPTD2]QTYWEU,0.001)),5,2)
+            AA=func PUT_PROPXML('/LneAttributes','',4,1)
+            #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            #LneCustomAttributes --------------------------------------------------------------------------------
+            AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+               #LneCstAtt01
+                AA=func PUT_PROPXML('LneCstAtt01',[F:ZPTD2]ZPALET,5,2)
+               #LneCstAtt02
+                WLNECSTATT02=''
+                WLNECSTATT05=''
+                Filter [ZSTJ] Where VCRNUM=[F:ZPTD2]PTHNUM and VCRLIN=[F:ZPTD2]PTDLIN and ITMREF=[F:ZPTD2]ITMREF
+                Read [ZSTJ] First
+                If !fstat
+                  WLNECSTATT02=[F:ZSTJ]BPSLOT
+                  WLNECSTATT05=[F:ZSTJ]LOT
+                  If WLNECSTATT02<>''
+                   AA=func PUT_PROPXML('LneCstAtt02',WLNECSTATT02,5,2)
+                  Endif
+                  If WLNECSTATT05<>''
+                   AA=func PUT_PROPXML('LneCstAtt05',WLNECSTATT05,5,2)
+                  Endif
+                Endif
+            AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+            #LneCustomAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            AA=func PUT_PROPXML('/Line','',3,1)
+        #Line ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        [F:ZPTD2]ZEXPORT=2
+        Rewrite [F:ZPTD2]
+      Next
+Return
+
+
+$ABRIRFICHERO
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+
+WSEQ=1
+CNOMBREFILE='ROR01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium 0                                         Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('ReceiptOrders xmlns="urn:wms-schema"','',0,1)
+  WABRIRFICHERO=2
+Return
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

@@ -1,0 +1,133 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara PQH1 (Especifico)
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla PQH1) 20/02/2020 16:17:50 (ADMIN)
+######################################################################################
+$ACTION
+#Infbox ACTION
+Case ACTION
+ When "EXEBOUT" :    Gosub EXEBOUT
+ When "SETBOUT" :    Gosub SETBOUT
+ When "CREATION":    Gosub CREATION
+ When "MODIF"   :    Gosub MODIF
+ When Default
+Endcase
+Return
+
+
+
+$CREATION
+Gosub ACTION From SUBPQH
+GPE = 1
+Gosub ZCREMODFOU
+Return
+
+$MODIF
+Gosub ACTION From SUBPQH
+GPE = 1
+Gosub ZCREMODFOU
+Return
+
+######################################################################################
+$EXEBOUT
+  If BOUT = 'z'
+
+      If clalev([F:ZPPD])=0: Local File ZPRESPD [ZPPD]: Endif
+      If clalev([F:ZPPH])=0: Local File ZPRESP [ZPPH]: Endif
+      Local Char WFICHERO(100),NOMBREFICHERO(50)
+      #For X = 0 To [M:PQH1]NBFOU -1
+
+          NOMBREFICHERO = [M:PQH1]PQHNUM
+          WFICHERO = filpath("SOLICITUDES",NOMBREFICHERO,"csv")
+
+          Openo WFICHERO,0                 Using [ORI]
+          Iomode adxirs chr$(13)+chr$(10) Using [ORI]
+          Iomode adxifs ";"               Using [ORI]
+          Iomode adxium  60               Using [ORI]
+          #Cabecera
+#          Filter [F:ZPPH] Where PQHNUM = [M:PQH1]PQHNUM(X) and BPSNUM = [M:PQH1]BPSNUM(X)
+#         Sustituir esto por cabcera de modelo real con campos vacios
+          Wrseq "Artículo" + ";" + "Notas" + ";" + "Num.Sol.Oferta" + ";" + "Linea" + ";" +"Cod.Proveedor"
+&         +";" + "F.Respuesta" + ";" + "Fin Validez" + ";" + "Ctd. min" + ";" + "Ctd. Ofer"+ ";"
+&         + "Plazo" + ";" + "Divisa" + ";" + "Precio" + ";" + "Unidad" + ";"
+&         + "Divisor precio" + ";" +"Arancel"+";"+"Descripción" Using [ORI]
+
+#         Filter [F:ZPPD] Where PQHNUM = [M:PQH1]PQHNUM(X) and BPSNUM =[M:PQH1]BPSNUM(X)
+          Local Integer CONTADORLIN
+          CONTADORLIN = 1000
+          For Z= 0 To [M:PQH1]NBLIG -1
+
+              Wrseq [M:PQH1]ITMREF(Z) + ";"+";"+[M:PQH1]PQHNUM+ ";" + num$(CONTADORLIN) + ";" +
+&             ""+ ";" + ";"+ ";"+ ";"+ ";"+ ";"+ ";"+ ";"+";"+";"+ ";" Using [ORI]
+              CONTADORLIN += 1000
+          Next
+          Openo  Using [ORI]
+
+     #Next
+     Call MESSAGE("Ficheros Generados")From GESECRAN #informacion
+  Endif
+Return
+######################################################################################
+$SETBOUT
+If GREP = "" Then
+  CHMEN += "z"                             #activamos el botón de "envio remesas"
+Else
+  Call VIREBOUT(CHAINE,"z") From GOBJET    #desactivamos el botón
+Endif
+
+
+Return
+
+
+$ZCREMODFOU
+If !clalev([F:ZPQF])  Local File PQUOTATF[ZPQF] : Endif
+For I=0 To [M:PQH1]NBFOU-1
+  Read [F:ZPQF]PQF0 = [M:PQH1]PQHNUM;[M:PQH1]BPSNUM(I)
+  If !fstat
+    [F:ZPQF]ZCPRCOE = [M:PQH1]ZCPRCOE(I)
+    Rewrite [F:ZPQF]
+  Endif
+Next
+
+Return
+
+######################################################################################
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If !clalev([F:ITM1])   : Local File ITMMASTER[ITM1]    : Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  [M:PQH1]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+  Affzo [M:PQH1]ZITMDES2(nolign-1)
+  If [F:ITM1]ZPALENT = 2 Then
+    [M:PQH1]ZPALENT(nolign-1) = 2
+  Else
+    [M:PQH1]ZPALENT(nolign-1) = 1
+  Endif
+  Affzo [M:PQH1]ZPALENT
+Endif
+
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla PQH1) 30/09/2021 21:30:50 (ADMIN)
+######################################################################################
+Subprog AM_BPSNUM(VALEUR)
+Variable Char    VALEUR()
+If !clalev([F:ZBPS])   : Local File BPSUPPLIER[ZBPS]    : Endif
+Read [F:ZBPS]BPS0 = VALEUR
+If !fstat
+  [M:PQH1]ZCPRCOE(nolign-1) = [F:ZBPS]ZCPRCOE
+  If [F:ZBPS]ZCPRCOE = 0 : [M:PQH1]ZCPRCOE(nolign-1) = 1 Endif
+  Affzo [M:PQH1]ZCPRCOE(nolign-1)
+Endif
+End
+
+
+######################################################################################

@@ -1,0 +1,149 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Supervisor
+# Mask management SIH1 
+
+$_AFF
+If GIMPORT
+ Gosub AFF From GSAISIE
+Else
+ If GMESSAGE <>""
+  Gosub ERR From GSAISIE
+ Else
+  Raz GERR , GZNUM
+ Endif
+Endif
+Return
+
+$ON_BETCPY
+Onevent INIT_AREA Call D_BETCPY(zc) From W2SIH1
+Return
+
+Subprog D_BETCPY(VALEUR)
+Variable Integer VALEUR
+If varinit([M]BETCPY,indice)=0
+ VALEUR = 1
+Endif
+Gosub _AFF
+End
+
+$ON_BETFCY
+Onevent INIT_AREA Call D_BETFCY(zc) From W2SIH1
+Return
+
+Subprog D_BETFCY(VALEUR)
+Variable Integer VALEUR
+If varinit([M]BETFCY,indice)=0
+ VALEUR = 1
+Endif
+Gosub _AFF
+End
+
+$ON_ORIFCY
+Return
+
+$ON_DPEDAT
+Onevent CONTROL Call C_DPEDAT(zc) From W2SIH1
+Onevent AFTER_CHANGE Gosub AMM_DPEDAT From W2SIH1
+Onevent BEFORE_AREA Gosub AV_DPEDAT From W2SIH1
+Return
+
+$AV_DPEDAT
+Chgfmt [M]DPEDAT(indice) With "DZ:"+GFMDAT
+Gosub _AFF
+Return
+
+Subprog C_DPEDAT(VALEUR)
+Variable Date    VALEUR
+## Action STD
+Call C_DPEDAT(VALEUR) From SUBSIH
+If mkstat : GERR = 1 : GZONE = "DPEDAT" : GZNUM = 52763 : Endif
+Gosub _AFF
+End
+
+$AMM_DPEDAT
+Call AM_DPEDAT(zc)
+If !mkstat & GOBJET
+ zoncou = "DPEDAT" : Gosub APRES_MODIF From =GPROGRAMME
+Endif
+Return
+
+Subprog AM_DPEDAT(VALEUR)
+Variable Date    VALEUR
+## Action STD
+Call AM_DPEDAT(VALEUR) From SUBSIH
+If mkstat : GERR = 1 : GZONE = "DPEDAT" : GZNUM = 52763 : Endif
+Gosub _AFF
+End
+
+$ON_ETD
+Onevent CONTROL Call C_ETD(zc) From W2SIH1
+Onevent AFTER_AREA Call AP_ETD(zc) From W2SIH1
+Return
+
+Subprog C_ETD(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action CONTHM
+ Call CONTHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETD" : GZNUM = 13423 : Endif
+Endif
+Gosub _AFF
+End
+
+Subprog AP_ETD(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action INIHM
+ Call INIHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETD" : GZNUM = 13423 : Endif
+Endif
+Gosub _AFF
+End
+
+$ON_ARVDAT
+Onevent CONTROL Call C_ARVDAT(zc) From W2SIH1
+Onevent BEFORE_AREA Gosub AV_ARVDAT From W2SIH1
+Return
+
+$AV_ARVDAT
+Chgfmt [M]ARVDAT(indice) With "DZ:"+GFMDAT
+Gosub _AFF
+Return
+
+Subprog C_ARVDAT(VALEUR)
+Variable Date    VALEUR
+## Action STD
+Call C_ARVDAT(VALEUR) From SUBSIH
+If mkstat : GERR = 1 : GZONE = "ARVDAT" : GZNUM = 52762 : Endif
+Gosub _AFF
+End
+
+$ON_ETA
+Onevent CONTROL Call C_ETA(zc) From W2SIH1
+Onevent AFTER_AREA Call AP_ETA(zc) From W2SIH1
+Return
+
+Subprog C_ETA(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action CONTHM
+ Call CONTHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETA" : GZNUM = 13424 : Endif
+Endif
+Gosub _AFF
+End
+
+Subprog AP_ETA(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action INIHM
+ Call INIHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETA" : GZNUM = 13424 : Endif
+Endif
+Gosub _AFF
+End
+
+$CHG_STY
+Return
+
+

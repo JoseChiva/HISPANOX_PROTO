@@ -1,0 +1,166 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+######################################
+$ACTION
+#Infbox ACTION
+Case ACTION
+ When "INIT"     : Gosub INIT
+ When "DEBUT"    : Gosub DEBUT
+ When "CONTROLE" : Gosub CONTROLE
+ When "EXEC"     : Gosub EXEC
+Endcase
+Return
+##########################################
+$INIT
+  If !clalev([F:ZITM]): Local File ITMMASTER[ZITM]: Endif
+  If !clalev([F:ZBPS]): Local File BPSUPPLIER[ZBPS]: Endif
+  Local Mask ZIMPRESP [ZIMR]
+Return
+
+$DEBUT
+  Gosub GRISE_ORG
+Return
+
+$CONTROLE
+Return
+
+$EXEC
+  Local Char WFICHERO(250),WFICHEROIMP(250)
+  Local Char FICCLI(250),FICHEROORI(250)
+  Local Char FICSRV(250): FICSRV=filpath("BQT","ZCONTRAMARCA","TXT")
+  Local Integer STAT,CONT
+  Local Char    DATOS(255)(50)
+  Local Integer ZLIN : ZLIN = 1000
+  Case [M]TYPORG
+   When 1
+      Call SET_NAMCLI(FICCLI) From ORDSYS
+      Call COPSRV(FICCLI,FICSRV,STAT) From ORDSYS
+   When 2
+      Call COPIE([M]FICORG,FICSRV,STAT) From ORDSYS
+  Endcase
+  If STAT
+   Call ERREUR(mess(12,139,1)) From GESECRAN : # Copie non réalisée
+   End
+  Endif
+
+  CONT = 1
+  WFICHERO =  filpath("BQT","ZCONTRAMARCA","TXT")
+  If filinfo(WFICHERO,1) <0 :Return Endif
+
+  Openi WFICHERO                  Using [ORI]
+  Iomode adxirs chr$(13)+chr$(10) Using [ORI]
+  Iomode adxifs ";"               Using [ORI]
+  Iomode adxium  60               Using [ORI]
+
+  WFICHEROIMP = filpath("TXT","Import_respuesta_"+num$(adxuid(1)),"TXT")
+  Openo WFICHEROIMP,0              Using [ORX]
+  Iomode adxirs chr$(13)+chr$(10) Using [ORX]
+  Iomode adxifs "|"               Using [ORX]
+  Iomode adxium  60               Using [ORX]
+
+  Repeat
+    Rdseq DATOS Using [ORI]
+    If DATOS(0) <> ""
+      If CONT = 1 #cabecera y lineas
+        CONT = 0
+        Gosub CABECERA
+        Gosub LINEAS
+      Else #lineas
+        Gosub LINEAS
+      Endif
+     Endif
+  Until DATOS(0) = ""
+
+  Openi Using [ORI]
+  Openo Using [ORX]
+  I= Delfile (filpath("BQT","ZCONTRAMARCA","TXT"))
+  Call OUVRE_TRACE("Importación respuesta de Proveedor"-[L]WFICHEROIMP) From LECFIC
+  Call IMPORTSIL("ZPPH", [L]WFICHEROIMP) From GIMPOBJ
+  Call LEC_TRACE From LECFIC
+  Call FERME_TRACE From LECFIC
+
+
+Return
+
+$CABECERA
+ Read [F:ZBPS]BPS0 = [M:ZIMR]BPSNUM
+ Wrseq "H";            Using [ORX]
+ Wrseq [M:ZIMR]PQHNUM;       Using [ORX] #PQHNUM
+ Wrseq [M:ZIMR]BPSNUM;       Using [ORX] #PROVEEDOR
+ Wrseq "";             Using [ORX] #NUMRESP
+ Wrseq "PHISP";        Using [ORX] #PLanta
+ Wrseq format$("YYYYMMDD",date$);       Using [ORX] #FECHA RESPUESTA ¿introducida por proveedor? o fecha de importación?
+ Wrseq format$("YYYYMMDD",date$+30);    Using [ORX]
+ Wrseq "60";         Using [ORX] #PLazo
+ #Wrseq "EUR";               Using [ORX] #DIVISA (no obligatorio, se informa en lineas)
+ If [F:ZBPS]ZUNPRE = ""
+  Wrseq "CEN"; Using [ORX]
+ Else
+  Wrseq [F:ZBPS]ZUNPRE;        Using [ORX] #DIVISOR PRECIO de el proveedor?
+ Endif
+ #Wrseq "";               Using [ORX] #ARANCEL, se infoforma en lineas o se arrastra de proveedor?
+ Wrseq ""                Using [ORX] #Nuevo descuent, se infoforma en lineas pero no lo pongo a falta de aclarar lo del boton que quieren para descuentos
+ #Wrseq "";               Using [ORX] #ARANCEL, se infoforma en lineas
+ #Wrseq "";               Using [ORX] #INCOTERM, ¿Viene del Proveedor?
+ #Wrseq ""                Using [ORX] #MODO de entrega, ¿Viene del proveedor?
+
+Return
+
+$LINEAS
+ DATOS(2) = ctrans(DATOS(2),",",".")
+ DATOS(3) = ctrans(DATOS(3),",",".")
+
+ Filter [F:ZITM] Where [F:ZITM]EANCOD = DATOS(0)
+ Read [F:ZITM] First
+ Wrseq "D";                 Using [ORX]
+ Wrseq ZLIN;            Using [ORX] #PPDLIN linea
+ Wrseq [F:ZITM]ITMREF;            Using [ORX] #ITMREF
+ Wrseq "";            Using [ORX] #Notas
+ Wrseq "";            Using [ORX] #MINQTY cantidad minima
+ Wrseq DATOS(1);            Using [ORX] #OFERQTY Cantidad ofertada
+ #Wrseq "";                  Using [ORX] #PUU ¿Hay que informarlo? se arrastra de solicitud
+ Wrseq val(DATOS(2));           Using [ORX] #PRECIO PROVEEDOR
+ If [F:ZBPS]ZUNPRE = ""
+  Wrseq "CEN"; Using [ORX]
+ Else
+  Wrseq [F:ZBPS]ZUNPRE;        Using [ORX] #DIVISOR PRECIO de el proveedor?
+ Endif
+ #Wrseq DATOS(10);           Using [ORX] #DIVISA ¿se trae del proveedor o fichero?
+ Wrseq 60;            Using [ORX] #PLAZO
+ Wrseq format$("YYYYMMDD",date$);       Using [ORX] #FECHA RESPUESTA ¿introducida por proveedor?  o fecha de importación?
+ Wrseq format$("YYYYMMDD",date$+30);    Using [ORX]
+ Wrseq val(DATOS(3))                Using [ORX]
+ ZLIN+=1000
+Return
+# Gestión de la máscara ZIMPRESP (Especifico)
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZIMPRESP) 22/07/2020 09:29:21 (ADMIN)
+######################################################################################
+Subprog AM_TYPORG(VALEUR)
+Variable Integer VALEUR
+[M]TYPORG = VALEUR
+Gosub GRISE_ORG
+End
+
+Subprog C_FICORG(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog C_FICORG2(VALEUR)
+Variable Char    VALEUR()
+  Gosub ENUM_VOLFIL_TYPE  From ASYRSTO
+  mkstat = func ASYRSTO.CTL_VOLFIL([M]TYPORG, VALEUR,[M]FICORG,E_TYPE_FILEREAD,GMESSAGE)
+End
+
+
+######################################################################################
+
+$GRISE_ORG
+Affzo [M]TYPORG
+Case [M]TYPORG
+ When 2
+  Actzo [M]FICORG2
+ When Default
+  [M]FICORG = "" : Affzo  [M]FICORG2 : Grizo  [M]FICORG2
+Endcase
+Return

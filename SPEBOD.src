@@ -1,0 +1,20 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#MRR01 - 29/09/2020 - Ficheros intranet
+$ACTION
+
+Case ACTION
+  When "APRES_CRE": Gosub APRES_MOD
+  When "APRES_MOD": Gosub APRES_MOD
+Endcase
+Return
+
+######################################################################################
+$APRES_MOD
+#MRR01 ini
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then       # JC.15102021.NEW
+    Call ZSGAKIT([M:BOH0]ITMREF, [M:BOH0]BOMALT) From ZSGAKIT
+    Call KIT([M:BOH0]ITMREF) From ZKITINTRANET
+  Endif                                                   # JC.15102021.NEW
+#MRR01 fin
+Return
+######################################################################################

@@ -1,0 +1,1025 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGASOR('','') From ZSGASOR
+
+End
+
+##############################################################
+Subprog ZSGASOR(WVALORPRH,WVALORPNH )
+Value Char WVALORPRH,WVALORPNH
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WRETORNO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+  If !clalev([F:ZPRH]) : Local File STOPREH     [ZPRH] : Endif
+  If !clalev([F:ZPRE]) : Local File STOPRED     [ZPRE] : Endif
+
+  If !clalev([F:ZPNH]) : Local File PRETURN     [ZPNH] : Endif
+  If !clalev([F:ZPND]) : Local File PRETURND    [ZPND] : Endif
+
+  If !clalev([F:ZSOH]) : Local File SORDER      [ZSOH] : Endif
+  If !clalev([F:ZSOQ]) : Local File SORDERQ     [ZSOQ] : Endif
+  If !clalev([F:ZTXC]) : Local File TEXCLOB     [ZTXC] : Endif
+  If !clalev([F:ZBPT]) : Local File BPCARRIER   [ZBPT] : Endif
+  If !clalev([F:ZBPA]) : Local File BPADDRESS   [ZBPA] : Endif
+  If !clalev([F:ZBPR]) : Local File BPARTNER    [ZBPR] : Endif
+  If !clalev([F:ZBPC]) : Local File BPCUSTOMER  [ZBPC] : Endif
+  If !clalev([F:ZCNT]) : Local File CONTACT     [ZCNT] : Endif
+  If !clalev([F:ZAIN]) : Local File CONTACTCRM  [ZAIN] : Endif
+  If !clalev([F:ZBPD]) : Local File BPDLVCUST   [ZBPD] : Endif
+  If !clalev([F:ZITU]) : Local File ITMBPC      [ZITU] : Endif
+
+  If !clalev([F:ZITF]) : Local File ITMFACILIT  [ZITF] : Endif  # JC.18052021
+  If !clalev([F:ZSTA]) : Local File STOALL      [ZSTA] : Endif  # JC.18052021
+  If !clalev([F:ZSTO]) : Local File STOCK       [ZSTO] : Endif  # JC.18052021
+
+  #Compruebo si hay registros pendientes y no viene de Plan de Preparacion
+#  If GFONCTION<>'FUNPREP2'                                                # JC.13122021
+  If GFONCTION<>'FUNPREP2' and GFONCTION <> "GESPNH"                      # JC.13122021
+#    Filter [ZPRH] Where PRHNUM=WVALORPRH and DLVFLG>=2 & ZSGAENVIADO<>2   # JC.20052021
+    Filter [ZPRH] Where PRHNUM=WVALORPRH and ZSGAENVIADO=2                # JC.20052021
+    Read [ZPRH] First
+    If !fstat
+      Filter [ZPRH]
+      Gosub SALIDA
+    Endif
+    WDENTRO=1
+    For N=0 To [M:PRH1]NBLIG-1
+      If [M:PRH1]ZEXPORT(N)<=1 or [M:PRH1]ZEXPORT(N)=3
+        Filter [ZPRE] Where PRHNUM=[M:PRH0]PRHNUM and PRELIN=[M:PRH1]PRELIN(N)
+        Read [ZPRE] First
+        If !fstat
+          [ZPRE]ZEXPORT=[M:PRH1]ZEXPORT(N)
+          [ZPRE]ZUSRFLD1=[M:PRH1]ZUSRFLD1(N)
+          Rewrite [ZPRE]
+          WDENTRO=2
+        Endif
+      Endif
+    Next
+    If WDENTRO=1
+      Gosub SALIDA
+    Endif
+  Endif
+
+  WSGATMP='ZSGA\TMP'
+  WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+  #<TTTVVyyyyMMddHHmmssxxx.xml>
+  If WVALORPRH <> '' Then
+    WSEQ=val(right$(WVALORPRH,len(WVALORPRH)-3))
+  Else
+    WSEQ=val(right$(WVALORPNH,len(WVALORPNH)-3))
+  Endif
+  CNOMBREFILE='SOR01'+format$("D:YYYYMMDDhhmmss",datetime$)+num$(format$("N0:3#",WSEQ))
+
+  Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0      Using [ZECO]
+
+  Iomode adxifs chr$(9)                              Using [ZECO]
+  Iomode adxirs chr$(13) + chr$(10)                  Using [ZECO]
+  Iomode adxium 0                                    Using [ZECO]
+
+  WNDENTRO=1
+  #Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('ShippingOrders xmlns="urn:wms-schema"','',0,1)
+
+  If WVALORPNH=''
+    Gosub RESU_PRH
+    Filter [ZPRE]
+  Endif
+  If WVALORPRH=''
+    Gosub RESU_PNH
+  Endif
+  AA=func PUT_PROPXML('/ShippingOrders','',0,1)
+  Openo Using [ZECO]
+
+  If WNDENTRO<>2
+    Local Integer NFICH2
+    Local Char FICH2(250)
+    ORDSYS = "ae_rm " + filpath('ZSGA\SGA\ERP_TO_SGA',"", "","","","")+'\' + CNOMBREFILE + ".xml"
+    Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+    If GTRACE<>''
+        Call ECR_TRACE(CNOMBREFILE+'.xml - No Generado - No hay documentos SOR - Vales de preparacion',1) From GESECRAN
+    Endif
+  Else
+    If GTRACE<>''
+      Call ECR_TRACE(CNOMBREFILE+'.xml',0) From GESECRAN
+    Endif
+  Endif
+
+  Gosub MUEVE_FILE
+  $SALIDA
+
+  Close Local File [ZITF],[ZSTA],[ZSTO]   # JC.18052021
+
+End
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$RESU_PRH
+Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
+
+  WNDENTRO=1
+  WFILTERPRH='1=1 & [ZPRH]ZSGAENVIADO<>2'
+
+  If GFONCTION='FUNPREP2'
+    WFILTERPRH+=' & [ZPRH]DLVFLG>=0'
+  Else
+#    WFILTERPRH+=' & [ZPRH]DLVFLG>=2'    # JC.20052021
+    WFILTERPRH+=' & [ZPRH]DLVFLG>=0'    # JC.20052021
+  Endif
+  If WVALORPRH<>''
+    WFILTERPRH+=' & PRHNUM=WVALORPRH'
+  Endif
+
+  Filter [F:ZPRH] Where evalue(WFILTERPRH)
+  For [ZPRH]
+    If GTRACE=''
+      Call OUVRE_TRACE('Vales de preparacion - Devoluciones') From LECFIC
+    Endif
+
+    Call OUVRE_TRACE('Vale Prep:'+WVALORPRH) From LECFIC
+
+    WNDENTRO=2
+    WPRHNUM=[F:ZPRH]PRHNUM
+
+    Call ECR_TRACE("Vale Preparacion: "+WPRHNUM,0) From GESECRAN
+    AA=func PUT_PROPXML('ShippingOrder ignoreNull="0"','',1,1)
+    #Operation
+    AA=func PUT_PROPXML('Operation','C', 2,2)
+    #Site
+    AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+    #SorCode
+    AA=func PUT_PROPXML('SorCode',[F:ZPRH]PRHNUM,2,2)
+    #Priority
+    WPRIORITY=1
+    Filter [ZPRE] Where PRHNUM=[F:ZPRH]PRHNUM and (ZEXPORT<=1 or ZEXPORT=3)
+    For [ZPRE]
+      Read [ZSOH]SOH0=[F:ZPRE]ORINUM
+      If [ZSOH]DLVPIO>WPRIORITY
+        WPRIORITY=[ZSOH]DLVPIO
+      Endif
+    Next
+
+    WVALOR='Normal'
+    Case WPRIORITY
+      When 1 : WVALOR='Normal'
+      When 2 : WVALOR='Urgent'
+      When 3 : WVALOR='High'
+      When 4 : WVALOR='Low'
+      When 5 : WVALOR='VeryLow'
+    Endcase
+    Filter [ZPRE]
+    AA=func PUT_PROPXML('Priority',WVALOR,2,2)
+    #SorType
+    AA=func PUT_PROPXML('SorType','Customer', 2,2)
+    #AccountCode
+    AA=func PUT_PROPXML('AccountCode',[F:ZPRH]BPCORD, 2,2)
+    #ShippingClassCode
+    WSHIPPINGCLASSCODE=''
+    Case [F:ZPRH]ORIPRH
+      When 1
+        WSHIPPINGCLASSCODE='Cliente'
+      When 3
+        WSHIPPINGCLASSCODE='Recubrimientos'
+    Endcase
+    If [ZSOH]ZESPECIALES=2
+      WSHIPPINGCLASSCODE='Especial'
+    Endif
+    AA=func PUT_PROPXML('ShippingClassCode',WSHIPPINGCLASSCODE, 2,2)
+    #SupplierCode
+    #NO APLICA AA=func PUT_PROPXML('SupplierCode','', 2,2)
+    #DeliveryInstructions
+    WDELIVERYINSTRUCTIONS=''
+    If [F:ZPRH]PRPTEX1<>''
+      Read [ZTXC]TXC1='';'';[F:ZPRH]PRPTEX1
+        If !fstat
+          #  WDELIVERYINSTRUCTIONS=func F_RTF2TEXT([F:ZTXC]TEXTE)
+          WDELIVERYINSTRUCTIONS=func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE)
+        Endif
+    Endif
+    AA=func PUT_PROPXML('DeliveryInstructions',WDELIVERYINSTRUCTIONS,2,2)
+    #Transport
+    AA=func PUT_PROPXML('Transport','',2,1)
+    #TrnCarrierCode
+    Read [ZBPT]BPT0=[F:ZPRH]BPTNUM
+    AA=func PUT_PROPXML('TrnCarrierCode',[F:ZPRH]BPTNUM,3,2)
+    AA=func PUT_PROPXML('/Transport','',2,1)
+    #Planning
+    AA=func PUT_PROPXML('Planning','',2,1)
+    #PlnAutoReleaseDate
+    If WSHIPPINGCLASSCODE<>'Recubrimientos'
+      WPLNAUTORELEASEDATE=num$(format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$))
+      Case [F:ZSOH]ZESPECIALES
+        When 2
+          WPLNAUTORELEASEDATE=''
+      Endcase
+      If WPLNAUTORELEASEDATE<>''
+        AA=func PUT_PROPXML('PlnAutoReleaseDate',WPLNAUTORELEASEDATE,3,2)
+      Endif
+    Endif
+    Read [ZSOH]SOH0=[F:ZPRE]ORINUM
+    AA=func PUT_PROPXML('PlnShippingDate',format$("D:YYYY[-]MM[-]DD[T]",[F:PRH]SHIDAT)+"00:00:00Z",3,2)
+    AA=func PUT_PROPXML('/Planning','',2,1)
+    #DeliveryAddress
+    AA=func PUT_PROPXML('DeliveryAddress','',2,1)
+    If WVALORPNH<>''
+      Read [ZBPA]BPA0=1;[F:ZPNH]BPSNUM;[F:ZPNH]BPAADD
+    Else
+      Read [ZBPA]BPA0=1;[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
+    Endif
+    #DlvAddLine01
+    AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
+    #DlvAddLine02
+    AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA]BPAADDLIG(1),3,2)
+    WCSTATT04=[F:ZBPA]BPAADDLIG(2)
+    #DlvAddZipCode
+    AA=func PUT_PROPXML('DlvAddZipCode',[F:ZBPA]POSCOD,3,2)
+    #DlvAddCity
+    AA=func PUT_PROPXML('DlvAddCity',[F:ZBPA]CTY,3,2)
+    #DlvAddState
+    AA=func PUT_PROPXML('DlvAddState',[F:ZBPA]SAT,3,2)
+    #DlvAddISOCountryCode
+    AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
+    #DlvAddComment
+    WDLVADDCOMMENT=''
+    Read [ZBPD]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
+    If !fstat
+      If [F:ZBPD]DLVTEX<>''
+        Read [ZTXC]TXC1='';'';[F:ZBPD]DLVTEX
+        If !fstat
+          #WDLVADDCOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
+          WDLVADDCOMMENT=[F:ZTXC]TEXTE
+        Endif
+      Endif
+    Endif
+    AA=func PUT_PROPXML('DlvAddComment',WDLVADDCOMMENT,3,2)
+    AA=func PUT_PROPXML('/DeliveryAddress','',2,1)
+    #DeliveryContact
+    AA=func PUT_PROPXML('DeliveryContact','',2,1)
+    WDLVCNTNAME=''
+    WDLVCNTPHONE=''
+    WDLVCNTFAX=''
+    WDLVCNTCELLPHONE=''
+    WDLVCNTEMAIL=''
+    Read [ZBPR]BPR0=[ZPRH]BPCORD
+# JC.11082021.INICIO
+#    Filter [ZCNT] Where BPATYP=1 and CNTFNC=13 and BPANUM=[F:ZPRH]BPCORD
+#    Read [ZCNT] First
+#    If !fstat
+#      #Read [ZCNT]CNT0=1;[F:ZPRH]BPCORD;[F:ZBPR]CNTNAM
+#      Read [ZAIN]AIN0=[ZCNT]CCNCRM
+#      If [F:ZCNT]BPAADD=[F:ZPRH]BPAADD or [F:ZCNT]BPAADD=''
+#        WDLVCNTNAME=vireblc([F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,2)
+#        WDLVCNTPHONE=[F:ZCNT]TEL
+#        WDLVCNTFAX=[F:ZCNT]FAX
+#        WDLVCNTCELLPHONE=[F:ZCNT]TEL
+#        WDLVCNTEMAIL=[F:ZCNT]WEB
+#      Endif
+#    Endif
+#    Filter [ZCNT]
+
+    If !clalev([F:ZPRE1]) Then : Local File STOPRED [F:ZPRE1] : Endif
+    If !clalev([F:ZSOH1]) Then : Local File SORDER  [F:ZSOH1] : Endif
+    Filter [F:ZPRE1] Where PRHNUM = [F:PRH]PRHNUM
+    Read [F:ZPRE1] First
+    If !fstat Then
+      Read [F:ZSOH1]SOH0 = [F:ZPRE1]ORINUM
+      If !fstat Then
+        WDLVCNTNAME=vireblc([F:ZSOH1]BPDNAM(0)-[F:ZSOH1]BPDNAM(1),2)
+      Endif
+    Endif
+    Filter [F:ZPRE1]
+    Close Local File [ZPRE1],[ZSOH1]
+# JC.11082021.FIN
+
+    #DlvCntName
+    AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+# JC.04062021.STR
+# comento las etiquetas que vienen a continuación por indicaciones de Sergi Cunill
+#    #DlvCntPhone
+#    AA=func PUT_PROPXML('DlvCntPhone',WDLVCNTPHONE,3,2)
+#    #DlvCntFax
+#    AA=func PUT_PROPXML('DlvCntFax',WDLVCNTFAX,3,2)
+#    #DlvCntCellPhone
+#    AA=func PUT_PROPXML('DlvCntCellPhone',WDLVCNTCELLPHONE,3,2)
+#    #DlvCntEmail
+#    AA=func PUT_PROPXML('DlvCntEmail',WDLVCNTEMAIL,3,2)
+# JC.04062021.STR
+    AA=func PUT_PROPXML('/DeliveryContact','',2,1)
+    #Lines
+    AA=func PUT_PROPXML('Lines complete="1" transactional="1"','',2,1)
+    For [ZPRE] Where PRHNUM=WPRHNUM and (ZEXPORT<=1 or ZEXPORT=3)
+      Raz WLNECSTATT03,WLNECOMMENT,WLNECTMCODE,WCSTATT01
+      Read [F:ZITF]ITF0 = [F:ZPRE]ITMREF;[F:ZPRH]STOFCY                       # JC.18052021
+      If !fstat Then                                                          # JC.18052021
+        If [F:ZITF]STOMGTCOD <> 1 Then                                        # JC.18052021
+          #Line
+          AA=func PUT_PROPXML('Line','',3,1)
+          AA=func PUT_PROPXML('Operation','C',4,2)
+          AA=func PUT_PROPXML('LneNumber',num$([F:ZPRE]PRELIN),4,2)
+          AA=func PUT_PROPXML('LneItemCode',[F:ZPRE]ITMREF,4,2)
+          #LneComment
+          If [F:ZPRE]PRPTEX<>''
+            Read [ZTXC]TXC1='';'';[F:ZPRE]PRPTEX
+            If !fstat
+      #        WLNECOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
+#              WLNECOMMENT = func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE)
+              WLNECOMMENT = ""
+            Endif
+          Endif
+          AA=func PUT_PROPXML('LneComment',WLNECOMMENT,4,2)
+          #LneQuantity
+          AA=func PUT_PROPXML('LneQuantity','',4,1)
+          #LneQtyOrder
+          AA=func PUT_PROPXML('LneQtyOrder',num$(arr([F:ZPRE]QTYSTU/[F:ZPRE]PCUSTUCOE,0.0001)),5,2)
+          #LneQtyUoMCode
+          AA=func PUT_PROPXML('LneQtyUoMCode',[F:ZPRE]PCU,5,2)
+          AA=func PUT_PROPXML('/LneQuantity','',4,1)
+          #LneTerms
+          AA=func PUT_PROPXML('LneTerms','',4,1)
+          #LneTrmStatus
+          AA=func PUT_PROPXML('LneTrmStatus','',5,1)
+# JC.04062021.STR
+# comento la etiqueta que viene a continuación por indicaciones de Sergi Cunill
+#          #LneTrmStaPref
+#          AA=func PUT_PROPXML('LneTrmStaPref','A',6,2)
+# JC.04062021.END
+# JC.04062021.STR
+          #LneTrmStaReq
+          If [F:ZPRE]ALLTYP = 2 Then
+            Local Char WLNETRMSTAREQ(5)
+            Filter [F:ZSTA] Where STOFCY = [F:ZPRH]STOFCY and ITMREF = [F:ZPRE]ITMREF and VCRNUM = [F:ZPRE]PRHNUM and VCRLIN = [F:ZPRE]PRELIN
+            Read [F:ZSTA] First
+            If !fstat Then
+              Read [F:ZSTO]STO0 = [F:ZSTA]STOFCY;[F:ZSTA]STOCOU
+              If !fstat Then
+                If [F:ZSTO]STA <> "A" Then
+                  WLNETRMSTAREQ = [F:ZSTO]STA
+                  AA=func PUT_PROPXML('LneTrmStaReq',WLNETRMSTAREQ,6,2)
+                Endif
+                WLNECSTATT03 = [F:ZSTO]LOT
+              Endif
+            Endif
+            Filter [F:ZSTA]
+          Endif
+# JC.04062021.END
+          AA=func PUT_PROPXML('/LneTrmStatus','',5,1)
+          AA=func PUT_PROPXML('/LneTerms','',4,1)
+          #LneCustomerData
+          AA=func PUT_PROPXML('LneCustomerData','',4,1)
+          #LneCtmCode
+          Read [ZITU]ITU0=[F:ZPRE]ITMREF;[F:ZPRH]BPCORD
+          If !fstat
+            WLNECTMCODE=[F:ZITU]ITMREFBPC
+          Endif
+          AA=func PUT_PROPXML('LneCtmCode',WLNECTMCODE,5,2)
+          AA=func PUT_PROPXML('/LneCustomerData','',4,1)
+          #LneCustomAttributes
+          AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+          #LneCstAtt01
+          Filter [ZSOQ] Where SOHNUM=[F:ZPRE]ORINUM and SOPLIN=[F:ZPRE]ORILIN and SOQSEQ=[F:ZPRE]ORISEQ
+          Read [ZSOQ] First
+          WLNECSTATT01='0'
+          If [F:ZSOQ]ZCOMPLOTE=2
+            WLNECSTATT01='1'
+          Endif
+          AA=func PUT_PROPXML('LneCstAtt01',WLNECSTATT01,5,2)
+          #LneCstAtt02
+          WLNECSTATT02='0'
+          If [F:ZSOQ]ZCANTJUSTA=2
+            WLNECSTATT02='1'
+          Endif
+          Filter [ZSOQ]
+          AA=func PUT_PROPXML('LneCstAtt02',WLNECSTATT02,5,2)
+          # JC.18052021.STR
+#          Read [ZSOQ]SOQ0=[F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+#          If fstat
+#            WLNECSTATT03=[F:ZSOQ]LOT
+#          Endif
+##          If [F:ZPRE]ALLTYP = 2 Then
+##            Filter [F:ZSTA] Where STOFCY = [F:ZPRH]STOFCY and ITMREF = [F:ZPRE]ITMREF and VCRNUM = [F:ZPRE]PRHNUM and VCRLIN = [F:ZPRE]PRELIN
+##            Read [F:ZSTA] First
+##            If !fstat Then
+##              Read [F:ZSTO]STO0 = [F:ZSTA]STOFCY;[F:ZSTA]STOCOU
+##              If !fstat Then
+##                WLNECSTATT03 = [F:ZSTO]LOT
+##              Endif
+##            Endif
+##            Filter [F:ZSTA]
+##          Endif
+          # JC.18052021.END
+          AA=func PUT_PROPXML('LneCstAtt03',WLNECSTATT03,5,2)
+          WLNECSTATT20=[F:ZPRE]ZUSRFLD1
+          If WLNECSTATT20<>''
+            AA=func PUT_PROPXML('LneCstAtt20',WLNECSTATT20,5,2)
+          Endif
+          AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+          AA=func PUT_PROPXML('/Line','',3,1)
+          [F:ZPRE]ZEXPORT=2
+          Rewrite [ZPRE]
+        Endif                                                                 # JC.18052021
+      Endif                                                                   # JC.18052021
+    Next
+    AA=func PUT_PROPXML('/Lines','',2,1)
+    AA=func PUT_PROPXML('CustomAttributes','',2,1)
+    #CstAtt01
+    If [F:ZPRH]ZVPPADRE<>''
+      WCSTATT01=[F:ZPRH]ZVPPADRE
+      AA=func PUT_PROPXML('CstAtt01',WCSTATT01,3,2)
+    Endif
+    Filter [ZSOQ]
+
+    Read [ZBPC]BPC0=[F:ZSOH]BPCORD
+    If [ZBPC]FREINV=10
+      WCSTATT02='DEBIDO'
+    Else
+      WCSTATT02='PAGADO'
+    Endif
+    AA=func PUT_PROPXML('CstAtt02',WCSTATT02,3,2)
+    AA=func PUT_PROPXML('CstAtt04',WCSTATT04,3,2)
+    AA=func PUT_PROPXML('/CustomAttributes','',2,1)
+    AA=func PUT_PROPXML('/ShippingOrder','',1,1)
+    [F:ZPRH]ZUPDATE=num$(datetime$)
+    [F:ZPRH]ZSGAENVIADO=2
+    Rewrite [F:ZPRH]
+  Next
+Return
+
+##############################################################
+$RESU_PNH
+#  WFILTERPNH='1=1 & [ZPRH]ZSGAENVIADO<>2'
+#  If GFONCTION='FUNPREP2'
+#    WFILTERPNH+=' & [ZPRH]DLVFLG>=0'
+#  Else
+#    WFILTERPNH+=' & [ZPRH]DLVFLG>=2'
+#  Endif
+#  If WVALORPNH<>''
+#    WFILTERPNH+=' & PNHNUM=WVALORPNH'
+#  Endif
+#
+  WFILTERPNH='1=1 & [ZPNH]ZSGAENVIADO<>2'
+  If WVALORPNH<>''
+    WFILTERPNH+=' & PNHNUM=WVALORPNH'
+  Endif
+
+  For [ZPNH] Where evalue(WFILTERPNH)
+    If GTRACE=''
+      Call OUVRE_TRACE('Vales de preparacion - Devoluciones') From LECFIC
+    Endif
+    WNDENTRO=2
+    WPNHNUM=[F:ZPNH]PNHNUM
+    Call ECR_TRACE("Dev. prov.: "+WPNHNUM,0) From GESECRAN
+    AA=func PUT_PROPXML('ShippingOrder ignoreNull="0"','',1,1)
+    #Operation
+    AA=func PUT_PROPXML('Operation','C', 2,2)
+    #Site
+    AA=func PUT_PROPXML('Site','WH_HISPANOX',2,2)
+    #SorCode
+    AA=func PUT_PROPXML('SorCode',[F:ZPNH]PNHNUM,2,2)
+    #Priority
+    WPRIORITY=1
+    WVALOR='Normal'
+    Case WPRIORITY
+      When 1 : WVALOR='Normal'
+      When 2 : WVALOR='Urgent'
+      When 3 : WVALOR='VeryUrgent'
+      When 4 : WVALOR='High'
+      When 5 : WVALOR='Low'
+      When 5 : WVALOR='VeryLow'
+    Endcase
+    AA=func PUT_PROPXML('Priority',WVALOR,2,2)
+    #SorType
+    AA=func PUT_PROPXML('SorType','Return', 2,2)
+    #AccountCode
+    AA=func PUT_PROPXML('AccountCode','', 2,2)
+    #ShippingClassCode
+    AA=func PUT_PROPXML('ShippingClassCode','', 2,2) #SERGI????
+    #SupplierCode
+    AA=func PUT_PROPXML('SupplierCode',[F:ZPNH]BPSNUM, 2,2)
+    #DeliveryInstructions
+#     WDELIVERYINSTRUCTIONS=''
+#     Read [ZTXC]TXC1='';'';[F:ZPNH]PRPTEX1
+#     If !fstat
+#      WDELIVERYINSTRUCTIONS=[F:ZTXC]TEXTE
+#     Endif
+#     AA=func PUT_PROPXML('DeliveryInstructions',[F:ZPRH]BPCORD,2,2)
+    #Transport
+     AA=func PUT_PROPXML('Transport','',2,1)
+     #TrnCarrierCode
+     Read [ZBPT]BPT0=[F:ZPNH]BPTNUM
+     AA=func PUT_PROPXML('TrnCarrierCode',[F:ZPNH]BPTNUM,3,2)
+     AA=func PUT_PROPXML('/Transport','',2,1)
+     #Planning
+     AA=func PUT_PROPXML('Planning','',2,1)
+     #PlnAutoReleaseDate
+     WPLNAUTORELEASEDATE=format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",date$)
+    Case [F:ZSOH]ZESPECIALES
+      When 2
+        WPLNAUTORELEASEDATE=''
+    Endcase
+    If WPLNAUTORELEASEDATE<>''
+      AA=func PUT_PROPXML('PlnAutoReleaseDate',WPLNAUTORELEASEDATE,3,2)
+    Endif
+    AA=func PUT_PROPXML('PlnShippingDate',format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",date$),3,2)
+    AA=func PUT_PROPXML('/Planning','',2,1)
+    #DeliveryAddress
+    AA=func PUT_PROPXML('DeliveryAddress','',2,1)
+    Read [ZBPA]BPA0=1;[F:ZPNH]BPSNUM;[F:ZPNH]BPAADD
+    #DlvAddLine01
+    AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
+    #DlvAddLine02
+    AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA]BPAADDLIG(1),3,2)
+    #DlvAddZipCode
+    AA=func PUT_PROPXML('DlvAddZipCode',[F:ZBPA]POSCOD,3,2)
+    #DlvAddCity
+    AA=func PUT_PROPXML('DlvAddCity',[F:ZBPA]CTY,3,2)
+    #DlvAddState
+    AA=func PUT_PROPXML('DlvAddState',[F:ZBPA]SAT,3,2)
+    #DlvAddISOCountryCode
+    AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
+#    #DlvAddComment
+#    AA=func PUT_PROPXML('DlvAddComment','',3,2)
+    AA=func PUT_PROPXML('/DeliveryAddress','',2,1)
+    #DeliveryContact
+    AA=func PUT_PROPXML('DeliveryContact','',2,1)
+#    Read [ZBPR]BPR0=[ZPNH]BPSNUM
+#    Read [ZCNT]CNT0=1;[F:ZPNH]BPSNUM;[F:ZBPR]CNTNAM
+#    Read [ZAIN]AIN0=[F:ZBPR]CNTNAM
+    WDLVCNTNAME=''
+    WDLVCNTPHONE=''
+    WDLVCNTFAX=''
+    WDLVCNTCELLPHONE=''
+    WDLVCNTEMAIL=''
+    Read [ZBPR]BPR0=[ZPNH]BPSNUM
+    Filter [ZCNT] Where BPATYP=1 and CNTFNC=13 and BPANUM=[ZPNH]BPSNUM
+    Read [ZCNT] First
+    If !fstat
+      #Read [ZCNT]CNT0=1;[F:ZPRH]BPCORD;[F:ZBPR]CNTNAM
+      Read [ZAIN]AIN0=[ZCNT]CCNCRM
+      If [F:ZCNT]BPAADD=[F:ZPRH]BPAADD or [F:ZCNT]BPAADD=''
+        WDLVCNTNAME=vireblc([F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,2)
+        WDLVCNTPHONE=[F:ZCNT]TEL
+        WDLVCNTFAX=[F:ZCNT]FAX
+        WDLVCNTCELLPHONE=[F:ZCNT]TEL
+        WDLVCNTEMAIL=[F:ZCNT]WEB
+      Endif
+    Endif
+    Filter [ZCNT]
+    #DlvCntName
+    AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+    #DlvCntPhone
+    AA=func PUT_PROPXML('DlvCntPhone',WDLVCNTPHONE,3,2)
+    #DlvCntFax
+    AA=func PUT_PROPXML('DlvCntFax',WDLVCNTFAX,3,2)
+    #DlvCntCellPhone
+    AA=func PUT_PROPXML('DlvCntCellPhone',WDLVCNTCELLPHONE,3,2)
+    #DlvCntEmail
+    AA=func PUT_PROPXML('DlvCntEmail',WDLVCNTEMAIL,3,2)
+    AA=func PUT_PROPXML('/DeliveryContact','',2,1)
+    #Lines
+    AA=func PUT_PROPXML('Lines complete="1" transactional="1"','',2,1)
+    For [ZPND] Where PNHNUM=WPNHNUM
+      #Line
+      AA=func PUT_PROPXML('Line','',3,1)
+      AA=func PUT_PROPXML('Operation','C',4,2)
+      AA=func PUT_PROPXML('LneNumber',num$([F:ZPND]PNDLIN),4,2)
+      AA=func PUT_PROPXML('LneItemCode',[F:ZPND]ITMREF,4,2)
+      #LneQuantity
+      AA=func PUT_PROPXML('LneQuantity','',4,1)
+      #LneQtyOrder
+      AA=func PUT_PROPXML('LneQtyOrder',num$([F:ZPND]QTYUOM),5,2)
+      #LneQtyUoMCode
+      AA=func PUT_PROPXML('LneQtyUoMCode',[F:ZPND]UOM,5,2)
+      AA=func PUT_PROPXML('/LneQuantity','',4,1)
+      #LneTerms
+      AA=func PUT_PROPXML('LneTerms','',4,1)
+      #LneTrmStatus
+      AA=func PUT_PROPXML('LneTrmStatus','',5,1)
+      #LneTrmStaPref
+      AA=func PUT_PROPXML('LneTrmStaPref','A',6,2)
+      AA=func PUT_PROPXML('/LneTrmStatus','',5,1)
+      AA=func PUT_PROPXML('/LneTerms','',4,1)
+      #LneCustomerData
+      AA=func PUT_PROPXML('LneCustomerData','',4,1)
+      #LneCtmCode
+      WLNECTMCODE=''
+      Read [ZITU]ITU0=[F:ZPND]ITMREF;[F:ZPNH]BPSNUM
+      If !fstat
+        WLNECTMCODE=[F:ITU]ITMREFBPC
+      Endif
+      AA=func PUT_PROPXML('LneCtmCode',WLNECTMCODE,5,2)
+      AA=func PUT_PROPXML('/LneCustomerData','',4,1)
+      #LneCustomAttributes
+      AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
+      #LneCstAtt01
+      WLNECSTATT01=''
+      AA=func PUT_PROPXML('LneCstAtt01',WLNECSTATT01,5,2)
+      #LneCstAtt02
+      WLNECSTATT02=''
+      AA=func PUT_PROPXML('LneCstAtt02',WLNECSTATT02,5,2)
+      AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)
+      AA=func PUT_PROPXML('/Line','',3,1)
+    Next
+    AA=func PUT_PROPXML('/Lines','',2,1)
+    AA=func PUT_PROPXML('CustomAttributes','',2,1)
+    WCSTATT02=''
+#    If [ZSOH]FREINV=10
+#      WCSTATT02='DEBIDO'
+#    Else
+#      WCSTATT02='PAGADO'
+#    Endif
+    AA=func PUT_PROPXML('CstAtt02',WCSTATT02,3,2)
+    AA=func PUT_PROPXML('/CustomAttributes','',2,1)
+    AA=func PUT_PROPXML('/ShippingOrder','',1,1)
+  Next
+Return
+
+##############################################################
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################
+##############################################################
+Funprog PUT_CABECERAXML()
+  Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+End ""
+
+##############################################################
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+  WCADENA=''
+  WSPACE=''
+  If INDEX<>0
+    For I=1 To INDEX
+    WCADENA+='    '
+    Next
+  Endif
+
+  If CIERRA=2
+    WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+  Else
+    WCADENA=WCADENA+'<'+ETIQUETA+'>'
+  Endif
+  Wrseq WCADENA Using [ZECO]
+
+End ""
+
+##############################################################
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+Local Integer J
+
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+      J=instr(I+1,XMLSTRING,'<')
+      If J
+        End seg$(XMLSTRING,I+1,J-1)
+      Endif
+    Endif
+  Endif
+End ""
+
+##############################################################
+Funprog F_RTF2TEXT(CLOB)
+Variable Clbfile CLOB
+
+Local Integer LENTXMT : LENTXMT = 250
+Local Integer NRIGHE : NRIGHE = 4            # 4 = 250x4 char
+Local Char XOUT(LENTXMT)(NRIGHE)
+
+  Call S_RTF2TEXT(LENTXMT,CLOB,XOUT,NRIGHE)
+
+  #Concatenate the row with plain text, by removing the empty space
+  Local Char XRET(250) : Raz XRET
+  For XI = 0 To NRIGHE
+    XRET += vireblc(XOUT(XI),2)
+  Next
+
+End XRET
+
+
+
+
+###############################################################################
+#                            CORE PROCEDURES
+#
+# Author: Matteo Carminati (mcarminati@ma-tica.it)
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms version 3 of the GNU General Public License as published
+# by the Free Software Foundation. This program is distributed in the hope
+# that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+###############################################################################
+
+Subprog S_RTF2TEXT(PLENRIGAOUT,CLOB,PTXTOUT,PNRIGEOUT)
+Value Integer PLENRIGAOUT
+Variable Clbfile CLOB
+Variable Char PTXTOUT
+Variable Integer PNRIGEOUT
+
+    Local Integer XRIGHE
+    Local Integer XNOL
+    Local Integer XNCH
+    Local Char XCH(1)
+    Local Char XCHPREV(1)
+    Local Integer XSTRTAG1 : XSTRTAG1 = 0
+    Local Integer XSTRTAG2 : XSTRTAG2 = 0
+
+    Local Integer LENGHT : LENGHT = len(CLOB)
+    Local Integer CLOTAI : CLOTAI = int(LENGHT/GCLOLNG)+1
+
+    Local  Char    PRTFIN   (GCLOLNG)(CLOTAI)
+
+    Setlob PRTFIN With CLOB
+
+
+    XRIGHE = dim(PRTFIN,1)
+
+    Local Char XOUT(250)(XRIGHE)
+    Local Integer XOUTRLEN(XRIGHE)
+    Local Char RIGA(250)
+    Local Integer XESCAPE
+
+
+
+    #Toglie i tag RTF
+
+    For XNOL = 0 To XRIGHE - 1
+        Raz RIGA
+        RIGA = PRTFIN(XNOL)
+
+
+        XOUTRLEN(XNOL) = 0
+        For XNCH = 1 To len(RIGA)
+            XCHPREV = XCH
+
+            XCH = mid$(RIGA,XNCH,1)
+            If XCH = "\" Then
+                XESCAPE = -1
+                If func F_GETNEXTCHR(PRTFIN,1,XNCH,XNOL,XRIGHE)= "}" Then
+                    XCHPREV = XCH
+                    XNCH = XNCH + 1
+                    XCH = "}"
+                    XESCAPE = 1
+                Elsif func F_GETNEXTCHR(PRTFIN,1,XNCH,XNOL,XRIGHE)= "{" Then
+                    XCHPREV = XCH
+                    XNCH = XNCH + 1
+                    XCH = "{"
+                    XESCAPE = 1
+                Elsif func F_GETNEXTCHR(PRTFIN,4,XNCH,XNOL,XRIGHE)= "pard" Then
+                    XNCH = XNCH + 4
+                    XCH = " "
+                    XESCAPE = 1
+                Elsif func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)= "par" Then
+                    XNCH = XNCH + 3
+                    XCH = " "
+                    XESCAPE = 1
+                Elsif func F_GETNEXTCHR(PRTFIN,2,XNCH,XNOL,XRIGHE)= "fs" Then   #Font size
+                    XNCH = XNCH + 2
+                    XCH = ""
+                    XESCAPE = -1
+                Else
+                  Case func F_GETNEXTCHR(PRTFIN,3,XNCH,XNOL,XRIGHE)
+                        When "'80" : XCH ="â?¬" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'82" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'83" : XCH ="Æ?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'84" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'85" : XCH ="â?¦" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'86" : XCH ="â? " : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'87" : XCH ="â?¡" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'88" : XCH ="Ë?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'89" : XCH ="â?°" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'8a" : XCH ="Å " : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'8b" : XCH ="â?¹" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'8c" : XCH ="Å?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'8e" : XCH ="Å½" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'91" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'92" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'93" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'94" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'95" : XCH ="â?¢" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'96" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'97" : XCH ="â??" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'98" : XCH ="Ë?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'99" : XCH ="â?¢" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'9a" : XCH ="Å¡" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'9b" : XCH ="â?º" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'9c" : XCH ="Å?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'9e" : XCH ="Å¾" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'9f" : XCH ="Å¸" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a0" : XCH =" " : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a1" : XCH ="Â¡" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a2" : XCH ="Â¢" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a3" : XCH ="Â£" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a4" : XCH ="Â¤" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a5" : XCH ="Â¥" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a6" : XCH ="Â¦" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a7" : XCH ="Â§" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a8" : XCH ="Â¨" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'a9" : XCH ="Â©" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'aa" : XCH ="Âª" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ab" : XCH ="Â«" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ac" : XCH ="Â¬" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ad" : XCH =" " : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ae" : XCH ="Â®" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'af" : XCH ="Â¯" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b0" : XCH ="Â°" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b1" : XCH ="Â±" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b2" : XCH ="Â²" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b3" : XCH ="Â³" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b4" : XCH ="Â´" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b5" : XCH ="Âµ" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b6" : XCH ="Â¶" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b7" : XCH ="Â·" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b8" : XCH ="Â¸" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'b9" : XCH ="Â¹" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ba" : XCH ="Âº" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'bb" : XCH ="Â»" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'bc" : XCH ="Â¼" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'bd" : XCH ="Â½" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'be" : XCH ="Â¾" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'bf" : XCH ="Â¿" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c0" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c1" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c2" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c3" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c4" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c5" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c6" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c7" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c8" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'c9" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ca" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'cb" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'cc" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'cd" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ce" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'cf" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d0" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d1" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d2" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d3" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d4" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d5" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d6" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d7" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d8" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'d9" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'da" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'db" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'dc" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'dd" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'de" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'df" : XCH ="Ã?" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e0" : XCH ="Ã " : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e1" : XCH ="Ã¡" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e2" : XCH ="Ã¢" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e3" : XCH ="Ã£" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e4" : XCH ="Ã¤" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e5" : XCH ="Ã¥" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e6" : XCH ="Ã¦" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e7" : XCH ="Ã§" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e8" : XCH ="Ã¨" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'e9" : XCH ="Ã©" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ea" : XCH ="Ãª" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'eb" : XCH ="Ã«" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ec" : XCH ="Ã¬" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ed" : XCH ="Ã­" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ee" : XCH ="Ã®" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ef" : XCH ="Ã¯" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f0" : XCH ="Ã°" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f1" : XCH ="Ã±" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f2" : XCH ="Ã²" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f3" : XCH ="Ã³" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f4" : XCH ="Ã´" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f5" : XCH ="Ãµ" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f6" : XCH ="Ã¶" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f7" : XCH ="Ã·" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f8" : XCH ="Ã¸" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'f9" : XCH ="Ã¹" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'fa" : XCH ="Ãº" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'fb" : XCH ="Ã»" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'fc" : XCH ="Ã¼" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'fd" : XCH ="Ã½" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'fe" : XCH ="Ã¾" : XNCH = XNCH + 3 : XESCAPE = 1
+                        When "'ff" : XCH ="Ã¿" : XNCH = XNCH + 3 : XESCAPE = 1
+
+                    Endcase
+                Endif
+
+                If XESCAPE = -1 Then
+                        XSTRTAG1 = 1
+                        XNCH = XNCH + 1
+                Endif
+
+            Endif
+
+            If XCH = "{" and XCHPREV <> "\" Then XSTRTAG2 = XSTRTAG2 + 1 : Endif
+
+            If XSTRTAG1 = 0 and XSTRTAG2 <= 1  Then
+                XOUT(XNOL) += XCH
+                XOUTRLEN(XNOL) += 1
+            Endif
+            If XCH = " " or find(func F_GETNEXTCHR(PRTFIN,2,XNCH-1,XNOL,XRIGHE) ,'\}','\{','\\') > 0 Then XSTRTAG1 = 0 : Endif
+            If XCH = "}" and XCHPREV <> "\" Then XSTRTAG2 = XSTRTAG2 - 1 : Endif
+        Next
+    Next
+
+
+    Local Integer XNOL2
+    Local Integer XCONTA2
+
+    XNOL2 = 0
+    XCONTA2 = PLENRIGAOUT
+    For XNOL = 0 To XRIGHE - 1
+        Raz RIGA
+        RIGA = XOUT(XNOL)
+        If XNOL = XRIGHE : RIGA = vireblc(RIGA,1) : Endif
+        If len(RIGA) > 0 Then
+            For XNCH = 1 To len(RIGA)
+                XCH = mid$(RIGA,XNCH,1)
+                If XCH = chr$(13) Then
+                    XCH = " "
+                    If func F_GETNEXTCHR(XOUT,1,XNCH,XNOL,XRIGHE)= chr$(10) Then
+                        XNCH = XNCH + 1
+                    Endif
+                Endif
+                If XCH = chr$(10) Then
+                    XCH = " "
+                    If func F_GETNEXTCHR(XOUT,1,XNCH,XNOL,XRIGHE)= chr$(13) Then
+                        XNCH = XNCH + 1
+                    Endif
+                Endif
+                If XNCH = 1 and XNOL = 0 and XCH = "{" Then XCH = "" : Endif
+                PNRIGEOUT = XNOL2 + 1
+                PTXTOUT(XNOL2) += XCH
+                XCONTA2 = XCONTA2 - 1
+                If XCONTA2 = 0 Then
+                    XNOL2 = XNOL2 + 1
+                    XCONTA2 = PLENRIGAOUT
+                Endif
+            Next
+        Endif
+    Next
+
+    #tolgo la graffa finale
+    RIGA = vireblc(PTXTOUT(XNOL2),1)
+    If mid$(RIGA,len(RIGA),1) = "}" Then
+        PTXTOUT(XNOL2) =  mid$(RIGA,1,len(RIGA)-1)
+    Endif
+
+
+End
+
+##############################################################
+Funprog F_GETNEXTCHR(PARRIN,NCHNEXT,NCURPOS,NCURNOL,NTOTRIGHE)
+Value Char PARRIN
+Value Integer NCHNEXT
+Value Integer NCURPOS
+Value Integer NCURNOL
+Value Integer NTOTRIGHE
+
+    Local Char XRET(NCHNEXT) : XRET = ""
+
+    Local Integer XNCH
+    Local Char RIGA(250)
+    Local Integer XCONTA
+
+    For XNOL = NCURNOL To NTOTRIGHE - 1
+        RIGA = PARRIN(NCURNOL)
+        For XNCH = NCURPOS + 1 To len(RIGA) - 1
+            XRET += mid$(RIGA,XNCH,1)
+            XCONTA += 1
+            If XCONTA = NCHNEXT Then
+                Break
+            Endif
+        Next
+        If XCONTA = NCHNEXT Then
+            Break
+        Endif
+        NCURPOS = 0
+    Next
+End XRET

@@ -1,0 +1,103 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "SETBOUT"    : Gosub SETBOUT
+  When "BOUTON"     : Gosub BOUTON
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$SETBOUT
+
+  # JC.20052021.STR
+  If GREP="M" | [M:PREP]NBLIG=0 | find("",[M:PREP]PRHNUM(0..[M:PREP]NBLIG-1)) | !find(1,[M:PREP]DLVFLG(0..[M:PREP]NBLIG-1))
+    Call VIREBOUT(CHMEN,"s") From GOBJET
+  Endif
+  # JC.20052021.END
+
+Return
+
+##############################################################
+$BOUTON
+  Case BOUT
+    When "s"  : Gosub CREA_SOR  # JC.20052021
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+# JC.20052021
+$CREA_SOR
+Local Integer LCON
+Local Char    LPRHNUM(50)
+Local Integer YESNO : YESNO = 2   # yes
+
+  Call OUINON("Se va a genera el documento SOR para los vales de preparación seleccionados\¿Deseas continuar?",YESNO) From GESECRAN
+  If YESNO = 2 Then
+    If !clalev([F:ZPRH]) Then : Local File STOPREH [F:ZPRH] : Endif
+    If !clalev([F:ZPRE]) Then : Local File STOPRED [F:ZPRE] : Endif
+    For LCON = 0 To [M:PREP]NBLIG - 1
+      fstat = 0
+      If LPRHNUM = "" or LPRHNUM <> [M:PREP]PRHNUM(LCON) Then
+        LPRHNUM = [M:PREP]PRHNUM(LCON)
+        If [M:PREP]COCHAGE(LCON) = 2 Then
+#          Read [F:ZPRH]PRH0 = [M:PREP]PRHNUM(LCON)
+          Filter [F:ZPRH] Where PRHNUM = [M:PREP]PRHNUM(LCON)
+          Read [F:ZPRH] First
+          If !fstat Then
+            If [F:ZPRH]ZSGAENVIADO <> 2 Then
+              Call ZSGASOR([M:PREP]PRHNUM(LCON),'') From ZSGASOR
+              # actualiza cabecera vales de preparación
+              Trbegin [F:ZPRH]
+              [F:ZPRH]ZSGAENVIADO = 2
+              Rewrite [F:ZPRH]
+              If !fstat Then
+                Commit
+              Else
+                Rollback
+              Endif
+              # actualiza líneas vales de preparación
+              Read [F:ZPRE]PRE0 = [M:PREP]PRHNUM(LCON);[M:PREP]PRELIN(LCON)
+              If !fstat Then
+                If [F:ZPRE]ZEXPORT <> 2 Then
+                  Trbegin [F:ZPRE]
+                  [F:ZPRE]ZEXPORT = 2
+                  Rewrite [F:ZPRE]
+                  If !fstat Then
+                    Commit
+                  Else
+                    Rollback
+                  Endif
+                Endif
+              Endif
+            Endif
+          Endif
+          Filter [F:ZPRH]
+        Endif
+      Else
+#        LPRHNUM = [M:PREP]PRHNUM(LCON)
+      Endif
+    Next
+    Close Local File [ZPRH],[ZPRE]
+  Endif
+
+  If dim(LCON)    > 0 Then : Kill LCON    : Endif
+  If dim(LPRHNUM) > 0 Then : Kill LPRHNUM : Endif
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

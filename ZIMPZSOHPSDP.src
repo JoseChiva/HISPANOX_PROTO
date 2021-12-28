@@ -1,0 +1,234 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+######################################################################
+# JC.03112021-1    Bug. Cálculo de los portes en el pedido
+######################################################################
+
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+#Infbox ACTION
+Local Char LUSER(50)
+  LUSER = GUSER
+  GUSER = "WEB"
+#If 1=2
+  Case ACTION
+    When "IMP_VERIF_CRE"  : Gosub IMP_VERIF_CRE
+    When "IMP_FERME"      : Gosub IMP_FERME
+    When Default
+  Endcase
+#Endif
+  GUSER = LUSER
+Return
+
+########################################################
+$IMP_VERIF_CRE
+  # guarda en pantalla el valor del campo Facturación portes
+  # guarda en pantalla el valor del importe de portes
+  If !clalev([F:ZSQH]) Then : Local File SQUOTE [F:ZSQH] : Endif
+  Read [F:ZSQH]SQH0 = [F:SOH]SQHNUM
+  If !fstat Then
+    [M:SOH2]ZFREINV = [F:ZSQH]ZFREINV
+    Affzo [M:SOH2]ZFREINV
+    [M:SOH3]INVDTAAMT(0) = [F:ZSQH]INVDTAAMT(0)
+    Affzo [M:SOH3]INVDTAAMT(0)
+    [M:SOH3]INVDTAAMT(1) = [F:ZSQH]INVDTAAMT(1)
+    Affzo [M:SOH3]INVDTAAMT(1)
+    [M:SOH3]INVDTAAMT(2) = [F:ZSQH]INVDTAAMT(2)
+    Affzo [M:SOH3]INVDTAAMT(2)
+    [M:SOH3]INVDTAAMT(3) = [F:ZSQH]INVDTAAMT(3)
+    Affzo [M:SOH3]INVDTAAMT(3)
+  Endif
+
+  Close Local File [ZSQH]
+
+
+# JC.03112021-1.INI
+# el código que viene a continuación es el que hay en SPESOH.AM_ZFREINV pero adaptado
+# lo he tenido que añadir aquí porque sino no me ejecutaba el recálculo de los portes
+  Local Integer LCON
+  Local Char    LSTA(1)
+  Local Char    S_PAIS(250)
+  Local Char    S_CIUDAD(250)
+  Local Char    S_CODIGO_POSTAL(250)
+  Local Char    S_REGION(5)
+  Local Char    S_TRANSPORTISTA(250)
+  Local Decimal F_PESOS
+  Local Decimal F_VOLUMEN
+  Local Decimal F_IMPORTE_TRANSPORTE
+  Local Char    S_EXPLICACION_CALCULO (1)
+  Local Integer I_STAT
+  Local Char    S_UNIWEI(10)
+  Local Char    S_UNIVOL(10)
+  Local Integer YESNO : YESNO = 1
+
+  If !clalev([F:ZSFI]) Then : Local File SFOOTINV   [F:ZSFI] : Endif
+  If !clalev([F:ZBPA]) Then : Local File BPADDRESS  [F:ZBPA] : Endif
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+
+  Read [F:ZSFI]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
+    Read [F:ZBPA]BPA0=1;[M:SOH0]BPCORD;[M:SOH1]BPAADD
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA]CRY
+      S_CIUDAD        = [F:ZBPA]CTY
+      S_CODIGO_POSTAL = [F:ZBPA]POSCOD
+    Endif
+  Endif
+
+  If [M:SOH2]BPTNUM <> "" Then
+    S_TRANSPORTISTA   = [M:SOH2]BPTNUM
+  Else
+    Read [F:ZBPD]BPD0 = [M:SOH0]BPCORD;[M:SOH1]BPAADD
+    If !fstat Then
+      S_TRANSPORTISTA   = [F:ZBPD]BPTNUM
+    Endif
+  Endif
+
+S_TRANSPORTISTA = [F:SOH]BPTNUM
+
+  For LCON=0 To [M:SOH4]NBLIG-1
+    [M:SOH4]ZFREINV(LCON) = [M:SOH2]ZFREINV
+    [M:SOH4]UPDFLG(LCON)  = 1
+    Affzo [M:SOH4]ZFREINV(LCON)
+    Affzo [M:SOH4]UPDFLG(LCON)
+  Next
+
+  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+    Case [M:SOH2]ZFREINV
+      When 1
+        #Facturados, calculo de la tarifa de transporte
+        If S_TRANSPORTISTA <> "" Then
+          For I = 0 To [M:SOH4]NBLIG-1
+            #Me sitúo en el artículo
+            Read [F:ZITM]ITM0 = [M:SOH4]ITMREF(I)
+            If !fstat Then
+              S_UNIWEI = [F:ZITM]WEU
+              S_UNIVOL = [F:ZITM]VOU
+            Endif
+#            #Paso todo a KG
+            F_PESOS    += func ZAULIB01.CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SOH4]DSPLINWEI(I))
+#            #Paso todo a M3
+            F_VOLUMEN  += func ZAULIB01.CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SOH4]DSPLINVOL(I))
+          Next
+
+          Call TRANSPORT(S_TRANSPORTISTA,[M:SOH0]BPCORD,[M:SOH2]ZFREINV,[M:SOH0]SALFCY,S_PAIS,S_CIUDAD,
+&                       S_CODIGO_POSTAL,[M:SOH0]CUR,[M:SOH0]CHGTYP,date$,[M:SOH4]ORDNOT,
+&                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+          If find(I_STAT,0,4,5) Then
+            [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = F_IMPORTE_TRANSPORTE
+          Else
+            [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+          Endif
+        Endif
+
+      When 8
+        #Facturación manual, no hago nada
+        [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)
+
+      When Default
+        #Todos los demás casos, no se facturan portes
+        [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
+    Endcase
+  Endif
+
+  Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
+
+  Affzo [M:SOH3]
+  Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM]
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+  If dim(LSTA) > 0 Then : Kill LSTA : Endif
+# JC.03112021-1.FIN
+
+Return
+
+########################################################
+$IMP_FERME
+
+  If !clalev([F:ZOPH]) Then : Local File ZSOHPSHOPH   [F:ZOPH] : Endif
+  If !clalev([F:ZOPD]) Then : Local File ZSOHPSHOPD   [F:ZOPD] : Endif
+  If !clalev([F:ZSQH]) Then : Local File SQUOTE       [F:ZSQH] : Endif
+  If !clalev([F:ZSQD]) Then : Local File SQUOTED      [F:ZSQD] : Endif
+  If !clalev([F:ZSOH]) Then : Local File SORDER       [F:ZSOH] : Endif
+  If !clalev([F:ZSOP]) Then : Local File SORDERP      [F:ZSOP] : Endif
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ      [F:ZSOQ] : Endif
+
+  # actualización de campos para la trazabilidad entre presupuesto y pedido
+
+  # actualiza los datos de dirección del pedido
+  Read [F:ZSQH]SQH0 = [F:SOH]SQHNUM
+  If !fstat Then
+    # cabecera
+    Read [F:ZSOH]SOH0     = [F:SOH]SOHNUM
+    [F:ZSOH]BPAADD        = [F:ZSQH]BPAADD
+    [F:ZSOH]BPDNAM(0)     = [F:ZSQH]BPDNAM(0)
+    [F:ZSOH]BPDNAM(1)     = [F:ZSQH]BPDNAM(1)
+    [F:ZSOH]BPDADDLIG(0)  = [F:ZSQH]BPDADDLIG(0)
+    [F:ZSOH]BPDADDLIG(1)  = [F:ZSQH]BPDADDLIG(1)
+    [F:ZSOH]BPDADDLIG(2)  = [F:ZSQH]BPDADDLIG(2)
+    [F:ZSOH]BPDPOSCOD     = [F:ZSQH]BPDPOSCOD
+    [F:ZSOH]BPDCTY        = [F:ZSQH]BPDCTY
+    [F:ZSOH]BPDSAT        = [F:ZSQH]BPDSAT
+    [F:ZSOH]BPDCRY        = [F:ZSQH]BPDCRY
+    [F:ZSOH]BPDCRYNAM     = [F:ZSQH]BPDCRYNAM
+    [F:ZSOH]CREUSR        = "WEB"
+    [F:ZSOH]UPDUSR        = "WEB"
+    [F:ZSOH]ALLSTA        = 3
+    [F:ZSOH]ZCOMENTARIOS  = [F:ZSQH]ZCOMENTARIOS
+
+    # bloqueo del pedido si el código llega en blanco en el fichero desde la web
+    Read [F:ZOPH]ZOPH0 = [F:SOH]SOHNUM
+    If [F:ZOPH]BLOQUEO = 1 Then
+      [F:ZSOH]HLDSTA = 2
+      [F:ZSOH]HLDCOD = "NUEVADIRECCION"
+      # si el pedido ya estaba bloqueado por cualquier otra razón y Facturación porte no es Facturado,
+      # el motivo tiene que ser combinado (PORTESYOTROS)
+      If [F:SOH]HLDSTA = 2 and [F:SOH]ZFREINV <> 1 Then
+        [F:ZSOH]HLDCOD = "PORTESYOTROS"
+      Endif
+    Else
+      If [F:SOH]ZFREINV = 1 Then
+        [F:ZSOH]HLDSTA = 1
+        [F:ZSOH]HLDCOD = ""
+      Endif
+    Endif
+    Trbegin [F:ZSOH]
+    Rewrite [F:ZSOH]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+    # lineas P
+    Filter [F:ZSOP] Where SOHNUM = [F:SOH]SOHNUM
+    For [ZSOP]
+      [F:ZSOP]CREUSR = "WEB"
+      [F:ZSOP]UPDUSR = "WEB"
+      Trbegin [F:ZSOP]
+      Rewrite [F:ZSOP]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Next
+    Filter [F:ZSOP]
+    # lineas Q
+    Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
+    For [ZSOQ]
+      [F:ZSOQ]BPTNUM = [F:SOH]BPTNUM
+      [F:ZSOQ]CREUSR = "WEB"
+      [F:ZSOQ]UPDUSR = "WEB"
+      Trbegin [F:ZSOQ]
+      Rewrite [F:ZSOQ]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Next
+    Filter [F:ZSOQ]
+  Endif
+
+  Close Local File [ZOPH],[ZOPD],[ZSQH],[ZSQD],[ZSOH],[ZSOP],[ZSOQ]
+Return

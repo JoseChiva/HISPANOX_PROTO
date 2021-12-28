@@ -1,0 +1,203 @@
+#<AdxTL>@(#)%I% Importación de datos ZMBB (WWI66501)
+$INI_IMPORT
+GERREUR = 0
+Onerrgo ERREUR From SUBIMPOBJ
+Local Date     DAT
+Local Integer  DEBUT,NUMFLD,NBL,ANOWRITE
+Local Integer  A_LIBEL, A_ER , OK_IMPRIME
+Local Char     IMPFIC(GLONABR)
+Local Integer  IMPFIN, RUPT, NBCRE, NBMOD, NBENR, NBERR, EGAL
+Local Integer  IMPFINS, SEPNUMS, INDTRT
+Local Integer  SEPNUM, DEBENR, WDEBENR
+Local Integer  SAVSTA
+Local Integer  K, IMPSTA , SAVLIG , IMPORTYP, LIGIMP
+Local Char     VALIMP(255)(500), LIGNE(255)
+Local UUident  AUUID
+Local Datetime DATTIME
+Local Blbfile  BLBIMP(1)(0..0)
+Local Clbfile  CLBIMP(1)(0..0)
+Local Char     NOMTRT(GLONADC) , TRTMSK(GLONADC) , TRTIMPORT(GLONADC)
+Local Char     NOMVAR(200)
+# Pour Setmode
+Local Shortint IADIME : IADIME = 30    : # Taille pour le Setmode
+Local Integer  INBAFF                  : # Pile/Indice
+Local Integer  IAFFCOD(0..IADIME)      : # Code instruction
+Local Char     IAFFMASK(GLONABR)(0..IADIME)  : # Abréviation écran
+Local Char     IAFFCHP(50)(0..IADIME)        : # Zone écran
+Local Integer  IAFFIND(0..IADIME)            : # Indice de la zone
+Local Char     IAFFTXT(250)(0..IADIME) : # Texte
+Local Integer  IAFFRANG(0..IADIME)     : # Rang
+Local Integer  IAFFOPT1(0..IADIME)     : # Option1 Ex: Status, premier rang affzo 10-20
+Local Integer  IAFFOPT2(0..IADIME)     : # Option2 Ex: Raccourci clavier, dernier rang affzo 10-20
+
+OK = 1
+IMPORTYP = 1
+TRTIMPORT = ""
+NOMTRT="WWI66501"
+Gosub OUVRE From SUBIMPOBJ
+If OK=0 : Return : Endif
+If OK=0 : Return : Endif
+Openi "D:\Sage\SAGEX3\folders\X3_PUB\PROTO\TMP\F1624960662567" Using [IMP]
+Raz IMPFIN, GREP, RUPT, DEBENR, NBCRE, NBMOD, NBENR, NBERR
+Raz GNBIMP, GERIMP,GNUMAOW,GNUMAOV,GMESSIMP
+OK_IMPRIME = 0
+Return
+
+$IMPORT
+WDEBENR = adxseek("IMP")
+NBENR += 1
+SAVIRS = adxirs : SAVIFS = adxifs : SAVIUM = adxium
+adxirs = IMPIRS : adxifs = IMPIFS : adxium = IMPIUM
+Call RD_SEQ(VALIMP,BLBIMP,CLBIMP,IMPFIC,SEPNUM,IMPFIN,WDEBENR) From SUBIMPOBJ
+adxirs = SAVIRS : adxifs = SAVIFS : adxium = SAVIUM
+If IMPFIN
+ Gosub VALID From SUBIMPOBJ : Return
+Endif
+Case SEPNUM
+ When 1 : Gosub IMPORT0
+ When 2 : Gosub IMPORT1
+Endcase
+Gosub TEST_RUPTURE From SUBIMPOBJ
+If RUPT
+ Gosub VALID From SUBIMPOBJ
+ If GERREUR : Return : Endif
+ DEBENR = WDEBENR
+ If GTRACE<>""
+  Call ECR_TRACE(string$(20,"-")-mess(198,124,1)-num$(GNBIMP+1)-"("+mess(61,100,1)-num$(NBENR)+")",0) From GESECRAN
+ Endif
+ OK_IMPRIME = 1
+ Gosub IMPORT0
+ OK_IMPRIME = 0
+ [F:AAA_] = [F:ZMBB]
+ GNBIMP += 1
+ NBERR = 0
+ Gosub CHARGEMSK From SUBIMPOBJ
+ RUPT=0
+Endif
+For INDTRT=SEPNUM To SEPNUM
+ status = 0 : nolign = 0 : OK = 1 : ACTION="IMPORT" : Gosub ACTION From SUBIMPOBJ
+ If OK=0 : GREP = "" : REP = "" : NBERR += 1 : Endif
+ If OK=1
+  If INDTRT=1
+     TRTMSK = "W0ZMBBASE"
+     ACTION = "IMP_DEFTRT" : Gosub ACTION From SUBIMPOBJ
+     Default Mask [ZMBB]
+     mkstat = 0
+     GNBAFF = 0
+     Setmode INBAFF,IAFFCOD,IAFFMASK,IAFFCHP,IAFFIND,IAFFTXT,IAFFRANG,IAFFOPT1,IAFFOPT2
+     Call SAIMSK("ZMBB","IMP_ZONE","SUBIMPOBJ") From =TRTMSK
+     If mkstat 
+      GREP = "" : REP = "" : NBERR += 1
+      Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ
+     Endif
+     Setmode : Raz GERREUR
+  Endif
+  If INDTRT=2
+     TRTMSK = "W0ZMBBASE"
+     ACTION = "IMP_DEFTRT" : Gosub ACTION From SUBIMPOBJ
+     Default Mask [ZMBB]
+      If [M]NBLIG>=dim([M]MB12) & GTRACE<>""
+       Call ECR_TRACE(mess(26,100,1)-num$([M]NBLIG),1) From GESECRAN : Return
+      Endif
+     If nolign=0
+      [M]NBLIG += 1
+      nolign = [M]NBLIG
+      status = 73
+     Elsif status<>65 & status<>72
+      status = 75
+     Endif
+     If status=65
+      Dela nolign-1,1,[M]NBLIG-1 NBLIG
+      [M]NBLIG -= 1
+     Elsif status=72
+      Insa nolign-1,1,[M]NBLIG NBLIG
+      [M]NBLIG += 1
+      indice = nolign-1 : mkstat = 0
+      GNBAFF = 0
+      Setmode INBAFF,IAFFCOD,IAFFMASK,IAFFCHP,IAFFIND,IAFFTXT,IAFFRANG,IAFFOPT1,IAFFOPT2
+      Call SAI_NBLIG("ZMBBD","IMP_TAB","SUBIMPOBJ") From =TRTMSK
+      If mkstat 
+       GREP = "" : REP = "" : NBERR += 1
+       Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ
+      Endif
+      Setmode : Raz GERREUR
+     Else
+      indice = nolign-1 : mkstat = 0
+      GNBAFF = 0
+      Setmode INBAFF,IAFFCOD,IAFFMASK,IAFFCHP,IAFFIND,IAFFTXT,IAFFRANG,IAFFOPT1,IAFFOPT2
+      Call SAI_NBLIG("ZMBBD","IMP_TAB","SUBIMPOBJ") From =TRTMSK
+      If mkstat 
+       GREP = "" : REP = "" : NBERR += 1
+       Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ
+      Endif
+      Setmode : Raz GERREUR
+     Endif
+  Endif
+ Endif
+Next INDTRT
+Return
+
+$FERME
+Gosub FERME From SUBIMPOBJ
+Onerrgo
+Return
+
+$DEFAUT
+Default File [ZMBB]
+Return
+
+$IMPORT0
+Raz [F:ZMBB]
+LIGNE = VALIMP(1)
+ # Alphanumérique: TSICOD
+[F:ZMBB]TSICOD = vireblc(LIGNE,2)
+If vireblc(LIGNE,2)<>vireblc(format$("K:20B",[F:ZMBB]TSICOD),2) & OK_IMPRIME
+ Call TRACE2(-2,"Error formato TSICOD K:20B"-num$(LIGNE),1) From SUBIMPOBJ
+Endif
+[F:ZMBB]TSICOD = vireblc(format$("K:20B",[F:ZMBB]TSICOD),1)
+LIGNE = VALIMP(2)
+ # Numérique: FRANJA0
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBB]FRANJA0 = val(LIGNE)
+LIGNE = VALIMP(3)
+ # Numérique: FRANJA1
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBB]FRANJA1 = val(LIGNE)
+LIGNE = VALIMP(4)
+ # Numérique: FRANJA2
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBB]FRANJA2 = val(LIGNE)
+ACTION='AP_IMPORT' : Gosub ACTION From SUBIMPOBJ
+Return
+
+$IMPORT1
+Raz [F:ZMBBD]
+LIGNE = VALIMP(1)
+ # Alphanumérique: TSICOD
+[F:ZMBBD]TSICOD = vireblc(LIGNE,2)
+If vireblc(LIGNE,2)<>vireblc(format$("K:20B",[F:ZMBBD]TSICOD),2)
+ Call TRACE2(-2,"Error formato TSICOD K:20B"-num$(LIGNE),1) From SUBIMPOBJ
+Endif
+[F:ZMBBD]TSICOD = vireblc(format$("K:20B",[F:ZMBBD]TSICOD),1)
+LIGNE = VALIMP(2)
+ # Alphanumérique: TSCCOD
+[F:ZMBBD]TSCCOD = vireblc(LIGNE,2)
+If vireblc(LIGNE,2)<>vireblc(format$("K:20B",[F:ZMBBD]TSCCOD),2)
+ Call TRACE2(-2,"Error formato TSCCOD K:20B"-num$(LIGNE),2) From SUBIMPOBJ
+Endif
+[F:ZMBBD]TSCCOD = vireblc(format$("K:20B",[F:ZMBBD]TSCCOD),1)
+LIGNE = VALIMP(3)
+ # Numérique: MB1
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBBD]MB1 = val(LIGNE)
+LIGNE = VALIMP(4)
+ # Numérique: MB2
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBBD]MB2 = val(LIGNE)
+LIGNE = VALIMP(5)
+ # Numérique: MB3
+Call SETNUM(LIGNE,'.') From SUBIMPOBJ
+[F:ZMBBD]MB3 = val(LIGNE)
+ACTION='AP_IMPORT' : Gosub ACTION From SUBIMPOBJ
+Return
+

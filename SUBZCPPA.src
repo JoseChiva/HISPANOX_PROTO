@@ -1,0 +1,166 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "DEBUT"    : Gosub DEBUT
+  When "BOUTON"   : Gosub BOUTON
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$DEBUT
+Local Integer LCON
+  If !clalev([F:AXX0]) Then : Local File ZCRITPVPENAG [F:AXX0] : Endif
+  Filter [F:AXX0] Where ZUSER = GUSER
+  For [AXX0]
+    [M:ZCPPA0]ZCODIGO(LCON)       = [F:AXX0]ZCODIGO
+    [M:ZCPPA0]ZUSER(LCON)         = [F:AXX0]ZUSER
+    [M:ZCPPA0]CLIENTE(LCON)       = [F:AXX0]CLIENTE
+    [M:ZCPPA0]TIPO(LCON)          = [F:AXX0]TIPO
+    [M:ZCPPA0]FECHAPEDINI(LCON)   = [F:AXX0]FECHAPEDINI
+    [M:ZCPPA0]FECHAPEDFIN(LCON)   = [F:AXX0]FECHAPEDFIN
+    [M:ZCPPA0]FECHAENTINI(LCON)   = [F:AXX0]FECHAENTINI
+    [M:ZCPPA0]FECHAENTFIN(LCON)   = [F:AXX0]FECHAENTFIN
+    [M:ZCPPA0]ESTADOPREINI(LCON)  = [F:AXX0]ESTADOPREINI
+    [M:ZCPPA0]ESTADOPREFIN(LCON)  = [F:AXX0]ESTADOPREFIN
+    [M:ZCPPA0]ESTADOASIINI(LCON)  = [F:AXX0]ESTADOASIINI
+    [M:ZCPPA0]ESTADOASIFIN(LCON)  = [F:AXX0]ESTADOASIFIN
+    [M:ZCPPA0]PRIORIDADINI(LCON)  = [F:AXX0]PRIORIDADINI
+    [M:ZCPPA0]PRIORIDADFIN(LCON)  = [F:AXX0]PRIORIDADFIN
+    [M:ZCPPA0]AGENCIAINI(LCON)    = [F:AXX0]AGENCIAINI
+    [M:ZCPPA0]AGENCIAFIN(LCON)    = [F:AXX0]AGENCIAFIN
+    [M:ZCPPA0]REPRESENINI(LCON)   = [F:AXX0]REPRESENINI
+    [M:ZCPPA0]REPRESENFIN(LCON)   = [F:AXX0]REPRESENFIN
+    [M:ZCPPA0]ESTADOINI(LCON)     = [F:AXX0]ESTADOINI
+    [M:ZCPPA0]BLOQUEOINI(LCON)    = [F:AXX0]BLOQUEOINI
+    [M:ZCPPA0]FLAG1(LCON)         = [F:AXX0]FLAG1
+    [M:ZCPPA0]FLAG2(LCON)         = [F:AXX0]FLAG2
+    [M:ZCPPA0]TIPOPORTINI(LCON)   = [F:AXX0]TIPOPORTINI
+    [M:ZCPPA0]TIPOPORTFIN(LCON)   = [F:AXX0]TIPOPORTFIN
+    LCON += 1
+  Next
+  [M:ZCPPA0]NBLIG = LCON
+  Affzo [M:ZCPPA0]
+  Close Local File [AXX0]
+
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+##############################################################
+$BOUTON
+  Case BOUT
+    When "g"  : Gosub GUARDAR_
+    When "c"  : Gosub CARGAR_
+  Endcase
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+##############################################################
+$GUARDAR_
+Local Integer LCON
+
+  If !clalev([F:AXX1]) Then : Local File ZCRITPVPENAG [F:AXX1] : Endif
+  Trbegin [F:AXX1]
+  Delete [F:AXX1] Where ZUSER = GUSER
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+
+  For LCON=0 To [M:ZCPPA0]NBLIG-1
+    [F:AXX1]ZCODIGO         = [M:ZCPPA0]ZCODIGO(LCON)
+    [F:AXX1]ZUSER           = [M:ZCPPA0]ZUSER(LCON)
+    [F:AXX1]CLIENTE         = [M:ZCPPA0]CLIENTE(LCON)
+    [F:AXX1]TIPO            = [M:ZCPPA0]TIPO(LCON)
+    [F:AXX1]FECHAPEDINI     = [M:ZCPPA0]FECHAPEDINI(LCON)
+    [F:AXX1]FECHAPEDFIN     = [M:ZCPPA0]FECHAPEDFIN(LCON)
+    [F:AXX1]FECHAENTINI     = [M:ZCPPA0]FECHAENTINI(LCON)
+    [F:AXX1]FECHAENTFIN     = [M:ZCPPA0]FECHAENTFIN(LCON)
+    [F:AXX1]ESTADOPREINI    = [M:ZCPPA0]ESTADOPREINI(LCON)
+    [F:AXX1]ESTADOPREFIN    = [M:ZCPPA0]ESTADOPREFIN(LCON)
+    [F:AXX1]ESTADOASIINI    = [M:ZCPPA0]ESTADOASIINI(LCON)
+    [F:AXX1]ESTADOASIFIN    = [M:ZCPPA0]ESTADOASIFIN(LCON)
+    [F:AXX1]PRIORIDADINI    = [M:ZCPPA0]PRIORIDADINI(LCON)
+    [F:AXX1]PRIORIDADFIN    = [M:ZCPPA0]PRIORIDADFIN(LCON)
+    [F:AXX1]AGENCIAINI      = [M:ZCPPA0]AGENCIAINI(LCON)
+    [F:AXX1]AGENCIAFIN      = [M:ZCPPA0]AGENCIAFIN(LCON)
+    [F:AXX1]REPRESENINI     = [M:ZCPPA0]REPRESENINI(LCON)
+    [F:AXX1]REPRESENFIN     = [M:ZCPPA0]REPRESENFIN(LCON)
+    [F:AXX1]ESTADOINI       = [M:ZCPPA0]ESTADOINI(LCON)
+    [F:AXX1]BLOQUEOINI      = [M:ZCPPA0]BLOQUEOINI(LCON)
+    [F:AXX1]FLAG1           = [M:ZCPPA0]FLAG1(LCON)
+    [F:AXX1]FLAG2           = [M:ZCPPA0]FLAG2(LCON)
+    [F:AXX1]TIPOPORTINI     = [M:ZCPPA0]TIPOPORTINI(LCON)
+    [F:AXX1]TIPOPORTFIN     = [M:ZCPPA0]TIPOPORTFIN(LCON)
+    Trbegin [F:AXX1]
+    Write   [F:AXX1]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+  Close Local File [AXX1]
+
+  If dim(LCON)>0 Then : Kill LCON : Endif
+Return
+
+##############################################################
+$CARGAR_
+  [M:ZPVPACRI]CLIENTE       = [M:ZCPPA0]CLIENTE(nolign-1)
+  [M:ZPVPACRI]TIPO          = [M:ZCPPA0]TIPO(nolign-1)
+  [M:ZPVPACRI]FECHAPEDINI   = [M:ZCPPA0]FECHAPEDINI(nolign-1)
+  [M:ZPVPACRI]FECHAPEDFIN   = [M:ZCPPA0]FECHAPEDFIN(nolign-1)
+  [M:ZPVPACRI]FECHAENTINI   = [M:ZCPPA0]FECHAENTINI(nolign-1)
+  [M:ZPVPACRI]FECHAENTFIN   = [M:ZCPPA0]FECHAENTFIN(nolign-1)
+  [M:ZPVPACRI]ESTADOPREINI  = [M:ZCPPA0]ESTADOPREINI(nolign-1)
+  [M:ZPVPACRI]ESTADOPREFIN  = [M:ZCPPA0]ESTADOPREFIN(nolign-1)
+  [M:ZPVPACRI]ESTADOASIINI  = [M:ZCPPA0]ESTADOASIINI(nolign-1)
+  [M:ZPVPACRI]ESTADOASIFIN  = [M:ZCPPA0]ESTADOASIFIN(nolign-1)
+  [M:ZPVPACRI]PRIORIDADINI  = [M:ZCPPA0]PRIORIDADINI(nolign-1)
+  [M:ZPVPACRI]PRIORIDADFIN  = [M:ZCPPA0]PRIORIDADFIN(nolign-1)
+  [M:ZPVPACRI]AGENCIAINI    = [M:ZCPPA0]AGENCIAINI(nolign-1)
+  [M:ZPVPACRI]AGENCIAFIN    = [M:ZCPPA0]AGENCIAFIN(nolign-1)
+  [M:ZPVPACRI]REPRESENINI   = [M:ZCPPA0]REPRESENINI(nolign-1)
+  [M:ZPVPACRI]REPRESENFIN   = [M:ZCPPA0]REPRESENFIN(nolign-1)
+  [M:ZPVPACRI]ESTADOINI     = [M:ZCPPA0]ESTADOINI(nolign-1)
+  [M:ZPVPACRI]BLOQUEOINI    = [M:ZCPPA0]BLOQUEOINI(nolign-1)
+  [M:ZPVPACRI]FLAG1         = [M:ZCPPA0]FLAG1(nolign-1)
+  [M:ZPVPACRI]FLAG2         = [M:ZCPPA0]FLAG2(nolign-1)
+  [M:ZPVPACRI]TIPOPORTINI   = [M:ZCPPA0]TIPOPORTINI(nolign-1)
+  [M:ZPVPACRI]TIPOPORTFIN   = [M:ZCPPA0]TIPOPORTFIN(nolign-1)
+  Affzo [M:ZPVPACRI]
+  FIN=1
+Return
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+##############################################################
+##############################################################
+## Controla que sólo se repitan valores en el campo ZCODIGO
+##############################################################
+Subprog C_ZCODIGO(VALEUR)
+Variable Char    VALEUR()
+
+  If VALEUR <> "" Then
+    Call UNICITE(VALEUR,[M:ZCPPA0]ZCODIGO(0..[M:ZCPPA0]NBLIG-1)) From OBJDIV
+    If mkstat = 2 Then
+      VALEUR = ""
+    Endif
+  Endif
+
+End
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

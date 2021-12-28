@@ -1,0 +1,2886 @@
+#<AdxTL>@(#)12.0.0.0 $Revision$
+Raz GPILOBJ , GNBMASKOUV
+Call OBJET("AUS",GBIDC1,GBIDC2) From GOBJET
+End
+
+#-----------------------------------------------#
+$ACTION
+If dim([L]PSUBB)<=0
+ Local Integer PSUBB
+ Call EXISTE_ADX("","","SUBAUSB",PSUBB) From ORDSYS
+Endif
+Case ACTION
+ When "OUVRE"        : Gosub OUVRE
+ When "OUVRE_BOITE"  : Gosub OUVRE_BOITE
+ When "LIENS"        : Gosub LIENS
+ When "SETBOUT"      : Gosub SETBOUT
+ When "APRES_CHOI"   : Gosub APRES_CHOI
+ When "AVANTBOUT"    : Gosub AVANTBOUT
+ When "RAZCRE"       : Gosub RAZCRE
+ When "ANNULE"       : Gosub ANNULE
+ When "AP_ANNULE"    : Gosub AP_ANNULE
+ When "CHANGE"       : Gosub CHANGE
+ When "VERIF_CRE"    : Gosub VERIF_CRE
+ When "INICRE"       : Gosub INICRE
+ When "CREATION"     : Gosub CREATION
+ When "APRES_CRE"    : Gosub APRES_CRE
+ When "VERIF_MOD"    : Gosub VERIF_MOD
+ When "INIMOD"       : Gosub INIMOD
+ When "AVANT_MODFIC" : Gosub AVANT_MODFIC
+ When "MODIF"        : Gosub MODIF
+ When "APRES_MOD"    : Gosub APRES_MOD
+ When "APRES_MODIF"  : Gosub APRES_MODIF
+ When "FILTRE"       : Gosub FILTRE
+ When "AB1_PRFFCT"   : Gosub AB1_PRFFCT
+ When "BB1_PRFFCT"   : Gosub BB1_PRFFCT
+ When "TIROIR"       : Gosub TIROIR
+ When "FIN"          : Gosub FIN
+ When "SEL_TABLE"    : Gosub SEL_TABLE
+ When "VERF_TABLE"   : Gosub VERF_TABLE
+ When "FIN_TABLE"    : Gosub FIN_TABLE
+Endcase
+If PSUBB
+ Gosub ACTION From SUBAUSB
+Endif
+Return
+
+#-----------------------------------------------#
+$AB1_PRFFCT
+Local Integer OGCONSULT
+OGCONSULT = GCONSULT
+GCONSULT = 1
+Return
+
+#-----------------------------------------------#
+$BB1_PRFFCT
+GCONSULT = OGCONSULT
+Return
+
+#-----------------------------------------------#
+$FILTRE
+If GFONCTION="GESAUS"
+ Gosub SET_AUZFCT
+ If AUZFCT<>""
+  FILTSUP = 'pat([F:AUS]PRFFCT,"'+AUZFCT+'")'
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$SET_AUZFCT
+Local Char AUZFCT(23)
+If GPROFIL=GSUPER
+ AUZFCT = "*"
+Else
+ Call PARAMUTIL("AUZFCT",AUZFCT,"","")
+ AUZFCT = ctrans(AUZFCT,"'","")
+ AUZFCT = ctrans(AUZFCT,'"','')
+Endif
+Return
+
+#-----------------------------------------------#
+$OUVRE
+Local Char     CODGRP(GLONADI) , CODJEU(GLONADI) , CODCHA(GLONADI)
+Local Integer  CODLIG , JEUOK , CODNIV , MAJ , DEL
+
+Local Char     TAB(255)(0..5)
+Local Integer  NIVEAU , AFFOK , NOL , OKTRT , FLNOMME , ERFIC
+Local Char     MESSAGE(250)
+Local Char     ORDSYS(250) , RESULT(250)(1..10)
+Local Integer  STAT , NBCOL , POSDEB(1..10) , POSFIN(1..10)
+Local Char     SITE(GLONFCY) , SOCIETE(GLONCPY) , LEG(GLONADI)
+Local Char     NAMCHP(GLONDES)(1..100) , CODCHP(GLONADI)(1..100)
+Local Integer  NBCHP
+Local Shortint NBPAR
+Local Integer  NUMBPA
+Local Integer  PHOTO
+Local Integer  MAIL , PASOBLI
+Local Char     PASSE(24)
+
+Global Char    BOXPAR(10)
+
+Gosub SET_AUZFCT
+
+NBPAR = nbrecord([F:ADP])
+
+If clalev([F:AUS2])=0 : Local File AUTILIS   [AUS2] : Endif
+If clalev([F:ALS2])=0 : Local File ALSTRD    [ALS2] : Endif
+If clalev([F:ADP2])=0 : Local File ADOPAR    [ADP2] : Endif
+If GUSRNOMME
+ If clalev([F:AUO])=0  : Local File AUSRSOL   [AUO]  : Endif
+ If clalev([F:ADS])=0  : Local File ADOSSIER  [ADS]  : Endif
+Endif
+If clalev([F:AME])=0  : Local File AMETUTI [AME]    : Endif
+
+Local Char  WCHP(GLONADI)(1..NBPAR) , WGRP(GLONADI)(1..NBPAR) , WPAR(GLONADP)(1..NBPAR)
+&         , WDESCHP(GLONDES)(1..NBPAR) , WDESGRP(GLONDES)(1..NBPAR) , WDESPAR(80)(1..NBPAR)
+Local File (Char CHP(GLONADI) , Char GRP(GLONADI) , Char PAR(GLONADP)
+&         , Char DESCHP(GLONDES) , Char DESGRP(GLONDES) , Char DESPAR(80))
+&           From Variable WCHP , WGRP , WPAR , WDESCHP , WDESGRP , WDESPAR As [AADP]
+&           Order By CHP ; GRP ; PAR
+
+NUMBPA = 4
+Filter [AWA] Where TYPEVT=1 & CODEVT="PWD" & ENAFLG=2 & ENAMES=2
+Read [AWA]AWA1 First
+If !fstat
+ MAIL = 1
+Endif
+Filter [AWA]
+Read [ADW]ADW0 = "";"";"PASSWD"
+If !fstat : PASOBLI = val([F:ADW]VALEUR) : Endif
+
+#jira 219509
+# declencher la mise a jour etag quand necessaire
+Local Integer WIND_RIGHTSETAG
+WIND_RIGHTSETAG = [V]CST_ANO
+
+Return
+
+#-----------------------------------------------#
+$OUVRE_BOITE
+Global Char BOXPAR(10)
+BOXPAR = "GAU_CHE"+num$(find("AD4",OBJLIS(1..dim(OBJLIS)-1)))
+Return
+
+#-----------------------------------------------#
+$FIN
+If dim(BOXPAR)>0
+ Kill BOXPAR
+Endif
+Return
+
+#-----------------------------------------------#
+$TIROIR
+If currbox<>BOXCURR
+ Gosub REMPLIT
+Endif
+Return
+
+#-----------------------------------------------#
+$REMPLIT
+Case currbox
+ When BOXPAR
+  I = 0
+  For [ADP]ADP5 Where MODIF=2
+   K = find([F:ADP]PARAM,[M:AUS7]PARAM)
+   If K & I<dim(WCHP)
+    I += 1
+    WCHP(I) = [F:ADP]CHAPITRE
+    WGRP(I) = [F:ADP]GRPPAR
+    WPAR(I) = [F:ADP]PARAM
+    Call LECTEXTRA(WDESCHP(I),"ATABDIV","LNGDES","901",WCHP(I)) From ATEXTRA
+    Call LECTEXTRA(WDESGRP(I),"ATABDIV","LNGDES","903",WGRP(I)) From ATEXTRA
+    Call TEXTE([F:ADP]NAM,WDESPAR(I)) From OBJDIV
+    If [M:AUS7]VALEUR(K-1)<>""
+     If find([F:ADP]TYPVAL,1,4)
+      If len([M:AUS7]VALEUR(K-1))>30
+       WDESPAR(I) = [F:ADP]PARAM+'="'+left$([M:AUS7]VALEUR(K-1),30)+'..."'-"("+WDESPAR(I)+")"
+      Else
+       WDESPAR(I) = [F:ADP]PARAM+'="'+[M:AUS7]VALEUR(K-1)+'"'-"("+WDESPAR(I)+")"
+      Endif
+     Else
+      WDESPAR(I) = [F:ADP]PARAM+'='+[M:AUS7]VALEUR(K-1)-"("+WDESPAR(I)+")"
+     Endif
+    Else
+     WDESPAR(I) = [F:ADP]PARAM+'=""'-"("+WDESPAR(I)+")"
+    Endif
+   Endif
+  Next ADP
+  For J=I+1 To dim(WCHP)
+   WCHP(J) = chr$(255)
+  Next J
+  adxmxl = I
+  Filter [AADP] Order By CHP ; GRP ; PAR
+  Case currbox
+   When "GAU_CHE1" : Fillbox [AUS1] GAU_CHE1
+   When "GAU_CHE2" : Fillbox [AUS1] GAU_CHE2
+   When "GAU_CHE3" : Fillbox [AUS1] GAU_CHE3
+   When "GAU_CHE4" : Fillbox [AUS1] GAU_CHE4
+  Endcase
+  Filter [AADP]
+Endcase
+Return
+
+#-----------------------------------------------#
+$APRES_MODIF
+# on passe ici tjs apres avoir modif le champs meme en creation"
+# zones qui doivent declencher la mise a jour du righsetag
+# screens AUS1 AUS5 AUS7 et AUS8
+If find (COUZON,"CODMET","PRFFCT","PRFMEN","LOGIN","NBGRP","JEUCOD","ALLACS","NBACC","NBBPR")
+        WIND_RIGHTSETAG = [V]CST_AYES
+Endif
+#
+Case COUZON
+ When "CODMET"
+  [F:AUS]CODMET = CZ
+  [M:AUS1]CODMET = CZ
+  Gosub CHARGE_ACCES
+  Affzo [AUS8]
+  Gosub CHARGE_PARAM
+  Gosub CHARGE_GRP
+  Affzo [AUS7]
+ When "PRFFCT"
+  [F:AUS]PRFFCT = CZ
+  [M:AUS1]PRFFCT = CZ
+  Gosub CHARGE_ACCES
+  Affzo [AUS8]
+  Gosub CHARGE_PARAM
+  Gosub CHARGE_GRP
+  Affzo [AUS7]
+ When "AUSPIC"
+  If VERROU or find(REP,"C","D")
+   PHOTO = 1
+  Endif
+ When "NBGRP"
+  Case status
+   When 129 , 130 : # Boutons "Détail" et "Recherche"
+    Gosub CHARGE_GRP
+    Affzo [AUS7]
+    Gosub REMPLIT
+    Gosub SETBOX
+  Endcase
+ When "JEUCOD"
+  Gosub REMPLIT
+  Gosub SETBOX
+ When "USR"
+  If GUSER<>"ADMIN" & func ARECAUO.USRSAG(CZ)
+   Look [AUS]CODUSR=CZ
+   If fstat
+    OK = 0 : GMESSAGE = CZ-":"-mess(76,130,1) : # Création impossible. Vous devez être le super utilisateur
+   Endif
+  Endif
+Endcase
+Return
+
+#-------------------#
+$SETBOX
+Case currbox
+ When BOXPAR
+  Local Integer K
+  If nolign > 0
+      For [ADP]ADP5 Where CHAPITRE=[M]CHPCOD(nolign-1) & GRPPAR=[M]GRPCOD(nolign-1) & MODIF=2
+         K = find([F:ADP]PARAM,[M:AUS7]PARAM)
+         If K : Break : Endif
+      Next ADP
+  Endif
+  If K
+   [F:AADP]CHP = [F:ADP]CHAPITRE
+   [F:AADP]GRP = [F:ADP]GRPPAR
+   [F:AADP]PAR = [F:ADP]PARAM
+   Read [AADP] =
+   Case currbox
+    When "GAU_CHE1" : Setlbox [AUS1] GAU_CHE1
+    When "GAU_CHE2" : Setlbox [AUS1] GAU_CHE2
+    When "GAU_CHE3" : Setlbox [AUS1] GAU_CHE3
+    When "GAU_CHE4" : Setlbox [AUS1] GAU_CHE4
+   Endcase
+  Endif
+Endcase
+Return
+
+#-----------------------------------------------#
+$SETBOUT
+Gosub USER_CONNECT
+If K or find(CLECUR1,GSUPER,GUSER)
+ Call VIREBOUT(CHAINE,"AH") From GOBJET
+Endif
+If AUZFCT="" & GUSER<>GSUPER
+ Call VIREBOUT(CHAINE,"CD") From GOBJET
+Endif
+If AUZFCT<>"" & pat([M]PRFFCT,AUZFCT)=0
+ Call VIREBOUT(CHAINE,"D") From GOBJET
+Endif
+If CLECUR=0 | REP="M" | !VERROU
+ Call VIREBOUT(CHAINE,"2") From GOBJET : # Copie
+Endif
+If CLECUR & instr(1,GUSRAUZ(1),"P") & (!func ARECAUO.USRSAG(CLECUR1) or (func ARECAUO.USRSAG(CLECUR1) & GUSER=GSUPER))
+ CHMEN += "1" : # Mot de passe
+Endif
+Return
+
+#-----------------#
+$USER_CONNECT
+Raz NBCOL , K
+If [M]LOGIN="" : Return : Endif
+Call USER_CONNECT(tolower([M]LOGIN),nomap,NBCOL) From PSADX
+If NBCOL>=1
+ K = 1 : # Utilisateur connecté
+Endif
+Return
+
+#-----------------------------------------------#
+$APRES_CHOI
+Case currbox
+ When BOXPAR
+  If find(REPONSE,GSTALFT,GSTALF2,GSTALF3,GSTALF4)
+   Local Char    PARMSK(250)(1..20) , VALMSK(30)
+   PARMSK(1) = [F:AADP]CHP
+   PARMSK(2) = [F:AADP]GRP
+   PARMSK(3) = [F:AADP]PAR
+   Call SAISIE_CHAR(VALMSK,PARMSK,"AUSP","ASAIPARAUS","") From GSAISIE
+   If mkstat=4 & REP="" : REP = "M" : GREP = "M" : Endif
+   nolign = 0
+   For I=1 To [M:AUS7]NBGRP
+    If [F:AADP]CHP=[M:AUS7]CHPCOD(I-1) & [F:AADP]GRP=[M:AUS7]GRPCOD(I-1)
+     nolign = I : Break
+    Endif
+   Next I
+   If nolign>0
+    zonsui = "[M:AUS7]NBGRP("+num$(nolign-1)+")"
+   Endif
+  Endif
+Endcase
+Return
+
+#-----------------------------------------------#
+$AVANTBOUT
+Case BOUT
+ When "1"
+  OK = 1 : Call OUINON(mess(54,100,1)-CLECUR1,OK) From GESECRAN
+  If OK=2
+   If !VERROU
+    Gosub VERROU From GOBJET
+    If !VERROU
+     Call QUILOCKE(right$(GLOCK,2),[L]MACLCK,[L]USRLCK) From OBJDIV
+     If [L]USRLCK<>""
+      GMESSAGE = mess(101,126,1)+"\"+[L]USRLCK+"\"+[L]MACLCK : # La fiche est utilisée par
+     Else
+      GMESSAGE = mess(98,126,1) : # La fiche est utilisée par un autre utilisateur
+     Endif
+     Call MESSAGE(GMESSAGE) From GESECRAN
+     GMESSAGE = "" : Return
+    Endif
+    Gosub RAZ_PASSE
+    Gosub DEVERROU From GOBJET
+   Else
+    Gosub RAZ_PASSE
+   Endif
+  Endif
+Endcase
+Return
+
+#---------------#
+$RAZ_PASSE
+Call DEBTRANS From GLOCK
+Gosub TR_PASSE
+If GOK=1
+ Gosub MES_PASSWD
+ If !(PASOBLI=2 or func ARECAUO.USRSAG([F:AUS]USR))
+  GMESSAGE = mess(95,130,1) : # Mot de passe annulé
+  Call MESSAGE(GMESSAGE) From GESECRAN
+  GMESSAGE = ""
+ Endif
+Endif
+Return
+
+#---------------#
+$TR_PASSE
+GOK=1
+Trbegin [AUS]
+ Readlock [AUS]CODUSR = CLECUR1
+ If fstat=1
+  GOK=-1 : GLOCK="$AUTILIS"-CLECUR1 : Goto ROLL_PASSE
+ Endif
+ If func ARECAUO.USRSAG(CLECUR1)
+  # Génération d'un mot de passe provisoire
+  Call GEN_PASSE(CLECUR1,[L]PASSE) From PASSE
+  [F:AUS]PASSDAT = date$
+  If dim([F:AUS]FLGPASPRV)>=1
+   [F:AUS]FLGPASPRV = 2
+  Endif
+ Elsif PASOBLI=2
+  # Génération d'un mot de passe provisoire
+  Call GEN_PASSE(CLECUR1,[L]PASSE) From PASSE
+  If GUSER<>CLECUR1
+   [F:AUS]PASSDAT = [01/01/1970]
+  Else
+   [F:AUS]PASSDAT = date$
+  Endif
+  If dim([F:AUS]FLGPASPRV)>=1
+   [F:AUS]FLGPASPRV = 2
+  Endif
+ Else
+  [L]PASSE = ""
+  [F:AUS]PASSDAT = date$
+  If dim([F:AUS]FLGPASPRV)>=1
+   [F:AUS]FLGPASPRV = 1
+  Endif
+ Endif
+ If dim([F:AUS]UPDUSR)>0 : [F:AUS]UPDUSR = GUSER : Endif
+ If dim([F:AUS]UPDDAT)>0 : [F:AUS]UPDDAT = date$ : Endif
+ [F:AUS]PASSE  = [L]PASSE : Call CRYPT([F:AUS]PASSE) From GESUSER : # on le garde encore pour le web
+ [F:AUS]NEWPAS = [L]PASSE : Call CRYPTNEW([F:AUS]NEWPAS) From GESUSER
+ [F:AUS]NBRCON = 0
+ Rewrite [AUS]
+ If fstat
+  GOK=0 : Call FSTA("AUS") From GLOCK : Goto AB_PASSE
+ Endif
+ If PASOBLI=2
+  Call ESPION("",7,[F:AUS]NEWPAS,"") From ESPION
+  If GOK<1 : Goto AB_PASSE : Endif
+ Endif
+Commit
+Return
+
+$ROLL_PASSE
+Rollback
+Call ROLL From GLOCK
+If !GROLL : Goto TR_PASSE : Endif
+Return
+
+$AB_PASSE
+Rollback
+Return
+
+#-----------------#
+$MES_PASSWD
+If PASOBLI=2 or func ARECAUO.USRSAG([F:AUS]USR)
+ If MAIL & [F:AUS]ADDEML<>""
+  GMESSAGE = [L]PASSE
+  Call WORKFLOW(1,"PWD","","") From AWRK
+ Else
+  GMESSAGE = mess(103,124,1)-":"-[F:AUS]USR : # Utilisateur
+  GMESSAGE += "\"+mess(87,139,1)-":"-PASSE : # Mot de passe provisoire
+  Call MESSAGE(GMESSAGE) From GESECRAN
+ Endif
+ GMESSAGE = ""
+Endif
+Return
+
+#-----------------------------------------------#
+$VERIF_CRE
+$VERIF_MOD
+Call CONTLOG([M:AUS1]LOGIN,[M:AUS0]USR,OK)
+If !OK : Return : Endif
+If GUSRNOMME & !func ARECAUO.APPRAC(nomap) & !func ARECAUO.APPDEM(nomap) & !func ARECAUO.USRSAG([M:AUS0]USR)
+ If REP="C" | REP="D" | [M:AUS1]USRCONNECT<>[F:AUS]USRCONNECT | [M:AUS0]ENAFLG<>[F:AUS]ENAFLG
+  FLNOMME = 1
+ Else
+  FLNOMME = 0
+ Endif
+ If FLNOMME & [M:AUS0]ENAFLG=2 & [M:AUS1]USRCONNECT=2
+  Read [AUO]AUO0 = [M:AUS0]USR
+  If fstat
+   If nbrecord([AUO])>=GUSRNOMME
+    If nbrecord([AUO])>=int(GUSRNOMME*1.2)
+     GMESSAGE = mess(45,130,1)-"("+num$(GUSRNOMME)+")" : # Trop d'utilisateurs nommés
+     OK = 0 : Return
+    Else
+     # Votre licence est limité à $1$ utilisateurs nommés et il y a $2$ utilisateurs connectés
+     Call MESSAGE(func AFNC.MES2(mess(74,130,1),num$(GUSRNOMME),num$(nbrecord([AUO])))) From GESECRAN
+    Endif
+   Endif
+  Endif
+ Endif
+Endif
+### Verif existence code accés
+For I=0 To [M:AUS8]NBACC-1
+ Read [ACS]ACS0 = [M:AUS8]CODACC(I)
+ If fstat
+  GMESSAGE = [M:AUS8]CODACC(I)-':'-mess(56,133,1) : #  CODE d'ACCèS inexistant
+  zonsui = "[M:AUS8]CODACC("+num$(I)+")"
+  OK =0 : Break
+ Endif
+Next
+If !OK : Return : Endif
+Return
+
+#-----------------------------------------------#
+Subprog CONTLOG(LOGIN,USER,OK)
+Value Char LOGIN , USER
+Variable Integer OK
+Local Integer MAXCAR , ERFIC
+If clalev([F:AUS2])=0 : Local File AUTILIS [AUS2] : Endif
+OK = 1
+If [L]LOGIN<>""
+ Read [AUS2]LOGIN=[L]LOGIN
+ If !fstat & [F:AUS2]USR<>[L]USER
+  GMESSAGE = mess(27,130,1)-"("+[F:AUS2]USR+")" : # Login déjà défini
+  OK = 0
+ Endif
+ If OK
+  Onerrgo ERFIC
+  MAXCAR = func PSADX.MAXCAR_LOG
+  Onerrgo
+  If ERFIC
+   MAXCAR = 20 : # Limite psadx en v6
+  Endif
+  For [AUS2] Where USR<>[L]USER
+   If left$(toupper([F:AUS2]LOGIN),MAXCAR)=left$([L]LOGIN,MAXCAR)
+    # Il existe déjà un login avec les mêmes # premiers caractères
+    Call AVERTIR(func AFNC.MES(mess(48,130,1),num$(MAXCAR))-"("+[F:AUS2]USR+")",OK) From GESECRAN
+    If OK<>2
+     OK = 0 : Break : # mb 14.5.8 bug 47317
+    Else
+     OK = 1 : Break : # mb 17.3.10 bug 63346
+    Endif
+   Endif
+  Next AUS2
+ Endif
+Endif
+Close Local File [AUS2]
+End
+
+#-----------------------------------------------#
+$CREATION
+If PASOBLI=2
+ Call ESPION("",7,[F:AUS]NEWPAS,"") From ESPION
+ If GOK<1 : Return : Endif
+Endif
+
+If REP="D"
+ For [ADU]ADU0 Where CODUSR=OCLECUR1
+  Read [ADP]ADP1=[F:ADU]PARAM
+  If !fstat & [F:ADP]NIVDEF=4 & [F:ADP]MODIF<>2
+   [F:ADU]CODUSR = [M:AUS0]USR
+   If dim([F:ADU]CREDAT)>0 : [F:ADU]CREDAT = date$ : Endif
+   If dim([F:ADU]CREUSR)>0 : [F:ADU]CREUSR = GUSER : Endif
+   If dim([F:ADU]CRETIM)>0 : [F:ADU]CRETIM = time  : Endif
+   Write [ADU]
+   If fstat
+    GOK = 0 : Call FSTA("ADU") From GLOCK : Break
+   Endif
+  Endif
+ Next ADU
+ If GOK<1 : Return : Endif
+Endif
+
+For I=0 To [M:AUS7]NBVAR-1
+ If [M:AUS7]NIVEAU(I)=4
+  Read [ADU]ADU0=[M:AUS0]USR;[M:AUS7]PARAM(I)
+  If fstat
+   [F:ADU]CODUSR = [M:AUS0]USR
+   [F:ADU]PARAM  = [M:AUS7]PARAM(I)
+   [F:ADU]VALEUR = [M:AUS7]VALINT(I)
+   [F:ADU]JEU    = [M:AUS7]GRPDEF(I)
+   If dim([F:ADU]CREDAT)>0 : [F:ADU]CREDAT = date$ : Endif
+   If dim([F:ADU]CREUSR)>0 : [F:ADU]CREUSR = GUSER : Endif
+   If dim([F:ADU]CRETIM)>0 : [F:ADU]CRETIM = time  : Endif
+   Write [ADU]
+   If fstat
+    GOK = 0 : Call FSTA("ADU") From GLOCK : Break
+   Endif
+  Else
+   [F:ADU]VALEUR = [M:AUS7]VALINT(I)
+   [F:ADU]JEU    = [M:AUS7]GRPDEF(I)
+   If dim([F:ADU]CREDAT)>0 : [F:ADU]CREDAT = date$ : Endif
+   If dim([F:ADU]CREUSR)>0 : [F:ADU]CREUSR = GUSER : Endif
+   If dim([F:ADU]CRETIM)>0 : [F:ADU]CRETIM = time  : Endif
+   Rewrite [ADU]
+   If fstat
+    GOK = 0 : Call FSTA("ADU") From GLOCK : Break
+   Endif
+  Endif
+ Endif
+Next I
+If GOK<1 : Return : Endif
+
+
+Gosub ECRIRE
+Return
+
+#-------------#
+$ECRIRE
+Call MAJTEXTRA([M]INTUSR,"AUTILIS","INTUSR",[M]USR,"") From ATEXTRA
+
+If [M:AUS8]ALLACS=2 : # Tous accès autorisés
+ For [ACS]ACS0
+  Raz [F:ACC]
+  [F:ACC]CONSUL = 2
+  [F:ACC]EXEC   = 2
+  [F:ACC]MODIF  = 2
+  [F:ACC]USR    = [M:AUS0]USR
+  [F:ACC]CODACC = [F:ACS]CODACC
+  Write [ACC]
+  If fstat
+   GOK = 0 : Call FSTA("ACC") From GLOCK : Break
+  Endif
+ Next
+ If GOK<1 : Return : Endif
+Else
+ For nolign=1 To [M:AUS8]NBACC
+  Raz [F:ACC]
+  [F:ACC]    = [M:AUS8]
+  [F:ACC]USR = [M:AUS0]USR
+  [F:ACC]PRFCOD = ""
+  Write [ACC]
+  If fstat
+   GOK = 0 : Call FSTA("ACC") From GLOCK : Break
+  Endif
+ Next nolign
+ If GOK<1 : Return : Endif
+Endif
+Raz [F:ACC]
+[F:ACC]CONSUL = 2
+[F:ACC]EXEC   = 2
+[F:ACC]MODIF  = 2
+[F:ACC]USR    = [M:AUS0]USR
+[F:ACC]CODACC = ""    : # Code accès vide pour Crystal Report
+[F:ACC]PRFCOD = ""
+Write [ACC]
+If fstat
+ GOK = 0 : Call FSTA("ACC") From GLOCK : Return
+Endif
+
+If dim([M:AUS5]NBBPR)>0
+ For nolign=1 To [M:AUS5]NBBPR
+  Raz [F:AUB]
+  [F:AUB]    = [M:AUS5]
+  [F:AUB]USR = [M:AUS0]USR
+  Write [AUB]
+  If fstat
+   GOK = 0 : Call FSTA("AUB") From GLOCK : Break
+  Endif
+ Next nolign
+ If GOK<1 : Return : Endif
+Endif
+
+Default Mask [AUS2]
+Call CREBPA(NUMBPA,[M:AUS0]USR) From TRTBPA
+If GOK < 1 : Return : Endif
+If dim([M:AUS3]NBRIB)>0
+ Default Mask [AUS3]
+ Call CRERIB(NUMBPA,[M:AUS0]USR) From TRTBPA
+ If GOK < 1 : Return : Endif
+Endif
+Gosub DEFAUT
+If GOK<1 : Return : Endif
+
+If PHOTO | REP="D"
+ Raz [F:ABB]
+ [F:ABB]BLOB = [M:AUS1]AUSPIC
+ [F:ABB]TYPBLB = 3
+ [F:ABB]CODBLB = "AUSPIC"
+ [F:ABB]NAMBLB = [F:AUS]NOMUSR
+ [F:ABB]IDENT1 = [F:AUS]USR
+ [F:ABB]IDENT2 = ""
+ [F:ABB]IDENT3 = ""
+ If dim([F:ABB]CNTTYP)>0 : [F:ABB]CNTTYP=func ASYRLOB.F_AML7806_TO_ATYP([F:ABB]TYPBLB) : Endif
+ If dim([F:ABB]CREUSR)>0 : [F:ABB]CREUSR = GUSER : Endif
+ If dim([F:ABB]CREDAT)>0 : [F:ABB]CREDAT = date$ : Endif
+ If dim([F:ABB]CRETIM)>0 : [F:ABB]CRETIM = time  : Endif
+ Write [ABB]
+ If fstat
+  GOK = 0 : Call FSTA("ABB") From GLOCK : Return
+ Endif
+Endif
+
+## Maj table des users nommés
+If GUSRNOMME & FLNOMME & !func ARECAUO.APPRAC(nomap) & !func ARECAUO.APPDEM(nomap) & !func ARECAUO.USRSAG(CLECUR1)
+ If [F:AUS]ENAFLG=2 & [F:AUS]USRCONNECT=2
+  Read [AUO]AUO0 = [F:AUS]USR
+  If fstat
+   [F:AUO]USR = [F:AUS]USR
+   Write [AUO]
+   If fstat
+    GOK = 0 : Call FSTA("AUO") From GLOCK : Return
+   Endif
+  Endif
+ Else
+  K = 0
+  If [F:AUS]ENAFLG<>2
+   K = 1
+  Elsif [F:AUS]USRCONNECT<>2
+   K = 1
+   For [ADS] Where DOSSIER<>nomap(0)
+    If !func ARECAUO.APPRAC([F:ADS]DOSSIER) & !func ARECAUO.APPDEM([F:ADS]DOSSIER)
+     ERFIC = 0
+     Onerrgo ERFIC
+     If filinfo(filpath("FIL","AUTILIS","fde",[F:ADS]DOSSIER),0)>=0
+      Local File =[F:ADS]DOSSIER+".AUTILIS" [AUSX]
+      Read [AUSX]CODUSR = [F:AUS]USR
+      If !fstat & [F:AUSX]USRCONNECT=2
+       K = 0
+      Endif
+      Close Local File [AUSX]
+      If !K : Break : Endif
+     Endif
+    Endif
+   Next ADS
+  Endif
+  If K
+   Read [AUO]AUO0 = [F:AUS]USR
+   If !fstat
+    Delete [AUO]
+    If fstat=1
+     GOK = 0 : Call FSTA("AUO") From GLOCK : Return
+    Endif
+   Endif
+  Endif
+ Endif
+Endif
+
+Return
+
+#-----------------------------------------------#
+$APRES_CRE
+Gosub MES_PASSWD
+If GUSRNOMME & FLNOMME
+ Call USER_NOMMES([F:AUS]USR,[F:AUS]USRCONNECT,[F:AUS]ENAFLG)
+Endif
+Call  UPDATE_RIGHTSETAG(nomap) From ASYRFNC
+WIND_RIGHTSETAG = [V]CST_ANO
+Return
+
+#-----------------------------------------------#
+$MODIF
+Delete [ACC] Where USR=CLECUR1
+If fstat=1 : GOK=-1 : Call RSTA("ACC",CLECUR1) From GLOCK : Return : Endif
+If dim([M:AUS5]NBBPR)>0
+ Delete [AUB] Where USR=CLECUR1
+ If fstat=1 : GOK=-1 : Call RSTA("AUB",CLECUR1) From GLOCK : Return : Endif
+Endif
+If PHOTO
+ Delete [ABB]ABB0 = "AUSPIC";CLECUR1;"";""
+ If fstat=1 : GOK=-1 : Call RSTA("ABB",CLECUR1) From GLOCK : Return : Endif
+Endif
+
+# to clear the cache if necessary
+Local Integer WIND_CLEARCACHE
+WIND_CLEARCACHE = 0
+
+For I=0 To [M:AUS7]NBVAR-1
+ MAJ = 0 : DEL = 0
+ If [M:AUS7]NIVEAU(I)<>4
+  Read [ADU]ADU0 = [M:AUS0]USR ; [M:AUS7]PARAM(I)
+  If !fstat
+   DEL = 1
+  Endif
+ Else
+  MAJ = 1
+ Endif
+ If DEL | MAJ
+  Readlock [ADU]ADU0 = [M:AUS0]USR ; [M:AUS7]PARAM(I)
+  If fstat=1
+   GOK=-1 : GLOCK = "$ADOVALAUS"-[M:AUS0]USR-[M:AUS7]PARAM(I) : Break
+  Elsif fstat
+   If MAJ
+    Raz [F:ADU]
+    [F:ADU]CODUSR = [M:AUS0]USR
+    [F:ADU]PARAM  = [M:AUS7]PARAM(I)
+    [F:ADU]VALEUR = [M:AUS7]VALINT(I)
+    [F:ADU]JEU    = [M:AUS7]GRPDEF(I)
+    WIND_CLEARCACHE = 2
+    If dim([F:ADU]CREDAT)>0 : [F:ADU]CREDAT = date$ : Endif
+    If dim([F:ADU]CREUSR)>0 : [F:ADU]CREUSR = GUSER : Endif
+    If dim([F:ADU]CRETIM)>0 : [F:ADU]CRETIM = time  : Endif
+    Write [ADU]
+    If fstat
+     GOK = 0 : Call FSTA("ADU") From GLOCK : Break
+    Endif
+   Endif
+  Elsif DEL
+   Delete [ADU] Where CODUSR=[M:AUS0]USR & PARAM=[M:AUS7]PARAM(I)
+   WIND_CLEARCACHE = 2
+  Elsif MAJ & ([F:ADU]VALEUR<>[M:AUS7]VALINT(I) | [F:ADU]JEU<>[M:AUS7]GRPDEF(I))
+   [F:ADU]VALEUR = [M:AUS7]VALINT(I)
+   [F:ADU]JEU    = [M:AUS7]GRPDEF(I)
+   WIND_CLEARCACHE = 2
+   If dim([F:ADU]UPDDAT)>0 : [F:ADU]UPDDAT = date$ : Endif
+   If dim([F:ADU]UPDUSR)>0 : [F:ADU]UPDUSR = GUSER : Endif
+   If dim([F:ADU]UPDTIM)>0 : [F:ADU]UPDTIM = time  : Endif
+   Rewrite [ADU]
+   If fstat
+    GOK = 0 : Call FSTA("ADU") From GLOCK : Break
+   Endif
+  Endif
+ Endif
+Next I
+If GOK<1 : Return : Endif
+
+# clear of the cache for param value since optimization in cache
+# only in modification , during creation not to do it is useless (creation phase)
+If WIND_CLEARCACHE = 2
+  If dim(GACTX)>=0
+      Local Integer WIND_RESULT
+      WIND_RESULT= fmet GACTX.APARAM._ACLEAN()
+  Endif
+Endif
+
+Gosub ECRIRE
+Return
+
+#-----------------------------------------------#
+## Maj des tables des autres dossiers
+Subprog USER_NOMMES(USER,FLCON,FLACT)
+Value Char USER
+Value Integer FLCON , FLACT
+Local Integer ERFIC
+For [ADS] Where DOSSIER<>nomap(0)
+ If !func ARECAUO.APPRAC([F:ADS]DOSSIER) & !func ARECAUO.APPDEM([F:ADS]DOSSIER)
+  ERFIC = 0
+  Onerrgo ERFIC
+  If filinfo(filpath("FIL","AUTILIS","fde",[F:ADS]DOSSIER),0)>=0
+   Local File =[F:ADS]DOSSIER+".AUTILIS" [AUSX]
+   Trbegin [AUSX]
+    Readlock [AUSX]CODUSR = USER
+    If !fstat
+     #[F:AUSX]USRCONNECT = FLCON
+     [F:AUSX]ENAFLG     = FLACT
+     Rewrite [AUSX]
+    Endif
+   Commit
+   Close Local File [AUSX]
+  Endif
+  Onerrgo
+ Endif
+Next ADS
+End
+
+$ERFIC
+ERFIC = errn
+Resume
+
+#-----------------------------------------------#
+$ANNULE
+Delete [ACC] Where USR=[L]CODE
+If fstat=1  : GOK=-1 : Call RSTA("ACC",[L]CODE) From GLOCK : Return : Endif
+If dim([M:AUS5]NBBPR)>0
+ Delete [AUB] Where USR=[L]CODE
+ If fstat=1  : GOK=-1 : Call RSTA("AUB",[L]CODE) From GLOCK : Return : Endif
+Endif
+Delete [ALS] Where USR=[L]CODE
+If fstat=1  : GOK=-1 : Call RSTA("ALS",[L]CODE) From GLOCK : Return : Endif
+Delete [ADU] Where CODUSR=[L]CODE
+If fstat=1  : GOK=-1 : Call RSTA("ADU",[L]CODE) From GLOCK : Return : Endif
+Delete [ABB] = "AUSPIC";[L]CODE;"";""
+If fstat=1 : GOK=-1 : Call RSTA("ABB",[L]CODE) From GLOCK : Return : Endif
+Call ANNBPA(4,[L]CODE) From TRTBPA
+Call ANNRIB(4,[L]CODE) From TRTBPA
+If GUSRNOMME
+ Delete [AUO] Where USR=[L]CODE
+ If fstat=1 : GOK=-1 : Call RSTA("AUO",[L]CODE) From GLOCK : Return : Endif
+Endif
+Delete [AXX] Where CODFIC="AUTILIS" & ZONE = "INTUSR"  & IDENT1=[L]CODE
+If fstat=1 | fstat>5
+ GOK=-1 : Call RSTA("AXX",[L]CODE) From GLOCK
+Endif
+Return
+
+$AP_ANNULE
+If GUSRNOMME
+ Call USER_NOMMES([L]CODE,1,1)
+Endif
+Call  UPDATE_RIGHTSETAG(nomap) From ASYRFNC
+WIND_RIGHTSETAG = [V]CST_ANO
+Return
+
+#-----------------------------------------------#
+$CHANGE
+Call CHGBPA(4,OCODE,NCODE) From TRTBPA
+Call CHGRIB(4,OCODE,NCODE) From TRTBPA
+Readlock [ABB]ABB0 = "AUSPIC";OCODE;"";""
+If fstat=1
+ GOK =- 1 : Call RSTA("ABB",OCODE) From GLOCK : Return
+Elsif fstat=0
+ [F:ABB]IDENT1 = NCODE
+ Rewrite [ABB]
+ If fstat
+  GOK = 0 : Call FSTA("ABB") From GLOCK : Return
+ Endif
+Endif
+Update [AXX] Where CODFIC="AUTILIS" & ZONE = "INTUSR" & IDENT1=[L]OCODE With IDENT1=[L]NCODE
+If fstat=1
+ GOK=-1 : GLOCK="$ATEXTRA AUTILIS"-[L]OCODE : Return
+Elsif fstat
+ GOK=0 : Call RSTA("AXX",[L]OCODE) From GLOCK : Return
+Endif
+Return
+
+#-----------------------------------------------#
+$INICRE
+Gosub INIMOD
+If func ARECAUO.USRSAG([M:AUS0]USR)
+ # Génération d'un mot de passe provisoire
+ Call GEN_PASSE([M:AUS0]USR,[L]PASSE) From PASSE
+ [F:AUS]PASSDAT = date$
+ If dim([F:AUS]FLGPASPRV)>=1
+  [F:AUS]FLGPASPRV = 2
+ Endif
+Elsif PASOBLI=2
+ # Génération d'un mot de passe provisoire
+ Call GEN_PASSE([M:AUS0]USR,[L]PASSE) From PASSE
+ [F:AUS]PASSDAT = [01/01/1970]
+ If dim([F:AUS]FLGPASPRV)>=1
+  [F:AUS]FLGPASPRV = 2
+ Endif
+Else
+ [L]PASSE = ""
+ [F:AUS]PASSDAT = date$
+ If dim([F:AUS]FLGPASPRV)>=1
+  [F:AUS]FLGPASPRV = 1
+ Endif
+Endif
+[F:AUS]PASSE  = [L]PASSE : Call CRYPT([F:AUS]PASSE) From GESUSER : # on le garde encore pour le web
+[F:AUS]NEWPAS = [L]PASSE : Call CRYPTNEW([F:AUS]NEWPAS) From GESUSER
+
+#  Bug 80307     -    CC 04/03/2012
+If REP="D"
+  Raz [F:AUS]DATCONN
+  Raz [F:AUS]TIMCONN
+  If dim([M:AUS8]DATCONN)>0 : Raz [M:AUS8]DATCONN : Affzo [M:AUS8]DATCONN : Endif
+  If dim([M:AUS8]TIMCONN)>0 : Raz [M:AUS8]TIMCONN : Affzo [M:AUS8]TIMCONN : Endif
+Endif
+
+Return
+
+#-----------------------------------------------#
+$INIMOD
+If dim([M:BID]NBRIB)>0
+ For I=0 To [M:AUS3]NBRIB-1
+  If !find([M:AUS3]BIDBPAADD(I),[M:AUS2]CODADR(0..[M:AUS2]NBADR-1))
+   [M:AUS3]BIDBPAADD(I) = ""
+  Endif
+ Next I
+ I = find (2,[M:AUS3]BIDNUMFLG (0..[M:AUS3]NBRIB -1))
+ If I = 0
+  [F:AUS]BIDNUM = [M:AUS3]BIDNUM(0)
+ Else
+  [F:AUS]BIDNUM = [M:AUS3]BIDNUM(I-1)
+ Endif
+Endif
+I = find (2,[M:AUS2]BPAADDFLG (0..[M:AUS2]NBADR -1))
+If I = 0
+ [F:AUS]BPAADD = [M:AUS2]CODADR(0)
+Else
+ [F:AUS]BPAADD = [M:AUS2]CODADR(I-1)
+Endif
+[F:AUS]FAX = [M:AUS1]FAX1
+Return
+
+#-----------------------------------------------#
+$LIENS
+#jira 219509
+# declencher la mise a jour etag quand necessaire
+WIND_RIGHTSETAG = [V]CST_ANO
+#
+[M:AUS1]FAX1 = [F:AUS]FAX
+If dim([M:AUS5]NBBPR)>0
+ [M:AUS5]NBCHEF = len(mess(0,50,1))
+ For I=0 To [M:AUS5]NBCHEF-1
+  If [F:AUS]CHEF(I)<>""
+   Read [AUS2]CODUSR = [F:AUS]CHEF(I)
+   [M:AUS5]NOMCHEF(I) = [F:AUS2]NOMUSR
+  Endif
+ Next I
+Endif
+Gosub GRISE_IMP
+
+If [F:AUS]ALLACS<>2
+ nolign = 0
+ For [ACC]CODACC Where USR=[F:AUS]USR & CODACC<>""
+  If nolign+1>dim([M:AUS8]CODACC)
+   Call ERREUR(mess(8,139,1)) From GESECRAN : # Tableau des codes d'accès plein
+   Break
+  Endif
+  nolign += 1
+  [M:AUS8] = [F:ACC]
+ Next
+ [M:AUS8]NBACC = nolign
+Else
+ [M:AUS8]NBACC = 0
+Endif
+Gosub GRISE_ACS
+
+If dim([M:AUS5]NBBPR)>0
+ nolign = 0
+ For [AUB]AUB0 Where USR=[F:AUS]USR
+  If nolign<=dim([M:AUS5]OBJ)-1
+   nolign += 1
+   [M:AUS5] = [F:AUB]
+   Read [ARL]ARL1(1) = [M:AUS5]ROL(nolign-1)
+   CHAMP = [F:ARL]FLD
+   K = instr(1,CHAMP,"(")
+   If K : CHAMP = left$(CHAMP,K-1) : Endif
+   Read [AOB]ABREV= [F:ARL]OBJ
+   Read [ATZ]CODZONE = [F:AOB]NOMFIC;CHAMP
+   Read [ATY]CODTYP  = [F:ATZ]CODTYP
+   [M:AUS5]OBJ(nolign-1) = [F:ATY]OBJLIEN
+  Endif
+ Next AUB
+ [M:AUS5]NBBPR = nolign
+Endif
+
+# Chargement des sections analytiques
+If dim([M:AUS4]NBSEC)>0
+ [M:AUS4]NBSEC  = GOPTCANA
+Endif
+
+# Chargement paramètres
+Gosub CHARGE_PARAM
+Gosub CHARGE_GRP
+Gosub REMPLIT
+
+# Adresses/rib
+Default Mask [AUS2]
+Call CHARG_BPA(NUMBPA,[M:AUS0]USR,[F:AUS]BPAADD) From TRTBPA
+If dim([M:AUS3]NBRIB)>0
+ Default Mask [AUS3]
+ Call CHARG_RIB(NUMBPA,[M:AUS0]USR,[F:AUS]BIDNUM) From TRTBPA
+Endif
+Gosub DEFAUT
+[M:AUS2]NUMBPA = NUMBPA
+Gosub GRISE_PRF
+
+# Blob photo
+Read [ABB]ABB0 = "AUSPIC";[F:AUS]USR;"";""
+If !fstat
+ [M:AUS1]AUSPIC = [F:ABB]BLOB
+Endif
+PHOTO = 0
+
+# Profil métier
+Call CHARGE_METIER([F:AUS]CODMET)
+Gosub GRISE_XTD
+Return
+
+#-----------------------------------------------#
+$GRISE_IMP
+Local Integer I , K
+If [M:AUS1]USRPRT<>""
+ Local Char    TBUSR(GLONAUS)(1..100)
+ Local Integer NBUSR
+ Local File AUTILIS [AAU_]
+ Read [AAU_]CODUSR = [M]USRPRT
+ K = 1
+ NBUSR = 0
+ While [F:AAU_]USRPRT<>"" & K=1
+  NBUSR += 1
+  If NBUSR>dim(TBUSR)
+   K = 0 : Break
+  Elsif find([F:AAU_]USRPRT,TBUSR(1..NBUSR))
+   K = 0 : Break
+  Endif
+  TBUSR(NBUSR) = [F:AAU_]USRPRT
+  Read [AAU_]CODUSR = [F:AAU_]USRPRT
+ Wend
+ [M:AUS1]NBRIMP = len(mess(0,22,1))
+ For I=0 To [M:AUS1]NBRIMP-1
+  [M:AUS1]TYPIMP(I) = I+1
+  If !K : # Impossible de retrouver l'utilisateur de référence
+   [M:AUS1]PRTDEF(I) = ""
+  Else
+   [M:AUS1]PRTDEF(I) = [F:AAU_]PRTDEF(I)
+  Endif
+ Next I
+ Close Local File [AAU_]
+ Grizo [AUS1]20
+Else
+ [M:AUS1]NBRIMP = len(mess(0,22,1))
+ For I=0 To [M:AUS1]NBRIMP-1
+  [M:AUS1]TYPIMP(I) = I+1
+ Next I
+ If [M:AUS1]USRCONNECT<>2 & (dim([M:AUS1]USRCONXTD)<=0 or [M:AUS1]USRCONXTD<>2)
+  Raz [M:AUS1]TYPIMP,PRTDEF
+  Grizo [AUS1]20
+ Else
+  Actzo [AUS1]20
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$GRISE_PRF
+If [M]USR=GSUPER
+ [M:AUS0]ENAFLG = 2
+ Diszo [AUS0]ENAFLG
+ [M:AUS1]PRFMEN = GSUPER
+ [M:AUS1]PRFFCT = GSUPER
+ [M:AUS1]ACSUSR = ""
+ [M:AUS1]USRCONNECT = 2
+ Diszo [AUS1]PRFMEN , PRFFCT , ACSUSR , USRCONNECT, CODMET
+ If dim([M:AUS5]NBBPR)>0
+  Actzo [M:AUS5]
+ Endif
+ Actzo [AUS1]LOGIN
+Else
+ Actzo [AUS0]ENAFLG
+ Actzo [AUS1]ACSUSR, USRCONNECT
+ If [M]USRCONNECT<>2 & (dim([M]USRCONXTD)<=0 or [M]USRCONXTD<>2)
+  Raz [M:AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+  If dim([M:AUS5]NBBPR)>0
+   Raz [M:AUS5]
+  Endif
+  Grizo [AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+  If dim([M:AUS5]NBBPR)>0
+   Grizo [AUS5]
+  Endif
+ Else
+  Actzo [M:AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+  If dim([M:AUS5]NBBPR)>0
+   Actzo [AUS5]
+  Endif
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$GRISE_ACS
+If [M]USR=GSUPER
+ [M:AUS8]ALLACS = 2
+ Effzo [AUS8]10
+ Diszo [AUS8]ALLACS , 10
+Elsif [M]USRCONNECT<>2 & (dim([M]USRCONXTD)<=0 or [M]USRCONXTD<>2)
+ Effzo [M:AUS8]
+ [M:AUS8]ALLACS = 1
+ Grizo [M:AUS8]
+Else
+ Actzo [AUS8]ALLACS
+ If [M]ALLACS=2
+  Effzo [AUS8]10
+  Grizo [AUS8]10
+ Else
+  Actzo [AUS8]10
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$GRISE_XTD
+If dim([M:AUS1]PRFXTD)>0
+ If dim([M:AUS1]USRCONXTD)>0 & [M:AUS1]USRCONXTD<>2
+  Effzo [M:AUS1]PRFXTD
+  Effzo [M:AUS1]DEFXTD
+  Diszo [M:AUS1]PRFXTD
+  Diszo [M:AUS1]DEFXTD
+  If dim([M:AUS1]ZPRFXTD)>0
+   Effzo [M:AUS1]ZPRFXTD
+  Endif
+ Else
+  Actzo [M:AUS1]PRFXTD
+  Actzo [M:AUS1]DEFXTD
+  If [M:AUS1]CODMET<> ""
+   Call CHARGE_METIER([M:AUS1]CODMET)
+   Affzo [M:AUS1]DEFXTD
+  Endif
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$DEFAUT
+For MA=0 To NBMASK
+ If AMA(MA)
+  Gosub SETMASK From =WINPROG
+ Endif
+Next MA
+Return
+
+#-----------------------------------------------#
+$APRES_MOD
+If CLECUR1=GUSER
+ If GACTX.USER=CLECUR1
+  If fmet GACTX.ACLEANRIGHT()>[V]CST_AWARNING
+   Local Integer AI
+   For AI=1 To maxtab(GACTX.AERROR)
+    If GACTX.AERROR(AI)<>null & GACTX.AERROR(AI).STA>[V]CST_AWARNING
+     GMESSAGE=GACTX.AERROR(AI).MES
+     GERR=1
+     Break
+    Endif
+   Next AI
+  Endif
+ Endif
+ If GPRODUIT=1 : ## GEODE
+  Local Char SAVDEP(GLONDEP), SAVFCY(GLONFCY)
+  [L]SAVDEP = [V]GDEP : [L]SAVFCY = [V]GFCY
+ Endif
+ Call VALIDATION(nomap,"WWAGLOBUSR",0) From SUBAGB
+ Call VALIDATION(nomap,"WWAGLOBVAR",0) From SUBAGB
+ Call INIGLOBVAR From GESUSER
+ If GPRODUIT=1
+  [V]GDEP = [L]SAVDEP : [V]GFCY = [L]SAVFCY
+ Endif
+ Gosub FILTRE
+Endif
+If GUSRNOMME & FLNOMME
+ Call USER_NOMMES([F:AUS]USR,[F:AUS]USRCONNECT,[F:AUS]ENAFLG)
+Endif
+
+# jira 219509 declencher la mise a jour du etag uniquement quand c'est necessaire
+If WIND_RIGHTSETAG = [V]CST_AYES
+  Call  UPDATE_RIGHTSETAG(nomap) From ASYRFNC
+Endif
+WIND_RIGHTSETAG = [V]CST_ANO
+Return
+
+#-----------------------------------------------#
+$RAZCRE
+If dim([M:AUS5]NBBPR)>0
+ [M:AUS5]NBCHEF = len(mess(0,50,1))
+ For I=0 To [M:AUS5]NBCHEF-1
+  [M:AUS5]RESPO(I) = I+1
+ Next I
+Endif
+[M:AUS1]NBRIMP = len(mess(0,22,1))
+For I=0 To [M:AUS1]NBRIMP-1
+ [M:AUS1]TYPIMP(I) = I+1
+Next I
+Affzo [AUS1]
+If dim([M:AUS5]NBBPR)>0
+ Affzo [AUS5]
+Endif
+If dim([M:AUS4]NBSEC)>0
+ [M:AUS4]NBSEC  = GOPTCANA
+ Affzo [M:AUS4]
+Endif
+[M:AUS1]USRCONNECT = 2
+Gosub GRISE_PRF
+Affzo [M:AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+Affzo [M:AUS7]
+Affzo [M:AUS8]
+PHOTO = 0
+Return
+
+#-----------------------------------------------#
+$AVANT_MODFIC
+Local Integer LSTBOX
+J = find("NBDERLUS",[M:AUS7]PARAM(0..[M:AUS7]NBVAR-1))
+If J
+ LSTBOX = val([M:AUS7]VALEUR(J-1))
+ Call PARAMUTIL("NBDERLUS",GBIDC3,[M:AUS0]USR,"")
+# Ménage dans les derniers lus
+ If LSTBOX<val(GBIDC3)
+  If LSTBOX=0
+   Delete [ALS] Where USR=[M:AUS0]USR
+   If fstat=1  : GOK=-1 : Call RSTA("ALS",[M:AUS0]USR) From GLOCK : Return : Endif
+  Else
+   Filter [ALS2] Where USR=[M:AUS0]USR Order By Key ALS0 Desc
+   For [ALS2]ALS0(2)
+    Raz I
+    For [ALS2]ALS0
+     I += 1
+     If I>LSTBOX
+      Delete [ALS] Where USR=[F:ALS2]USR & OBJ=[F:ALS2]OBJ & LIG<=[F:ALS2]LIG
+      If fstat=1  : GOK=-1 : Call RSTA("ALS",[M:AUS0]USR) From GLOCK : Break 2 : Endif
+      Break
+     Endif
+    Next
+   Next
+   Filter [ALS2]
+   If GOK<1 : Return : Endif
+  Endif
+ Endif
+Endif
+Return
+
+#-----------------------------------------------#
+$CHARGE_ACCES
+Local Char WPROFIL(10)
+If [F:AUS]PRFFCT=""
+ Read [AME]AME0 = [F:AUS]CODMET
+ WPROFIL = [F:AME]PRFFCT
+Else
+ WPROFIL = [F:AUS]PRFFCT
+Endif
+Read [AFT]AFT0 = WPROFIL
+If !fstat
+ [M:AUS8]ALLACS = [F:AFT]ALLACS
+ If [M:AUS8]ALLACS<>2
+  nolign = 0
+  For [ACC]CODACC Where PRFCOD=WPROFIL & CODACC<>""
+   If nolign+1>dim([M:AUS8]CODACC)
+    Call ERREUR(mess(8,139,1)) From GESECRAN : # Tableau des codes d'accès plein
+    Break
+   Endif
+   nolign += 1
+   [M:AUS8] = [F:ACC]
+  Next
+  [M:AUS8]NBACC = nolign
+ Else
+  [M:AUS8]NBACC = 0
+ Endif
+ nolign = 0
+Endif
+Return
+
+#-----------------------------------------------#
+#  Chargement des paramètres
+#-----------------------------------------------#
+
+$CHARGE_PARAM
+NBCHP = 0
+For [ADP]ADP0(1)
+ NBCHP += 1
+ CODCHP(NBCHP) = [F:ADP]CHAPITRE
+ Call LECTEXTRA(NAMCHP(NBCHP),"ATABDIV","LNGDES","901",CODCHP(NBCHP)) From ATEXTRA
+Next ADP
+
+Raz nolign , MESSAGE , [M:AUS7]
+If [M:AUS1]PRFFCT=""
+ Read [AME]AME0=[M:AUS1]CODMET
+ Read [AFT]AFT0=[F:AME]PRFFCT
+Else
+ Read [AFT]AFT0=[M:AUS1]PRFFCT
+Endif
+For [ADP]ADP5 Where NIVDEF=4 & MODIF=2
+ [L]SITE = ""
+ [L]SOCIETE = ""
+ [L]LEG = ""
+ If [F:ADP]CHAPITRE<>""
+  AFFOK = 1
+  If [F:ADP]ACS<>"" & GUSRACS<>2
+   Read [ACC]CODACC = GUSER;[F:ADP]ACS
+   If fstat or [F:ACC]MODIF<>2 : AFFOK = 0 : Endif
+  Endif
+  If AFFOK
+   If [F:ADP]VALDEF=2
+    # Récupération du site par défaut défini par module dans le profil fonction
+    Call DFLCHAP([F:ADP]CHAPITRE,[L]SITE,AFFOK)
+    If AFFOK
+     If [L]SITE<>"" & find([L]SITE,GSITE(1..GNBSITE))>0
+      [L]SOCIETE = GSOCSITE(find([L]SITE,GSITE(1..GNBSITE)))
+      [L]LEG = GLEGSOC(find([L]SOCIETE,GSOC))
+     Endif
+    Endif
+   Endif
+   Read [ADU]ADU0 = [M:AUS0]USR;[F:ADP]PARAM
+   If !fstat or [F:ADP]VALDEF=1
+    nolign += 1
+    NIVEAU = 4
+    Gosub ALIM_TAB
+   Elsif AFFOK
+    nolign += 1
+    NIVEAU = 0
+    Raz TAB
+    For [ADW]ADW1 Where PARAM=[F:ADP]PARAM
+     If    [F:ADW]FCY<>"" and [F:ADW]FCY=[L]SITE                   : TAB(3) = [F:ADW]VALEUR
+     Elsif [F:ADW]CMP<>"" and [F:ADW]CMP=[L]SOCIETE                : TAB(2) = [F:ADW]VALEUR
+     Elsif [F:ADW]FCY<>"" and [F:ADW]FCY=[L]LEG and [F:ADW]CMP="*" : TAB(5) = [F:ADW]VALEUR
+     Else                                                          : TAB(1) = [F:ADW]VALEUR
+     Endif
+    Next ADW
+    If    TAB(3)<>"" : NIVEAU = 3 : Gosub ALIM_TAB
+    Elsif TAB(2)<>"" : NIVEAU = 2 : Gosub ALIM_TAB
+    Elsif TAB(5)<>"" : NIVEAU = 5 : Gosub ALIM_TAB
+    Else               NIVEAU = 1 : Gosub ALIM_TAB
+    Endif
+   Endif
+  Endif
+ Endif
+Next ADP
+[M:AUS7]NBVAR = nolign
+
+GMESSAGE = MESSAGE
+Return
+
+#-----------------------------------------------#
+$ALIM_TAB
+
+Gosub SETNOL
+
+[M:AUS7] = [F:ADP]
+[M:AUS7]DESCHP(NOL)   = [L]NAMCHP(find([F:ADP]CHAPITRE,CODCHP))
+[M:AUS7]NIVEAU(NOL)   = [L]NIVEAU
+[M:AUS7]SITE(NOL)     = [L]SITE
+[M:AUS7]SOCIETE(NOL)  = [L]SOCIETE
+If dim([M:AUS7]LEG)>0
+ [M:AUS7]LEG(NOL)     = [L]LEG
+Endif
+If dim([M:AUS7]AUTMOD)>0
+ [M:AUS7]AUTMOD(NOL)   = func ADOVAL.AUTMOD([L]SITE,[L]SOCIETE,[L]LEG,[M:AUS0]USR)
+Endif
+
+Read [ATX]NUMERO = GLANGUE;[F:ADP]NAM
+If !fstat : [M:AUS7]NAME(NOL) = [F:ATX]TEXTE : Endif
+
+Case [F:ADP]TYPVAL
+ When 1 : [M:AUS7]FMT(NOL) = "Kf:"+num$(GLONADW)+"X"
+ When 2 : [M:AUS7]FMT(NOL) = "Nf:10F"
+ When 3 : [M:AUS7]FMT(NOL) = "Df:"+GFMDAT4
+ When 4 : [M:AUS7]FMT(NOL) = "Nf:2#"
+Endcase
+Case [F:ADP]TYPVAL
+ When 1 : [M:AUS7]TYP(NOL) = "A"   : [M:AUS7]LONG(NOL)  = GLONADW
+ When 2 : [M:AUS7]TYP(NOL) = "DCB" : [M:AUS7]LONG(NOL)  = 15
+ When 3 : [M:AUS7]TYP(NOL) = "D"   : [M:AUS7]LONG(NOL)  = 0
+ When 4 : [M:AUS7]TYP(NOL) = "M"   : [M:AUS7]NOLIB(NOL) = [F:ADP]NOLIB
+Endcase
+If [F:ADP]OBJET<>""
+ Filter [ATY] Where OBJLIEN=[F:ADP]OBJET
+ K = 0
+ For [ATY]
+  K += 1 : If K>1 : Break : Endif
+ Next ATY
+ Filter [ATY]
+ If K=1 & left$([F:ATY]FORTYP,1)<>"="
+  [M:AUS7]TYP(NOL) = [F:ATY]CODTYP
+ Else
+  Call EXISTE_ADX("","","WO"+[F:ADP]OBJET,OKTRT) From ORDSYS
+  If OKTRT>0
+   Gosub SETCLE From ="WO"+[F:ADP]OBJET
+   Read [AOB]ABREV = [F:ADP]OBJET
+   Read [ATZ]CODZONE = [F:AOB]NOMFIC;CLEPRIM
+   [M]TYP(nolign-1) = [F:ATZ]CODTYP
+   Gosub SETCLE From ="WO"+GABREV
+  Endif
+ Endif
+Endif
+
+Case [M:AUS7]NIVEAU(NOL)
+ When 5
+  If [F:ADP]VALDEF=2
+   Read [ADW]ADW0 = "*";[L]LEG;[M:AUS7]PARAM(NOL)
+   If !fstat
+    [M:AUS7]VALEUR(NOL) = [F:ADW]VALEUR
+    [M:AUS7]GRPDEF(NOL) = [F:ADW]JEU
+#    [M:AUS7]LEG(NOL)    = [L]LEG
+   Endif
+  Endif
+ When 4
+  Read [ADU]ADU0 = [M:AUS0]USR;[M:AUS7]PARAM(NOL)
+  If !fstat
+   [M:AUS7]VALEUR(NOL) = [F:ADU]VALEUR
+   [M:AUS7]GRPDEF(NOL) = [F:ADU]JEU
+  Endif
+ When 3
+  If [F:ADP]VALDEF=2
+   Read [ADW]ADW0 = "";[L]SITE;[M:AUS7]PARAM(NOL)
+   If !fstat
+    [M:AUS7]VALEUR(NOL) = [F:ADW]VALEUR
+    [M:AUS7]GRPDEF(NOL) = [F:ADW]JEU
+    [M:AUS7]SITE(NOL)   = [L]SITE
+   Endif
+  Endif
+ When 2
+  If [F:ADP]VALDEF=2
+   Read [ADW]ADW0 = [L]SOCIETE;"";[M:AUS7]PARAM(NOL)
+   If !fstat
+    [M:AUS7]VALEUR(NOL)  = [F:ADW]VALEUR
+    [M:AUS7]GRPDEF(NOL)  = [F:ADW]JEU
+    [M:AUS7]SOCIETE(NOL) = [L]SOCIETE
+   Endif
+  Endif
+ When 1
+  If [F:ADP]VALDEF=2
+   Read [ADW]ADW0 = "";"";[M:AUS7]PARAM(NOL)
+   If !fstat
+    [M:AUS7]VALEUR(NOL) = [F:ADW]VALEUR
+    [M:AUS7]GRPDEF(NOL) = [F:ADW]JEU
+   Endif
+  Endif
+Endcase
+
+[M:AUS7]VALINT(NOL) = [M:AUS7]VALEUR(NOL)
+
+Call CHARGE([M:AUS7]VALEUR(NOL),[M:AUS7]TYP(NOL),[M:AUS7]NOLIB(NOL),[M:AUS7]LONG(NOL),[M:AUS7]VALINT(NOL))
+& From FMTVAR
+
+If MESSAGE="" & GMESSAGE<>""
+ MESSAGE = mess(143,105,1)-[M:AUS7]PARAM(NOL)-":"-GMESSAGE : # Paramètre
+Endif
+
+Return
+
+#-----------------------------------------------------#
+$CHARGE_GRP
+
+If [M:AUS7]NBVAR<=0 : Return : Endif
+
+Raz CODGRP , CODLIG
+I = 0
+While I<[M:AUS7]NBVAR
+ I += 1
+ If CODGRP=""
+  CODGRP = [M:AUS7]GRPPAR(I-1)
+  CODLIG = I
+  CODNIV = 0
+ Elsif CODGRP<>[M:AUS7]GRPPAR(I-1)
+  Gosub SET_JEUDEF
+  CODGRP = [M:AUS7]GRPPAR(I-1)
+  CODLIG = I
+  CODNIV = 0
+ Endif
+ If CODNIV=0
+  CODNIV = [M:AUS7]NIVEAU(I-1)
+ Elsif CODNIV<>[M:AUS7]NIVEAU(I-1)
+  CODNIV = -1 : # Tous les paramètres ne sont pas du même niveau
+ Endif
+Wend
+I += 1
+Gosub SET_JEUDEF
+
+# Chargement écran paramètres groupés
+
+Sorta [M:AUS7]NBVAR [M:AUS7]NBVAR Order By [M:AUS7]CHAPITRE(indice),[M:AUS7]GRPPAR(indice)
+
+Effzo [M:AUS7]20
+Raz [M:AUS7]NBGRP
+CODCHA = ""
+I = 0
+While I<[M:AUS7]NBVAR
+ I += 1
+ If CODCHA=""
+  CODCHA = [M:AUS7]CHAPITRE(I-1)
+  CODGRP = [M:AUS7]GRPPAR(I-1)
+  CODNIV = [M:AUS7]NIVEAU(I-1)
+  CODJEU = [M:AUS7]GRPDEF(I-1)
+ Elsif CODCHA<>[M:AUS7]CHAPITRE(I-1)
+  Gosub ALIM_GRP
+  CODCHA = [M:AUS7]CHAPITRE(I-1)
+  CODGRP = [M:AUS7]GRPPAR(I-1)
+  CODNIV = [M:AUS7]NIVEAU(I-1)
+  CODJEU = [M:AUS7]GRPDEF(I-1)
+ Elsif CODGRP<>[M:AUS7]GRPPAR(I-1)
+  Gosub ALIM_GRP
+  CODGRP = [M:AUS7]GRPPAR(I-1)
+  CODNIV = [M:AUS7]NIVEAU(I-1)
+  CODJEU = [M:AUS7]GRPDEF(I-1)
+ Else
+  If CODNIV=5
+   If [M:AUS7]NIVEAU(I-1)>=2
+    CODNIV = [M:AUS7]NIVEAU(I-1)
+   Endif
+  Elsif [M:AUS7]NIVEAU(I-1)=5
+   If CODNIV=1 : CODNIV = 5 : Endif
+  Elsif CODNIV<[M:AUS7]NIVEAU(I-1)
+   CODNIV = [M:AUS7]NIVEAU(I-1)
+  Endif
+ Endif
+Wend
+If [M:AUS7]NBGRP=0
+ K = 1
+Else
+ K = 0
+ K += (CODCHA<>[M:AUS7]CHPCOD([M:AUS7]NBGRP-1))
+ K += (CODGRP<>[M:AUS7]GRPCOD([M:AUS7]NBGRP-1))
+Endif
+If K : Gosub ALIM_GRP : Endif
+Affzo [AUS7]20
+For I=1 To [M:AUS7]NBGRP
+ If GPROFIL<>GSUPER
+  Grizo [AUS7]JEUCOD(I-1)
+ Else
+  K = 1
+  For [ADP2]ADP5 Where CHAPITRE=[M:AUS7]CHPCOD(I-1) & GRPPAR=[M:AUS7]GRPCOD(I-1)
+   J = find([F:ADP2]PARAM,[M:AUS7]PARAM)
+   If J & dim([M:AUS7]AUTMOD)>0 & [M:AUS7]AUTMOD(J-1)=0
+    K = 0 : Break
+   Endif
+  Next ADP2
+  If !K
+   Grizo [AUS7]JEUCOD(I-1)
+  Else
+   Actzo [AUS7]JEUCOD(I-1)
+  Endif
+ Endif
+Next I
+Return
+
+#-----------------------------#
+$ALIM_GRP
+[M:AUS7]NBGRP += 1
+[M:AUS7]CHPCOD([M:AUS7]NBGRP-1) = CODCHA
+[M:AUS7]CHPDES([M:AUS7]NBGRP-1) = NAMCHP(find(CODCHA,CODCHP))
+[M:AUS7]GRPCOD([M:AUS7]NBGRP-1) = CODGRP
+[M:AUS7]NIVGRP([M:AUS7]NBGRP-1) = CODNIV
+[M:AUS7]JEUCOD([M:AUS7]NBGRP-1) = CODJEU
+Return
+
+#-----------------------------#
+$SET_JEUDEF
+If CODNIV<0
+ For K=CODLIG To I-1
+  [M:AUS7]GRPDEF(K-1) = "" : # Personnalisé
+ Next K
+Elsif CODNIV
+ Raz CODJEU , JEUOK
+ For K=CODLIG To I-1
+  If CODJEU=""
+   CODJEU = [M:AUS7]GRPDEF(K-1)
+   JEUOK = 1
+  Elsif CODJEU<>[M:AUS7]GRPDEF(K-1)
+   JEUOK = 0 : Break
+  Endif
+ Next K
+ If !JEUOK
+  CODJEU = ""
+ Endif
+ For K=CODLIG To I-1
+  [M:AUS7]GRPDEF(K-1) = CODJEU
+ Next K
+Endif
+Return
+
+#------------------------------------------------------------#
+$SEL_TABLE
+Case TABLE
+ When "SELPARAUS"
+  OBJET = "ADP"
+  ORDRE = "PARAM"
+  CRITERE =  "NIVDEF=4 & MODIF=2"
+ When "ASELALO"
+  OBJET = "AU0"
+  START = "LOGIN"
+  OPTIONS = "#$"
+ When "ASELAYD"
+  OBJET = "AYD"
+  OPTIONS = "#$"
+  CRITERE = 'FCYCOD="'+PARAM(1)+'"'
+Endcase
+Return
+
+#----------------------------------------------------------#
+$VERF_TABLE
+Case TABLE
+ When "SELPARAUS"
+  If [F:ADP]GRPPAR<>""
+   Local Char    PARPAR(250)(1..5)
+   Raz nolign
+   For I=1 To [M:AUS7]NBVAR
+    If [F:ADP]GRPPAR=[M:AUS7]GRPCOD(I-1) & [F:ADP]CHAPITRE=[M:AUS7]CHPCOD(I-1)
+     nolign = I : Break
+    Endif
+   Next I
+   If nolign
+    PARPAR(1) = [M:AUS7]CHPCOD(nolign-1)
+    PARPAR(2) = [M:AUS7]GRPCOD(nolign-1)
+    Call SAISIE_NUM(GBIDD1,PARPAR,"AUSP","ASAIPARAUS","") From GSAISIE
+   Endif
+  Endif
+Endcase
+Return
+
+#----------------------------------------------------------#
+$FIN_TABLE
+Case TABLE
+ When "ASELALO"
+  If GSTATUT=28
+   VALEUR = tolower(VALEUR)
+  Endif
+Endcase
+Return
+
+#-----------------------------------------------#
+$TRTCOP
+#CHECK UNUSED_BEGIN
+If [M]DOSORG=nomap
+ Local File AUTILIS   [AUS1]
+ Local File APROFIL   [APF1]
+ Local File AMENUSER  [AMU1]
+ If dim([M:AUS5]NBBPR)>0 : Local File AUSRBPR  [AUB1] : Endif
+ If dim([M:AUS9]NBPLA)>0 : Local File PLANNING [PLA1] : Endif
+ Local File ACCES     [ACC1]
+ Local File ACCCOD    [ACS1]
+ Local File ADOVALAUS [ADU1]
+ Local File ABLOB     [ABB1]
+ Local File ATEXTRA   [AXX1]
+Else
+ Local File =[M]DOSORG+".AUTILIS"   [AUS1]
+ Local File =[M]DOSORG+".APROFIL"   [APF1]
+ Local File =[M]DOSORG+".AMENUSER"  [AMU1]
+ If dim([M:AUS5]NBBPR)>0 : Local File =[M]DOSORG+".AUSRBPR"  [AUB1] : Endif
+ If dim([M:AUS9]NBPLA)>0 : Local File =[M]DOSORG+".PLANNING" [PLA1] : Endif
+ Local File =[M]DOSORG+".ACCES"     [ACC1]
+ Local File =[M]DOSORG+".ACCCOD"    [ACS1]
+ Local File =[M]DOSORG+".ADOVALAUS" [ADU1]
+ Local File =[M]DOSORG+".ABLOB"     [ABB1]
+ Local File =[M]DOSORG+".ATEXTRA"   [AXX1]
+Endif
+If [M]DOSDES=nomap
+ Local File AUTILIS   [AUS2]
+ Local File APROFIL   [APF2]
+ Local File AMENUSER  [AMU2]
+ If dim([M:AUS5]NBBPR)>0 : Local File AUSRBPR   [AUB2] : Endif
+ If dim([M:AUS9]NBPLA)>0 : Local File PLANNING  [PLA2] : Endif
+ Local File ACCES     [ACC2]
+ Local File ACCCOD    [ACS2]
+ Local File ADOVALAUS [ADU2]
+ Local File ABLOB     [ABB2]
+ Local File ATEXTRA   [AXX2]
+Else
+ Local File =[M]DOSDES+".AUTILIS"   [AUS2]
+ Local File =[M]DOSDES+".APROFIL"   [APF2]
+ Local File =[M]DOSDES+".AMENUSER"  [AMU2]
+ If dim([M:AUS5]NBBPR)>0 : Local File =[M]DOSDES+".AUSRBPR"   [AUB2] : Endif
+ If dim([M:AUS9]NBPLA)>0 : Local File =[M]DOSDES+".PLANNING"  [PLA2] : Endif
+ Local File =[M]DOSDES+".ACCES"     [ACC2]
+ Local File =[M]DOSDES+".ACCCOD"    [ACS2]
+ Local File =[M]DOSDES+".ADOVALAUS" [ADU2]
+ Local File =[M]DOSDES+".ABLOB"     [ABB2]
+ Local File =[M]DOSDES+".ATEXTRA"   [AXX2]
+Endif
+#CHECK UNUSED_END
+Local Integer OK , TRACE
+OK = 1
+If GTRACE=""
+ Read [AUS2]CODUSR = TABLE
+ If !fstat
+  Call AVERTIR([M]DOSDES-TABLE-mess(22,100,1),OK) From GESECRAN
+  If OK=1 : OK = 0 : Endif
+ Endif
+Endif
+If OK
+ If GTRACE=""
+  # Copie d'un utilisateur
+  Call OUVRE_TRACE(mess(14,130,1)) From LECFIC
+  TRACE = 1
+ Endif
+ Call DEBTRANS From GLOCK
+ Gosub TR_COP
+ If TRACE
+  Call FERME_TRACE From LECFIC
+  #SAM 121274
+  If dim(TRA)>0
+    TRA = 1
+  Endif
+ Endif
+Endif
+Close Local File [AUS1], [APF1], [AMU1], [ACC1], [ACS1], [ADU1], [ABB1], [AXX1]
+&              , [AUS2], [APF2], [AMU2], [ACC2], [ACS2], [ADU2], [ABB2], [AXX2]
+If dim([M:AUS5]NBBPR)>0 : Close Local File [AUB1], [AUB2] : Endif
+If dim([M:AUS9]NBPLA)>0 : Close Local File [PLA1], [PLA2] : Endif
+Return
+
+$TR_COP
+GOK = 1
+Trbegin [AUS2], [APF2], [AMU2], [ACC2], [ACS2], [ADU2], [ABB2]
+ Delete [AUS2] Where USR=TABLE
+ If fstat=1
+  GOK=-1 : GLOCK = "$"+[M]DOSDES+".AUTILIS" : Goto ROLL_TR_COP
+ Elsif fstat>5
+  GOK = 0 : Call RSTA("AUS2","") From GLOCK : Goto AB_TR_COP
+ Endif
+ Read [AUS1]CODUSR = TABLE
+ [F:AUS2] = [F:AUS1]
+ Call COPTEXTRA("AUTILIS","INTUSR",TABLE,"") From ATEXTRA
+ If dim([F:AUS2]UPDUSR)>0 : [F:AUS2]UPDUSR = GUSER : Endif
+ If dim([F:AUS2]UPDDAT)>0 : [F:AUS2]UPDDAT = date$ : Endif
+ Write [AUS2]
+ If fstat
+   GOK=0 : Call FSTA("AUS2") From GLOCK : Goto AB_TR_COP
+ Endif
+ # Transfert du profil menu si inexistant
+ Filter [APF2] Where CODPRF=[F:AUS1]PRFMEN & MODULE=0
+ Read [APF2] First
+ Filter [APF2]
+ If !fstat
+  If GTRACE<>""
+   # Le profil menu $1$ de l'utilisateur $2$ n'a pas été copié
+   Call ECR_TRACE(func AFNC.MES2(mess(81,130,1),[F:AUS1]PRFMEN,TABLE),0) From GESECRAN
+  Endif
+ Else
+  For [APF1]CODPRF Where CODPRF=[F:AUS1]PRFMEN & MODULE=0
+   [F:APF2] = [F:APF1]
+   Write [APF2]
+   If fstat
+    GOK=0 : Call FSTA("APF2") From GLOCK : Break
+   Endif
+  Next
+  If   GOK<0 : Goto ROLL_TR_COP
+  Elsif !GOK : Goto AB_TR_COP
+  Endif
+  For [AMU1]CODMEN Where CODPRF=[F:AUS1]PRFMEN
+   [F:AMU2] = [F:AMU1]
+   Write [AMU2]
+   If fstat
+    GOK=0 : Call FSTA("AMU2") From GLOCK : Break
+   Endif
+  Next
+  If   GOK<0 : Goto ROLL_TR_COP
+  Elsif !GOK : Goto AB_TR_COP
+  Endif
+ Endif
+ # Transfert des rôles si inexistants
+ If dim([M:AUS5]NBBPR)>0
+  Filter [AUB2] Where USR=TABLE
+  Read [AUB2]AUB0 First
+  Filter [AUB2]
+  If !fstat
+   If GTRACE<>""
+    # Les rôles de l'utilisateur # n'ont pas été copiés
+    Call ECR_TRACE(func AFNC.MES(mess(78,130,1),TABLE),0) From GESECRAN
+   Endif
+  Else
+   For [AUB1]AUB0 Where USR=TABLE
+    [F:AUB2] = [F:AUB1]
+    Write [AUB2]
+    If fstat
+     GOK=0 : Call FSTA("AUB2") From GLOCK : Break
+    Endif
+   Next
+   If   GOK<0 : Goto ROLL_TR_COP
+   Elsif !GOK : Goto AB_TR_COP
+   Endif
+  Endif
+ Endif
+ # Transfert du planning
+ If dim([M:AUS9]NBPLA)>0
+  Filter [PLA2] Where USR=TABLE
+  Read [PLA2]PLA0 First
+  Filter [PLA2]
+  If fstat
+   For [PLA1]PLA0 Where USR=TABLE
+    [F:PLA2] = [F:PLA1]
+    Write [PLA2]
+    If fstat
+     GOK=0 : Call FSTA("PLA2") From GLOCK : Break
+    Endif
+   Next
+   If   GOK<0 : Goto ROLL_TR_COP
+   Elsif !GOK : Goto AB_TR_COP
+   Endif
+  Endif
+  # Transfert de la signature
+  Read [ABB1]ABB0 = "AUSSIG";TABLE;"";""
+  If !fstat
+   Delete [ABB2]ABB0 = "AUSSIG";TABLE;"";""
+   If fstat=1
+    GOK=-1 : GLOCK = "$"+[M]DOSDES+".ABLOB" : Goto ROLL_TR_COP
+   Else
+    [F:ABB2] = [F:ABB1]
+    Write [ABB2]
+    If fstat
+     GOK=0 : Call FSTA("ABB2") From GLOCK : Goto AB_TR_COP
+    Endif
+   Endif
+  Endif
+ Endif
+ # Transfert des codes d'accès si inexistants
+ # Issue X3-133678 - 2019-04-10 by ALSHE : Do not consider records with empty CODACC
+ Filter [ACC2] Where USR=TABLE and CODACC<>""
+ Read [ACC2]CODACC First
+ Filter [ACC2]
+ If !fstat
+  If GTRACE<>""
+   # Les codes d'accès de l'utilisateur # n'ont pas été copiés
+   Call ECR_TRACE(func AFNC.MES(mess(79,130,1),TABLE),0) From GESECRAN
+  Endif
+ Else
+  # Issue X3-133678 - 2019-04-10 by ALSHE : Do not consider records with empty CODACC if it already exists
+  Read [ACC2]CODACC = TABLE;""
+  If !fstat
+   Filter [ACC1] Where USR=TABLE and CODACC<>""
+   Gosub TR_ACC
+   Filter [ACC1]
+  Else
+   Gosub TR_ACC
+  Endif
+  # End issue X3-133678
+  If   GOK<0 : Goto ROLL_TR_COP
+  Elsif !GOK : Goto AB_TR_COP
+  Endif
+ Endif
+
+ # Transfert des Valeurs paramètres si inexistantes
+ Filter [ADU2] Where CODUSR=TABLE
+ Read [ADU2]ADU0 First
+ Filter [ADU2]
+ If !fstat
+  If GTRACE<>""
+   # Les paramètres généraux de l'utilisateur # n'ont pas été copiés
+   Call ECR_TRACE(func AFNC.MES(mess(80,130,1),TABLE),0) From GESECRAN
+  Endif
+ Else
+  For [ADU1]ADU0 Where CODUSR=TABLE
+   [F:ADU2] = [F:ADU1]
+   [F:ADU2]JEU = ""
+   Write [ADU2]
+   If fstat
+    GOK=0 : Call FSTA("ADU2") From GLOCK : Break
+   Endif
+  Next
+  If   GOK<0 : Goto ROLL_TR_COP
+  Elsif !GOK : Goto AB_TR_COP
+  Endif
+ Endif
+ # Transfert de la photo
+ Read [ABB1]ABB0 = "AUSPIC";TABLE;"";""
+ If !fstat
+  Delete [ABB2]ABB0 = "AUSPIC";TABLE;"";""
+  If fstat=1
+   GOK=-1 : GLOCK = "$"+[M]DOSDES+".ABLOB" : Goto ROLL_TR_COP
+  Else
+   [F:ABB2] = [F:ABB1]
+   Write [ABB2]
+   If fstat
+    GOK=0 : Call FSTA("ABB2") From GLOCK : Goto AB_TR_COP
+   Endif
+  Endif
+ Endif
+ Call  UPDATE_RIGHTSETAG([M]DOSDES) From ASYRFNC
+Commit
+Return
+
+# Issue X3-133678 - 2019-04-10 by ALSHE : Create subprog to avoid dupicate code
+$TR_ACC
+  For [ACC1]CODACC Where USR=TABLE
+   Read [ACS2]ACS0 = [F:ACC1]CODACC
+   If fstat
+    Read [ACS1]ACS0 = [F:ACC1]CODACC
+    If !fstat
+     [F:ACS2] = [F:ACS1]
+     Write [ACS2]
+     If fstat
+      GOK=0 : Call FSTA("ACS2") From GLOCK : Break
+     Endif
+    Endif
+   Endif
+   [F:ACC2] = [F:ACC1]
+   Write [ACC2]
+   If fstat
+    GOK=0 : Call FSTA("ACC2") From GLOCK : Break
+   Endif
+  Next
+Return
+
+$AB_TR_COP
+Rollback
+Return
+
+$ROLL_TR_COP
+Rollback
+Call ROLL From GLOCK
+If GROLL
+ Return
+Else
+ Goto TR_COP
+Endif
+
+#-----------------------------------------------#
+# Recherche Valeur du paramètre
+#-----------------------------------------------#
+
+Subprog PARAMUTIL(PARAM,VALEUR,USR,SITE)
+Value    Char    PARAM     : # Code du paramètre
+Variable Char    VALEUR    : # Valeur retournée depuis la table ADOVAL
+Value    Char    USR       : # Code utilisateur ou vide si GUSER
+Value    Char    SITE      : # Site sinon recherche site par défaut du module
+Local    Integer OK , OFSTAT
+Local    Char    PPROFIL(GLONAFT) , OPRFCOD(GLONAFT) , OPARAM(GLONADP) , OUSR(GLONAUS) , OMET(GLONAME)
+
+#X3-69874
+#X3-81818 X3-81554 wrong format date due to jira 69874 replace GFMD by "D:YYYYMMDD"
+#X3-81875 read is wrong
+# to be sure the user is the same -we are in context
+# if not the read is done like before optimization
+#
+# test the site not empty to avoid to change all the code in applicative side.
+# because in some case the site is passed to force the read with this value.
+# in this case no optimization
+
+If SITE <> ""
+   # read as before always in database
+   Gosub READ_ADOVALAUS
+Else
+    If dim(GACTX)>=0
+        If GACTX.USER = USR or (USR = "" & GACTX.USER = GUSER) :#X3-154481 add & GACTX.USER=GUSER
+            Local Integer PARAMTYPE
+
+            [L]PARAMTYPE = fmet GACTX.APARAM._AGETADPTYP([L]PARAM)
+            #PARAMTYPE : 1=Alphanumeric, 2=Numeric, 3=Date, 4=ML
+            Case [L]PARAMTYPE
+                When 1 : [L]VALEUR = fmet GACTX.APARAM.AGETUSERVALCHAR([L]PARAM)
+                When 2, 4 : [L]VALEUR = num$(fmet GACTX.APARAM.AGETUSERVALNUM([L]PARAM))
+                When 3 : [L]VALEUR = format$("D:YYYYMMDD",fmet GACTX.APARAM.AGETUSERVALDATE([L]PARAM))
+                When Default : Raz [L]VALEUR
+            Endcase
+        Else
+            # no optimization user is different
+            Gosub READ_ADOVALAUS
+        Endif
+    Else
+        # read as before always in database
+        Gosub READ_ADOVALAUS
+    Endif
+Endif
+End
+
+$READ_ADOVALAUS
+# read in database directly
+# jira 85115 simplified the code
+Local Integer RES_FOUND
+Local Char PARAMVAL(255)
+Local Char WAPPLI(80)
+WAPPLI = nomap
+If [L]USR<>""
+         Call _READ_DATA_ADOVALAUS(WAPPLI, USR, SITE, PARAM, RES_FOUND, PARAMVAL)  From ADP_TOOL
+Else
+         Call _READ_DATA_ADOVALAUS(WAPPLI, GUSER, SITE, PARAM, RES_FOUND, PARAMVAL) From ADP_TOOL
+Endif
+VALEUR = PARAMVAL
+Return
+
+#-----------------------------------------------#
+Subprog DFLCHAP1(CHAPITRE,SITE,OK)
+Value    Char    CHAPITRE
+Variable Char    SITE
+Variable Integer OK
+# Le subprog est appelé depuis alimparam
+If clalev([F:AFT])=0 : Local File AFCTFCT   [AFT]  : Endif
+If [F:AFT]PRFCOD<>GPROFIL
+ Read [AFT]AFT0 = GPROFIL
+Endif
+Goto DEFAUT_CHAP
+
+Subprog DFLCHAP(CHAPITRE,SITE,OK)
+Value    Char    CHAPITRE
+Variable Char    SITE
+Variable Integer OK
+
+$DEFAUT_CHAP
+If dim(GMODU)<0 : End : Endif
+Local Char ACTION(20)
+OK = 0
+# get Module from Chapter
+L_MODULE = func AFNC.GET_MODULE_FROM_CHP(nomap,CHAPITRE)
+If L_MODULE<=0
+ # old logic : hard coded correspondance
+ Case CHAPITRE
+  When "SUP" : [L]SITE =([F:AFT]FCYDEF(0))  : If GMODU(1)=2 & !GIMPORT  : OK=1 : Endif
+  When Default
+   ACTION = "CHPDEF" : Gosub ACTION
+   OK = 1
+ Endcase
+Else
+ # new logic : correspondance defined in "table diverse" 901
+ SITE = func AFNC.GET_SITE_FROM_MDL(nomap,L_MODULE,[F:AFT]PRFCOD)
+ If GMODU(L_MODULE)=2 & !GIMPORT  : OK=1 : Endif
+Endif
+End
+
+#---------------------------------------------------------------#
+# Vérification saisie paramètres (ADMUSR, DOCDOSS, etc.)
+#---------------------------------------------------------------#
+
+Subprog VERF_PARAM(PARAM,VALEUR,OK)
+Value Char PARAM
+Variable Char VALEUR
+Variable Integer OK
+Local Integer K , ER
+Local Char    MESSA(200)
+Case PARAM
+ When "ADMUSR"
+  If clalev([F:AUS])=0 : Local File AUTILIS [AUS] : Endif
+  Read [AUS]CODUSR = [L]VALEUR
+  If fstat
+   Call ERREUR(mess(141,100,1)) From GESECRAN : # Code utilisateur inexistant
+   OK = 0 : End
+  Elsif [F:AUS]PRFMEN<>[L]VALEUR
+   MESSA = mess(10,139,1)-[L]VALEUR : # L'administrateur # doit avoir le profil menu
+   K = instr(1,MESSA,"#")
+   If K : MESSA = left$(MESSA,K-1)+[L]VALEUR+right$(MESSA,K+1) : Endif
+   Call ERREUR(MESSA) From GESECRAN
+   OK = 0 : End
+  Endif
+  OK = 1
+ When "DOCDOSS"
+  OK = 1
+  Call C_DOSSIER([L]VALEUR) From DOSCONT
+  If mkstat : OK = 0 : Endif
+ When "SERIMP"
+  OK = 1
+  PARAM = "1"
+  Call S_AFF_CHAR(VALEUR,PARAM,"CONTSERV","ASELSIMP","") From GACTION
+  mkstat = 0
+ When "LEGFIL"
+  mkstat = 0
+  OK = 1
+  Call CONTLEG(VALEUR) From SUBADI
+  If mkstat
+   Call ERREUR(GMESSAGE) From GESECRAN
+   Raz GMESSAGE , mkstat , OK
+  Endif
+ When "MAXSES1" , "MAXSES2" , "TIMEHGUP1" , "TIMEHGUP2" , "TIMEHGUP3" , "USR1" , "USR2" , "USR2"
+  ER = 0
+  Onerrgo ERR
+  Local Shortint COURT
+  COURT = val(VALEUR)
+  Onerrgo
+  If ER
+   Call ERREUR(mess(83,123,1)) From GESECRAN : # Valeur incorrecte
+   OK = 0 : End
+  Endif
+ When "PASLNG"
+  ER = 0
+  Onerrgo ERR
+  Local Integer LONG
+  LONG = val(VALEUR)
+  Onerrgo
+  If ER or LONG<0
+   Call ERREUR(mess(83,123,1)) From GESECRAN : # Valeur incorrecte
+   OK = 0 : End
+  Endif
+  If dim(GLONAPW)>0
+   K = GLONAPW
+  Else
+   K = 10
+  Endif
+  If LONG>K
+   # Valeur trop grande (maximum #)
+   Call ERREUR(func AFNC.MES(mess(115,75,1),num$(K))) From GESECRAN
+   OK = 0 : End
+  Endif
+ When "CPYMINLEN"
+  If val(VALEUR)>0
+   If val(VALEUR)>GLONCPY
+    # Valeur trop grande (maximum #)
+    Call ERREUR(func AFNC.MES(mess(115,75,1),num$(GLONCPY))) From GESECRAN
+    OK = 0 : End
+   Else
+    If clalev([F:CPY])=0 : Local File COMPANY [CPY] : Endif
+    For [CPY]
+     If len([F:CPY]CPY)<len(VALEUR)
+      # Attention, des codes $1$ avec des longueurs inférieures à $2$ existent
+      Call ERREUR(func AFNC.MES2(mess(231,125,1),mess(26,113,1),num$(VALEUR))) From GESECRAN
+      OK = 0 : Break
+     Endif
+    Next CPY
+   Endif
+  Endif
+ When "CPYMAXLEN"
+  If val(VALEUR)>0
+   If val(VALEUR)>GLONCPY
+    # Valeur trop grande (maximum #)
+    Call ERREUR(func AFNC.MES(mess(115,75,1),num$(GLONCPY))) From GESECRAN
+    OK = 0 : End
+   Else
+    If clalev([F:CPY])=0 : Local File COMPANY [CPY] : Endif
+    For [CPY]
+     If len([F:CPY]CPY)>len(VALEUR)
+      # Attention, des codes $1$ avec des longueurs supérieures à $2$ existent
+      Call ERREUR(func AFNC.MES2(mess(232,125,1),mess(26,113,1),num$(VALEUR))) From GESECRAN
+      OK = 0 : Break
+     Endif
+    Next CPY
+   Endif
+  Endif
+ When "FCYMINLEN"
+  If val(VALEUR)>0
+   If val(VALEUR)>GLONFCY
+    # Valeur trop grande (maximum #)
+    Call ERREUR(func AFNC.MES(mess(115,75,1),num$(GLONFCY))) From GESECRAN
+    OK = 0 : End
+   Else
+    If clalev([F:FCY])=0 : Local File FACILITY [FCY] : Endif
+    For [FCY]
+     If len([F:FCY]FCY)<len(VALEUR)
+      # Attention, des codes $1$ avec des longueurs inférieures à $2$ existent
+      Call ERREUR(func AFNC.MES2(mess(231,125,1),mess(29,109,1),num$(VALEUR))) From GESECRAN
+      OK = 0 : Break
+     Endif
+    Next FCY
+   Endif
+  Endif
+ When "FCYMAXLEN"
+  If val(VALEUR)>0
+   If val(VALEUR)>GLONFCY
+    # Valeur trop grande  (maximum #)
+    Call ERREUR(func AFNC.MES(mess(115,75,1),num$(GLONFCY))) From GESECRAN
+    OK = 0 : End
+   Else
+    If clalev([F:FCY])=0 : Local File FACILITY [FCY] : Endif
+    For [FCY]
+     If len([F:FCY]FCY)>len(VALEUR)
+      # Attention, des codes $1$ avec des longueurs supérieures à $2$ existent
+      Call ERREUR(func AFNC.MES2(mess(232,125,1),mess(29,109,1),num$(VALEUR))) From GESECRAN
+      OK = 0 : Break
+     Endif
+    Next FCY
+   Endif
+  Endif
+Endcase
+End
+
+$ERR
+ER = errn
+Resume
+
+#-----------------------------------------------------------------------#
+# Récupération du code profil XTEND en fonction du site et du login
+#-----------------------------------------------------------------------#
+
+Subprog USERX3(FCYCOD,LOGX3,PRFCOD,OK)
+Value Char FCYCOD , LOGX3
+Variable Char PRFCOD
+Variable Integer OK
+Local Integer I
+Local Char XTDPRF(GLONAYH)
+If clalev([F:AUS])=0 : Local File AUTILIS   [AUS] : Endif
+If clalev([F:AYH])=0 : Local File AYTPRFUSR [AYH] : Endif
+If clalev([F:AME])=0 : Local File AMETUTI   [AME] : Endif
+OK = 0
+Read [AUS]LOGIN=toupper(LOGX3)
+If !fstat & dim([F:AUS]USRCONXTD)>0 & [F:AUS]USRCONXTD=2
+ If [F:AUS]PRFXTD <> ""
+  [L]XTDPRF = [F:AUS]PRFXTD
+ Elsif [F:AUS]CODMET <> ""
+  Read [F:AME]AME0 = [F:AUS]CODMET
+  If !fstat & [F:AME]PRFXTD<>""
+   [L]XTDPRF = [F:AME]PRFXTD
+  Endif
+ Endif
+Endif
+If [L]XTDPRF <> ""
+ Read [AYH]AYH0=[L]XTDPRF
+ If !fstat
+  For I=0 To [F:AYH]NBFCY-1
+   If [F:AYH]FCYXTDCOD(I)=[L]FCYCOD
+    OK = 1
+    PRFCOD = [F:AYH]PRFXTDCOD(I)
+    Break
+   Endif
+  Next I
+ Endif
+Endif
+Close Local File [AYH] , [AUS] , [AME]
+End
+
+#-----------------------------------------------#
+## Ecran AUS0
+#-----------------------------------------------#
+
+Subprog C_USR(VALEUR)
+Variable Char VALEUR
+[M]USR = VALEUR
+Gosub GRISE_PRF
+Affzo [M:AUS0]ENAFLG
+Affzo [M:AUS8]ALLACS
+Affzo [M:AUS1]PRFMEN, PRFFCT, ACSUSR, USRCONNECT, CODMET
+Gosub GRISE_ACS
+End
+
+Subprog C_INTUSR(VALEUR)
+Variable Char    VALEUR()
+If !clalev([F:ADS]) : Local File ADOSSIER [ADS] : Endif
+If !clalev([F:AXX]) : Local File ATEXTRA   [AXX] : Endif :#SAM 119121
+
+Read [F:ADS]DOSSIER = nomap
+If !fstat
+ Read [F:AXX]AXX0 = "AUTILIS";"INTUSR";[F:ADS]LANDEF;[M]USR;""
+ If !fstat & [F:AXX]TEXTE<>"" & [F:ADS]LANDEF<>GLANGUE
+  [M]NOMUSR = [F:AXX]TEXTE
+ Else
+  [M]NOMUSR = VALEUR
+ Endif
+Endif
+End
+
+#-----------------------------------------------#
+## Ecran AUS1
+#-----------------------------------------------#
+
+Subprog AS_ENAFLG(VALEUR)
+Variable Integer VALEUR
+End
+
+Subprog AS_USRCONNECT(VALEUR)
+Variable Integer VALEUR
+End
+
+Subprog C_USRCONNECT(VALEUR)
+Variable Integer VALEUR
+[M]USRCONNECT = VALEUR
+If dim([M]USRCONXTD)<0
+ Gosub GRISE_PRF
+ Affzo [M:AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+ If dim([M:AUS5]NBBPR)>0
+  Affzo [M:AUS5]
+ Endif
+ Affzo [M:AUS7]
+ Affzo [M:AUS8]
+ Gosub GRISE_ACS
+ Gosub GRISE_XTD
+Endif
+End
+
+Subprog AM_USRCONNECT(VALEUR)
+Variable Integer VALEUR
+#  Par défaut on positionne à Oui la
+If VALEUR=2
+  [M]USRCONXTD=2
+Endif
+End
+
+Subprog C_USRCONXTD(VALEUR)
+Variable Integer VALEUR
+[M]USRCONXTD = VALEUR
+Gosub GRISE_PRF
+Affzo [M:AUS1]PRFMEN,LOGIN,PRFFCT,CODMET
+If dim([M:AUS5]NBBPR)>0
+ Affzo [M:AUS5]
+Endif
+Affzo [M:AUS7]
+Affzo [M:AUS8]
+Gosub GRISE_ACS
+Gosub GRISE_XTD
+End
+
+Subprog C_LOGIN(VALEUR)
+Variable Char    VALEUR()
+Local Integer OK
+# Issue X3-56120: X3 users import error when special character in login
+# 2018-07-20: TOGAN
+#VALEUR = vireblc(toupper(ctrans(VALEUR)),4)
+VALEUR = toupper(VALEUR)
+If VALEUR <> vireblc(VALEUR, 4) or VALEUR <> ctrans(VALEUR, "'", "") or VALEUR <> ctrans(VALEUR, '"', "") Then
+  # Usage of quotes and/or space characters is not allowed.
+  [V]GMESSAGE = mess(109,130,1)
+  mkstat = 2
+  End
+Endif
+# End issue X3-56120
+Call CONTLOG(VALEUR,[M]USR,OK)
+If !OK : mkstat =2 : End : Endif
+End
+
+Subprog C_CODMET(VALEUR)
+Variable Char    VALEUR()
+Call CHARGE_METIER(VALEUR)
+Affzo DEFMEN,DEFFCT,DEFBI,DEFXTD
+End
+
+Subprog CHARGE_METIER(VALEUR)
+Variable Char    VALEUR()
+[M:AUS1]DEFMEN = ""
+[M:AUS1]DEFFCT = ""
+[M:AUS1]DEFBI  = ""
+[M:AUS1]DEFXTD  = ""
+If VALEUR<>""
+ Call LECTURE("AME",VALEUR,"") From CONTOBJ
+ If [F:AME]PRFMEN<>"" : [M:AUS1]DEFMEN = "("+[F:AME]PRFMEN+")" : Endif
+ If [F:AME]PRFFCT<>"" : [M:AUS1]DEFFCT = "("+[F:AME]PRFFCT+")" : Endif
+ If [F:AME]USRBI<>"" & dim([M:AUS1]USRBI)>0 : [M:AUS1]DEFBI  = "("+[F:AME]USRBI+")"  : Endif
+ If [F:AME]PRFXTD<>"" & dim([M:AUS1]PRFXTD)>0 & USRCONXTD=2 : [M:AUS1]DEFXTD= "("+[F:AME]PRFXTD+")"  : Endif
+Endif
+End
+
+Subprog C_PRFMEN(VALEUR)
+Variable Char    VALEUR()
+If [M]CODMET="" & VALEUR=""
+ GMESSAGE = mess(10,123,1) : # Zone obligatoire
+ mkstat = 2 : End
+Endif
+#F_add_admca_managment
+# Issue 107310
+If VALEUR="ADMIN" & GPROFIL<>GSUPER
+ GMESSAGE = mess(3,104,1) : # You do not have access to this code
+ mkstat = 2 : End
+Endif
+# End issue 107310
+End
+
+Subprog C_PRFFCT(VALEUR)
+Variable Char    VALEUR()
+If [M]CODMET="" & VALEUR=""
+ GMESSAGE = mess(10,123,1) : # Zone obligatoire
+ mkstat = 2 : End
+Endif
+#F_add_admca_managment
+# Issue 107310
+If VALEUR="ADMIN" & GPROFIL<>GSUPER
+ GMESSAGE = mess(3,104,1) : # You do not have access to this code
+ mkstat = 2 : End
+Endif
+# End issue 107310
+Gosub SET_AUZFCT
+If AUZFCT=""
+ If GUSER<>GSUPER
+  Call ERREUR(mess(165,133,1)-AUZFCT) From GESECRAN
+  # Vous n'avez pas le droit d'affecter un profil fonction
+  mkstat = 2 : End
+ Endif
+Elsif pat(VALEUR,AUZFCT) = 0
+ Call ERREUR(mess(179,126,1)-AUZFCT) From GESECRAN
+ # Vous ne pouvez affecter que des profils fonction du type
+ mkstat = 2 : End
+Endif
+End
+
+Subprog AM_CHEF(VALEUR)
+Variable Char    VALEUR()
+If VALEUR=""
+ [M]NOMCHEF(nolign-1) = ""
+Else
+ Read [AUS2]CODUSR = VALEUR
+ [M]NOMCHEF(nolign-1) = [F:AUS2]NOMUSR
+Endif
+End
+
+Subprog C_PRTDEF(VALEUR)
+Variable Char VALEUR()
+Gosub SETNOL
+If VALEUR<>""
+ Call LECTURE("AIM",VALEUR,"") From CONTOBJ
+ #If [F:AIM]PRT=2 & [F:AIM]PRTNAT<>1 & [F:AIM]PRTNAT<>NOL+1
+ If find([F:AIM]PRT,2) & [F:AIM]PRTNAT<>NOL+1
+  GMESSAGE = mess(5,133,1)-"("+mess([F:AIM]PRTNAT,22,1)+")"
+  mkstat = 2 : End
+ Endif
+Endif
+End
+
+$SETNOL
+Local Integer NOL
+NOL = nolign-1
+Return
+
+Subprog C_USRPRT(VALEUR)
+Variable Char VALEUR()
+Local Char    TBUSR(GLONAUS)(1..100)
+Local Integer NBAUS
+[M]USRPRT = VALEUR
+Gosub GRISE_IMP
+Affzo [AUS1]20
+If VALEUR=[M:AUS0]USR
+ GMESSAGE = mess(83,123,1) : # Valeur incorrecte
+ mkstat = 1 : End
+Endif
+If VALEUR<>""
+ Read [AUS2]CODUSR = VALEUR
+ NBUSR    = 1
+ TBUSR(1) = [M:AUS0]USR
+ Repeat
+  If [F:AUS2]USRPRT=""
+   Break
+  Elsif find([F:AUS2]USRPRT,TBUSR(1..NBUSR))
+   mkstat = 2 : Break
+  Elsif NBUSR>=dim(TBUSR)
+   mkstat = 2 : Break
+  Else
+   NBUSR += 1
+   TBUSR(NBUSR) = [F:AUS2]USRPRT
+   Read [AUS2]CODUSR = TBUSR(NBUSR)
+   If fstat
+    mkstat = 2 : Break
+   Endif
+  Endif
+ Until 1=0
+Endif
+If mkstat
+ GMESSAGE = mess(88,133,1) : # Un cycle serait créé
+Endif
+End
+
+Subprog IB_ADDEML
+If GBROWS : GBOUTS = "" : Endif
+End
+
+#-----------------------------------------------#
+## Ecran AUS4        Compta
+#-----------------------------------------------#
+
+Subprog AM_ACCCOD(VALEUR)
+Variable Char    VALEUR()
+End
+
+#-----------------------------------------------#
+## Ecran AUS5        Rôles
+#-----------------------------------------------#
+
+Subprog C_ROL(VALEUR)
+Variable Char VALEUR
+If VALEUR="" : End : Endif
+Read [ARL]ARL1(1) = VALEUR
+If fstat
+ GMESSAGE = mess(33,130,1) : # Rôle non paramètré
+ mkstat = 2 : End
+Endif
+CHAMP = [F:ARL]FLD
+K = instr(1,CHAMP,"(")
+If K
+ CHAMP = left$(CHAMP,K-1)
+Endif
+Read [AOB]ABREV   = [F:ARL]OBJ
+Read [ATZ]CODZONE = [F:AOB]NOMFIC;CHAMP
+Read [ATY]CODTYP  = [F:ATZ]CODTYP
+[M]OBJ(nolign-1)  = [F:ATY]OBJLIEN
+End
+
+Subprog IB_BPR
+Read [AOB]ABREV ="BPR"
+If !fstat
+ GBOUTS = mess(95,127,1) : # Sélection tiers
+Else
+ GBOUTS = ""
+Endif
+End
+
+#-----------------------------------------------#
+## Ecran AUS7    Paramètres
+#-----------------------------------------------#
+
+Subprog AS_NBGRP
+Gosub SETBOX
+End
+
+Subprog C_NBGRP
+If adxgtb=2 & find(status,129,130)
+ mkstat =2
+Endif
+End
+
+Subprog AS_JEUCOD(VALEUR)
+Variable Char    VALEUR()
+GMODIF = 4
+End
+
+Subprog AM_JEUCOD(VALEUR)
+Variable Char VALEUR
+Local Integer I
+For I=1 To [M]NBVAR
+ If [M]CHAPITRE(I-1)=[M]CHPCOD(nolign-1) & [M]GRPPAR(I-1)=[M]GRPCOD(nolign-1)
+  [M]GRPDEF(I-1) = VALEUR
+  Read [ADG]ADG1 = VALEUR;[M]CHAPITRE(I-1);[M]GRPPAR(I-1);[M]PARAM(I-1)
+  If !fstat
+   [M]VALINT(I-1) = [F:ADG]VALEUR
+   [M]VALEUR(I-1) = [F:ADG]VALEUR
+   Call CHARGE([M]VALEUR(I-1),[M]TYP(I-1),[M]NOLIB(I-1),[M]LONG(I-1),[M]VALINT(I-1)) From FMTVAR
+   Case GMODIF
+    When 1 : [M]NIVEAU(I-1) = 1 : # Dossier
+    When 2 : [M]NIVEAU(I-1) = 2 : # Société
+    When 3 : [M]NIVEAU(I-1) = 3 : # Site
+    When 4 : [M]NIVEAU(I-1) = 4 : # Utilisateur
+    When 5 : [M]NIVEAU(I-1) = 5 : # Législation
+   Endcase
+  Endif
+ Endif
+Next I
+Case GMODIF
+ When 1 : [M]NIVGRP(nolign-1) = 1
+ When 2 : [M]NIVGRP(nolign-1) = 2
+ When 3 : [M]NIVGRP(nolign-1) = 3
+ When 4 : [M]NIVGRP(nolign-1) = 4
+ When 5 : [M]NIVGRP(nolign-1) = 5
+Endcase
+End
+
+Subprog C_JEUCOD(VALEUR)
+Variable Char    VALEUR()
+If VALEUR="" : End : Endif
+Gosub SETNOL
+Read [ADG]ADG0(3)=[M]CHPCOD(NOL);[M]GRPCOD(NOL);VALEUR
+If fstat
+ GMESSAGE = mess(23,100,1) : # Fiche inexistante
+ mkstat = 1 : End
+Endif
+End
+
+Subprog IB_JEUCOD
+Local Char    CLE1(20) , CLE2(20)
+Local Char    SITE(GLONFCY) , SOCIETE(GLONCPY) , LEG(GLONADI)
+Local Integer I , OK
+Call TITOBJ("ADG","",GBOUT1) From CONTOBJ
+Raz GBOUT3, GBOUT4, GBOUT5, GBOUT6
+OK = 1
+For I=1 To [M]NBVAR
+ If [M]CHAPITRE(I-1)=[M]CHPCOD(nolign-1) & [M]GRPPAR(I-1)=[M]GRPCOD(nolign-1) & [M]VALDEF(I-1)<>2
+  OK = 0 : Break
+ Endif
+Next I
+If !OK : End : Endif
+Raz LEG , SOCIETE , SITE
+Call DFLCHAP([M]CHPCOD(nolign-1),SITE,OK)
+If OK & SITE<>""
+ SOCIETE = GSOCSITE(find(SITE,GSITE(1..GNBSITE)))
+ LEG = GLEGSOC(find(SOCIETE,GSOC))
+Endif
+If SITE<>""
+ CLE1 = ""
+ CLE2 = SITE
+ Gosub SET_JEU
+ If CODJEU<>""
+  GBOUT6 = mess(209,123,1)-"("+CODJEU+")" : # Valeur Site
+ Endif
+Endif
+If SOCIETE<>""
+ CLE1 = SOCIETE
+ CLE2 = ""
+ Gosub SET_JEU
+ If CODJEU<>""
+  GBOUT5 = mess(85,123,1)-"("+CODJEU+")"  : # Valeur société
+ Endif
+Endif
+If dim([M]LEG)>0 & LEG<>""
+ CLE1 = "*"
+ CLE2 = LEG
+ Gosub SET_JEU
+ If CODJEU<>""
+  GBOUT4 = mess(217,123,1)-"("+CODJEU+")"  : # Valeur législation
+ Endif
+Endif
+CLE1 = ""
+CLE2 = ""
+Gosub SET_JEU
+If CODJEU<>""
+ GBOUT3 = mess(84,123,1)-"("+CODJEU+")"  : # Valeur dossier
+Endif
+End
+
+$SET_JEU
+Local Char    CODJEU(GLONADI)
+Local Integer K
+Filter [ADG] Where CHAPITRE=[M]CHPCOD(nolign-1) & GRPPAR=[M]GRPCOD(nolign-1)
+Raz CODJEU
+For [ADG]ADG1(1)
+ CODJEU = [F:ADG]GRPDEF
+ For [ADG]ADG1
+  K = find([F:ADG]PARAM,[M]PARAM)
+  If K
+   Read [ADW]ADW0 = CLE1;CLE2;[F:ADG]PARAM
+   If fstat | [F:ADW]VALEUR<>[F:ADG]VALEUR
+    CODJEU = ""
+    Break
+   Endif
+  Endif
+ Next ADG
+ If CODJEU<>""
+  Break
+ Endif
+Next ADG1
+Filter [ADG]
+Return
+
+Subprog B1_JEUCOD(VALEUR)
+Variable Char    VALEUR()
+Local Char CHP(GLONADI) , JEU(GLONADP)
+Local Integer I
+Gosub SETNOL
+CHP = [M]CHPCOD(NOL)
+JEU = VALEUR
+If JEU=""
+ Filter [ADG] Where CHAPITRE=[M]CHPCOD(NOL) & GRPPAR=[M]GRPCOD(NOL)
+ Read [ADG] First
+ If !fstat
+  JEU = [F:ADG]GRPDEF
+ Endif
+ Filter [ADG]
+Endif
+Call OBJET_CHAR([M]GRPCOD(NOL),"ADG",CHP+"~"+JEU) From GOBJET
+mkstat = 4
+End
+
+Subprog B2_JEUCOD(VALEUR)
+Variable Char    VALEUR()
+Local Char    PARMSK(250)(1..20)
+Gosub SETNOL
+PARMSK(1) = [M]CHPCOD(NOL)
+PARMSK(2) = [M]GRPCOD(NOL)
+PARMSK(3) = [M:AUS0]USR
+Call SAISIE_CHAR(VALEUR,PARMSK,"AUSP","ASAIPARAUS","") From GSAISIE
+For I=1 To [M]NBVAR
+ If [M]GRPCOD(NOL)=[M]GRPPAR(I-1)
+  VALEUR = [M]GRPDEF(I-1)
+  [M]JEUCOD(NOL) = [M]GRPDEF(I-1)
+  Break
+ Endif
+Next I
+mkstat = 4
+End
+
+Subprog B3_JEUCOD(VALEUR)
+Variable Char VALEUR()
+Local Char    CLE1(20) , CLE2(20)
+CLE1 = ""
+CLE2 = ""
+Gosub SET_JEU
+If CODJEU<>""
+ VALEUR = CODJEU
+ GMODIF = 1
+ mkstat = 4
+Endif
+End
+
+Subprog B4_JEUCOD(VALEUR)
+Variable Char VALEUR()
+Local Char    CLE1(20) , CLE2(20)
+Local Char    SITE(GLONFCY) , SOCIETE(GLONCPY) , LEG(GLONADI)
+Local Integer OK
+Raz LEG , SOCIETE , SITE
+Call DFLCHAP([M:AUS7]CHPCOD(nolign-1),SITE,OK)
+If OK & SITE<>""
+ SOCIETE = GSOCSITE(find(SITE,GSITE(1..GNBSITE)))
+ LEG = GLEGSOC(find(SOCIETE,GSOC))
+Endif
+CLE1 = "*"
+CLE2 = LEG
+Gosub SET_JEU
+If CODJEU<>""
+ VALEUR = CODJEU
+ GMODIF = 5
+ mkstat = 4
+Endif
+End
+
+Subprog B5_JEUCOD(VALEUR)
+Variable Char VALEUR()
+Local Char    CLE1(20) , CLE2(20)
+Local Char    SITE(GLONFCY) , SOCIETE(GLONCPY) , LEG(GLONADI)
+Local Integer OK
+Raz LEG , SOCIETE , SITE
+Call DFLCHAP([M:AUS7]CHPCOD(nolign-1),SITE,OK)
+If OK & SITE<>""
+ SOCIETE = GSOCSITE(find(SITE,GSITE(1..GNBSITE)))
+ LEG = GLEGSOC(find(SOCIETE,GSOC))
+Endif
+CLE1 = SOCIETE
+CLE2 = ""
+Gosub SET_JEU
+If CODJEU<>""
+ VALEUR = CODJEU
+ GMODIF = 2
+ mkstat = 4
+Endif
+End
+
+Subprog B6_JEUCOD(VALEUR)
+Variable Char VALEUR()
+Local Char    CLE1(20) , CLE2(20)
+Local Char    SITE(GLONFCY) , SOCIETE(GLONCPY) , LEG(GLONADI)
+Local Integer OK
+Raz LEG , SOCIETE , SITE
+Call DFLCHAP([M:AUS7]CHPCOD(nolign-1),SITE,OK)
+If OK & SITE<>""
+ SOCIETE = GSOCSITE(find(SITE,GSITE(1..GNBSITE)))
+ LEG = GLEGSOC(find(SOCIETE,GSOC))
+Endif
+CLE1 = ""
+CLE2 = SITE
+Gosub SET_JEU
+If CODJEU<>""
+ VALEUR = CODJEU
+ GMODIF = 3
+ mkstat = 4
+Endif
+End
+
+#-----------------------------------------------#
+## Ecran AUS8        Accès
+#-----------------------------------------------#
+
+Subprog AS_ALLACS(VALEUR)
+Variable Integer VALEUR
+If !instr(1,GUSRAUZ(1),"A")
+ mkstat = 2
+Endif
+End
+
+Subprog C_ALLACS(VALEUR)
+Variable Integer VALEUR
+[M]ALLACS = VALEUR
+Gosub GRISE_ACS
+End
+
+Subprog IB_NBACC
+End
+
+Subprog B1_NBACC
+End
+
+Subprog C_NBACC
+If !adxgtb
+ If !instr(1,GUSRAUZ(1),"A") & status<>65 : # On laisse au moins le droit de s'auto-mutiler
+  mkstat = 1
+ Endif
+Endif
+End
+
+Subprog C_CODACC(VALEUR)
+Variable Char VALEUR
+If VALEUR="" : End : Endif
+Call UNICITE(VALEUR,[M]CODACC(0..[M]NBACC-1)) From OBJDIV
+If !mkstat
+ Call CONTROLE("ACS","",VALEUR,"",mkstat) From CONTOBJ
+Endif
+End
+
+Subprog B2_CODACC(VALEUR)
+Variable Char    VALEUR()
+For [ACS] Where CODACC>=VALEUR
+ If [M]NBACC>=dim([M]CODACC) : Break : Endif
+ If !find([F:ACS]CODACC,[M]CODACC(0..[M]NBACC-1))
+  [M]CODACC([M]NBACC) = [F:ACS]CODACC
+  [M]CONSUL([M]NBACC) = 1
+  [M]MODIF([M]NBACC)  = 1
+  [M]EXEC([M]NBACC)   = 1
+  [M]NBACC += 1
+ Endif
+Next ACS
+VALEUR = [M]CODACC(nolign-1)
+Affzo 10
+End
+
+Subprog AM_CODACC(VALEUR)
+Variable Char     VALEUR
+End
+
+Subprog AP_CONSUL(VALEUR)
+Variable Integer VALEUR
+If VALEUR=1
+ [M]MODIF(nolign-1) = 1
+ Affzo MODIF(nolign-1)
+Endif
+End
+
+Subprog B1_CONSUL(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]CONSUL(I) = 2
+Next I
+Affzo 10
+End
+
+Subprog B2_CONSUL(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]CONSUL(I) = 1
+ [M]MODIF(I) = 1
+Next I
+Affzo 10
+End
+
+Subprog AS_MODIF(VALEUR)
+Variable Integer VALEUR
+If [M:AUS8]CONSUL(nolign-1) <> 2
+ VALEUR = 1
+ mkstat = 2
+Endif
+End
+
+Subprog B1_MODIF(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]MODIF(I) = 2
+Next I
+Affzo 10
+End
+
+Subprog B2_MODIF(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]MODIF(I) = 1
+Next I
+Affzo 10
+End
+
+Subprog B1_EXEC(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]EXEC(I) = 2
+Next I
+Affzo 10
+End
+
+Subprog B2_EXEC(VALEUR)
+Variable Integer VALEUR
+For I=nolign-1 To [M]NBACC-1
+ [M]EXEC(I) = 1
+Next I
+Affzo 10
+End
+
+Subprog C_FCYXTDCOD(VALEUR)
+Variable Char    VALEUR()
+Call UNICITE(VALEUR,[M]FCYXTDCOD) From OBJDIV
+End
+
+Subprog C_PRFXTDCOD(VALEUR)
+Variable Char    VALEUR()
+If VALEUR="" : End : Endif
+If clalev([F:AYD])=0 : Local File AYTPRF [AYD] : Endif
+Read [AYD]AYD0=[M]FCYXTDCOD(nolign-1);VALEUR
+If fstat
+ Call ERREUR([M]FCYXTDCOD(nolign-1)-VALEUR-":"-mess(23,100,1)) From GESECRAN : # Fiche inexistante
+ mkstat = 1 : End
+Endif
+End

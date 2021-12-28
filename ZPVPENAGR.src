@@ -1,0 +1,478 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+##########################################################################
+$ACTION
+
+Case ACTION
+  When "BOUTON"   : Gosub BOUTON
+Endcase
+
+Return
+
+##########################################################################
+$BOUTON
+
+Case BOUT
+  When "a" : Gosub BUSCAR
+  When "b" : Gosub GUARDAR
+Endcase
+
+Return
+
+##########################################################################
+$BUSCAR
+
+#Variables
+Local Char    S_CRITERE1(250)
+Local Char    S_CRITERE2(250)
+Local Char    S_CRITERE3(250)
+Local Char    S_CRITERE4(250)
+Local Char    S_CRITERE5(250)
+Local Char    S_CLIENTE(20)
+Local Char    S_DIRECCION(20)
+Local Integer I_NBLIG
+Local Integer I_MAX
+Local Integer I_CONTINUAR
+Local Decimal F_IMPORTE_MIN_TRANSPORTISTA
+Local Char    LDIRANTES(50),LDIRDESPUES(50),LCLIANTES(50),LCLIDESPUES(50)
+
+#Tablas
+Local File SORDER   [F:SOH]
+Local File SORDERQ  [F:SOQ]
+Local File SORDERP  [F:SOP]
+
+# JC.03082021.INICIO
+  If !clalev([F:ZPRH]) Then : Local File STOPREH    [F:ZPRH] : Endif
+  If !clalev([F:ZPRE]) Then : Local File STOPRED    [F:ZPRE] : Endif
+  If !clalev([F:ZBPT]) Then : Local File BPCARRIER  [F:ZBPT] : Endif
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ    [F:ZSOQ] : Endif
+  If !clalev([F:ZSOP]) Then : Local File SORDERP    [F:ZSOP] : Endif
+# JC.03082021.FIN
+
+#Criterios
+[L]S_CRITERE1 = '1=1'
+[L]S_CRITERE2 = '1=1'
+[L]S_CRITERE3 = '1=1'
+[L]S_CRITERE4 = '1=1'
+[L]S_CRITERE5 = '1=1'
+
+#Cliente
+If [M:ZPVPACRI]CLIENTE <> "" : [L]S_CRITERE1 += ' & [F:SOH]BPCORD=[M:ZPVPACRI]CLIENTE' : Endif
+
+#Tipo pedido
+If [M:ZPVPACRI]TIPO <> "" : [L]S_CRITERE1 += ' & [F:SOH]SOHTYP=[M:ZPVPACRI]TIPO' : Endif
+
+#Fecha pedido
+If [M:ZPVPACRI]FECHAPEDINI <> [0/0/0] : [L]S_CRITERE1 += ' & [F:SOH]ORDDAT>=[M:ZPVPACRI]FECHAPEDINI' : Endif
+If [M:ZPVPACRI]FECHAPEDFIN <> [0/0/0] : [L]S_CRITERE1 += ' & [F:SOH]ORDDAT<=[M:ZPVPACRI]FECHAPEDFIN' : Endif
+
+#Fecha entrega
+If [M:ZPVPACRI]FECHAENTINI <> [0/0/0] : [L]S_CRITERE1 += ' & [F:SOH]DEMDLVDAT>=[M:ZPVPACRI]FECHAENTINI' : Endif
+If [M:ZPVPACRI]FECHAENTFIN <> [0/0/0] : [L]S_CRITERE1 += ' & [F:SOH]DEMDLVDAT<=[M:ZPVPACRI]FECHAENTFIN' : Endif
+
+#Estado preparación
+#If [M:ZPVPACRI]ESTADOPREINI <> 5 : [L]S_CRITERE2 += ' & [F:SOH]DEMDLVDAT>=[M:ZPVPACRI]ESTADOPREINI' : Endif
+#If [M:ZPVPACRI]ESTADOPREFIN <> 5 : [L]S_CRITERE2 += ' & [F:SOH]DEMDLVDAT<=[M:ZPVPACRI]ESTADOPREFIN' : Endif
+
+#Estado asignación
+If [M:ZPVPACRI]ESTADOASIINI <> 0 : [L]S_CRITERE2 += ' & [F:SOH]ALLSTA>=[M:ZPVPACRI]ESTADOASIINI' : Endif
+If [M:ZPVPACRI]ESTADOASIFIN <> 0 : [L]S_CRITERE2 += ' & [F:SOH]ALLSTA<=[M:ZPVPACRI]ESTADOASIFIN' : Endif
+
+#Prioridad
+If [M:ZPVPACRI]PRIORIDADINI <> 0 : [L]S_CRITERE3 += ' & [F:SOH]DLVPIO>=[M:ZPVPACRI]PRIORIDADINI' : Endif
+If [M:ZPVPACRI]PRIORIDADFIN <> 0 : [L]S_CRITERE3 += ' & [F:SOH]DLVPIO<=[M:ZPVPACRI]PRIORIDADFIN' : Endif
+
+#Agencia
+If [M:ZPVPACRI]AGENCIAINI <> "" : [L]S_CRITERE3 += ' & [F:SOH]BPTNUM>=[M:ZPVPACRI]AGENCIAINI' : Endif
+If [M:ZPVPACRI]AGENCIAFIN <> "" : [L]S_CRITERE3 += ' & [F:SOH]BPTNUM<=[M:ZPVPACRI]AGENCIAFIN' : Endif
+
+#Representante
+If [M:ZPVPACRI]REPRESENINI <> "" : [L]S_CRITERE4 += ' & [F:SOH]REP>=[M:ZPVPACRI]REPRESENINI' : Endif
+If [M:ZPVPACRI]REPRESENFIN <> "" : [L]S_CRITERE4 += ' & [F:SOH]REP<=[M:ZPVPACRI]REPRESENFIN' : Endif
+
+#Estado
+# JC.03082021.INICIO
+If [M:ZPVPACRI]ESTADOINI <> 3 : [L]S_CRITERE4 += ' & [F:SOH]ZDEMSTA=[M:ZPVPACRI]ESTADOINI' : Endif
+#If [M:ZPVPACRI]ESTADOINI <> 0 : [L]S_CRITERE4 += ' & [F:SOH]ZDEMSTA>=[M:ZPVPACRI]ESTADOINI' : Endif
+#If [M:ZPVPACRI]ESTADOFIN <> 0 : [L]S_CRITERE4 += ' & [F:SOH]ZDEMSTA<=[M:ZPVPACRI]ESTADOFIN' : Endif
+# JC.03082021.FIN
+
+#Bloqueo
+# JC.03082021.INICIO
+If [M:ZPVPACRI]BLOQUEOINI <> 3 : [L]S_CRITERE4 += ' & [F:SOH]HLDSTA=[M:ZPVPACRI]BLOQUEOINI' : Endif
+#If [M:ZPVPACRI]BLOQUEOINI <> 0 : [L]S_CRITERE4 += ' & [F:SOH]HLDSTA>=[M:ZPVPACRI]BLOQUEOINI' : Endif
+#If [M:ZPVPACRI]BLOQUEOFIN <> 0 : [L]S_CRITERE4 += ' & [F:SOH]HLDSTA<=[M:ZPVPACRI]BLOQUEOFIN' : Endif
+# JC.03082021.FIN
+
+#Tipo portes
+If [M:ZPVPACRI]TIPOPORTINI <> 0 : [L]S_CRITERE5 += ' & [F:SOH]ZFREINV>=[M:ZPVPACRI]TIPOPORTINI' : Endif
+If [M:ZPVPACRI]TIPOPORTFIN <> 0 : [L]S_CRITERE5 += ' & [F:SOH]ZFREINV<=[M:ZPVPACRI]TIPOPORTFIN' : Endif
+
+#Solo pedidos no entregados ni saldados
+If [M:ZPVPACRI]FLAG2 = 2 : [L]S_CRITERE5 += ' & [F:SOH]ORDSTA=1 & [F:SOH]DLVSTA=1' : Endif
+
+#Bucle principal
+#Infbox [L]S_CRITERE1 - [L]S_CRITERE2 - [L]S_CRITERE3 - [L]S_CRITERE4 - [L]S_CRITERE5
+
+Raz [M:ZPVPADET]
+
+Filter [F:SOH] Where evalue([L]S_CRITERE1) and evalue([L]S_CRITERE2) and evalue([L]S_CRITERE3)
+&                and evalue([L]S_CRITERE4) and evalue([L]S_CRITERE5)
+&                Order By [F:SOH]BPCORD;[F:SOH]BPAADD;[F:SOH]SOHNUM
+
+For [F:SOH]
+  #Inicializo I_CONTINUAR a 2
+  [L]I_CONTINUAR = 2
+
+  [L]F_IMPORTE_MIN_TRANSPORTISTA = func DAME_MINIMO_TRANSPORTISTA([F:SOH]BPTNUM, [F:SOH]ZFREINV)
+
+  #Solo clientes que algún pedido no supere el importe mínimo del Tipo porte que tiene asignado el pedido. Si lo supera, no muestro
+  If [M:ZPVPACRI]FLAG1 = 2 Then
+#    If [F:SOH]ORDNOT > [L]F_IMPORTE_MIN_TRANSPORTISTA Then
+#      [L]I_CONTINUAR = 0
+#    Endif
+
+    [L]I_CONTINUAR = func CONTROL_IMPORTE_MINIMO([F:SOH]BPCORD, [L]S_CRITERE1, [L]S_CRITERE2, [L]S_CRITERE3, [L]S_CRITERE4, [L]S_CRITERE5)
+#    # JC.03082021.INICIO
+#    If I_CONTINUAR = 2 Then
+#      I_CONTINUAR = func CONTROL_ENTREGADO_SALDADO([F:SOH]BPCORD, [L]S_CRITERE1, [L]S_CRITERE2, [L]S_CRITERE3, [L]S_CRITERE4, [L]S_CRITERE5)
+#    Endif
+#    # JC.03082021.FIN
+
+  Endif
+
+  # JC.03082021.INICIO
+  # estado preparación
+  Filter [F:ZPRE] Where ORINUM = [F:SOH]SOHNUM
+  Read [F:ZPRE] First
+  If !fstat Then
+    Read [F:ZPRH]PRH0 = [F:ZPRE]PRHNUM
+    If !fstat Then
+#      LESTADOPRE = [F:ZPRH]DLVFLG
+      LESTADOPRE = [F:ZPRH]ZSTATUS
+    Endif
+  Else
+#    LESTADOPRE = 5
+    LESTADOPRE = 9
+  Endif
+  Filter [F:ZPRE]
+  # JC.03082021.FIN
+
+  # JC.03082021.INICIO
+  # filtro por Estado preparación. Si no cumple las condiciones de filtrado, no se muestra en el grid
+#  If [M:ZPVPACRI]ESTADOPREINI <> 5 Then
+  If [M:ZPVPACRI]ESTADOPREINI <> 9 Then
+    If LESTADOPRE >= [M:ZPVPACRI]ESTADOPREINI Then
+      I_CONTINUAR = 2
+      If [M:ZPVPACRI]ESTADOPREFIN <> 5 Then
+        If LESTADOPRE <= [M:ZPVPACRI]ESTADOPREFIN Then
+          I_CONTINUAR = 2
+        Else
+          I_CONTINUAR = 0
+        Endif
+      Endif
+    Else
+      I_CONTINUAR = 0
+    Endif
+  Else
+#    If [M:ZPVPACRI]ESTADOPREFIN <> 5 Then
+    If [M:ZPVPACRI]ESTADOPREFIN <> 9 Then
+      If LESTADOPRE <= [M:ZPVPACRI]ESTADOPREFIN Then
+        I_CONTINUAR = 2
+      Else
+        I_CONTINUAR = 0
+      Endif
+    Endif
+  Endif
+  # JC.03082021.FIN
+
+#  # JC.22122021.INICIO
+#  # si todas las líneas están en VP o Entrega, el pedido no se muestra
+#  Local Integer LNUMREGS,LNUMREGSAV
+#  If !clalev([F:ZSQ0]) Then : Local File SORDERQ [F:ZSQ0] : Endif
+#  Filter [F:ZSQ0] Where SOHNUM = [F:SOH]SOHNUM
+#  LNUMREGS = rowcount([F:ZSQ0])
+#  For [F:ZSQ0]
+#    If [F:ZSQ0]OPRQTY <> 0 or [F:ZSQ0]PREQTY <> 0 or [F:ZSQ0]ODLQTY <> 0 Then
+#      LNUMREGSAV += 1
+#    Endif
+#  Next
+#  Filter [F:ZSQ0]
+#  If LNUMREGS = LNUMREGSAV Then
+#    I_CONTINUAR = 0
+#  Endif
+#  Close Local File [ZSQ0]
+#  # JC.22122021.FIN
+
+  If [L]I_CONTINUAR Then
+    [M:ZPVPADET]PEDIDO([L]I_NBLIG)        = [F:SOH]SOHNUM
+    [M:ZPVPADET]CLIENTE([L]I_NBLIG)       = [F:SOH]BPCORD
+    [M:ZPVPADET]DIRECCION([L]I_NBLIG)     = [F:SOH]BPAADD
+    [M:ZPVPADET]REPRESEN([L]I_NBLIG)      = [F:SOH]REP
+    [M:ZPVPADET]TIPO([L]I_NBLIG)          = [F:SOH]SOHTYP
+    [M:ZPVPADET]ESTADO([L]I_NBLIG)        = [F:SOH]ZDEMSTA
+    [M:ZPVPADET]AGENCIA([L]I_NBLIG)       = [F:SOH]BPTNUM
+    Read [F:ZBPT]BPT0 = [F:SOH]BPTNUM
+    If !fstat Then
+      [M:ZPVPADET]AGENCIANOM([L]I_NBLIG)  = [F:ZBPT]BPTSHO
+    Endif
+    [M:ZPVPADET]FECHAPED([L]I_NBLIG)      = [F:SOH]ORDDAT
+    [M:ZPVPADET]FECHAENT([L]I_NBLIG)      = [F:SOH]DEMDLVDAT
+    [M:ZPVPADET]ESTADOASI([L]I_NBLIG)     = [F:SOH]ALLSTA
+    [M:ZPVPADET]PRIORIDAD([L]I_NBLIG)     = [F:SOH]DLVPIO
+    [M:ZPVPADET]BLOQUEO([L]I_NBLIG)       = [F:SOH]HLDSTA
+    [M:ZPVPADET]TIPOPORT([L]I_NBLIG)      = [F:SOH]ZFREINV
+    [M:ZPVPADET]IMPORTEMINTR([L]I_NBLIG)  = [L]F_IMPORTE_MIN_TRANSPORTISTA
+    [M:ZPVPADET]ESTADOPRE(I_NBLIG)        = LESTADOPRE
+
+    # JC.03082021.INICIO
+    LDIRDESPUES = [F:SOH]BPAADD
+    LCLIDESPUES = [F:SOH]BPCORD
+    If LDIRANTES <> LDIRDESPUES or LCLIDESPUES <> LCLIANTES  Then
+      LDIRANTES = LDIRDESPUES
+      LCLIANTES = LCLIDESPUES
+      Raz [M:ZPVPADET]SUMPEDIDOS(I_NBLIG)
+#      [M:ZPVPADET]SUMPEDIDOS(I_NBLIG) = [F:SOH]ORDNOT
+      Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
+      For [F:ZSOQ]
+        Read [F:ZSOP]SOP3 = [F:ZSOQ]SOHNUM;[F:ZSOQ]SOPLIN
+        [M:ZPVPADET]SUMPEDIDOS(I_NBLIG) += [F:ZSOQ]QTY * [F:ZSOP]NETPRINOT
+      Next
+      Filter [F:ZSOQ]
+    Else
+#      [M:ZPVPADET]SUMPEDIDOS(I_NBLIG) = [M:ZPVPADET]SUMPEDIDOS(I_NBLIG-1) + [F:SOH]ORDNOT
+      Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
+      For [F:ZSOQ]
+        Read [F:ZSOP]SOP3 = [F:ZSOQ]SOHNUM;[F:ZSOQ]SOPLIN
+        [M:ZPVPADET]SUMPEDIDOS(I_NBLIG) += ([F:ZSOQ]QTY * [F:ZSOP]NETPRINOT)
+      Next
+      [M:ZPVPADET]SUMPEDIDOS(I_NBLIG) += [M:ZPVPADET]SUMPEDIDOS(I_NBLIG-1)
+      Filter [F:ZSOQ]
+    Endif
+    # JC.03082021.FIN
+
+    #Sumatorios líneas pedido no saldadas y no entregadas
+    If [L]I_NBLIG <> 0 and [M:ZPVPADET]CLIENTE([L]I_NBLIG) = [M:ZPVPADET]CLIENTE([L]I_NBLIG-1) and [M:ZPVPADET]DIRECCION([L]I_NBLIG) = [M:ZPVPADET]DIRECCION([L]I_NBLIG-1) Then
+      ########### IMPORTE ###########
+      [M:ZPVPADET]IMPSINRUPSUM([L]I_NBLIG) = [M:ZPVPADET]IMPSINRUPSUM([L]I_NBLIG-1)
+      [M:ZPVPADET]IMPCONRUPSUM([L]I_NBLIG) = [M:ZPVPADET]IMPCONRUPSUM([L]I_NBLIG-1)
+      ########### PESO ###########
+      [M:ZPVPADET]PESOSINRUPSU([L]I_NBLIG) = [M:ZPVPADET]PESOSINRUPSU([L]I_NBLIG-1)
+      [M:ZPVPADET]PESOCONRUPSU([L]I_NBLIG) = [M:ZPVPADET]PESOCONRUPSU([L]I_NBLIG-1)
+      ########### NÚMERO DE LÍNEAS ###########
+      [M:ZPVPADET]LINSINRUPSUM([L]I_NBLIG) = [M:ZPVPADET]LINSINRUPSUM([L]I_NBLIG-1)
+      [M:ZPVPADET]LINCONRUPSUM([L]I_NBLIG) = [M:ZPVPADET]LINCONRUPSUM([L]I_NBLIG-1)
+    Endif
+
+    For [F:SOQ] Where [F:SOQ]SOHNUM = [F:SOH]SOHNUM and [F:SOQ]SOQSTA <> 3 and [F:SOQ]DLVQTY = 0
+
+      If [F:SOQ]OPRQTY = 0 and [F:SOQ]PREQTY = 0 and [F:SOQ]ODLQTY = 0 Then                             # JC.22122021.INICIO.NEW
+
+        ########### IMPORTE ###########
+        Read [F:SOP]SOP0 = [F:SOQ]SOHNUM;[F:SOQ]SOPLIN;[F:SOQ]SOQSEQ
+        If fstat = 0 Then
+          #Sin ruptura
+          # JC.03082021.INICIO
+          #If [F:SOQ]SHTQTY = 0 Then
+          If [F:SOQ]ALLQTY <> 0 Then
+          # JC.03082021.FIN
+            [M:ZPVPADET]IMPSINRUP([L]I_NBLIG) += [F:SOQ]QTY * [F:SOP]NETPRINOT
+          #Con ruptura
+          Else
+            [M:ZPVPADET]IMPCONRUP([L]I_NBLIG) += [F:SOQ]QTY * [F:SOP]NETPRINOT
+          Endif
+        Endif
+
+        ########### PESO ###########
+        #Sin ruptura
+        # JC.03082021.INICIO
+        #If [F:SOQ]SHTQTY = 0 Then
+        If [F:SOQ]ALLQTY <> 0 Then
+        # JC.03082021.FIN
+          [M:ZPVPADET]PESOSINRUP([L]I_NBLIG) += [F:SOQ]DSPLINWEI
+        #Con ruptura
+        Else
+          [M:ZPVPADET]PESOCONRUP([L]I_NBLIG) += [F:SOQ]DSPLINWEI
+        Endif
+
+        ########### NÚMERO DE LÍNEAS ###########
+        #Sin ruptura
+        # JC.03082021.INICIO
+        #If [F:SOQ]SHTQTY = 0 Then
+        If [F:SOQ]ALLQTY <> 0 Then
+        # JC.03082021.FIN
+          [M:ZPVPADET]LINSINRUP([L]I_NBLIG) += 1
+        #Con ruptura
+        Else
+          [M:ZPVPADET]LINCONRUP([L]I_NBLIG) += 1
+        Endif
+
+      Endif                                                                                             # JC.22122021.INICIO.NEW
+    Next
+
+    ########### ACUMULADOS ###########
+    If [L]I_NBLIG <> 0 and [M:ZPVPADET]CLIENTE([L]I_NBLIG) = [M:ZPVPADET]CLIENTE([L]I_NBLIG-1) and [M:ZPVPADET]DIRECCION([L]I_NBLIG) = [M:ZPVPADET]DIRECCION([L]I_NBLIG-1) Then
+      ########### IMPORTE ###########
+      [M:ZPVPADET]IMPSINRUPSUM([L]I_NBLIG) += [M:ZPVPADET]IMPSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]IMPCONRUPSUM([L]I_NBLIG) += [M:ZPVPADET]IMPCONRUP([L]I_NBLIG)
+      ########### PESO ###########
+      [M:ZPVPADET]PESOSINRUPSU([L]I_NBLIG) += [M:ZPVPADET]PESOSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]PESOCONRUPSU([L]I_NBLIG) += [M:ZPVPADET]PESOCONRUP([L]I_NBLIG)
+      ########### NÚMERO DE LÍNEAS ###########
+      [M:ZPVPADET]LINSINRUPSUM([L]I_NBLIG) += [M:ZPVPADET]LINSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]LINCONRUPSUM([L]I_NBLIG) += [M:ZPVPADET]LINCONRUP([L]I_NBLIG)
+    Else
+      ########### IMPORTE ###########
+      [M:ZPVPADET]IMPSINRUPSUM([L]I_NBLIG) = [M:ZPVPADET]IMPSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]IMPCONRUPSUM([L]I_NBLIG) = [M:ZPVPADET]IMPCONRUP([L]I_NBLIG)
+      ########### PESO ###########
+      [M:ZPVPADET]PESOSINRUPSU([L]I_NBLIG) = [M:ZPVPADET]PESOSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]PESOCONRUPSU([L]I_NBLIG) = [M:ZPVPADET]PESOCONRUP([L]I_NBLIG)
+      ########### NÚMERO DE LÍNEAS ###########
+      [M:ZPVPADET]LINSINRUPSUM([L]I_NBLIG) = [M:ZPVPADET]LINSINRUP([L]I_NBLIG)
+      [M:ZPVPADET]LINCONRUPSUM([L]I_NBLIG) = [M:ZPVPADET]LINCONRUP([L]I_NBLIG)
+    Endif
+
+    [L]I_NBLIG +=1
+    If [L]I_NBLIG = 1000 Then
+      [L]I_MAX = 2
+      Break
+    Endif
+  Endif
+Next
+
+[M:ZPVPADET]NBLIG = [L]I_NBLIG
+
+#Refresco pantalla
+Affzo [M:ZPVPADET]
+
+#Fondo de color rojo
+For nolign = 1 To [M:ZPVPADET]NBLIG
+  If ([M:ZPVPADET]IMPSINRUP(nolign-1) < [M:ZPVPADET]IMPORTEMINTR(nolign-1)) and ([M:ZPVPADET]IMPSINRUP(nolign-1) > 0)
+    Chgstl[M:ZPVPADET]TIPOPORT(nolign-1) With "BACKRED"
+  Endif
+Next
+
+#Refresco pantalla
+Affzo [M:ZPVPADET]
+
+If [L]I_MAX : Infbox "Máximo número de líneas alcanzado (1000)" : Endif
+
+Close Local File [F:SOH],[F:SOQ],[F:SOP],[ZBPT],[ZSOQ],[ZSOP]
+
+Return
+
+##########################################################################
+$GUARDAR
+
+Local File SORDER [F:SOH]
+
+Integer I
+
+Trbegin [F:SOH]
+
+For I=0 To [M:ZPVPADET]NBLIG -1
+  Read [F:SOH]SOH0 = [M:ZPVPADET]PEDIDO(I)
+  If fstat = 0 Then
+    [F:SOH]DLVPIO = [M:ZPVPADET]PRIORIDAD(I)
+    [F:SOH]ZFREINV = [M:ZPVPADET]TIPOPORT(I)
+    If !find([M:ZPVPADET]TIPOPORT(I),3,4,5,6,7) and [F:SOH]HLDCOD = "PORTES" Then
+      [F:SOH]HLDSTA = 1
+      [F:SOH]HLDCOD = ""
+    Endif
+    Rewrite [F:SOH]
+  Endif
+Next
+
+Commit
+
+Infbox ("Cambios guardados correctamente")
+
+Close Local File [F:SOH]
+
+Return
+
+##########################################################################
+Funprog DAME_MINIMO_TRANSPORTISTA (PS_TRANSPORTISTA, PI_TIPO_PORTE)
+Value Char PS_TRANSPORTISTA
+Value Integer PI_TIPO_PORTE
+
+Local File BPCARRIER [F:BPT]
+
+Local Decimal F_MINIMO_TRANSPORTISTA
+
+Read [F:BPT]BPT0 = PS_TRANSPORTISTA
+If fstat = 0 Then
+  Case PI_TIPO_PORTE
+    When 3
+      [L]F_MINIMO_TRANSPORTISTA = [F:BPT]TSDFRE(0)
+    When 4
+      [L]F_MINIMO_TRANSPORTISTA = [F:BPT]TSDFRE(1)
+    When 5
+      [L]F_MINIMO_TRANSPORTISTA = [F:BPT]TSDFRE(2)
+    When Default
+      [L]F_MINIMO_TRANSPORTISTA = 0
+  Endcase
+Endif
+
+Close Local File [F:BPT]
+
+End [L]F_MINIMO_TRANSPORTISTA
+
+##########################################################################
+Funprog CONTROL_IMPORTE_MINIMO (PS_CLIENTE, PS_CRIT1, PS_CRIT2, PS_CRIT3, PS_CRIT4, PS_CRIT5)
+Value Char PS_CLIENTE
+Value Char PS_CRIT1
+Value Char PS_CRIT2
+Value Char PS_CRIT3
+Value Char PS_CRIT4
+Value Char PS_CRIT5
+
+Local File SORDER     [F:SOH]
+
+Local Decimal F_IMPORTE_MIN_TRANSPORTISTA,LORDNOT
+Local Integer I_OK
+
+For [F:SOH] Where evalue(PS_CRIT1) and evalue(PS_CRIT2) and evalue(PS_CRIT3) and evalue(PS_CRIT4) and evalue(PS_CRIT5) and [F:SOH]BPCORD = PS_CLIENTE
+  [L]F_IMPORTE_MIN_TRANSPORTISTA = func DAME_MINIMO_TRANSPORTISTA([F:SOH]BPTNUM, [F:SOH]ZFREINV)
+# JC.02112021.INI
+  Raz LORDNOT
+  Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
+  For [F:ZSOQ]
+    Read [F:ZSOP]SOP3 = [F:ZSOQ]SOHNUM;[F:ZSOQ]SOPLIN
+    LORDNOT += [F:ZSOQ]QTY * [F:ZSOP]NETPRINOT
+  Next
+  Filter [F:ZSOQ]
+#  If [F:SOH]ORDNOT < [L]F_IMPORTE_MIN_TRANSPORTISTA Then
+  If LORDNOT < [L]F_IMPORTE_MIN_TRANSPORTISTA Then
+# JC.02112021.FIN
+    [L]I_OK = 2
+    Break
+  Endif
+Next
+
+Close Local File [F:SOH]
+
+End [L]I_OK
+
+##########################################################################
+# JC.03082021.INICIO
+Funprog CONTROL_ENTREGADO_SALDADO(PS_CLIENTE, PS_CRIT1, PS_CRIT2, PS_CRIT3, PS_CRIT4, PS_CRIT5)
+Value Char PS_CLIENTE
+Value Char PS_CRIT1
+Value Char PS_CRIT2
+Value Char PS_CRIT3
+Value Char PS_CRIT4
+Value Char PS_CRIT5
+
+Local Integer I_OK
+
+  If !clalev([F:ZSOH]) Then : Local File SORDER [F:ZSOH] : Endif
+  For [F:ZSOH] Where evalue(PS_CRIT1) and evalue(PS_CRIT2) and evalue(PS_CRIT3) and evalue(PS_CRIT4) and evalue(PS_CRIT5) and [F:SOH]BPCORD = PS_CLIENTE
+    If [F:ZSOH]ORDSTA = 1 and [F:ZSOH]DLVSTA = 1 Then
+      I_0K = 2
+      Break
+    Endif
+  Next
+  Close Local File [ZSOH]
+End I_OK
+# JC.03082021.FIN

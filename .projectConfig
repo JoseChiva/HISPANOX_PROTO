@@ -1,0 +1,9 @@
+# PROTO project settings
+# The endpoint in an uri form. The scheme define the connection type# http:// for update 8.0 and greater, x3:// or none for previous versions
+uri=http://192.168.5.51:8124/PROTO/PROTO
+# ===================================================
+# Obsolete settings (kept for backward compatibility)
+# ===================================================
+server=192.168.5.51
+port=8124
+folder=PROTO

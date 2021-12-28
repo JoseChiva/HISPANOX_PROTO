@@ -1,0 +1,76 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#MRR - 08/07/2020 - Cod. act.: ZQ012 Vencimiento inicial
+#MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+######################################################################################
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "FIN_PICK"     :   Gosub FIN_PICK
+  When "APRES_CRE"    :   Gosub APRES_CRE
+  When Default
+Endcase
+Return
+
+######################################################################################
+$FIN_PICK
+# JC.24092021.Específico asignación elementos facturación.INI
+  # se asigna por defecto importe 0 en Transportes y Factura Anticipo
+  # independientemente del importe de los documentos de origen
+  If [M:SIH0]SIVTYP = "A"
+    Gosub FIN_PICK     From SUBSIHC
+    [M:SIH2]INVDTAAMT(1) = 0
+    [M:SIH2]INVDTAAMT(3) = 0
+    Affzo [M:SIH2]INVDTAAMT(1)
+    Affzo [M:SIH2]INVDTAAMT(3)
+    Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(1)) From W1SIH2
+    Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(3)) From W1SIH2
+    Affzo [M:SIHV]
+    GPE=1
+  Endif
+# JC.24092021.Específico asignación elementos facturación.INI
+Return
+
+######################################################################################
+$APRES_CRE
+If !clalev([F:DUD1])   : Local File GACCDUDATE[DUD1]    : Endif
+If !clalev([F:SIH1])   : Local File SINVOICE  [SIH1]    : Endif
+
+Filter [F:DUD1] Where NUM = [F:SIH]NUM
+Read [F:DUD1] First
+If !fstat Then
+  Filter [F:SIH1] Where NUM = [F:SIH]NUM
+  Read [F:SIH1] First
+  If !fstat Then
+    Trbegin [F:SIH1]
+    [F:SIH1]ZDUDINI = [F:DUD1]DUDDAT
+    Rewrite [F:SIH1]
+    If !fstat
+      Commit
+    Else
+      Rollback
+    Endif
+    Affzo [M:SIH2]ZDUDINI
+  Endif
+Endif
+
+Return
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SIH4) 12/11/2020 12:44:08 (ADMIN)
+######################################################################################
+#MRR01 ini
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If clalev([F:ITM1])=0:  Local File ITMMASTER[ITM1]: Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  [M:SIH4]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+  Affzo [M:SIH4]ZITMDES2(nolign-1)
+Endif
+
+End
+#MRR01 fin
+######################################################################################

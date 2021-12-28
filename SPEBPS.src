@@ -1,0 +1,27 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+  When "APRES_CRE": Gosub APRES_CRE
+  When "APRES_MOD": Gosub APRES_MOD
+Endcase
+Return
+
+$APRES_CRE
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then       # JC.15102021.NEW
+    #mlga - ini
+    Call ZSGASUP([M:BPS0]BPSNUM) From ZSGASUP
+    #mlga - fin
+    Call PROVEEDORES([F:BPS]BPSNUM) From ZBPSINTRANET
+  Endif                                                   # JC.15102021.NEW
+
+Return
+
+$APRES_MOD
+
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then       # JC.15102021.NEW
+    Call PROVEEDORES([F:BPS]BPSNUM) From ZBPSINTRANET
+    #mlga - ini
+    Call ZSGASUP([M:BPS0]BPSNUM) From ZSGASUP
+    #mlga - fin
+  Endif                                                   # JC.15102021.NEW
+Return

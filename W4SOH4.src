@@ -1,0 +1,264 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Supervisor
+# Gestión de la máscara SOH4 
+
+$_AFF
+If GIMPORT
+ Gosub AFF From GSAISIE
+Else
+ If GMESSAGE <>""
+  Gosub ERR From GSAISIE
+ Else
+  Raz GERR , GZNUM
+ Endif
+Endif
+Return
+
+$ON_DLRNOT
+Onevent BEFORE_AREA Gosub AV_DLRNOT From W4SOH4
+Return
+
+$AV_DLRNOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]DLRNOT(indice) With "NPz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+$ON_ORDNOT
+Onevent BEFORE_AREA Gosub AV_ORDNOT From W4SOH4
+Return
+
+$AV_ORDNOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]ORDNOT(indice) With "NPz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+$ON_INRNOT
+Onevent BEFORE_AREA Gosub AV_INRNOT From W4SOH4
+Return
+
+$AV_INRNOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find(CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]INRNOT(indice) With "NPz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+$ON_ORDATI
+Onevent BEFORE_AREA Gosub AV_ORDATI From W4SOH4
+Return
+
+$AV_ORDATI
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Gosub _AFF
+Return
+
+$ON_PFMTOT
+Onevent BEFORE_AREA Gosub AV_PFMTOT From W4SOH4
+Return
+
+$AV_PFMTOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]PFMTOT(indice) With "NPz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+$ON_DLRATI
+Onevent BEFORE_AREA Gosub AV_DLRATI From W4SOH4
+Return
+
+$AV_DLRATI
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Gosub _AFF
+Return
+
+$ON_INRATI
+Onevent BEFORE_AREA Gosub AV_INRATI From W4SOH4
+Return
+
+$AV_INRATI
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find(CUR,GDEVISE(1..GNBDEV)),1))
+Gosub _AFF
+Return
+
+$ON_INRSCHNOT
+Onevent BEFORE_AREA Gosub AV_INRSCHNOT From W4SOH4
+Return
+
+$AV_INRSCHNOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find(CUR,GDEVISE(1..GNBDEV)),1))
+Gosub _AFF
+Return
+
+$ON_INRSCHATI
+Onevent BEFORE_AREA Gosub AV_INRSCHATI From W4SOH4
+Return
+
+$AV_INRSCHATI
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find(CUR,GDEVISE(1..GNBDEV)),1))
+Gosub _AFF
+Return
+
+$ON_ORDINVNOT
+Onevent BEFORE_AREA Gosub AV_ORDINVNOT From W4SOH4
+Return
+
+$AV_ORDINVNOT
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]ORDINVNOT(indice) With "NPz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+$ON_ORDINVATI
+Onevent BEFORE_AREA Gosub AV_ORDINVATI From W4SOH4
+Onevent BEFORE_INPUT Call AS_ORDINVATI(zc) From W4SOH4
+Return
+
+Subprog IB_ORDINVATI(VALEUR)
+Variable Decimal VALEUR
+## Action STD
+Call IB_ORDINVATI From SUBSOH
+Gosub _AFF
+End
+
+$AV_ORDINVATI
+## Action INIDEV
+GDEVFMT="11.2" : GDEVFMT = GDEVFMT1(max(find([M:SOH0]CUR,GDEVISE(1..GNBDEV)),1))
+Chgfmt [M]ORDINVATI(indice) With "Nz3:"+GDEVFMT
+Gosub _AFF
+Return
+
+Subprog AS_ORDINVATI(VALEUR)
+Variable Decimal VALEUR
+Local Integer INDIC : INDIC = indice
+Raz mkstat
+Call TEXTE(25407,GBOUT1) From OBJDIV
+Call IB_ORDINVATI(VALEUR)
+Onkey 129 Titled GBOUT1 Call B1_ORDINVATI(zc) From W4SOH4
+Gosub _AFF
+End
+
+Subprog B1_ORDINVATI(VALEUR)
+Variable Decimal VALEUR
+If !GWEBSERV
+ ## Action VISUVALTTC
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "VISUVALTTC"
+ PARMSK(1) = "GESSOH"
+ Call SAISIE_NUM(VALEUR,PARMSK,"IVTTC","TRTVENFACR","XWIVTTC") From GSAISIE
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+$ON_WOBJ1
+Return
+
+$ON_WQTY
+Onevent BEFORE_AREA Gosub AV_WQTY From W4SOH4
+Return
+
+$AV_WQTY
+If !GWEBSERV
+ ## Action FMTQTY
+ GUNTFMT="15F" : GUNTFMT = GUNTFMT1(max(find("",GUNITE(1..GNBUNT)),1))
+Endif
+Chgfmt [M]WQTY(indice) With "NPz:"+GUNTFMT
+Gosub _AFF
+Return
+
+$TIT_COL
+Local Char TITCL(200)(1..23)
+Raz TITCL
+Case BASPAG
+ When "NBLIG"
+  TITCL(1) = GCOLREM(0)
+  TITCL(2) = GCOLREM(1)
+  TITCL(3) = GCOLREM(2)
+  TITCL(4) = GCOLDIE(1)
+  TITCL(5) = GCOLDIE(2)
+  TITCL(6) = GCOLDIE(3)
+  TITCL(7) = GCOLDIE(4)
+  TITCL(8) = GCOLDIE(5)
+  TITCL(9) = GCOLDIE(6)
+  TITCL(10) = GCOLDIE(7)
+  TITCL(11) = GCOLDIE(8)
+  TITCL(12) = GCOLDIE(9)
+  TITCL(13) = GCOLDIE(10)
+  TITCL(14) = GCOLDIE(11)
+  TITCL(15) = GCOLDIE(12)
+  TITCL(16) = GCOLDIE(13)
+  TITCL(17) = GCOLDIE(14)
+  TITCL(18) = GCOLDIE(15)
+  TITCL(19) = GCOLDIE(16)
+  TITCL(20) = GCOLDIE(17)
+  TITCL(21) = GCOLDIE(18)
+  TITCL(22) = GCOLDIE(19)
+  TITCL(23) = GCOLDIE(20)
+  If !GORITITCOL
+   Titcol [M]NBLIG TITCL(1) For DISCRGVAL1
+   Titcol [M]NBLIG TITCL(2) For DISCRGVAL2
+   Titcol [M]NBLIG TITCL(3) For DISCRGVAL3
+   Titcol [M]NBLIG TITCL(4) For CCE1
+   Titcol [M]NBLIG TITCL(5) For CCE2
+   Titcol [M]NBLIG TITCL(6) For CCE3
+   Titcol [M]NBLIG TITCL(7) For CCE4
+   Titcol [M]NBLIG TITCL(8) For CCE5
+   Titcol [M]NBLIG TITCL(9) For CCE6
+   Titcol [M]NBLIG TITCL(10) For CCE7
+   Titcol [M]NBLIG TITCL(11) For CCE8
+   Titcol [M]NBLIG TITCL(12) For CCE9
+   Titcol [M]NBLIG TITCL(13) For CCE10
+   Titcol [M]NBLIG TITCL(14) For CCE11
+   Titcol [M]NBLIG TITCL(15) For CCE12
+   Titcol [M]NBLIG TITCL(16) For CCE13
+   Titcol [M]NBLIG TITCL(17) For CCE14
+   Titcol [M]NBLIG TITCL(18) For CCE15
+   Titcol [M]NBLIG TITCL(19) For CCE16
+   Titcol [M]NBLIG TITCL(20) For CCE17
+   Titcol [M]NBLIG TITCL(21) For CCE18
+   Titcol [M]NBLIG TITCL(22) For CCE19
+   Titcol [M]NBLIG TITCL(23) For CCE20
+  Else
+   Titcol [M:SOH4]NBLIG TITCL(1) For DISCRGVAL1
+   Titcol [M:SOH4]NBLIG TITCL(2) For DISCRGVAL2
+   Titcol [M:SOH4]NBLIG TITCL(3) For DISCRGVAL3
+   Titcol [M:SOH4]NBLIG TITCL(4) For CCE1
+   Titcol [M:SOH4]NBLIG TITCL(5) For CCE2
+   Titcol [M:SOH4]NBLIG TITCL(6) For CCE3
+   Titcol [M:SOH4]NBLIG TITCL(7) For CCE4
+   Titcol [M:SOH4]NBLIG TITCL(8) For CCE5
+   Titcol [M:SOH4]NBLIG TITCL(9) For CCE6
+   Titcol [M:SOH4]NBLIG TITCL(10) For CCE7
+   Titcol [M:SOH4]NBLIG TITCL(11) For CCE8
+   Titcol [M:SOH4]NBLIG TITCL(12) For CCE9
+   Titcol [M:SOH4]NBLIG TITCL(13) For CCE10
+   Titcol [M:SOH4]NBLIG TITCL(14) For CCE11
+   Titcol [M:SOH4]NBLIG TITCL(15) For CCE12
+   Titcol [M:SOH4]NBLIG TITCL(16) For CCE13
+   Titcol [M:SOH4]NBLIG TITCL(17) For CCE14
+   Titcol [M:SOH4]NBLIG TITCL(18) For CCE15
+   Titcol [M:SOH4]NBLIG TITCL(19) For CCE16
+   Titcol [M:SOH4]NBLIG TITCL(20) For CCE17
+   Titcol [M:SOH4]NBLIG TITCL(21) For CCE18
+   Titcol [M:SOH4]NBLIG TITCL(22) For CCE19
+   Titcol [M:SOH4]NBLIG TITCL(23) For CCE20
+  Endif
+Endcase
+Return
+
+$CHG_STY
+Return
+
+

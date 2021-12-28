@@ -1,0 +1,104 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara SRH1 (Especifico)
+#MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+# JC.16112021-1 - Genera fichero ROR sólo cuando se modifica el campo 'Exportada'='Exportado' en alguna de las líneas
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SRH1) 18/05/2020 13:37:27 (MLGA)
+######################################################################################
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "APRES_CRE"    : Gosub APRES_CRE
+  When "APRES_MOD"    : Gosub APRES_MOD
+  When "AAPRES_NBLIG" : Gosub AAPRES_NBLIG
+ When Default
+Endcase
+Return
+
+######################################################################################
+$APRES_CRE
+WVALORSRH=[M:SRH0]SRHNUM
+If !GIMPORT
+  Call ZSGAROR('',[M:SRH0]SRHNUM) From ZSGAROR
+Endif
+Return
+
+######################################################################################
+$APRES_MOD
+WVALORSRH=[M:SRH0]SRHNUM
+If !GIMPORT
+  If [M:SRH1]ZGENERAROR = 2 Then                          # JC.16112021-1.NEW
+    Call ZSGAROR('',[M:SRH0]SRHNUM) From ZSGAROR
+  Endif                                                   # JC.16112021-1.NEW
+Endif
+Return
+
+######################################################################################
+$AAPRES_NBLIG
+Local Integer YESNO : YESNO = 1   # no
+  If !GIMPORT and !GSERVEUR Then
+    If [M:SRH1]QTY(nolign-1) <> 0 Then
+      Call OUINON("La 'Ctd. devol.' es distinta de cero. ¿Deseas continuar?",YESNO) From GESECRAN
+      If YESNO <> 2 Then
+        GPE=1
+        zonsui = "[M:SRH1]QTY(nolign-1)"
+      Endif
+    Endif
+  Endif
+Return
+
+######################################################################################
+Subprog AM_NBLIG
+  If NBLIG > 0 Then
+    If [M:SRH1]ZEXPORT(NBLIG-1)=2
+      [M:SRH1]ZEXPORT(NBLIG-1)=3
+    Endif
+  Endif
+End
+
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SRH1) 12/11/2020 12:54:24 (ADMIN)
+######################################################################################
+#MRR01 ini
+Subprog AM_ITMREF(VALEUR)
+Variable Char    VALEUR()
+
+If clalev([F:ITM1])=0:  Local File ITMMASTER[ITM1]: Endif
+
+Filter [F:ITM1] Where ITMREF = VALEUR
+Read [F:ITM1] First
+If !fstat Then
+  [M:SRH1]ZITMDES2(nolign-1) = [F:ITM1]ITMDES2
+  Affzo [M:SRH1]ZITMDES2(nolign-1)
+Endif
+
+End
+#MRR01 fin
+
+
+######################################################################################
+## Después de modificar el campo 'Ctd devol.' (pantalla SRH1) 20/10/2021 13:18:33 (ADEV)
+######################################################################################
+Subprog AM_QTY(VALEUR)
+Variable Decimal VALEUR
+  [M:SRH1]STA(nolign-1) = "A"
+  Affzo [M:SRH1]STA(nolign-1)
+End
+
+######################################################################################
+## Después de modificar el campo 'Exportada' (pantalla SRH1) 16/11/2021 10:31:52 (ADEV)
+######################################################################################
+# JC.16112021-1.INI
+Subprog AM_ZEXPORT(VALEUR)
+Variable Integer VALEUR
+  If VALEUR <> 2 Then
+    [M:SRH1]ZGENERAROR = 2
+    Affzo [M:SRH1]ZGENERAROR
+  Else
+    [M:SRH1]ZGENERAROR = 1
+    Affzo [M:SRH1]ZGENERAROR
+  Endif
+End
+# JC.16112021-1.FIN

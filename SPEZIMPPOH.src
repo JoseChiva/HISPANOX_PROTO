@@ -1,0 +1,200 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+######################################
+$ACTION
+#Infbox ACTION
+Case ACTION
+ When "INIT"     : Gosub INIT
+ When "DEBUT"    : Gosub DEBUT
+ When "CONTROLE" : Gosub CONTROLE
+ When "EXEC"     : Gosub EXEC
+Endcase
+Return
+##########################################
+$INIT
+  If !clalev([F:ZITM]): Local File ITMMASTER[ZITM]: Endif
+  If !clalev([F:ZBPS]): Local File BPSUPPLIER[ZBPS]: Endif
+  Local Mask ZIMPPOH [ZIMPOH]
+Return
+
+$DEBUT
+  Gosub GRISE_ORG
+Return
+
+$CONTROLE
+Return
+
+$EXEC
+  Local Char WFICHERO(250),WFICHEROIMP(250)
+  Local Char FICCLI(250),FICHEROORI(250)
+  Local Char FICSRV(250): FICSRV=filpath("BQT","ZPEDIDO","TXT")
+  Local Integer STAT,CONT
+  Local Char    DATOS(255)(50)
+  Local Char TMPBPS(50)(2) : Raz TMPBPS
+  Local Integer ZLIN : ZLIN = 1000
+  Case [M]TYPORG
+   When 1
+      Call SET_NAMCLI(FICCLI) From ORDSYS
+      Call COPSRV(FICCLI,FICSRV,STAT) From ORDSYS
+   When 2
+      Call COPIE([M]FICORG,FICSRV,STAT) From ORDSYS
+  Endcase
+  If STAT
+   Call ERREUR(mess(12,139,1)) From GESECRAN : # Copie non réalisée
+   End
+  Endif
+  I = func F_SPLIT(FICCLI,"_",TMPBPS)
+  Read [F:ZBPS]BPS2 = TMPBPS(0)
+  If fstat
+    Errbox "No se encuentra el proveedor: "+TMPBPS(0)
+    Return
+  Endif
+
+  CONT = 1
+  WFICHERO =  filpath("BQT","ZPEDIDO","TXT")
+  If filinfo(WFICHERO,1) <0 :Return Endif
+
+  Openi WFICHERO                  Using [ORI]
+  Iomode adxirs chr$(13)+chr$(10) Using [ORI]
+  Iomode adxifs ";"               Using [ORI]
+  Iomode adxium  60               Using [ORI]
+
+  WFICHEROIMP = filpath("TXT","Import_pedido_"+num$(adxuid(1)),"TXT")
+  Openo WFICHEROIMP,0              Using [ORX]
+  Iomode adxirs chr$(13)+chr$(10) Using [ORX]
+  Iomode adxifs ";"               Using [ORX]
+  Iomode adxium  60               Using [ORX]
+
+  Repeat
+    Rdseq DATOS Using [ORI]
+    If DATOS(0) <> ""
+      If CONT = 1 #cabecera y lineas
+        CONT = 0
+        Gosub CABECERA
+        Gosub LINEAS
+      Else #lineas
+        Gosub LINEAS
+      Endif
+     Endif
+  Until DATOS(0) = ""
+
+  Openi Using [ORI]
+  Openo Using [ORX]
+  I= Delfile (filpath("BQT","ZPEDIDO","TXT"))
+  Call OUVRE_TRACE("Importación pedido de Proveedor"-[L]WFICHEROIMP) From LECFIC
+  Call IMPORTSIL("ZPOH", [L]WFICHEROIMP) From GIMPOBJ
+  Call FERME_TRACE From LECFIC
+  Call LEC_TRACE From LECFIC
+
+
+
+Return
+
+$CABECERA
+ Wrseq "E";                       Using [ORX]
+ Wrseq "PHISP";                   Using [ORX] #PLanta
+ Wrseq "";                        Using [ORX] #POHNUM
+ Wrseq format$("YYYYMMDD",date$); Using [ORX]
+ Wrseq [F:ZBPS]BPSNUM;            Using [ORX] #PROVEEDOR
+ Wrseq [F:ZBPS]CUR;               Using [ORX] #
+ If [F:ZBPS]ZUNPRE = ""
+  Wrseq "CEN"                     Using [ORX] #
+ Else
+  Wrseq [F:ZBPS]ZUNPRE            Using [ORX] #
+ Endif
+Return
+
+$LINEAS
+ DATOS(2) = ctrans(DATOS(2),",",".")
+ DATOS(3) = ctrans(DATOS(3),",",".")
+
+ Filter [F:ZITM] Where [F:ZITM]EANCOD = DATOS(0)
+ Read [F:ZITM] First
+ If fstat : Return Endif
+ Wrseq "L";                   Using [ORX]
+ Wrseq [F:ZITM]ITMREF;        Using [ORX] #ITMREF
+ Wrseq DATOS(1);              Using [ORX] #
+ Local Integer DIV : DIV = 1
+ Case [F:ZBPS]ZUNPRE
+  When "UN" : DIV = 1
+  When "CEN" : DIV = 100
+  When "MIL": DIV = 1000
+ Endcase
+ Wrseq DATOS(2);              Using [ORX] #PRECIO PROVEEDOR
+ Wrseq (val(DATOS(2))/DIV);   Using [ORX] #
+ Wrseq DATOS(3);              Using [ORX] #
+ Case DATOS(5)
+  When "N" : Wrseq 1;         Using [ORX] #
+  When "S" : Wrseq 2;         Using [ORX] #
+ Endcase
+ Wrseq [F:ZBPS]ZCPRCOE;       Using [ORX] #
+ If [F:ZBPS]ZUNPRE = ""
+  Wrseq "CEN"                 Using [ORX] #
+ Else
+  Wrseq [F:ZBPS]ZUNPRE        Using [ORX] #
+ Endif
+ Filter [F:ZITM]
+ ZLIN+=1000
+Return
+# Gestión de la máscara ZIMPRESP (Especifico)
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZIMPRESP) 22/07/2020 09:29:21 (ADMIN)
+######################################################################################
+Subprog AM_TYPORG(VALEUR)
+Variable Integer VALEUR
+[M]TYPORG = VALEUR
+Gosub GRISE_ORG
+End
+
+Subprog C_FICORG(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog C_FICORG2(VALEUR)
+Variable Char    VALEUR()
+  Gosub ENUM_VOLFIL_TYPE  From ASYRSTO
+  mkstat = func ASYRSTO.CTL_VOLFIL([M]TYPORG, VALEUR,[M]FICORG,E_TYPE_FILEREAD,GMESSAGE)
+End
+
+
+######################################################################################
+
+$GRISE_ORG
+Affzo [M]TYPORG
+Case [M]TYPORG
+ When 2
+  Actzo [M]FICORG2
+ When Default
+  [M]FICORG = "" : Affzo  [M]FICORG2 : Grizo  [M]FICORG2
+Endcase
+Return
+
+#**
+#* Split a string into an array of string
+#* Parameters:
+#* PPSTR: The complete string to split
+#* PDELIMITER: The string defined as content separator / delimiter of the string
+#* XXTMP: The array that will contains the separated strings
+#* Returned value: Number of separated elements
+#*!
+Funprog F_SPLIT(PPSTR,PDELIMITER,XXTMP)
+Value Char PPSTR
+Value Char PDELIMITER
+Variable Char XXTMP
+    Local Integer XCONTA
+    Local Integer XSTART
+    XCONTA = 0
+    XSTART = 1
+    If instr(XSTART,PPSTR,PDELIMITER) > 0 Then
+        Repeat
+            XXTMP(XCONTA) = mid$(PPSTR,XSTART,instr(XSTART,PPSTR,PDELIMITER)-XSTART)
+            XSTART = instr(XSTART,PPSTR,PDELIMITER)+1
+            XCONTA += 1
+        Until instr(XSTART,PPSTR,PDELIMITER) = 0
+    Endif
+    If XSTART <= len(PPSTR) Then
+        XXTMP(XCONTA) = mid$(PPSTR,XSTART,len(PPSTR)-XSTART+1)
+    Else
+        XCONTA = XCONTA - 1
+    Endif
+End XCONTA

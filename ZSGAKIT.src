@@ -1,0 +1,170 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGAKIT('',0) From ZSGAKIT
+
+End
+
+
+Subprog ZSGAKIT(WVALORITMREF,WVALORBOMALT)
+Value Char WVALORITMREF
+Value Integer WVALORBOMALT
+
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULTADO(250)
+Local Char FICH2(250)
+Local Integer LNGTH, LONG, I, WSEQ, NFICH2
+Raz LNGTH
+Raz I
+
+#If !clalev([F:ZBPS]) : Local File BPSUPPLIER  [ZBPS] : Endif
+#If !clalev([F:ZBCG]) : Local File BPCCATEG    [ZBCG] : Endif
+#If !clalev([F:ZBPD]) : Local File BPDLVCUST   [ZBPD] : Endif
+#If !clalev([F:ZBPA]) : Local File BPADDRESS   [ZBPA] : Endif
+#If !clalev([F:ZTCY]) : Local File TABCOUNTRY  [ZTCY] : Endif
+#If !clalev([F:ZCNT]) : Local File CONTACT     [ZCNT] : Endif
+#If !clalev([F:ZAIN]) : Local File CONTACTCRM  [ZAIN] : Endif
+#If !clalev([F:ZAXX]) : Local File ATEXTRA     [ZAXX] : Endif
+#
+If !clalev([F:ZBOH]) : Local File BOM         [ZBOH] : Endif
+If !clalev([F:ZBOD]) : Local File BOMD        [ZBOD] : Endif
+If !clalev([F:ZITP]) : Local File ITMBPS      [ZITP] : Endif
+If !clalev([F:ZITM]) : Local File ITMMASTER   [ZITM] : Endif
+
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSGATMP='ZSGA\TMP'
+WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
+WSEQ=1
+CNOMBREFILE='KIT01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium GASCII                                    Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('Kits xmlns="urn:wms-schema"','',0,1)
+WTRAZA=1
+If GTRACE=""
+  WTRAZA=2
+  Call OUVRE_TRACE('Generacion Kit '+WVALORITMREF+' Alt:'+num$(WVALORBOMALT) ) From LECFIC
+Endif
+WFILTERKIT='1=1'
+If WVALORITMREF<>''
+  Call OUVRE_TRACE('Kit:'+WVALORITMREF) From LECFIC
+  WFILTERKIT+=' & ITMREF=WVALORITMREF & BOMALT=WVALORBOMALT'
+Endif
+
+For [ZBOH] Where BOHSTRDAT<=date$ and (BOHENDDAT>=date$ or BOHENDDAT=[00/00/0000]) and evalue(WFILTERKIT) and BOMALT=10
+   WITMREF=[F:ZBOH]ITMREF
+   WBOMALT=[F:ZBOH]BOMALT
+   Call ECR_TRACE("Kit: "+WITMREF+' '+num$([F:ZBOH]BOMALT),0) From GESECRAN
+   AA=func PUT_PROPXML('Kit ignoreNull="0"','',1,1)
+     #Operation
+     AA=func PUT_PROPXML('Operation','S', 2,2)
+     #ItemCode
+     AA=func PUT_PROPXML('ItemCode',[F:ZBOH]ITMREF,2,2)
+     #OwnerCode
+     WOWNERCODE='OWN_HISPANOX'
+     Read [ZITP]ITP0=[F:ZBOH]ITMREF;''
+     If !fstat
+      Filter [ZITP] Where ITMREF=[F:ZBOH]ITMREF
+      Read [ZITP] First
+      WOWNERCODE=[ZITP]BPSNUM
+      If nbrecord([ZITP])>1
+        For [ZITP]
+          If [ZITP]DEFBPSFLG=2
+            WOWNERCODE=[F:ZITP]BPSNUM
+          Endif
+        Next
+      Endif
+     Endif
+     AA=func PUT_PROPXML('OwnerCode',WOWNERCODE,2,2)
+     #Version
+     AA=func PUT_PROPXML('Version','1',2,2)
+     #UoMBaseCode
+     Read [ZITM]ITM0=[F:ZBOH]ITMREF
+     WUOMBASECODE=[F:ZITM]STU
+     AA=func PUT_PROPXML('UoMBaseCode',WUOMBASECODE,2,2)
+     #Components
+     AA=func PUT_PROPXML('Components complete="1" transactional="1"','',2,1)
+     For [ZBOD] Where ITMREF=[F:ZBOH]ITMREF and BOMALT=[F:ZBOH]BOMALT
+         AA=func PUT_PROPXML('Component','',3,1)
+        #Operation
+        AA=func PUT_PROPXML('Operation','S',4,2)
+        #CmpItemCode
+        AA=func PUT_PROPXML('CmpItemCode',[F:ZBOD]CPNITMREF,4,2)
+        #CmpUoMCode
+        AA=func PUT_PROPXML('CmpUoMCode',[F:ZBOD]BOMUOM,4,2)
+        #CmpUoMCode
+        AA=func PUT_PROPXML('CmpQuantity',num$([F:ZBOD]LIKQTY),4,2)
+        AA=func PUT_PROPXML('/Component','',3,1)
+      Next
+      AA=func PUT_PROPXML('/Components','',2,1)
+    AA=func PUT_PROPXML('/Kit','',1,1)
+  Next
+   AA=func PUT_PROPXML('/Kits','',0,1)
+  Openo Using [ZECO]
+
+  Gosub MUEVE_FILE
+  If WTRAZA=2
+    Call FERME_TRACE From LECFIC
+  Endif
+End
+
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGATMP,"", "","","","")+'\' + CNOMBREFILE + ".xml " + filpath(WSGADEFINITIVO,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

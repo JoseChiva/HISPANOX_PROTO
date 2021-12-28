@@ -1,0 +1,174 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Local Char NUM
+NUM = "PA2100006"
+Call PEDIDOSCLI(NUM)
+End
+#------------------------------------------------------
+
+Subprog PEDIDOSCLI(WSOH)
+Variable Char WSOH
+Gosub OPEN_TABLAS
+# JC.10082021.INICIO
+#Filter [SOH] Where (WSOH = "" or  SOHNUM = WSOH) and ORDSTA <> 2
+If WSOH <> "" Then
+  Filter [SOH] Where SOHNUM = WSOH and ORDSTA <> 2
+Else
+  Filter [SOH] Where ORDSTA <> 2
+Endif
+# JC.10082021.FIN
+Read [SOH] First
+If rowcount([SOH])>0
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+  For [SOH]SOH0
+# JC.10082021.INICIO
+#    Filter [SOQ] Where SOHNUM=[F:SOH]SOHNUM
+    Filter [SOQ] Where SOHNUM=[F:SOH]SOHNUM and SOQSTA <> 3
+# JC.10082021.FIN
+    Read [SOQ] First
+    For [SOQ]
+      Read [SOP]SOP0=[F:SOH]SOHNUM;[F:SOQ]SOPLIN;[F:SOQ]SOQSEQ
+      Gosub ARTICULO
+      Gosub UNIDAD_PRECIO
+      Gosub CLIENTE_TRANSPORTISTA
+      Gosub ESC_REGISTRO
+    Next
+  Next
+  Openo Using [SOH]
+Endif
+
+End
+##################################################################
+$ESC_REGISTRO
+Wrseq [F:SOH]BPCORD;                                Using [SOH]             # cliente
+Wrseq [F:BPR]BPRSHO;                                Using [SOH]             # mote
+Wrseq [F:SOH]SOHTYP;                                Using [SOH]             # tipo pedido
+Wrseq [F:SOH]SOHNUM;                                Using [SOH]             # n_ped
+Wrseq num$([F:SOQ]SOPLIN);                          Using [SOH]             # n_lin
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SOH]ORDDAT);   Using [SOH]             # fecha
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SOH]DEMDLVDAT);Using [SOH]             # entrega
+Wrseq num$([F:SOH]DLVPIO);                          Using [SOH]             # prioridad
+Wrseq [F:SOH]CUSORDREF;                             Using [SOH]             # n_ped_cliente
+Wrseq [F:SOP]ITMREFBPC;                             Using [SOH]             # ref_cliente
+Wrseq [F:SOQ]ITMREF;                                Using [SOH]             # inventario
+Wrseq [F:ITM]ITMDES2;                               Using [SOH]             # familia
+Wrseq num$([F:SOQ]QTY);                             Using [SOH]             # cantidad
+Wrseq ctrans(num$([F:SOP]ZPRECLI),".",",");         Using [SOH]             # precio cliente
+Wrseq LUNIDADPRECIO;                                Using [SOH]             # unidad_precio
+Wrseq [F:SOH]CUR;                                   Using [SOH]             # moneda
+Wrseq ctrans(num$([F:SOP]DISCRGVAL1),".",",");      Using [SOH]             # dto
+Wrseq ctrans(num$([F:SOP]NETPRI*100),".",",");      Using [SOH]             # precio neto
+Wrseq ctrans(num$([F:SOP]CPRPRI*100),".",",");      Using [SOH]             # coste medio
+Wrseq ctrans(num$([F:SOP]NETPRINOT*[F:SOQ]QTY),".",",");  Using [SOH]       # importe
+Wrseq ctrans(num$([F:SOP]PFM*[F:SOQ]QTY),".",",");  Using [SOH]             # margen
+Wrseq ctrans(num$([F:SOQ]DSPLINWEI),".",",");       Using [SOH]             # peso
+Wrseq [F:SOH]CREUSR;                                Using [SOH]             # usuario
+Wrseq num$([F:SOH]ZFREINV);                         Using [SOH]             # portes
+Wrseq [F:SOH]BPTNUM;                                Using [SOH]             # ag. trans
+Wrseq [F:BPR1]BPRNAM;                               Using [SOH]             # nombre agencia
+Wrseq [F:SOH]SOHTYP;                                Using [SOH]             # tipo de pedido
+Wrseq ctrans(num$([F:SOQ]DLVQTY),".",",");          Using [SOH]             # cantidad entregada
+Wrseq ctrans(num$([F:SOQ]QTY-[F:SOQ]DLVQTY),".",",");     Using [SOH]       # cantidad pendiente de entregar
+Wrseq ctrans(num$([F:SOQ]OPRQTY),".",",");          Using [SOH]             # cantidad en preparación
+Wrseq ctrans(num$([F:SOQ]SOQSTA),".",",");          Using [SOH]             # flag saldada
+Wrseq ctrans(num$([F:SOQ]PREQTY),".",",")           Using [SOH]             # cantidad preparada
+
+Return
+
+##################################################################
+$ARTICULO
+Filter [F:ITU] Where ITMREF = [F:SOQ]ITMREF and BPCNUM = [F:SOH]BPCORD
+Read [F:ITU] First
+
+Filter [F:ITM] Where ITMREF = [F:SOQ]ITMREF
+Read [F:ITM] First
+
+Return
+
+##################################################################
+$UNIDAD_PRECIO
+Local Char LUNIDADPRECIO(5)
+
+  Case [F:SOP]ZUNPRE
+    When "UN"     : LUNIDADPRECIO = "u"
+    When "CEN"    : LUNIDADPRECIO = "%"
+    When "MIL"    : LUNIDADPRECIO = "m"
+    When Default  : LUNIDADPRECIO = ""
+  Endcase
+
+Return
+
+##################################################################
+$OPEN_TABLAS
+Local File SORDER
+Local File SORDERQ
+Local File SORDERP
+Local File BPARTNER
+Local File ITMBPC
+Local File ITMMASTER
+
+Return
+
+###################################################################
+$CABECERA
+Wrseq "Cliente";                        Using [SOH]
+Wrseq "Mote";                           Using [SOH]
+Wrseq "Tipo Pedido";                    Using [SOH]
+Wrseq "N_ped";                          Using [SOH]
+Wrseq "N_lin";                          Using [SOH]
+Wrseq "Fecha";                          Using [SOH]
+Wrseq "Entrega";                        Using [SOH]
+Wrseq "Prioridad";                      Using [SOH]
+Wrseq "N_Ped_Cliente";                  Using [SOH]
+Wrseq "Ref_cliente";                    Using [SOH]
+Wrseq "Inventario";                     Using [SOH]
+Wrseq "Familia";                        Using [SOH]
+Wrseq "Cantidad";                       Using [SOH]
+Wrseq "Precio cliente";                 Using [SOH]
+Wrseq "Unidad_precio";                  Using [SOH]
+Wrseq "Moneda";                         Using [SOH]
+Wrseq "Dto";                            Using [SOH]
+Wrseq "Precio neto";                    Using [SOH]
+Wrseq "Coste medio";                    Using [SOH]
+Wrseq "Importe";                        Using [SOH]
+Wrseq "Margen";                         Using [SOH]
+Wrseq "Peso";                           Using [SOH]
+Wrseq "Usuario";                        Using [SOH]
+Wrseq "Portes";                         Using [SOH]
+Wrseq "Ag. Trans";                      Using [SOH]
+Wrseq "Nombre agencia";                 Using [SOH]
+Wrseq "Tipo de pedido";                 Using [SOH]
+Wrseq "Cantidad entregada";             Using [SOH]
+Wrseq "Cantidad pendiente de entregar"; Using [SOH]
+Wrseq "Cantidad en preparación";        Using [SOH]
+Wrseq "Flag saldada";                   Using [SOH]
+Wrseq "Cantidad preparada"              Using [SOH]
+
+Return
+###################################################################3
+$CREAR_FICHERO
+If WSOH=""
+# Openo filpath("ZINT\para_bmitz","pedidos_cli","csv"),0 Using [SOH]
+ Openo filpath("ZINT\ERP_to_intranet","pedidos_cli","csv"),0 Using [SOH]
+Else
+# Openo filpath("ZINT\para_bmitz","PEDC"+"_"+WSOH,"csv"),0 Using [SOH]
+ Openo filpath("ZINT\ERP_to_intranet","PEDC"+"_"+WSOH,"csv"),0 Using [SOH]
+Endif
+Iomode adxifs ";"        Using [SOH]
+#Iomode adxirs "\013\010" Using [BPS]
+Iomode adxium 50         Using [SOH]
+Return
+
+###################################################################3
+$CLIENTE_TRANSPORTISTA
+If !clalev([F:BPR1]): Local File BPARTNER[BPR1]: Endif
+
+#cliente
+Filter [F:BPR] Where BPRNUM = [F:SOH]BPCORD
+Read [F:BPR] First
+
+#transportista
+Filter [F:BPR1] Where BPRNUM = [F:SOH]BPTNUM
+Read  [F:BPR1] First
+
+Return

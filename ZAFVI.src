@@ -1,0 +1,72 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+
+Case ACTION
+  When "LIENS"        : Gosub LIENS
+  When "CREATION"     : Gosub CREATION
+  When "MODIF"        : Gosub MODIF
+  When "ANNULE"       : Gosub ANNULE
+  When Default
+Endcase
+
+Return
+
+#############################################################################
+
+$LIENS
+
+If !clalev([F:ZOR]) : Local File ZOR : Endif
+nolign = 0
+
+For [F:ZOR] Where [F:ZOR]POHNUM = [M:CTRH1]POHNUM
+  nolign+=1
+  [M:CTRH1] = [F:ZOR]
+  [M:CTRH1]NBLIG2+=1
+Next
+
+Affzo [M:CTRH1]10
+
+
+Return
+
+#############################################################################
+
+$CREATION
+
+If !clalev([F:ZOR]) : Local File ZOR : Endif
+For I = 0 To [M:CTRH1]NBLIG-1
+  nolign           = I+1
+  [F:ZOR]         = [M:CTRH1]
+  [F:ZOR]ITMREF   = [M:ZITM0]ITMREF
+  Write [F:ZOR]
+Next
+
+Return
+
+#############################################################################
+
+$MODIF
+
+If !clalev([F:ZOR]) : Local File ZOR : Endif
+
+Delete [F:ZOR] Where [F:ZOR]ITMREF = [M:ZITM0]ITMREF
+
+For I = 0 To [M:CTRH1]NBLIG-1
+  nolign           = I+1
+  [F:ZOR]          = [M:CTRH1]
+  [F:ZOR]ITMREF   = [M:ZITM0]ITMREF
+  Write [ZOR]
+Next
+
+Return
+
+#############################################################################
+
+$ANNULE
+
+If !clalev([F:ZOR]) : Local File ZOR : Endif
+
+Delete [F:ZOR] Where [F:ZOR]ITMREF = [M:ZITM0]ITMREF
+
+
+Return

@@ -1,0 +1,91 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+Call ZSGASCR From ZSGASCR
+
+End
+
+Subprog ZSGASCR
+Local Char FILELIST (250)(1..4002), CARCHIVO(250),  RESULT(255), CNOMBREFILE(50), WCRESULTADO(250)
+Local Integer LNGTH, LONG, I, WSEQ
+Raz LNGTH
+Raz I
+
+
+If !clalev([F:ZFCY]) : Local File FACILITY     [ZFCY] : Endif
+
+
+#<TTTVVyyyyMMddHHmmssxxx.xml>
+WSEQ=1
+CNOMBREFILE='SCR01'+format$("D:YYYYMMDDhhmmss",date$)+num$(format$("N0:3#",WSEQ))
+
+Openo filpath('ZSGA\SGA\ERP_to_SGA',CNOMBREFILE,'xml'),0        Using [ZECO]
+Iomode adxifs chr$(9)                                   Using [ZECO]
+Iomode adxirs chr$(13) + chr$(10)                       Using [ZECO]
+Iomode adxium 0                                    Using [ZECO]
+
+  WBLANCO=""
+  AA=func PUT_CABECERAXML()
+  AA=func PUT_PROPXML('StockCountRequests xmlns="urn:wms-schema"','',0,1)
+
+For [ZFCY] Where WRHFLG=2
+
+   AA=func PUT_PROPXML('StockCountRequest','',1,1)
+     AA=func PUT_PROPXML('Site',[F:ZFCY]ZFCYMECALUX, 2,2)
+     AA=func PUT_PROPXML('MassiveCount','1',2,2)
+    AA=func PUT_PROPXML('/StockCountRequest','',1,1)
+  Next
+   AA=func PUT_PROPXML('/StockCountRequests','',0,1)
+  Openo Using [ZECO]
+End
+
+
+Funprog PUT_CABECERAXML()
+
+Wrseq '<?xml version="1.0" encoding="UTF-8"?>' Using [ZECO]
+
+End ""
+
+
+Funprog PUT_PROPXML(ETIQUETA,VARNAME, INDEX, CIERRA)
+Value Char ETIQUETA, VARNAME
+Value Integer INDEX, CIERRA
+
+Local Char WSPACE(250), WCADENA(250)
+WCADENA=''
+WSPACE=''
+If INDEX<>0
+  For I=1 To INDEX
+   WCADENA+='    '
+  Next
+Endif
+
+If CIERRA=2
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'+VARNAME+'</'+ETIQUETA+'>'
+Else
+  WCADENA=WCADENA+'<'+ETIQUETA+'>'
+Endif
+Wrseq WCADENA Using [ZECO]
+
+End ""
+
+
+
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+
+Local Integer J
+  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          End seg$(XMLSTRING,I+1,J-1)
+        Endif
+    Endif
+  Endif
+End ""
+

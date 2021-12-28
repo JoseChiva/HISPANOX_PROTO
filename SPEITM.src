@@ -1,0 +1,61 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Gestión de la máscara ITM0 (Especifico)
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ITM0) 07/05/2020 11:40:02 (ADMIN)
+######################################################################################
+$ACTION
+Case ACTION
+  When "APRES_CRE" : Gosub APRES_MOD
+  When "APRES_MOD" : Gosub APRES_MOD
+  When "SETBOUT" : Gosub SETBOUT
+ When Default
+Endcase
+Return
+
+$SETBOUT
+Gosub ACTION From SUBITM
+GPE = 1
+CHMEN+="-"
+
+Return
+
+$APRES_MOD
+[F:ITM]ZPALENT=[M]ZPALENT
+
+If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then
+  Call ARTICULOS([M:ITM0]ITMREF) From ZITMINTRANET
+  Call ZSGAITM([M:ITM0]ITMREF) From ZSGAITM
+Endif
+
+Return
+
+Subprog AS_DES1AXX(VALEUR)
+Variable Char    VALEUR()
+
+If GREP = "C"
+
+  VALEUR = [M:ITM0]ZMASK
+  If [M:ITM0]ZMEDIDA1 <> ''
+  VALEUR += "-"+[M:ITM0]ZMEDIDA1
+  Endif
+  If [M:ITM0]ZMEDIDA2 <> ''
+  VALEUR += "-"+[M:ITM0]ZMEDIDA2
+  Endif
+  If [M:ITM0]ZMEDIDA3 <> ''
+  VALEUR += "-"+[M:ITM0]ZMEDIDA3
+  Endif
+  VALEUR=ctrans(VALEUR,",",".")
+Endif
+End
+
+######################################################################################
+## Después del campo 'Clase oferta productos' (pantalla ITM1) 19/07/2021 10:19:58 (ADEV)
+######################################################################################
+Subprog AP_TSICOD(VALEUR)
+Variable Char    VALEUR()
+  If indice = 0 and VALEUR = "" Then
+    Call ERRTIT('Campo obligatorio','Error en campo "Clase Oferta Productos"') From GESECRAN
+    mkstat=2
+  Endif
+End

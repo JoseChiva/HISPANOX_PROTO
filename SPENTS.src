@@ -1,0 +1,49 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#MRR01 - 28/09/2020 - Ficheros intranet
+######################################################################################
+$ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+ When "APRES_CRE" : Gosub APRES_CRE
+ When "APRES_MOD" : Gosub APRES_MOD
+ When "AP_ANNULE" : Gosub AP_ANNULE
+ When Default
+Endcase
+Return
+
+####################################################################################
+$APRES_CRE
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then       # JC.15102021.NEW
+    Call NOTAS([F:NTS]CODE) From ZNTSINTRANET
+  Endif                                                   # JC.15102021.NEW
+Return
+
+#####################################################################################
+$APRES_MOD
+  If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then       # JC.15102021.NEW
+    Call NOTAS([F:NTS]CODE) From ZNTSINTRANET
+  Endif                                                   # JC.15102021.NEW
+Return
+
+#############################################################################################
+$AP_ANNULE
+  If !clalev([F:XX1]) Then : Local File ATEXTRA [F:XX1] : Endif
+  Trbegin [XX1]
+  Delete [XX1] Where CODFIC="NOTE" & IDENT1=[M:NTS0]CODE and IDENT2=[M:NTS0]NTSCOD2
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+  Close Local File [XX1]
+
+  If !clalev([F:XX0]) Then : Local File NOTE [F:XX0] : Endif
+  Trbegin [XX0]
+  Delete [XX0] Where NTSCOD2 = [M:NTS0]NTSCOD2 and CODE = [M:NTS0]CODE
+  If !fstat Then
+    Commit
+  Else
+    Rollback
+  Endif
+  Close Local File [XX0]
+Return

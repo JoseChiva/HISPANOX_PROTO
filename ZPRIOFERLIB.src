@@ -1,0 +1,346 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#####################################################################################
+# Src: ZPRIOFERLIB
+#-------------------------------------------------------------------------------------
+# (Librería precio oferta)
+#-------------------------------------------------------------------------------------
+# Proyecto: HISPANOX
+#-------------------------------------------------------------------------------------
+# Version: v12
+#-------------------------------------------------------------------------------------
+# Fecha:03-02-2021
+#-------------------------------------------------------------------------------------
+# Desarrollador: ADMIN
+# Codigo Actividad:
+#######################################################################################
+#DEV: ADMIN 03-02-2021  VTAS080
+
+End
+
+Funprog GET_COST_OFER(PS_ITMREF, PS_FCY)
+Value Char PS_ITMREF
+Value Char PS_FCY
+
+Local File ITMFACILIT [ITF]
+
+Read [ITF]ITF0 = PS_ITMREF;PS_FCY
+If fstat = 0 Then
+
+  #  Si CMO_fix existeix i és un número superior a 0, li assignarem aquest cost
+  If [F:ITF]ZCMOFIX <> 0 Then
+    End [F:ITF]ZCMOFIX
+  Endif
+
+  If [F:ITF]ZCMOMIN >= [F:ITF]ZCMO Then
+    End [F:ITF]ZCMOMIN
+  Else
+    End [F:ITF]ZCMO
+  Endif
+
+Endif
+
+End 0
+
+#############################################################################
+
+Funprog GET_MB_EXTRA(PS_ITMREF, PS_FCY, PS_BPCNUM, PF_QTY, PI_ERROR)
+Value Char PS_ITMREF
+Value Char PS_FCY
+Value Char PS_BPCNUM
+Value Decimal PF_QTY
+Variable Integer PI_ERROR
+
+Local File BPCUSTOMER [BPC]
+Local File ITMMASTER [ITM]
+
+Local Char S_TIPOFER (20)
+Local Decimal F_STODISPO
+Local Decimal F_QTYPENDING
+Local Decimal F_YEARCPQTY
+Local Decimal F_COBERTURA
+
+
+Read [BPC]BPC0 = PS_BPCNUM
+If fstat = 0 Then
+  [L]S_TIPOFER = [F:BPC]ZCLAOFER
+Endif
+
+If [L]S_TIPOFER <> "" Then
+
+  [L]F_STODISPO   =  func SPEZSDO.CALC_STODISPO(PS_FCY, PS_ITMREF)
+
+  If [L]F_STODISPO < PF_QTY Then
+    PI_ERROR = 2
+  Endif
+
+  [L]F_QTYPENDING =  func GET_QTYPENDING(PS_ITMREF, PS_FCY)
+  [L]F_YEARCPQTY  =  func GET_YEARCPQTY(PS_ITMREF)
+
+  If F_YEARCPQTY > 0 Then
+    [L]F_COBERTURA = (F_STODISPO*F_QTYPENDING) / F_YEARCPQTY * 12
+  Else
+    [L]F_COBERTURA = (F_STODISPO*F_QTYPENDING)
+  Endif
+
+  If [L]F_COBERTURA <= 0.6
+    End func GET_IMPORT_EM_EXTRA ([L]S_TIPOFER, 1)
+  Elsif [L]F_COBERTURA <= 1
+    End func GET_IMPORT_EM_EXTRA ([L]S_TIPOFER, 2)
+  Elsif [L]F_COBERTURA <= 2
+    End func GET_IMPORT_EM_EXTRA ([L]S_TIPOFER, 3)
+  Elsif [L]F_COBERTURA <= 3
+    End func GET_IMPORT_EM_EXTRA ([L]S_TIPOFER, 4)
+  Else
+    End func GET_IMPORT_EM_EXTRA ([L]S_TIPOFER, 5)
+  Endif
+
+Endif
+
+End 0
+#############################################################################
+
+Funprog GET_QTYPENDING(PS_ITMREF, PS_FCY)
+Value Char PS_ITMREF
+Value Char PS_FCY
+
+Local Integer RES
+Local File PORDER [POH]
+Local File PORDERQ [POQ]
+
+For [F:POH] Where [F:POH]CLEFLG <> 2 and [F:POH]RCPFLG < 3 and [F:POH]POHFCY = PS_FCY
+
+   For [F:POQ] Where [F:POQ]POHNUM = [F:POH]POHNUM and [F:POQ]ITMREF = PS_ITMREF and [F:POQ]LINCLEFLG <> 2
+    [L]RES += [F:POQ]QTYSTU - [F:POQ]RCPQTYSTU
+   Next
+
+Next
+
+End [L]RES
+
+#############################################################################
+
+Funprog GET_YEARCPQTY (PS_ITMREF)
+Value Char PS_ITMREF
+
+Local Decimal F_QTY_SELL
+Local Char S_CRIT(250)
+Local Char S_CRIT2(250)
+
+Local File SDELIVERYD [SDD]
+Local File SRETURND   [SRD]
+
+[L]S_CRIT = "[F:SDD]ITMREF ='"+PS_ITMREF+"' and [F:SDD]SHIDAT >=["+format$("D:DD[/]MM[/]YYYY",date$-365)+']'
+For [F:SDD] Where evalue([L]S_CRIT)
+
+  [L]F_QTY_SELL += [SDD]QTYSTU
+
+  [L]S_CRIT2 = "[F:SRD]SDHNUM = [F:SDD]SDHNUM & [F:SRD]SDDLIN = [F:SDD]SDDLIN"
+  For [F:SRD] Where evalue([L]S_CRIT2)
+    [L]F_QTY_SELL -= [F:SRD]QTYSTU
+  Next
+Next
+
+End [L]F_QTY_SELL
+
+#############################################################################
+
+Funprog GET_IMPORT_EM_EXTRA(PS_TIPOFERT,PI_OFRGRADE)
+Value Char PS_TIPOFERT
+Value Integer PI_OFRGRADE
+
+Case PI_OFRGRADE
+
+  When 1
+    Case PS_TIPOFERT
+      When "C2"
+        End 8
+      When "C3"
+        End 8
+      When "C4"
+        End 7
+      When "C5"
+        End 7
+      When "C6"
+        End 6
+      When "C7"
+        End 5
+      When "C8"
+        End 5
+      When "C9"
+        End 4
+      When "CA"
+        End 4
+      When Default
+        End 8
+    Endcase
+  When 2
+    Case PS_TIPOFERT
+      When "C2"
+        End 5
+      When "C3"
+        End 5
+      When "C4"
+        End 5
+      When "C5"
+        End 5
+      When "C6"
+        End 4
+      When "C7"
+        End 3
+      When "C8"
+        End 3
+      When "C9"
+        End 3
+      When "CA"
+        End 3
+      When Default
+        End 5
+    Endcase
+  When 3
+    Case PS_TIPOFERT
+      When "C2"
+        End 3
+      When "C3"
+        End 3
+      When "C4"
+        End 3
+      When "C5"
+        End 3
+      When "C6"
+        End 2
+      When "C7"
+        End 2
+      When "C8"
+        End 2
+      When "C9"
+        End 2
+      When "CA"
+        End 2
+      When Default
+        End 3
+    Endcase
+  When 4
+    Case PS_TIPOFERT
+      When "C2"
+        End 1
+      When "C3"
+        End 1
+      When "C4"
+        End 1
+      When "C5"
+        End 1
+      When "C6"
+        End 1
+      When "C7"
+        End 1
+      When "C8"
+        End 0
+      When "C9"
+        End 0
+      When "CA"
+        End 0
+      When Default
+        End 1
+    Endcase
+  When 5
+    End 0
+Endcase
+
+End 0
+
+#############################################################################
+
+Funprog GET_PRI_BAS(PS_ITMREF, PS_BPCNUM, PS_FCY, PF_QTY, PI_ERROR, PS_MESS_ERR)
+Value Char PS_ITMREF
+Value Char PS_BPCNUM
+Value Char PS_FCY
+Value Decimal PF_QTY
+Variable Integer PI_ERROR
+Variable Char PS_MESS_ERR
+
+Local File BPCUSTOMER [BPC]
+Local File ITMMASTER [ITM]
+
+Local Decimal F_COST_OFERT
+Local Decimal F_MB_EXTRA
+Local Decimal F_MB_BASE (3) , F_FRANJA(2)
+Local Decimal F_PRI_BAS1, F_PRI_BAS2, F_PRI_BAS3
+Local Decimal F_IMP_BAS1, F_IMP_BAS2, F_IMP_BAS3
+Local Decimal F_PRI_BAS_FINAL
+Local Decimal F_COEF
+Local Decimal F_PRI_FIX
+Local Decimal F_PRI_MIN : [L]F_PRI_MIN = 2
+
+Read [BPC]BPC0 = PS_BPCNUM
+If fstat = 0 Then
+  Read [ITM]ITM0 = PS_ITMREF
+  If fstat = 0 Then
+
+    Call CARGAR_MB_BASE([F:BPC]ZCLAOFER, [F:ITM]ZCLAOFER, [L]F_MB_BASE, [L]F_FRANJA)
+    [L]F_COST_OFERT = func GET_COST_OFER(PS_ITMREF, PS_FCY)
+
+    If [L]F_COST_OFERT <= 0 Then
+      PI_ERROR = 1
+      PS_MESS_ERR = "Coste oferta 0"
+    Endif
+
+    [L]F_MB_EXTRA   = func GET_MB_EXTRA(PS_ITMREF, PS_FCY, PS_BPCNUM, PF_QTY, PI_ERROR)
+    If PI_ERROR = 2 Then
+      PS_MESS_ERR = "Stock insuficiente"
+    Endif
+
+    [L]F_PRI_BAS1   = F_COST_OFERT*(1-(F_MB_BASE(0)+F_MB_EXTRA))
+    [L]F_PRI_BAS2   = F_COST_OFERT*(1-(F_MB_BASE(1)+F_MB_EXTRA))
+    [L]F_PRI_BAS3   = F_COST_OFERT*(1-(F_MB_BASE(2)+F_MB_EXTRA))
+
+    [L]F_IMP_BAS1   = ([L]F_PRI_BAS1 * PF_QTY) /100
+    [L]F_IMP_BAS2   = ([L]F_PRI_BAS2 * PF_QTY) /100
+    [L]F_IMP_BAS3   = ([L]F_PRI_BAS3 * PF_QTY) /100
+
+    If [L]F_IMP_BAS3 > [L]F_FRANJA(0) Then
+      [L]F_PRI_BAS_FINAL = [L]F_IMP_BAS3
+    Elsif F_IMP_BAS3 > [L]F_FRANJA(1) Then
+      [L]F_PRI_BAS_FINAL = [L]F_IMP_BAS2
+    Else
+      [L]F_PRI_BAS_FINAL = [L]F_IMP_BAS1
+    Endif
+
+  Endif
+  If func ZAULIB01.NO_MULTIPLO_CAJA(PS_ITMREF, PF_QTY, [L]F_COEF) = 1 Then
+    [L]F_PRI_FIX = 2
+  Else
+    [L]F_PRI_FIX = 1
+  Endif
+
+  [L]F_PRI_BAS_FINAL = ([L]F_PRI_BAS_FINAL + [L]F_PRI_FIX)*100/ PF_QTY
+
+  If ([L]F_PRI_BAS_FINAL*PF_QTY)/100 < [L]F_PRI_MIN Then
+    [L]F_PRI_BAS_FINAL = ([L]F_PRI_MIN * 100)/PF_QTY
+  Endif
+
+  If arr([L]F_PRI_BAS_FINAL,0.01) <> arr([L]F_PRI_BAS_FINAL,0.001) Then
+    [L]F_PRI_BAS_FINAL = arr([L]F_PRI_BAS_FINAL,0.01)+0.01
+  Endif
+
+Endif
+
+End [L]F_PRI_BAS_FINAL
+
+#############################################################################
+
+Subprog CARGAR_MB_BASE (PS_CLAS_ITM, PS_CLAS_BPC, PF_MB_BASE, PF_FRANJA)
+Value Char PS_CLAS_ITM
+Value Char PS_CLAS_BPC
+Variable Decimal PF_MB_BASE
+Variable Decimal PF_FRANJA
+
+#TODO lógica de carga de MB BASE. Pendiente de saber si es mantenimiento SPE
+
+PF_MB_BASE(0) = 22
+PF_MB_BASE(1) = 19
+PF_MB_BASE(2) = 17
+
+PF_FRANJA(0) = 60
+PF_FRANJA(1) = 30
+
+End

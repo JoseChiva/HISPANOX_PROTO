@@ -1,0 +1,16 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+If !clalev([F:ZSTJ]) Then : Local File ZSTOJOU [F:ZSTJ] : Endif
+[F:ZSTJ]ITMREF = '23061'
+[F:ZSTJ]STOFCY = 'PHISP'
+[F:ZSTJ]QTYSTU = 1
+[F:ZSTJ]VARORD = 7.8272730
+Trbegin [F:ZSTJ]
+Write [F:ZSTJ]
+If !fstat Then
+  Commit
+Else
+  Rollback
+Endif
+Close Local File [ZSTJ]
+
+End
