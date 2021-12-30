@@ -144,10 +144,14 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
          AA=func PUT_PROPXML('Operation','S',4,2)
          AA=func PUT_PROPXML('AliCode',[F:ZITM]ITMDES1,4,2)
        AA=func PUT_PROPXML('/Alias','',3,1)
-      AA=func PUT_PROPXML('Alias','',3,1)
-         AA=func PUT_PROPXML('Operation','S',4,2)
-         AA=func PUT_PROPXML('AliCode',[F:ZITM]EANCOD,4,2)
-       AA=func PUT_PROPXML('/Alias','',3,1)
+
+      If [F:ZITM]EANCOD <> '' Then                                # JC.30122021.NEW
+        AA=func PUT_PROPXML('Alias','',3,1)
+           AA=func PUT_PROPXML('Operation','S',4,2)
+           AA=func PUT_PROPXML('AliCode',[F:ZITM]EANCOD,4,2)
+         AA=func PUT_PROPXML('/Alias','',3,1)
+      Endif                                                       # JC.30122021.NEW
+
      AA=func PUT_PROPXML('/Aliases','',2,1)
      #Conversions
      AA=func PUT_PROPXML('Conversions complete="1" transactional="1"','',2,1)
@@ -279,4 +283,3 @@ Local Integer J
     Endif
   Endif
 End ""
-
