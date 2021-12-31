@@ -138,7 +138,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
 #     AA=func PUT_PROPXML('AllowCrossdocking','0',2,2)
      AA=func PUT_PROPXML('AllowMixing','1',2,2)
      #Aliases
-     AA=func PUT_PROPXML('Aliases complete="1" transactional="1"','',2,1)
+# JC.31122021.INI
+#     AA=func PUT_PROPXML('Aliases complete="1" transactional="1"','',2,1)
+     AA=func PUT_PROPXML('Aliases complete="1" transactional="0"','',2,1)
+# JC.31122021.FIN
        #Alias
        AA=func PUT_PROPXML('Alias','',3,1)
          AA=func PUT_PROPXML('Operation','S',4,2)
@@ -154,7 +157,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
 
      AA=func PUT_PROPXML('/Aliases','',2,1)
      #Conversions
-     AA=func PUT_PROPXML('Conversions complete="1" transactional="1"','',2,1)
+# JC.31122021.INI
+#     AA=func PUT_PROPXML('Conversions complete="1" transactional="1"','',2,1)
+     AA=func PUT_PROPXML('Conversions complete="1" transactional="0"','',2,1)
+# JC.31122021.FIN
        #UN
        AA=func PUT_PROPXML('Conversion','',3,1)
        AA=func PUT_PROPXML('Operation','S',4,2)
