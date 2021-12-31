@@ -365,7 +365,10 @@ Local Char    LSTRLIN(5)
      #LneCustomAttributes --------------------------------------------------------------------------------
       AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
      #LneCstAtt01
-      AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSHD2]ZPALET,2),5,2)
+# JC.31122021.INI
+#      AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSHD2]ZPALET,2),5,2)
+      AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZSHD2]ZPALET),2),5,2)
+# JC.31122021.FIN
      #LneCstAtt02
       WLNECSTATT02=[F:ZSHD2]LOT
       WLNECSTATT03=''
@@ -434,7 +437,10 @@ Local Char    LSTRLIN(5)
        #LneCustomAttributes --------------------------------------------------------------------------------
         AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
        #LneCstAtt01
-        AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZORI]ZPALETP,2),5,2)
+# JC.31122021.INI
+#        AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZORI]ZPALETP,2),5,2)
+        AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZORI]ZPALETP),2),5,2)
+# JC.31122021.FIN
        #LneCstAtt02
         WLNECSTATT02=[F:ZORI]ZLOTE
         WLNECSTATT03=''
@@ -530,7 +536,10 @@ $LINEASSRH
    #LneCustomAttributes --------------------------------------------------------------------------------
     AA=func PUT_PROPXML('LneCustomAttributes','',4,1)
    #LneCstAtt01
-    AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSRD2]ZPALET,2),5,2)
+# JC.31122021.INI
+#    AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSRD2]ZPALET,2),5,2)
+    AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZSRD2]ZPALET),2),5,2)
+# JC.31122021.FIN
    #LneCstAtt02
 # JC.22092021.INI
     WLNECSTATT02=''

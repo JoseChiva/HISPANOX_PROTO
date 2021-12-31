@@ -8,9 +8,8 @@
 #Local Char S_UNIWEI(50) : S_UNIWEI = "G"
 #Infbox num$(func CONVERTIR_CANTIDAD(S_UNIWEI,"KG", 216742))
 #Infbox num$(func CANTIDAD_CAJA('2128'))
-Local Char LSTRING : LSTRING = "Buenos días,ruego cuando"
-Call LIMPIA_STR(LSTRING,LSTRING)
-Infbox LSTRING
+Local Char LSTRING(250) : LSTRING = "Buenos d<>as, ruego cuando"
+Infbox func CODIFICA_CHR(LSTRING)
 End
 
 ###############################################################################
@@ -1857,3 +1856,28 @@ Next IJL
 If LIBCONVD<>"" & dim(FRELIB)>ILIB : FRELIB(ILIB)=LIBCONVD  : ILIB+=1 : Endif
 
 Return
+
+#######################
+#**
+#* codifica caracteres
+#*
+#* @param PCHARIN   > cadena a limpiar
+#*!
+Funprog CODIFICA_CHR(PCHARIN)
+Value     Clbfile  PCHARIN
+
+Local Clbfile PSTR(3) : PSTR=PCHARIN
+
+  PSTR=func REPLACE(PSTR,"!","&#33;")  : PSTR=func REPLACE(PSTR,'"',"&#34;")  : PSTR=func REPLACE(PSTR,"#","&#35;")
+  PSTR=func REPLACE(PSTR,"$","&#36;")  : PSTR=func REPLACE(PSTR,"%","&#37;")  : PSTR=func REPLACE(PSTR,"&","&#38;")
+  PSTR=func REPLACE(PSTR,"'","&#39;")  : PSTR=func REPLACE(PSTR,"(","&#40;")  : PSTR=func REPLACE(PSTR,")","&#41;")
+  PSTR=func REPLACE(PSTR,"*","&#42;")  : PSTR=func REPLACE(PSTR,"+","&#43;")  : PSTR=func REPLACE(PSTR,",","&#44;")
+  PSTR=func REPLACE(PSTR,"-","&#45;")  : PSTR=func REPLACE(PSTR,".","&#46;")  : PSTR=func REPLACE(PSTR,"/","&#47;")
+  PSTR=func REPLACE(PSTR,":","&#58;")  : PSTR=func REPLACE(PSTR,"<","&#60;")  : PSTR=func REPLACE(PSTR,"=","&#61;")
+  PSTR=func REPLACE(PSTR,">","&#62;")  : PSTR=func REPLACE(PSTR,"?","&#63;")  : PSTR=func REPLACE(PSTR,"@","&#64;")
+  PSTR=func REPLACE(PSTR,"[","&#91;")  : PSTR=func REPLACE(PSTR,"\","&#92;")  : PSTR=func REPLACE(PSTR,"]","&#93;")
+  PSTR=func REPLACE(PSTR,"^","&#94;")  : PSTR=func REPLACE(PSTR,"_","&#95;")  : PSTR=func REPLACE(PSTR,"`","&#96;")
+  PSTR=func REPLACE(PSTR,"{","&#123;") : PSTR=func REPLACE(PSTR,"|","&#124;") : PSTR=func REPLACE(PSTR,"}","&#125;")
+  PSTR=func REPLACE(PSTR,"~","&#126;") : #PSTR=func REPLACE(PSTR,";","&#59;")
+
+End PSTR

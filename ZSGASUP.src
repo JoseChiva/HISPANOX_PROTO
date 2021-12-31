@@ -58,9 +58,15 @@ For [ZBPS] Where evalue(WFILTERBPS)
    AA=func PUT_PROPXML('Supplier ignoreNull="1"','',1,1)
      AA=func PUT_PROPXML('Operation','S', 2,2)
      AA=func PUT_PROPXML('SupplierCode',[F:ZBPS]BPSNUM,2,2)
-     CSUPPLIERNAME=func REPLACESTR([F:ZBPR]BPRSHO,'&','&amp;')
+# JC.31122021.INI
+#     CSUPPLIERNAME=func REPLACESTR([F:ZBPR]BPRSHO,'&','&amp;')
+     CSUPPLIERNAME=func ZAULIB01.CODIFICA_CHR([F:ZBPR]BPRSHO)
+# JC.31122021.FIN
      AA=func PUT_PROPXML('SupplierName',CSUPPLIERNAME,2,2)
-     CDESCRIPTION=func REPLACESTR([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1),'&','&amp;')
+# JC.31122021.INI
+#     CDESCRIPTION=func REPLACESTR([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1),'&','&amp;')
+     CDESCRIPTION=func ZAULIB01.CODIFICA_CHR([F:ZBPR]BPRNAM(0))+func ZAULIB01.CODIFICA_CHR([F:ZBPR]BPRNAM(1))
+# JC.31122021.FIN
      AA=func PUT_PROPXML('Description',CDESCRIPTION,2,2)
     AA=func PUT_PROPXML('/Supplier','',1,1)
   Endif
@@ -183,4 +189,3 @@ Funprog REPLACESTR(STR, OLD, NEW)
     RET = func REPLACE(STRCLB, OLD, NEW)
 End RET
 #############################################################################
-

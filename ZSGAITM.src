@@ -75,15 +75,24 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
      AA=func PUT_PROPXML('Owner','',2,1)
      AA=func PUT_PROPXML('OwnerCode','OWN_HISPANOX',3,2)
      AA=func PUT_PROPXML('/Owner','',2,1)
-     AA=func PUT_PROPXML('Description',[F:ZITM]ITMDES2, 2,2)
-     AA=func PUT_PROPXML('AltDesc',[F:ZITM]ITMDES3, 2,2)
-     AA=func PUT_PROPXML('HandlingDesc',[F:ZITM]ITMDES3, 2,2)
-     AA=func PUT_PROPXML('ShortDesc',[F:ZITM]ITMDES1, 2,2)
+# JC.31122021.INI
+#     AA=func PUT_PROPXML('Description',[F:ZITM]ITMDES2, 2,2)
+#     AA=func PUT_PROPXML('AltDesc',[F:ZITM]ITMDES3, 2,2)
+#     AA=func PUT_PROPXML('HandlingDesc',[F:ZITM]ITMDES3, 2,2)
+#     AA=func PUT_PROPXML('ShortDesc',[F:ZITM]ITMDES1, 2,2)
+     AA=func PUT_PROPXML('Description',func ZAULIB01.CODIFICA_CHR([F:ZITM]ITMDES2), 2,2)
+     AA=func PUT_PROPXML('AltDesc',func ZAULIB01.CODIFICA_CHR([F:ZITM]ITMDES3), 2,2)
+     AA=func PUT_PROPXML('HandlingDesc',func ZAULIB01.CODIFICA_CHR([F:ZITM]ITMDES3), 2,2)
+     AA=func PUT_PROPXML('ShortDesc',func ZAULIB01.CODIFICA_CHR([F:ZITM]ITMDES1), 2,2)
+# JC.31122021.FIN
 
      Filter [ZNTS] Where NTGCOD='ARTA' and ITMREF=[F:ZITM]ITMREF
      WRETORNO=''
      For [ZNTS]
-      WRETORNO=[F:ZNTS]NOTE
+# JC.31122021.INI
+#      WRETORNO=[F:ZNTS]NOTE
+      WRETORNO=func ZAULIB01.CODIFICA_CHR([F:ZNTS]NOTE)
+# JC.31122021.FIN
       Break
      Next
 
@@ -101,14 +110,20 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
      AA=func PUT_PROPXML('ABCClassification','',2,1)
      WCRETORNO='CONVENCIONAL'
      If [F:ZITM]ZTUBICML<>''
-      WCRETORNO=[F:ZITM]ZTUBICML
+# JC.31122021.INI
+#      WCRETORNO=[F:ZITM]ZTUBICML
+      WCRETORNO=func ZAULIB01.CODIFICA_CHR([F:ZITM]ZTUBICML)
+# JC.31122021.FIN
      Endif
      AA=func PUT_PROPXML('ABCCode',WCRETORNO,3,2)
      AA=func PUT_PROPXML('/ABCClassification','',2,1)
 
      #ItmType
      AA=func PUT_PROPXML('ItmType','',2,1)
-     AA=func PUT_PROPXML('ItmTypeCode',[F:ZITM]ZPERFIL,3,2)
+# JC.31122021.INI
+#     AA=func PUT_PROPXML('ItmTypeCode',[F:ZITM]ZPERFIL,3,2)
+     AA=func PUT_PROPXML('ItmTypeCode',func ZAULIB01.CODIFICA_CHR([F:ZITM]ZPERFIL),3,2)
+# JC.31122021.FIN
      AA=func PUT_PROPXML('/ItmType','',2,1)
 
      #Profiles
@@ -124,7 +139,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
       AA=func PUT_PROPXML('/LogisticPrf','',3,1)
       #PutAwayPrf
       AA=func PUT_PROPXML('PutAwayPrf','',3,1)
-        AA=func PUT_PROPXML('PutPrfCode',[F:ZITM]ZPERFIL,4,2)
+# JC.31122021.INI
+#        AA=func PUT_PROPXML('PutPrfCode',[F:ZITM]ZPERFIL,4,2)
+        AA=func PUT_PROPXML('PutPrfCode',func ZAULIB01.CODIFICA_CHR([F:ZITM]ZPERFIL),4,2)
+# JC.31122021.FIN
       AA=func PUT_PROPXML('/PutAwayPrf','',3,1)
      AA=func PUT_PROPXML('/Profiles','',2,1)
 
@@ -145,7 +163,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
        #Alias
        AA=func PUT_PROPXML('Alias','',3,1)
          AA=func PUT_PROPXML('Operation','S',4,2)
-         AA=func PUT_PROPXML('AliCode',[F:ZITM]ITMDES1,4,2)
+# JC.31122021.INI
+#         AA=func PUT_PROPXML('AliCode',[F:ZITM]ITMDES1,4,2)
+         AA=func PUT_PROPXML('AliCode',func ZAULIB01.CODIFICA_CHR([F:ZITM]ITMDES1),4,2)
+# JC.31122021.FIN
        AA=func PUT_PROPXML('/Alias','',3,1)
 
       If [F:ZITM]EANCOD <> '' Then                                # JC.30122021.NEW
@@ -175,7 +196,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
          AA=func PUT_PROPXML('Conversion','',3,1)
          AA=func PUT_PROPXML('Operation','S',4,2)
          Read [ZAXX]AXX0='TABUNIT';'DESSHO';'SPA';[F:ZITM]PCU
-         AA=func PUT_PROPXML('CnvUoMCode',[F:ZAXX]TEXTE,4,2)
+# JC.31122021.INI
+#         AA=func PUT_PROPXML('CnvUoMCode',[F:ZAXX]TEXTE,4,2)
+         AA=func PUT_PROPXML('CnvUoMCode',func ZAULIB01.CODIFICA_CHR([F:ZAXX]TEXTE),4,2)
+# JC.31122021.FIN
          AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE),4,2)
          If [F:ZITM]ITMWEI<>0
            AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000*[F:ZITM]PCUSTUCOE),4,2)
