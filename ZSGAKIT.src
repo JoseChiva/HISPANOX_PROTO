@@ -86,7 +86,10 @@ For [ZBOH] Where BOHSTRDAT<=date$ and (BOHENDDAT>=date$ or BOHENDDAT=[00/00/0000
      WUOMBASECODE=[F:ZITM]STU
      AA=func PUT_PROPXML('UoMBaseCode',WUOMBASECODE,2,2)
      #Components
-     AA=func PUT_PROPXML('Components complete="1" transactional="1"','',2,1)
+# JC.31122021.INI
+#     AA=func PUT_PROPXML('Components complete="1" transactional="1"','',2,1)
+     AA=func PUT_PROPXML('Components complete="1" transactional="0"','',2,1)
+# JC.31122021.FIN
      For [ZBOD] Where ITMREF=[F:ZBOH]ITMREF and BOMALT=[F:ZBOH]BOMALT
          AA=func PUT_PROPXML('Component','',3,1)
         #Operation
@@ -167,4 +170,3 @@ Local Integer J
     Endif
   Endif
 End ""
-
