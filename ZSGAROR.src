@@ -367,7 +367,11 @@ Local Char    LSTRLIN(5)
      #LneCstAtt01
 # JC.31122021.INI
 #      AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSHD2]ZPALET,2),5,2)
-      AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZSHD2]ZPALET),2),5,2)
+      If [F:ZSHD2]ZPALET <> '' Then
+       AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZSHD2]ZPALET),2),5,2)
+      Else
+       AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSHD2]ZPALET,2),5,2)
+      Endif
 # JC.31122021.FIN
      #LneCstAtt02
       WLNECSTATT02=[F:ZSHD2]LOT
@@ -439,7 +443,11 @@ Local Char    LSTRLIN(5)
        #LneCstAtt01
 # JC.31122021.INI
 #        AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZORI]ZPALETP,2),5,2)
-        AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZORI]ZPALETP),2),5,2)
+        If [F:ZORI]ZPALETP <> '' Then
+         AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZORI]ZPALETP),2),5,2)
+        Else
+         AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZORI]ZPALETP,2),5,2)
+        Endif
 # JC.31122021.FIN
        #LneCstAtt02
         WLNECSTATT02=[F:ZORI]ZLOTE
@@ -538,7 +546,11 @@ $LINEASSRH
    #LneCstAtt01
 # JC.31122021.INI
 #    AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSRD2]ZPALET,2),5,2)
+  If [F:ZSRD2]ZPALET <> '' Then
     AA=func PUT_PROPXML('LneCstAtt01',vireblc(func ZAULIB01.CODIFICA_CHR([F:ZSRD2]ZPALET),2),5,2)
+  Else
+    AA=func PUT_PROPXML('LneCstAtt01',vireblc([F:ZSRD2]ZPALET,2),5,2)
+  Endif
 # JC.31122021.FIN
    #LneCstAtt02
 # JC.22092021.INI

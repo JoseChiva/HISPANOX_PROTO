@@ -60,7 +60,11 @@ For [ZBPT] Where evalue(WFILTERBPT)
      AA=func PUT_PROPXML('CarrierCode',[F:ZBPT]BPTNUM,2,2)
 # JC.31122021.INI
 #     AA=func PUT_PROPXML('Name',[F:ZBPT]BPTSHO,2,2)
+    If [F:ZBPT]BPTSHO <> '' Then
      AA=func PUT_PROPXML('Name',func ZAULIB01.CODIFICA_CHR([F:ZBPT]BPTSHO),2,2)
+    Else
+     AA=func PUT_PROPXML('Name',[F:ZBPT]BPTSHO,2,2)
+    Endif
 # JC.31122021.FIN
      AA=func PUT_PROPXML('CustomAttributes','',2,1)
      AA=func PUT_PROPXML('CstAtt01','',3,2)

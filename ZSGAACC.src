@@ -61,12 +61,20 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
      AA=func PUT_PROPXML('AccountCode',[F:ZBPC]BPCNUM,2,2)
 # JC.31122021.INI
 #     CNAME=func REPLACE([F:ZBPR]BPRSHO, '&', '&amp;')
+    If [F:ZBPR]BPRSHO <> '' Then
      CNAME=func ZAULIB01.CODIFICA_CHR([F:ZBPR]BPRSHO)
+    Else
+     CNAME=func REPLACE([F:ZBPR]BPRSHO, '&', '&amp;')
+    Endif
 # JC.31122021.FIN
      AA=func PUT_PROPXML('Name',CNAME,2,2)
 # JC.31122021.INI
 #     CDESCRIPTION=func REPLACE([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1), '&', '&amp;')
+    If [F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1) <> '' Then
      CDESCRIPTION=func ZAULIB01.CODIFICA_CHR([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1))
+    Else
+     CDESCRIPTION=func REPLACE([F:ZBPR]BPRNAM(0)+[F:ZBPR]BPRNAM(1), '&', '&amp;')
+    Endif
 # JC.31122021.FIN
      AA=func PUT_PROPXML('Description',CDESCRIPTION,2,2)
      #AccountType
@@ -84,31 +92,49 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
      #Address
      AA=func PUT_PROPXML('Address','',2,1)
        Read [ZBPA]BPA0=1;[F:ZBPC]BPCNUM;[F:ZBPC]BPAADD
+       CTEXTO=[F:ZBPA]BPAADDLIG(0)
 # JC.31122021.INI
-#       CTEXTO=[F:ZBPA]BPAADDLIG(0)
 #       CADDLINE01=func REPLACE(CTEXTO,'&','&amp;')
-       CTEXTO=func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(0))
-       CADDLINE01=CTEXTO
+      If CTEXTO <> '' Then
+       CADDLINE01=func ZAULIB01.CODIFICA_CHR(CTEXTO)
+      Else
+       CADDLINE01=func REPLACE(CTEXTO,'&','&amp;')
+      Endif
 # JC.31122021.FIN
        AA=func PUT_PROPXML('AddLine01',CADDLINE01,3,2)
+       CTEXTO=[F:ZBPA]BPAADDLIG(1)
 # JC.31122021.INI
-#       CTEXTO=[F:ZBPA]BPAADDLIG(1)
 #       CADDLINE02=func REPLACE(CTEXTO,'&','&amp;')
-       CTEXTO=func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(1))
-       CADDLINE02=CTEXTO
+      If CTEXTO <> '' Then
+       CADDLINE02=func ZAULIB01.CODIFICA_CHR(CTEXTO)
+      Else
+       CADDLINE02=func REPLACE(CTEXTO,'&','&amp;')
+      Endif
 # JC.31122021.FIN
        AA=func PUT_PROPXML('AddLine02',CADDLINE02,3,2)
        AA=func PUT_PROPXML('AddZipCode',[F:ZBPA]POSCOD,3,2)
 # JC.31122021.INI
 #       AA=func PUT_PROPXML('AddCity',[F:ZBPA]CTY,3,2)
 #       AA=func PUT_PROPXML('AddState',[F:ZBPA]SAT,3,2)
+      If [F:ZBPA]CTY <> '' Then
        AA=func PUT_PROPXML('AddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CTY),3,2)
+      Else
+       AA=func PUT_PROPXML('AddCity',[F:ZBPA]CTY,3,2)
+      Endif
+      If [F:ZBPA]SAT <> '' Then
        AA=func PUT_PROPXML('AddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA]SAT),3,2)
+      Else
+       AA=func PUT_PROPXML('AddState',[F:ZBPA]SAT,3,2)
+      Endif
 # JC.31122021.FIN
        Read [ZAXX]AXX0='TABCOUNTRY';'CRYDES';'SPA';[F:ZBPA]CRY
 # JC.31122021.INI
 #       AA=func PUT_PROPXML('AddCountry',[F:ZAXX]TEXTE,3,2)
+      If [F:ZAXX]TEXTE <> '' Then
        AA=func PUT_PROPXML('AddCountry',func ZAULIB01.CODIFICA_CHR([F:ZAXX]TEXTE),3,2)
+      Else
+       AA=func PUT_PROPXML('AddCountry',[F:ZAXX]TEXTE,3,2)
+      Endif
 # JC.31122021.FIN
     AA=func PUT_PROPXML('/Address','',2,1)
     #Contact
@@ -121,7 +147,11 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
     If [F:ZBPR]CNTNAM<>''
 # JC.31122021.INI
 #       AA=func PUT_PROPXML('CntName',[F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,3,2)
+      If [F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA <> '' Then
        AA=func PUT_PROPXML('CntName',func ZAULIB01.CODIFICA_CHR([F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA),3,2)
+      Else
+       AA=func PUT_PROPXML('CntName',[F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,3,2)
+      Endif
 # JC.31122021.FIN
        AA=func PUT_PROPXML('CntPhone',[F:ZCNT]TEL,3,2)
        AA=func PUT_PROPXML('CntFax',[F:ZCNT]FAX,3,2)
@@ -139,7 +169,11 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
      For [ZNTS]
 # JC.31122021.INI
 #      WRETORNO=[F:ZNTS]NOTE
-      WRETORNO=func ZAULIB01.CODIFICA_CHR([F:ZNTS]NOTE)
+      If [F:ZNTS]NOTE <> '' Then
+       WRETORNO=func ZAULIB01.CODIFICA_CHR([F:ZNTS]NOTE)
+      Else
+       WRETORNO=[F:ZNTS]NOTE
+      Endif
 # JC.31122021.FIN
       Break
      Next

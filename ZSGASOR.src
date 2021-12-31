@@ -202,7 +202,9 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
           #  WDELIVERYINSTRUCTIONS=func F_RTF2TEXT([F:ZTXC]TEXTE)
           WDELIVERYINSTRUCTIONS=func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE)
 # JC.31122021.INI
-          WDELIVERYINSTRUCTIONS=func ZAULIB01.CODIFICA_CHR(WDELIVERYINSTRUCTIONS)
+          If WDELIVERYINSTRUCTIONS <> '' Then
+           WDELIVERYINSTRUCTIONS=func ZAULIB01.CODIFICA_CHR(WDELIVERYINSTRUCTIONS)
+          Endif
 # JC.31122021.FIN
         Endif
     Endif
@@ -239,14 +241,26 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
     #DlvAddLine01
 # JC.31122021.INI
 #    AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
-    AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(0)),3,2)
+    If [F:ZBPA]BPAADDLIG(0) <> '' Then
+      AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(0)),3,2)
+    Else
+      AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
+    Endif
 # JC.31122021.FIN
     #DlvAddLine02
 # JC.31122021.INI
 #    AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA]BPAADDLIG(1),3,2)
 #    WCSTATT04=[F:ZBPA]BPAADDLIG(2)
-    AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(1)),3,2)
-    WCSTATT04=func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(2))
+    If [F:ZBPA]BPAADDLIG(1) <> '' Then
+     AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(1)),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA]BPAADDLIG(1),3,2)
+    Endif
+    If [F:ZBPA]BPAADDLIG(2) <> '' Then
+     WCSTATT04=func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(2))
+    Else
+     WCSTATT04=[F:ZBPA]BPAADDLIG(2)
+    Endif
 # JC.31122021.FIN
     #DlvAddZipCode
     AA=func PUT_PROPXML('DlvAddZipCode',[F:ZBPA]POSCOD,3,2)
@@ -258,11 +272,23 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
 #    #DlvAddISOCountryCode
 #    AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
     #DlvAddCity
-    AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CTY),3,2)
+    If [F:ZBPA]CTY <> '' Then
+     AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CTY),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddCity',[F:ZBPA]CTY,3,2)
+    Endif
     #DlvAddState
-    AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA]SAT),3,2)
+    If [F:ZBPA]SAT <> '' Then
+     AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA]SAT),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddState',[F:ZBPA]SAT,3,2)
+    Endif
     #DlvAddISOCountryCode
-    AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CRY),3,2)
+    If [F:ZBPA]CRY <> '' Then
+     AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CRY),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
+    Endif
 # JC.31122021.FIN
     #DlvAddComment
     WDLVADDCOMMENT=''
@@ -274,7 +300,11 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
           #WDLVADDCOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
 # JC.31122021.INI
 #          WDLVADDCOMMENT=[F:ZTXC]TEXTE
-          WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
+          If [F:ZTXC]TEXTE <> '' Then
+           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
+          Else
+           WDLVADDCOMMENT=[F:ZTXC]TEXTE
+          Endif
 # JC.31122021.FIN
         Endif
       Endif
@@ -322,7 +352,11 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
     #DlvCntName
 # JC.31122021.INI
 #    AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
-    AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+    If WDLVCNTNAME <> '' Then
+     AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+    Endif
 # JC.31122021.FIN
 # JC.04062021.STR
 # comento las etiquetas que vienen a continuación por indicaciones de Sergi Cunill
@@ -441,7 +475,11 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
           AA=func PUT_PROPXML('LneCstAtt03',WLNECSTATT03,5,2)
 # JC.31122021.INI
 #          WLNECSTATT20=[F:ZPRE]ZUSRFLD1
-          WLNECSTATT20=func ZAULIB01.CODIFICA_CHR([F:ZPRE]ZUSRFLD1)
+          If [F:ZPRE]ZUSRFLD1 <> '' Then
+           WLNECSTATT20=func ZAULIB01.CODIFICA_CHR([F:ZPRE]ZUSRFLD1)
+          Else
+           WLNECSTATT20=[F:ZPRE]ZUSRFLD1
+          Endif
 # JC.31122021.INI
           If WLNECSTATT20<>''
             AA=func PUT_PROPXML('LneCstAtt20',WLNECSTATT20,5,2)
@@ -459,8 +497,12 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
     If [F:ZPRH]ZVPPADRE<>''
 # JC.31122021.INI
 #      WCSTATT01=[F:ZPRH]ZVPPADRE
-      WCSTATT01=func ZAULIB01.CODIFICA_CHR([F:ZPRH]ZVPPADRE)
-# JC.31122021.fin
+      If [F:ZPRH]ZVPPADRE <> '' Then
+       WCSTATT01=func ZAULIB01.CODIFICA_CHR([F:ZPRH]ZVPPADRE)
+      Else
+       WCSTATT01=[F:ZPRH]ZVPPADRE
+      Endif
+# JC.31122021.FIN
       AA=func PUT_PROPXML('CstAtt01',WCSTATT01,3,2)
     Endif
     Filter [ZSOQ]
@@ -575,17 +617,37 @@ $RESU_PNH
 #    #DlvAddISOCountryCode
 #    AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
     #DlvAddLine01
-    AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(0)),3,2)
+    If [F:ZBPA]BPAADDLIG(0) <> '' Then
+     AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(0)),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
+    Endif
     #DlvAddLine02
-    AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(1)),3,2)
+    If [F:ZBPA]BPAADDLIG(1) <> '' Then
+     AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZBPA]BPAADDLIG(1)),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA]BPAADDLIG(1),3,2)
+    Endif
     #DlvAddZipCode
     AA=func PUT_PROPXML('DlvAddZipCode',[F:ZBPA]POSCOD,3,2)
     #DlvAddCity
-    AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CTY),3,2)
+    If [F:ZBPA]CTY <> '' Then
+     AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CTY),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddCity',[F:ZBPA]CTY,3,2)
+    Endif
     #DlvAddState
-    AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA]SAT),3,2)
+    If [F:ZBPA]SAT <> '' Then
+     AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA]SAT),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddState',[F:ZBPA]SAT,3,2)
+    Endif
     #DlvAddISOCountryCode
-    AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CRY),3,2)
+    If [F:ZBPA]CRY <> '' Then
+     AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZBPA]CRY),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
+    Endif
 # JC.31122021.FIN
 #    #DlvAddComment
 #    AA=func PUT_PROPXML('DlvAddComment','',3,2)
@@ -618,7 +680,11 @@ $RESU_PNH
     #DlvCntName
 # JC.31122021.INI
 #    AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
-    AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+    If WDLVCNTNAME <> '' Then
+     AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+    Else
+     AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+    Endif
 # JC.31122021.INI
     #DlvCntPhone
     AA=func PUT_PROPXML('DlvCntPhone',WDLVCNTPHONE,3,2)
