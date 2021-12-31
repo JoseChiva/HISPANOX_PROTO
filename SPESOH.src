@@ -1250,6 +1250,7 @@ Call AM_ZFREINV([M:SOH2]ZFREINV)
   If !fstat Then
     [M:SOH1]ZCLAOFER = [F:ZBPC]TSCCOD(3)
     Affzo [M:SOH1]ZCLAOFER
+    Call AM_ZCLAOFER([M:SOH1]ZCLAOFER)
   Endif
   Close Local File [ZBPC]
 # JC.08072021.END.vtas025_077
