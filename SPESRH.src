@@ -1,7 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # Gestión de la máscara SRH1 (Especifico)
 #MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
-# JC.16112021-1 - Genera fichero ROR sólo cuando se modifica el campo 'Exportada'='Exportado' en alguna de las líneas
+# JC.16112021-1 - Genera fichero ROR sólo cuando se modifica el campo 'Exportada'<>'Exportado' en alguna de las líneas
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SRH1) 18/05/2020 13:37:27 (MLGA)
@@ -28,10 +28,14 @@ Return
 $APRES_MOD
 WVALORSRH=[M:SRH0]SRHNUM
 If !GIMPORT
-  If [M:SRH1]ZGENERAROR = 2 Then                          # JC.16112021-1.NEW
-    Call ZSGAROR('',[M:SRH0]SRHNUM) From ZSGAROR
-  Endif                                                   # JC.16112021-1.NEW
+  For LCON=0 To [M:SRH1]NBLIG-1
+    If [M:SRH1]ZEXPORT(LCON) <> 2 Then
+      Call ZSGAROR('',[M:SRH0]SRHNUM) From ZSGAROR
+      Break
+    Endif
+  Next
 Endif
+
 Return
 
 ######################################################################################
@@ -50,11 +54,11 @@ Return
 
 ######################################################################################
 Subprog AM_NBLIG
-  If NBLIG > 0 Then
-    If [M:SRH1]ZEXPORT(NBLIG-1)=2
-      [M:SRH1]ZEXPORT(NBLIG-1)=3
-    Endif
-  Endif
+#  If NBLIG > 0 Then
+#    If [M:SRH1]ZEXPORT(NBLIG-1)=2
+#      [M:SRH1]ZEXPORT(NBLIG-1)=3
+#    Endif
+#  Endif
 End
 
 
@@ -93,12 +97,12 @@ End
 # JC.16112021-1.INI
 Subprog AM_ZEXPORT(VALEUR)
 Variable Integer VALEUR
-  If VALEUR <> 2 Then
-    [M:SRH1]ZGENERAROR = 2
-    Affzo [M:SRH1]ZGENERAROR
-  Else
-    [M:SRH1]ZGENERAROR = 1
-    Affzo [M:SRH1]ZGENERAROR
-  Endif
+#  If VALEUR <> 2 Then
+#    [M:SRH1]ZGENERAROR = 2
+#    Affzo [M:SRH1]ZGENERAROR
+#  Else
+#    [M:SRH1]ZGENERAROR = 1
+#    Affzo [M:SRH1]ZGENERAROR
+#  Endif
 End
 # JC.16112021-1.FIN
