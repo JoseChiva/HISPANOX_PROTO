@@ -10,7 +10,7 @@ Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), C
 Local Char WFICINP1(250), FICH2(250)
 Local Integer NFICHEROS, WNESTADO, NFICH2, I, M
 Local Char FICHEROS(250)(1..1000)
-Local Char WESTADOS(20)(1..5)
+Local Char WESTADOS(20)(1..6)
 Local Char FICHEROIMP(250), FICHEROEXP(250)
 Local Char WSITE(250), WSORCODE(250), WSTATUS(250), WUPDATEDATE(250), WCHECKNEXTSITE(250)
 Local Integer A, LFSTATFICHERO, NFICHEROS
@@ -36,6 +36,7 @@ Local Clbfile XDATA (10)
   WESTADOS(3)='Waiting'
   WESTADOS(4)='Paused'
   WESTADOS(5)='Closed'
+  WESTADOS(6)='StockFailure'
 
   If !clalev([F:ZPRH]) : Local File STOPREH   [ZPRH] : Endif
 
@@ -145,7 +146,7 @@ Return
 ##############################################################
 $RESU_WESTADOS
   WNESTADO=0
-  For N=1 To 5
+  For N=1 To 6
     If WESTADOS(N)=WSTATUS
       WNESTADO=N
       Break
