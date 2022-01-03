@@ -1,0 +1,650 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# Supervisor
+# Gestión de la máscara SRH2 
+
+$_AFF
+If GIMPORT
+ Gosub AFF From GSAISIE
+Else
+ If GMESSAGE <>""
+  Gosub ERR From GSAISIE
+ Else
+  Raz GERR , GZNUM
+ Endif
+Endif
+Return
+
+$HORODAT
+Local Date    A_DATE
+Local Char    A_HEURE(10) , A_USER(10)
+Local Char    A_STAMP(15)
+A_DATE  = [23/11/2021]
+A_HEURE = "16:36:26"
+A_USER  = "ADEV"
+A_STAMP = "20211123163626"
+Return
+
+$TITRES
+Return
+
+$CHG_FMT
+Case zoncou
+ When "NBAXE"
+  If [M]NBAXE=0
+  Endif
+Endcase
+Return
+
+$VISU
+Local Integer A_REPONSE
+Global Integer GPRE_VIEW
+If dim(A_WINDPREV)<=0 : Local Char A_WINDPREV(30) : Endif
+Local Mask SRH2 [SRH2]
+Gosub HORODAT
+Local Inpbox "SRH2" From GFONCTION At A_STAMP With A_WINDPREV Mask [SRH2] As [SIM_]
+Grizo [SRH2]5
+Grizo [SRH2]10
+Grizo [SRH2]13
+Grizo [SRH2]15
+Grizo [SRH2]20
+Grizo [SRH2]0
+Grizo [SRH2]0
+Grizo [SRH2]0
+Boxact [SIM_]
+Gosub TITRES
+Boxinp [SIM_] Using A_REPONSE
+Close Local Inpbox [SIM_]
+Close Local Mask [SRH2]
+Kill GPRE_VIEW
+Return
+
+$HARDCOP
+Local Integer X1(0..14),X2(0..14),Y1(0..14),Y2(0..14)
+X1(0)=1 : X2(0)=74 : Y1(0)=1 : Y2(0)=1
+X1(1)=1 : X2(1)=74 : Y1(1)=2 : Y2(1)=2
+X1(2)=75 : X2(2)=74 : Y1(2)=2 : Y2(2)=4
+X1(3)=1 : X2(3)=74 : Y1(3)=3 : Y2(3)=4
+X1(4)=1 : X2(4)=74 : Y1(4)=5 : Y2(4)=22
+X1(5)=75 : X2(5)=74 : Y1(5)=5 : Y2(5)=4
+X1(6)=75 : X2(6)=74 : Y1(6)=5 : Y2(6)=4
+X1(7)=75 : X2(7)=74 : Y1(7)=5 : Y2(7)=22
+Return
+
+$ON_AUZUSR
+Return
+
+$ON_TRSFAM
+Onevent INIT_AREA Call D_TRSFAM(zc) From W1SRH2
+Return
+
+Subprog D_TRSFAM(VALEUR)
+Variable Char    VALEUR()
+If varinit([M]TRSFAM,indice)=0
+ ## Action INILEG
+ Call INILEG(VALEUR,"9","") From SUBADI
+Endif
+Gosub _AFF
+End
+
+$ON_DPEDATR
+Return
+
+$ON_ETDR
+Onevent AFTER_AREA Call AP_ETDR(zc) From W1SRH2
+Return
+
+Subprog AP_ETDR(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action INIHM
+ Call INIHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETDR" : GZNUM = 13423 : Endif
+Endif
+Gosub _AFF
+End
+
+$ON_ARVDATR
+Return
+
+$ON_ETAR
+Onevent AFTER_AREA Call AP_ETAR(zc) From W1SRH2
+Return
+
+Subprog AP_ETAR(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action INIHM
+ Call INIHM(VALEUR) From OBJDIV
+ If mkstat : GERR = 1 : GZONE = "ETAR" : GZNUM = 13424 : Endif
+Endif
+Gosub _AFF
+End
+
+$ON_PJT
+Onevent BEFORE_INPUT Call AS_PJT(zc) From W1SRH2
+Onevent CONTROL Call C_PJT(zc) From W1SRH2
+Onevent AFTER_CHANGE Gosub AMM_PJT From W1SRH2
+Return
+
+Subprog IB_PJT(VALEUR)
+Variable Char    VALEUR()
+## Action PJTINIBUT
+Call PJT_INIT_BUTTON(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+&,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+&,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+Gosub _AFF
+End
+
+Subprog AS_PJT(VALEUR)
+Variable Char    VALEUR()
+Local Integer INDIC : INDIC = indice
+Raz mkstat
+Call TEXTE(43841,GBOUT1) From OBJDIV
+Call TEXTE(14667,GBOUT2) From OBJDIV
+Call TEXTE(54273,GBOUT3) From OBJDIV
+Call TEXTE(43844,GBOUT4) From OBJDIV
+Call TEXTE(43868,GBOUT15) From OBJDIV
+Call TEXTE(17676,GBOUT16) From OBJDIV
+Call TEXTE(54274,GBOUT17) From OBJDIV
+Call TEXTE(54275,GBOUT18) From OBJDIV
+Call TEXTE(11781,GBOUT19) From OBJDIV
+Call TEXTE(5554,GBOUTS) From OBJDIV
+Call TEXTE(12276,GBOUTP) From OBJDIV
+Call TEXTE(16134,GBOUTA) From OBJDIV
+Call IB_PJT(VALEUR)
+## Action PJTBEFZON
+Call PJT_BEFORE_ZONE(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+&,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+&,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+If mkstat=2
+ [M]PJT(INDIC) = VALEUR
+ Affzo PJT(INDIC) : mkstat = 2
+Endif
+If !mkstat
+ ## Action STD
+ Call AS_PJT(VALEUR) From SUBSRH
+ If mkstat=2
+  [M]PJT(INDIC) = VALEUR
+  Affzo PJT(INDIC) : mkstat = 2
+ Endif
+ Onkey 129 Titled GBOUT1 Call B1_PJT(zc) From W1SRH2
+ Onkey 130 Titled GBOUT2 Call B2_PJT(zc) From W1SRH2
+ Onkey 131 Titled GBOUT3 Call B3_PJT(zc) From W1SRH2
+ Onkey 132 Titled GBOUT4 Call B4_PJT(zc) From W1SRH2
+ Onkey 172 Titled GBOUT15 Call B15_PJT(zc) From W1SRH2
+ Onkey 173 Titled GBOUT16 Call B16_PJT(zc) From W1SRH2
+ Onkey 174 Titled GBOUT17 Call B17_PJT(zc) From W1SRH2
+ Onkey 175 Titled GBOUT18 Call B18_PJT(zc) From W1SRH2
+ Onkey 176 Titled GBOUT19 Call B19_PJT(zc) From W1SRH2
+ Onkey   2 Titled GBOUTS Call S_PJT(zc) From W1SRH2
+ Onkey 144 Titled GBOUTP Call P_PJT(zc) From W1SRH2
+ Onkey 146 Titled GBOUTA Call SA_PJT(zc) From W1SRH2
+Endif
+Gosub _AFF
+End
+
+Subprog C_PJT(VALEUR)
+Variable Char    VALEUR()
+## Action PJTCTL
+Call PJT_CONTROL(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+&,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+&,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+If mkstat : GERR = 1 : GZONE = "PJT" : GZNUM = 1886 : Endif
+If !mkstat
+ ## Action CONTOBJN
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "CONTOBJN"
+ Call S_AFF_CHAR(VALEUR,PARMSK,"CONTOBJN","CONTOBJ","") From GACTION
+ GACTION = SAVACT
+ If mkstat : GERR = 1 : GZONE = "PJT" : GZNUM = 1886 : Endif
+Endif
+Gosub _AFF
+End
+
+$AMM_PJT
+Call AM_PJT(zc)
+If !mkstat & GOBJET
+ zoncou = "PJT" : Gosub APRES_MODIF From =GPROGRAMME
+Endif
+Return
+
+Subprog AM_PJT(VALEUR)
+Variable Char    VALEUR()
+## Action PJTAFTMOD
+Call PJT_AFTER_MODIFY(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+&,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+&,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+If mkstat : GERR = 1 : GZONE = "PJT" : GZNUM = 1886 : Endif
+If !mkstat
+ ## Action STD
+ Call AM_PJT(VALEUR) From SUBSRH
+ If mkstat : GERR = 1 : GZONE = "PJT" : GZNUM = 1886 : Endif
+ If !mkstat & evalue("dim("+clanam([M])+"ZPJT)")>indice
+  [M]PJT(indice) = VALEUR
+  Affzo ZPJT(indice)
+ Endif
+Endif
+Gosub _AFF
+End
+
+Subprog S_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBUT
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBUT"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJT","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+Gosub _AFF
+End
+
+Subprog B1_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTBU1CRM
+ Call PJT_BUT1_CRM(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+& ,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+& ,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B2_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTBU2PRP
+ Call PJT_BUT2_PRP(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+& ,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+& ,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B3_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTBU3BUD
+ Call PJT_BUT3_PRPBUD(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+& ,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+& ,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B4_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTBU4TAC
+ Call PJT_BUT4_PRPTAC(VALEUR,"SRH2","PJT",0,5,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES
+& ,[V]CST_AYES,[V]CST_AYES,[V]CST_AYES,[V]CST_ANO,[V]CST_ANO,[V]CST_ANO,[M:SRH0]SALFCY,[M:SRH0]BPCORD
+& ,"","","[M:SRH1]DPJT",func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)) From TRTPJT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B15_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBCRM
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBCRM"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJTCRM","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B16_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBPRP
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBPRP"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJTPRP","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B17_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBBUD
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBBUD"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJTBUD","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B18_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBTAC
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBTAC"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJTTAC","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog B19_PJT(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action PJTSELBBPR
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "PJTSELBBPR"
+ PARMSK(1) = "SRH2"
+ PARMSK(2) = "PJT"
+ PARMSK(3) = "0"
+ PARMSK(4) = "5"
+ PARMSK(5) = num$([V]CST_AYES)
+ PARMSK(6) = num$([V]CST_AYES)
+ PARMSK(7) = num$([V]CST_AYES)
+ PARMSK(8) = num$([V]CST_AYES)
+ PARMSK(9) = num$([V]CST_AYES)
+ PARMSK(10) = num$([V]CST_AYES)
+ PARMSK(11) = num$([V]CST_ANO)
+ PARMSK(12) = num$([V]CST_ANO)
+ PARMSK(13) = num$([V]CST_ANO)
+ PARMSK(14) = [M:SRH0]SALFCY
+ PARMSK(15) = [M:SRH0]BPCORD
+ PARMSK(16) = ""
+ PARMSK(17) = ""
+ PARMSK(18) = "[M:SRH1]DPJT"
+ PARMSK(19) = func TRTPJT.GET_CPY_FROM_FCY([M:SRH0]STOFCY)
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELPJTBPR","TRTPJT","") From GACTION
+ GACTION = SAVACT
+Endif
+If mkstat=99 : mkstat = 0 : Elsif mkstat=0 : mkstat = 2 : Endif
+Gosub _AFF
+End
+
+Subprog SA_PJT(VALEUR)
+Variable Char    VALEUR()
+Local Char PARMSK(250)(1..16) , SAVACT(20)
+SAVACT = GACTION : GACTION = "SELOBJAW"
+PARMSK(1) = "PIM"
+Call SAISIE_CHAR(VALEUR,PARMSK,"DSELOBJAW","SELOBJAW","XWDSELOBJAW") From GSAISIE
+GACTION = SAVACT
+Gosub _AFF
+End
+
+Subprog P_PJT(VALEUR)
+Variable Char    VALEUR()
+Local Char PAROBJ(250)
+PAROBJ = ""
+Call VISU("PIM",VALEUR,PAROBJ) From SUBAOP
+Gosub _AFF
+End
+
+$ON_ZPJT
+Onevent BEFORE_AREA Gosub AV_ZPJT From W1SRH2
+Return
+
+$AV_ZPJT
+Call LECTEXTRA(zc,"PIMPL","PIMDESAXX",num$([M]PJT(indice)),"") From ATEXTRA
+Gosub _AFF
+Return
+
+$ON_NBAXE
+Onevent INIT_AREA Call D_NBAXE From W1SRH2
+Onevent CONTROL Call C_NBAXE From W1SRH2
+Return
+
+Subprog D_NBAXE
+Local Decimal BASPAG
+If varinit([M]NBAXE)=0
+ ## Action INICCEH
+ Call INIT_CCEH("SRH2","NBAXE","SRH") From TRTX3CPT
+Endif
+Gosub _AFF
+End
+
+Subprog C_NBAXE
+Local Decimal BASPAG
+## Action STD
+Call C_NBAXE From SUBSRH
+If mkstat : GERR = 1 : GZONE = "NBAXE" : GZNUM = 0 : Endif
+Gosub _AFF
+End
+
+$ON_DIE
+Return
+
+$ON_NAMDIE
+Onevent BEFORE_AREA Gosub AV_NAMDIE From W1SRH2
+Return
+
+$AV_NAMDIE
+zc = GCOLDIE(nolign)
+Gosub _AFF
+Return
+
+$ON_CCE
+Onevent BEFORE_AREA Gosub AV_CCE From W1SRH2
+Onevent CONTROL Call C_CCE(zc) From W1SRH2
+Onevent BEFORE_INPUT Call AS_CCE(zc) From W1SRH2
+Return
+
+$AV_CCE
+## Action INICCEFMT
+Call INICCEFMT(num$(GDIE(nolign))) From SETGLBDIE
+If GCCEFMT<>""
+ Chgfmt [M]CCE(indice) With "K:"+GCCEFMT
+Else
+ Chgfmt [M]CCE(indice) With "-K:1X"
+Endif
+Gosub _AFF
+Return
+
+Subprog AS_CCE(VALEUR)
+Variable Char    VALEUR()
+Local Integer INDIC : INDIC = indice
+Raz mkstat
+Call TEXTE(3531,GBOUT1) From OBJDIV
+Call TEXTE(5554,GBOUTS) From OBJDIV
+Call TEXTE(12276,GBOUTP) From OBJDIV
+Call TEXTE(16134,GBOUTA) From OBJDIV
+Onkey 129 Titled GBOUT1 Call B1_CCE(zc) From W1SRH2
+Onkey   2 Titled GBOUTS Call S_CCE(zc) From W1SRH2
+Onkey 144 Titled GBOUTP Call P_CCE(zc) From W1SRH2
+Onkey 146 Titled GBOUTA Call SA_CCE(zc) From W1SRH2
+Gosub _AFF
+End
+
+Subprog C_CCE(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action CCECHOICE
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "CCECHOICE"
+ PARMSK(1) = num$(GDIE(nolign))
+ PARMSK(2) = GFINRSP
+ Call S_TAB_CHAR(VALEUR,PARMSK,"CCECHOICE","TRTSEL","") From GACTION
+ GACTION = SAVACT
+ If mkstat : GERR = 1 : GZONE = "CCE" : GZNUM = 3997 : Endif
+Endif
+If !mkstat
+ ## Action %CNTOBJ
+ Call CONTSEL("CCE","!",VALEUR,num$(GDIE(nolign)),mkstat) From CONTOBJ
+ If mkstat : GERR = 1 : GZONE = "CCE" : GZNUM = 3997 : Endif
+ If !mkstat
+  ## Action CTLCCEH
+  Call CTRL_CCEH(VALEUR,nolign,GFINRSP,[M]ENTRTNDAT) From TRTX3CPT
+  If mkstat : GERR = 1 : GZONE = "CCE" : GZNUM = 3997 : Endif
+ Endif
+Endif
+Gosub _AFF
+End
+
+Subprog S_CCE(VALEUR)
+Variable Char    VALEUR()
+If !GWEBSERV
+ ## Action SELCCE
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "SELCCE"
+ PARMSK(1) = GDIE(nolign)
+ PARMSK(2) = GFINRSP
+ PARMSK(3) = [M]ENTRTNDAT
+ PARMSK(4) = num$(nolign-1)
+ PARMSK(5) = "GDIE(1"
+ PARMSK(6) = "[M:SRH2]CCE(0"
+ PARMSK(7) = "GCOA(1"
+ PARMSK(8) = ""
+ Call S_TAB_CHAR(VALEUR,PARMSK,"SELCCE","SELCCE","") From GACTION
+ GACTION = SAVACT
+Endif
+If !GWEBSERV
+ ## Action SELCCEGDD
+ Local Char    PARMSK(250)(1..20) , SAVACT(20)
+ SAVACT = GACTION : GACTION = "SELCCEGDD"
+ PARMSK(1) = GDIE(nolign)
+ PARMSK(2) = GFINRSP
+ PARMSK(3) = [M]ENTRTNDAT
+ PARMSK(4) = num$(nolign-1)
+ PARMSK(5) = "GDIE(1"
+ PARMSK(6) = "[M:SRH2]CCE(0"
+ PARMSK(7) = "GCOA(1"
+ PARMSK(8) = ""
+ Call S_LIS_CHAR(VALEUR,PARMSK,"SELCCE","SELCCE","") From GACTION
+ GACTION = SAVACT
+Endif
+Gosub _AFF
+End
+
+Subprog B1_CCE(VALEUR)
+Variable Char    VALEUR()
+Call OBJET("CCE",VALEUR,num$(GDIE(nolign))) From GOBJET
+Gosub _AFF
+End
+
+Subprog SA_CCE(VALEUR)
+Variable Char    VALEUR()
+Local Char PARMSK(250)(1..16) , SAVACT(20)
+SAVACT = GACTION : GACTION = "SELOBJAW"
+PARMSK(1) = "CCE"
+PARMSK(2) = num$(GDIE(nolign))
+Call SAISIE_CHAR(VALEUR,PARMSK,"DSELOBJAW","SELOBJAW","XWDSELOBJAW") From GSAISIE
+GACTION = SAVACT
+Gosub _AFF
+End
+
+Subprog P_CCE(VALEUR)
+Variable Char    VALEUR()
+Local Char PAROBJ(250)
+PAROBJ = num$(GDIE(nolign))
+Call VISU("CCE",VALEUR,PAROBJ) From SUBAOP
+Gosub _AFF
+End
+
+$CHG_STY
+Return
+
+
