@@ -11,7 +11,7 @@ End
 #DEV: JESP 20210121 Tarifas transportistas
 # 06.288.426 : errores importación pedidos web - ML.03.01.2021
 
-######################################################################################
+#######################################################################################
 $ACTION
 #If GUSER = 'ADEV' Then : Infbox ACTION : Endif
 #If GUSER = 'ADMIN' Infbox ACTION Endif
