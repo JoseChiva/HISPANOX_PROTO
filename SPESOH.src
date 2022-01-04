@@ -9,10 +9,12 @@ End
 #DEV: RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
 #DEV: RPES 20201217 Tarifas transportistas
 #DEV: JESP 20210121 Tarifas transportistas
+# 06.288.426 : errores importación pedidos web - ML.03.01.2021
 
 ######################################################################################
 $ACTION
 #If GUSER = 'ADEV' Then : Infbox ACTION : Endif
+#If GUSER = 'ADMIN' Infbox ACTION Endif
 #Infbox ACTION
 Case ACTION
   When "FILGAUCHE"   :   Gosub FILGAUCHE
@@ -2110,9 +2112,12 @@ If !GIMPORT Then
         [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
     Endcase
   Endif
-
+  # 06.288.426.ini
+  Local Integer TMPLIN: TMPLIN =nolign ## ML 03/01/2021
+  nolign = [F:ZSFI]DACDLV ## ML 03/01/2021
   Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
-
+  nolign = TMPLIN## ML 03/01/2021
+  # 06.288.426.fin
   Affzo [M:SOH3]
 
   # gestión del bloqueo
