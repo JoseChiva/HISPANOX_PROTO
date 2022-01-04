@@ -10,6 +10,9 @@ End
 #DEV: RPES 20201217 Tarifas transportistas
 #DEV: JESP 20210121 Tarifas transportistas
 # 06.288.426 : errores importación pedidos web - ML.03.01.2021
+# 06.288.473 : importación pedidos web - bloqueo por portes
+#######################################################################################
+
 
 #######################################################################################
 $ACTION
@@ -153,7 +156,10 @@ Local Decimal LVALORMIN
   LVALORMIN = func ZAULIB01.GET_LIMITEBPT([M:SOH2]BPTNUM,[M:SOH2]ZFREINV)
 
   # bloqueo
-  If ([M:SOH2]ZFREINV=3 or [M:SOH2]ZFREINV=4 or [M:SOH2]ZFREINV=5 or [M:SOH2]ZFREINV=6 or [M:SOH2]ZFREINV=7) and [M:SOH4]ORDINVNOT<LVALORMIN Then
+# 06.288.473.ini
+#  If ([M:SOH2]ZFREINV=3 or [M:SOH2]ZFREINV=4 or [M:SOH2]ZFREINV=5 or [M:SOH2]ZFREINV=6 or [M:SOH2]ZFREINV=7) and [M:SOH4]ORDINVNOT<LVALORMIN Then
+  If ([M:SOH2]ZFREINV=3 or [M:SOH2]ZFREINV=4 or [M:SOH2]ZFREINV=5 or [M:SOH2]ZFREINV=6 or [M:SOH2]ZFREINV=7) and [M:SOH4]ORDNOT<LVALORMIN Then
+# 06.288.473.fin
     If [M:SOH1]HLDSTA = 2 Then
       If [M:SOH1]HLDCOD <> "PORTES" Then
         [M:SOH1]HLDSTA = 2
