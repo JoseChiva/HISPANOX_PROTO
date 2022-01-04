@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 ######################################################################
 # JC.03112021-1    Bug. Cálculo de los portes en el pedido
+# 06.288.426       errores importación pedidos web - ML.03.01.2021
 ######################################################################
 
 $ACTION
@@ -131,9 +132,12 @@ S_TRANSPORTISTA = [F:SOH]BPTNUM
         [M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1) = 0
     Endcase
   Endif
-
+# 06.288.426.ini
+  Local Integer TMPLIN: TMPLIN =nolign ## ML 03/01/2021
+  nolign = [F:ZSFI]DACDLV ## ML 03/01/2021
   Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
-
+  nolign = TMPLIN## ML 03/01/2021
+# 06.288.426.fin
   Affzo [M:SOH3]
   Close Local File [ZSFI],[ZBPA],[ZBPD],[ZITM]
   If dim(LCON) > 0 Then : Kill LCON : Endif
