@@ -180,10 +180,9 @@ Local Clbfile XDATA (10)
           Openi Using [ZECO]
         Endif
 
-        mkstat = 0 : fstat = 0 : GERRTRACE = 0  # JC.06102021.NEW
-
         If WOPERATIONACT='C'
 #          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
             LERROR += 1
@@ -192,12 +191,13 @@ Local Clbfile XDATA (10)
         Elsif WOPERATIONACT='U'
 #          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
 #          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
             LERROR += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
           Endif
-          mkstat = 0 : fstat = 0 : GERRTRACE = 0  # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
             LERROR += 1
@@ -205,6 +205,7 @@ Local Clbfile XDATA (10)
           Endif
         Else
 #          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
             LERROR += 1

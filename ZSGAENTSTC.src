@@ -158,6 +158,7 @@ Local Clbfile XDATA (10)
         Sleep 1
         Openi Using [ZECO]
         WCFILE=WFICINP1+WPREF
+        mkstat = 0 : fstat = 0 : GERRTRACE = 0
         Call IMPORTSIL ("ZSCS",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
 
         If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se producen errores

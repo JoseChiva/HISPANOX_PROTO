@@ -458,6 +458,8 @@ $GENERA_SQH
         Rollback
       Endif
 
+      mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
       # lanza la importación
       Call IMPORTSIL ("ZSQHPSDP",LFILETMP)From GIMPOBJ
 
@@ -574,6 +576,8 @@ Local Char LPTE(250)
 
     # cierra el fichero
     Gosub CLOSE_FILEO_W
+
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
 
     # lanza la importación
     Call IMPORTSIL ("ZSOHPSDP",LFILETMP)From GIMPOBJ

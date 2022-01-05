@@ -1258,6 +1258,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   # lanzamos la importación
   Call ECR_TRACE("########################################################################",0) From GESECRAN
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSDHSOF3",LFILETXT)From GIMPOBJ
 
   # gestiona un error en la importación
@@ -1327,6 +1328,7 @@ Local Integer LRES    # 0=stock inferior ; 1=stock igual o superior
         Wrseq "S" + ";" + [F:ZESO6]SAU + ";" + num$(abs([F:ZESO6]QTY-[F:ZSTO1]QTYSTU)) + ";" + "" + ";" + [F:ZESO6]LOT + ";" + "SGA" + ";" + "A" + ";" + "Ajustes SGA entrega"
 &                                                                                                                                                       Using [YIMP_WEV]
         Openo Using [YIMP_WEV]
+        mkstat = 0 : fstat = 0 : GERRTRACE = 0
         Call IMPORTSIL("ZSMR2",LFILE_W_EV) From GIMPOBJ
       Endif
     Filter [F:ZSTO1]
@@ -1789,6 +1791,7 @@ $CREA_ENTRADA_VARIA
 #  RESULT=vireblc(RESULT,1)
 #  Wrseq RESULT Using [ZECO2]
 
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ
 Return
 
@@ -2761,6 +2764,7 @@ Value Decimal PQTY
   Wrseq "L" + ";" + num$(1000) + ";" + PITMREF + ";" + [F:ZITM1]SAU + ";" + num$(PQTY) + ";" + [F:ZITM1]SAU + ";" + num$(PQTY) + ";" + num$([F:ZITV1]AVC) Using [YIMP_WEV]
   Wrseq "S" + ";" + [F:ZITM1]SAU + ";" + num$(PQTY) + ";" + "" + ";" + PLOT + ";" + "SGA" + ";" + "A" + ";" + "Ajustes SGA entrega"                       Using [YIMP_WEV]
   Openo Using [YIMP_WEV]
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL("ZSMR2",LFILE_W_EV) From GIMPOBJ
 
   If filinfo(LFILE_W_EV, 7) > 0 Then
@@ -3535,6 +3539,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   # lanzamos la importación
   Call ECR_TRACE("########################################################################",0) From GESECRAN
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSDHSOF3",LFILETXT)From GIMPOBJ
 
   # gestiona un error en la importación

@@ -70,7 +70,6 @@ Local Clbfile XDATA (10)
     Openi Using [ZZZ]
 
     # entrada varia
-    mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call OUVRE_TRACE ("Genera entrada KST - fichero: "+LNOMFICHERO) From LECFIC
     WREF='ZSMR'
     Gosub OPEN_WRITE
@@ -78,6 +77,7 @@ Local Clbfile XDATA (10)
     Sleep 1
     Openi Using [ZECO]
     WCFILE=WFICINP1+WREF
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
     Call FERME_TRACE From LECFIC
     If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                                 # si se producen errores
@@ -85,7 +85,6 @@ Local Clbfile XDATA (10)
     Endif
 
     # salida varia
-    mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call OUVRE_TRACE ("Genera salida KST - fichero: "+LNOMFICHERO) From LECFIC
     WREF='ZSMO'
     Gosub OPEN_WRITE
@@ -93,6 +92,7 @@ Local Clbfile XDATA (10)
     Sleep 1
     Openi Using [ZECO]
     WCFILE=WFICINP1+WREF
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
     Call FERME_TRACE From LECFIC
     If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                                 # si se producen errores
