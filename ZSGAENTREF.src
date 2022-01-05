@@ -1,5 +1,5 @@
-#<AdxTL>@(#)0.0.0.0 $Revision$
 # JC.25102021-EXP  - Lectura del fichero REF para Expediciones
+# 06.288.868 - JC.05012022.Arrastre del arancel desde expedición a recepción
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -33,8 +33,9 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZPOH]) : Local File PORDER      [ZPOH] : Endif
 
   WFICHEROIMP='REF0*'
+#  WFICHEROIMP='aaaREF0*'
 #  WFICHEROIMP='aaaREF0120211129115529000-DC2100096'
-#  WFICHEROIMP='REF0120201124191729001-EX2100073'
+#  WFICHEROIMP='aaaREF0120211222081625000-EX2100010'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -625,6 +626,7 @@ $CREA_EXPORT_EXP
     RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
     RESULT = vireblc(RESULT,1)
     Wrseq RESULT+WLCOMA; Using [ZECO]
+# 06.288.868 - JC.05012022.ini
    #ZCPRCOE
     WLONG  = 8
     RESULT = num$([F:SHH0]ZCPRCOE)
@@ -632,6 +634,7 @@ $CREA_EXPORT_EXP
     RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
     RESULT = vireblc(RESULT,1)
     Wrseq RESULT Using [ZECO]
+# 06.288.868 - JC.05012022.fin
 
     Filter [F:ZVAL] Where SHIPNUM = [F:ZVAE]SHIPNUM Order By SHIPNUM;SHIPLIN
     For [F:ZVAL]
@@ -698,6 +701,7 @@ $CREA_EXPORT_EXP
       RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
       RESULT=vireblc(RESULT,1)
       Wrseq RESULT+WLCOMA; Using [ZECO]
+# 06.288.868 - JC.05012022.ini
      #CPRCOE
       WLONG=250
       RESULT=num$([F:SHD0]CPRCOE)
@@ -705,6 +709,7 @@ $CREA_EXPORT_EXP
       RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
       RESULT=vireblc(RESULT,1)
       Wrseq RESULT Using [ZECO]
+# 06.288.868 - JC.05012022.fin
 
 #      Filter [F:AXX0] Where SHIPNUM = [F:ZVAL]SHIPNUM and SHIPLIN = [F:ZVAL]SHIPLIN and INDICADOR = 'S'
 #      For [F:AXX0]
