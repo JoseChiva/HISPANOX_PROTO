@@ -8,6 +8,7 @@
 #DEV: RPES  20201130  VTAS078 Multiple de caja
 #DEV: RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
 #DEV: RPES 20201217 Tarifas transportistas
+# 06.288.553 - JC.05012022.Recálculo de GROPRI corregido tras modificar cantidad
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SQH2) 23/03/2020 10:26:41 (ADMIN)
 ######################################################################################
@@ -1002,7 +1003,7 @@ End
 ######################################################################################
 Subprog AM_BPCORD(VALEUR)
 Variable Char    VALEUR()
-#If GUSER="ADEV" Then : Infbox "entro am_bpcord"-num$([M:ZSQH1]GROPRI(nolign-1)) : Endif
+#If GUSER="ADEV" Then : Infbox "entro am_bpcord" : Endif
 #MRR02 comento porque da fallo de FREEINV variable inexistente
 #[M:SQH1]FREINV=[F:BPC]FREINV
 [M:SQH0]ZESPECIALES=[F:BPC]ZESPECIALES
@@ -1020,7 +1021,7 @@ If !fstat Then
 #  [M:SQH1]ZCLAOFER = [F:BPC1]ZCLAOFER
   [M:SQH1]ZCLAOFER = [F:BPC1]TSCCOD(3)
   Affzo [M:SQH1]ZCLAOFER
-  Call AM_ZCLAOFER([M:SQH1]ZCLAOFER)
+  If GREP <> 'C' Then : Call AM_ZCLAOFER([M:SQH1]ZCLAOFER) : Endif
 # JC.14062021.END.vtas025_077
 Endif
 #MRR02 fin
@@ -1222,13 +1223,16 @@ Variable Decimal VALEUR
       Affzo [M:SQH2]LINPFM(nolign-1)
     Endif
 
-    ############## HE AÑADIDO ESTE CÓDIGO PORQUE SINO, CUANDO SE AÑADE UNA CANTIDAD Y SE ELIJE LA OPCIÓN
-    ############## CANTIDAD JUSTA, ME PONE EL PRECIO BRUTO MULTIPLICADO POR 100
-    If [M:SQH2]ZTIPOPRECIO(nolign-1) = 2 and [M:SQH2]ZCANTJUSTA(nolign-1) = 2 Then
-      VALEUR = [M:SQH2]ZPREOFERTA(nolign-1)
-      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
-      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
-    Endif
+# 06.288.553 - JC.05012022.ini
+#    ############## HE AÑADIDO ESTE CÓDIGO PORQUE SINO, CUANDO SE AÑADE UNA CANTIDAD Y SE ELIJE LA OPCIÓN
+#    ############## CANTIDAD JUSTA, ME PONE EL PRECIO BRUTO MULTIPLICADO POR 100
+#    If [M:SQH2]ZTIPOPRECIO(nolign-1) = 2 and [M:SQH2]ZCANTJUSTA(nolign-1) = 2 Then
+#      VALEUR = [M:SQH2]ZPREOFERTA(nolign-1)
+#      Call C_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+#      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
+#    Endif
+# 06.288.553 - JC.05012022.fin
+
   Endif
 #If GUSER="ADEV" Then : Infbox "salgo av_gropri"-num$(VALEUR) : Endif
 End
