@@ -1083,9 +1083,9 @@ Local Integer LCONT,LSALIR,LCONTROL
       Sleep 1
     Else
       # Abre fichero original para leer
+      Openi   PFILESTA                  Using [ZIMP_R]
       Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMP_R]
       Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
-      Openi   PFILESTA                  Using [ZIMP_R]
       Iomode  adxifs ":"                Using [ZIMP_R]
 
       LECOK = 1
