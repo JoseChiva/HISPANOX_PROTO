@@ -6,7 +6,7 @@
 #DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
 
 $ACTION
-#If GUSER="ADMIN" Then : Infbox ACTION : Endif
+#If GUSER="ADMIN" and dim(SHIQTYSTU)>0 Then : Infbox ACTION+"/"+num$(SHIQTYSTU) : Endif
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
   When "APRES_CRE" : Gosub APRES_MOD
