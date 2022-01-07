@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # Gestión de la máscara ITM0 (Especifico)
 # 06.288.121 - JC.07012021.Forzar calculo código EAN al crear artículo si el usuario no lo ha asignado
+# 06.289.530 - JC.07012022.Se cuelga en la creación de un nuevo artículo
 ###############################################################################################
 
 
@@ -45,8 +46,12 @@ $APRES_MOD
 [F:ITM]ZPALENT=[M]ZPALENT
 
 If val(func AFNC.PARAM("ZFICHINTRA","")) = 2 Then
-  Call ARTICULOS([M:ITM0]ITMREF) From ZITMINTRANET
-  Call ZSGAITM([M:ITM0]ITMREF) From ZSGAITM
+# 06.289.530.ini
+#  Call ARTICULOS([M:ITM0]ITMREF) From ZITMINTRANET
+#  Call ZSGAITM([M:ITM0]ITMREF) From ZSGAITM
+  Call ARTICULOS([F:ITM]ITMREF) From ZITMINTRANET
+  Call ZSGAITM([F:ITM]ITMREF) From ZSGAITM
+# 06.289.530.fin
 Endif
 
 Return

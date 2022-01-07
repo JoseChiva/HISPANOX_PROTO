@@ -1864,9 +1864,14 @@ Return
 #* @param PCHARIN   > cadena a limpiar
 #*!
 Funprog CODIFICA_CHR(PCHARIN)
-Value     Clbfile  PCHARIN
+#06.289.530 - JC.07012022.Error de memoria llena.ini
+#Value     Clbfile  PCHARIN
+#
+#Local Clbfile PSTR(3) : PSTR=PCHARIN
+Value     Char  PCHARIN
 
-Local Clbfile PSTR(3) : PSTR=PCHARIN
+Local Char PSTR(250) : PSTR=PCHARIN
+#06.289.530 - JC.07012022.Error de memoria llena.fin
 
   PSTR=func REPLACE(PSTR,"!","&#33;")  : PSTR=func REPLACE(PSTR,'"',"&#34;")  : PSTR=func REPLACE(PSTR,"#","&#35;")
   PSTR=func REPLACE(PSTR,"$","&#36;")  : PSTR=func REPLACE(PSTR,"%","&#37;")  : PSTR=func REPLACE(PSTR,"&","&#38;")

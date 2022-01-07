@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-Call ZSGAITM('') From ZSGAITM
+Local Char PITM : PITM = ''
+Call ZSGAITM(PITM) From ZSGAITM
 
 End
 
@@ -62,6 +63,7 @@ If WVALORITM<>''
   WFILTERITM+=' & ITMREF=WVALORITM'
 Endif
 WDENTRO=1
+
 For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
    WDENTRO=2
    Call ECR_TRACE("Articulo: "+[F:ZITM]ITMREF+' '+[F:ZITM]ITMDES1,0) From GESECRAN
@@ -270,7 +272,6 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
 #       AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE),3,2)
      AA=func PUT_PROPXML('/CustomAttributes','',2,1)
     AA=func PUT_PROPXML('/Item','',1,1)
-
   Next
    AA=func PUT_PROPXML('/Items','',0,1)
   Openo Using [ZECO]

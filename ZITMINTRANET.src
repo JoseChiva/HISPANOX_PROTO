@@ -18,10 +18,8 @@ If rowcount([F:ITM])>0
   Gosub CREAR_FICHERO
   Gosub CABECERA
     For [F:ITM]
-      Gosub DESCRIPCIONES
-      Gosub NOTAS
-      Gosub COSTES
-      Gosub CALCULOS
+      Gosub INI_VAR
+      Gosub BUSCAR_DATOS
       Gosub ESC_REGISTRO
     Next
   Openo Using [ITM]
@@ -33,7 +31,6 @@ End
 $OPEN_TABLAS
 Local File ITMMASTER
 Local File ATEXTRA
-Local File NOTE
 Local File ITMFACILIT
 Local File ITMMVT
 Local File ITMMVTHIS
@@ -42,7 +39,9 @@ Local File BPSUPPLIER
 Local File ZPRESPD
 Local File STAT
 Local File SDELIVERYD
-
+If !clalev([F:AXX1]): Local File ATEXTRA[AXX1]: Endif
+If !clalev([F:AXX2]): Local File ATEXTRA[AXX2]: Endif
+If !clalev([F:AXX3]): Local File ATEXTRA[AXX3]: Endif
 
 Return
 
@@ -205,7 +204,7 @@ Wrseq [F:ITM]ITMDES3;                                                           
 Wrseq [F:ITM]ZMASK;                                                             Using [ITM]
 Wrseq num$(STOCK_REAL);                                                         Using [ITM]
 Wrseq num$(STOCK_DISP);                                                         Using [ITM]
-Wrseq num$([F:ITF]SAFSTO);                                                      Using [ITM]
+Wrseq num$(ZSAFSTO);                                                      Using [ITM]
 #Wrseq "Ubic 1";                                 Using [ITM]
 #Wrseq "Ubic 2";                                 Using [ITM]
 Wrseq num$(CAJA);                                                               Using [ITM]
@@ -240,7 +239,6 @@ Wrseq ctrans(num$(format$("N:12.2",OF_NO_VEN)),".",",");                        
 Wrseq ctrans(num$(format$("N:12.2",SALIDA_LIN)),".",",");                       Using [ITM]
 Wrseq ctrans(num$(format$("N:12.2",CLI)),".",",");                              Using [ITM]
 Wrseq ctrans(num$(format$("N:12.2",COBERTURA)),".",",");                        Using [ITM]
-#Wrseq [F:NTS]NOTE;                              Using [ITM]
 Wrseq ctrans(num$(format$("N:12.2",V_QTY(0))),".",",");                         Using [ITM]
 Wrseq ctrans(num$(format$("N:12.2",V_COSTE(0))),".",",");                       Using [ITM]
 Wrseq ctrans(num$(format$("N:12.2",V_VENTAS(0))),".",",");                      Using [ITM]
@@ -322,69 +320,79 @@ Wrseq [F:ITM]ZPERFIL;                                                           
 Wrseq [F:ITM]ZTUBICML;                                                          Using [ITM]
 Wrseq ZRECML;                                                                   Using [ITM]
 Wrseq ZGRAAPA;                                                                  Using [ITM]
-Wrseq [F:AXX]TEXTE;                                                             Using [ITM]
+Wrseq TEXTO;                                                                    Using [ITM]
 Wrseq [F:ITM]TSICOD(1);                                                         Using [ITM]
-Wrseq [F:AXX1]TEXTE;                                                            Using [ITM]
+Wrseq TEXTO1;                                                                   Using [ITM]
 Wrseq [F:ITM]TSICOD(2);                                                         Using [ITM]
-Wrseq [F:AXX2]TEXTE;                                                            Using [ITM]
+Wrseq TEXTO2;                                                                   Using [ITM]
 Wrseq [F:ITM]TSICOD(3);                                                         Using [ITM]
-Wrseq [F:AXX3]TEXTE                                                             Using [ITM]
-
-
+Wrseq TEXTO3                                                                    Using [ITM]
 
 
 #antes formato Wrseq format$("N:12.2",V_COMPRAS(0));       Using [BPS]
 
 Return
 
+$INI_VAR
+Local Decimal ZCMO,ZCMREP,ZSAFSTO,STOCK_REAL, STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,ZCOSTE,ZHXCOST,
+& SALIDA_12,SALIDA_MAX,SALIDA_LIN,OF_NO_VEN, CLI, V_QTY(6),V_COSTE(6),V_VENTAS(6),V_MARGEN(6),V_QTY_VEN(6),V_LIN_VEN(6),ZQTY_OF(6),ZLIN_OF(6),
+& ZLIN_OFE_O(6),ZCLIVEN(6),ZCLIOFE(6), ZCLIOFEOCULTO(6),ZQ_VEN_ZQTY_OF(6),COBERTURA
+Local Char TEXTO(80),TEXTO1(80),TEXTO2(80),TEXTO3(80),ZBPSNUM(25),ZBPSSHO(250), ZBPSNUMOF(250),ZBPSSHO_OF(250),XBPC(250),PALET(2),ZRECML(2),ZGRAAPA(2)
+Local Date WDAT,ZRCPDAT,WDAT1,WDAT2,ZLINRSPDAT,XWDAT1, ZWDAT2
+
+Raz STOCK_REAL,STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,WDAT,ZCOSTE,ZRCPDAT,ZBPSNUM,
+& ZBPSSHO,ZBPSNUMOF,ZHXCOST,WDAT1,WDAT2,ZLINRSPDAT,ZBPSSHO_OF,ZBPSSHO,ZCMO,ZCMREP,TEXTO,TEXTO1,TEXTO2,TEXTO3, SALIDA_12,SALIDA_MAX,
+& SALIDA_LIN,XWDAT1, ZWDAT2,OF_NO_VEN, CLI,XBPC,V_QTY,V_COSTE,V_VENTAS,V_MARGEN,V_QTY_VEN,V_LIN_VEN,ZQTY_OF,ZLIN_OF, ZLIN_OFE_O,ZCLIVEN,
+& ZCLIOFE,ZCLIOFEOCULTO,PALET,ZRECML,ZGRAAPA,ZQ_VEN_ZQTY_OF,COBERTURA
+
+
+
+
+
+
+Return
 ###################################################################
-$DESCRIPCIONES
-If !clalev([F:AXX1]): Local File ATEXTRA[AXX1]: Endif
-If !clalev([F:AXX2]): Local File ATEXTRA[AXX2]: Endif
-If !clalev([F:AXX3]): Local File ATEXTRA[AXX3]: Endif
+$BUSCAR_DATOS
 
 Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '20' and IDENT2 = [F:ITM]TSICOD(0)
 Read  [F:AXX] First
+  If !fstat
+    TEXTO=[F:AXX]TEXTE
+  Endif
+Filter [F:AXX]
 
 Filter [F:AXX1] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '21' and IDENT2 = [F:ITM]TSICOD(1)
 Read  [F:AXX1] First
+  If !fstat
+    TEXTO1=[F:AXX1]TEXTE
+  Endif
+Filter [F:AXX1]
 
 Filter [F:AXX2] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '22' and IDENT2 = [F:ITM]TSICOD(2)
 Read  [F:AXX2] First
+  If !fstat
+    TEXTO2=[F:AXX2]TEXTE
+  Endif
+Filter [F:AXX2]
 
 Filter [F:AXX3] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '23' and IDENT2 = [F:ITM]TSICOD(3)
 Read  [F:AXX3] First
+  If !fstat
+    TEXTO3=[F:AXX3]TEXTE
+  Endif
+Filter [F:AXX3]
 
-Return
-
-###################################################################
-$NOTAS
-Filter [F:NTS] Where ITMREF = [F:ITM]ITMREF
-Read  [F:NTS] First
-
-Return
-
-###################################################################
-$COSTES
-Local Decimal ZCMO,ZCMREP
-Raz ZCMO,ZCMREP
+#COSTES
 Filter [F:ITF] Where ITMREF = [F:ITM]ITMREF and STOFCY = 'PHISP'
 Read  [F:ITF] First
+If !fstat
+    ZCMO=[F:ITF]ZCMO*100
+    ZCMREP=[F:ITF]ZCMREP*100
+    ZSAFSTO=[F:ITF]SAFSTO
+Endif
+Filter [F:ITF]
 
-ZCMO=[F:ITF]ZCMO*100
-ZCMREP=[F:ITF]ZCMREP*100
-
-Return
-
-$CALCULOS
-Local Decimal STOCK_REAL, STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,ZCOSTE,ZHXCOST
-Local Date WDAT,ZRCPDAT,WDAT1,WDAT2,ZLINRSPDAT
-Local Char ZBPSNUM(25),ZBPSSHO(250), ZBPSNUMOF(250),ZBPSSHO_OF(250)
-Raz STOCK_REAL,STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,WDAT,ZCOSTE,ZRCPDAT,ZBPSNUM,ZBPSSHO
-Raz ZBPSNUMOF,ZHXCOST,WDAT1,WDAT2,ZLINRSPDAT,ZBPSSHO_OF,ZBPSSHO
-
-
-
+#CALCULOS
 Filter [F:ITV] Where ITMREF = [F:ITM]ITMREF and STOFCY = 'PHISP'
 Read  [F:ITV] First
 If !fstat
@@ -401,6 +409,8 @@ If !fstat
 Endif
 Filter [F:ITV]
 
+
+#COEFICIENTE
 If [F:ITM]PCU(0)="CAJ"
     CAJA=[F:ITM]PCUSTUCOE(0)
 Elsif [F:ITM]PCU(1)="CAJ"
@@ -413,24 +423,16 @@ Elsif  [F:ITM]PCU(1)="PAC"
 Endif
 
 
-If [F:ITM]WEU="G"
-    ITMWEI=([F:ITM]ITMWEI/1000)*1000
-Elsif [F:ITM]WEU="HG"
-    ITMWEI=([F:ITM]ITMWEI/10)*1000
-Elsif [F:ITM]WEU="KG"
-    ITMWEI=([F:ITM]ITMWEI)*1000
-Elsif [F:ITM]WEU="LB"
-    ITMWEI=([F:ITM]ITMWEI/2.205)*1000
-Elsif  [F:ITM]WEU="MG"
-      ITMWEI=([F:ITM]ITMWEI/1000000)*1000
-Elsif  [F:ITM]WEU="OZ"
-    ITMWEI=([F:ITM]ITMWEI/35.274)*1000
-Elsif  [F:ITM]WEU="T"
-    ITMWEI=([F:ITM]ITMWEI/0.001)*1000
-Elsif [F:ITM]WEU="QT"
-    ITMWEI=([F:ITM]ITMWEI/0.01)*1000
-Endif
-
+Case [F:ITM]WEU
+  When "G"  : ITMWEI=([F:ITM]ITMWEI/1000)*1000
+  When "HG" : ITMWEI=([F:ITM]ITMWEI/10)*1000
+  When "KG" : ITMWEI=([F:ITM]ITMWEI)*1000
+  When "LB" : ITMWEI=([F:ITM]ITMWEI/2.205)*1000
+  When "MG" : ITMWEI=([F:ITM]ITMWEI/1000000)*1000
+  When "OZ" : ITMWEI=([F:ITM]ITMWEI/35.274)*1000
+  When "T"  : ITMWEI=([F:ITM]ITMWEI/0.001)*1000
+  When "QT" : ITMWEI=([F:ITM]ITMWEI/0.01)*1000
+Endcase
 
 
 WDAT=gdat$(1,month(date$),year(date$))
@@ -481,6 +483,7 @@ Read[F:ZPPD] First
         WDAT2=WDAT1-30
     Endif
 Filter [F:ZPPD]
+
 #ENTRE ZWDAT Y LINRSPDAT VER LA MEJOR OFERTA
 Filter [F:ZPPD] Where ITMREF=[F:ITM]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) Order By PRI Asc
 Read[F:ZPPD] First
@@ -489,6 +492,7 @@ Read[F:ZPPD] First
         ZLINRSPDAT=[F:ZPPD]LINRSPDAT
         ZHXCOST=[F:ZPPD]HXCOST
     Endif
+Filter [F:ZPPD]
 
 
 ZBPSSHO_OF=""
@@ -501,16 +505,7 @@ Read[F:BPS]First
 Filter [F:BPS]
 
 
-##ESTADISTICA VARIABLES
-Local Decimal SALIDA_12,SALIDA_MAX,SALIDA_LIN,OF_NO_VEN, CLI, V_QTY(6),V_COSTE(6),V_VENTAS(6),V_MARGEN(6),V_QTY_VEN(6),V_LIN_VEN(6),ZQTY_OF(6),ZLIN_OF(6)
-Local Decimal ZLIN_OFE_O(6),ZCLIVEN(6),ZCLIOFE(6), ZCLIOFEOCULTO(6),ZQ_VEN_ZQTY_OF(6),COBERTURA
-Local Date XWDAT1, ZWDAT2
-Local Char XBPC(250),PALET(2),ZRECML(2),ZGRAAPA(2)
-Raz SALIDA_12,SALIDA_MAX,SALIDA_LIN,XWDAT1, ZWDAT2,OF_NO_VEN, CLI,XBPC,V_QTY,V_COSTE,V_VENTAS,V_MARGEN,V_QTY_VEN,V_LIN_VEN,ZQTY_OF,ZLIN_OF
-Raz ZLIN_OFE_O,ZCLIVEN,ZCLIOFE,ZCLIOFEOCULTO,PALET,ZRECML,ZGRAAPA,ZQ_VEN_ZQTY_OF,COBERTURA
-
-
-
+#ESTADÍSTICAS
 XWDAT1=(date$-365)
 
 Filter [F:SAT] Where COD="ZS12M" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1
@@ -520,7 +515,6 @@ Filter [F:SAT] Where COD="ZS12M" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1
             SALIDA_LIN=SALIDA_LIN+[F:SAT]AMT(1)
          Endif
      Next
-
 Filter [F:SAT]
 
 Filter [F:SAT] Where COD="ZS12D" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1 Order By AMT Desc
@@ -528,7 +522,6 @@ Filter [F:SAT] Where COD="ZS12D" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1 Order By
          If !fstat
             SALIDA_MAX=[F:SAT]AMT(0)
          Endif
-
 Filter [F:SAT]
 
 
@@ -550,6 +543,8 @@ Filter [F:SDD] Where ITMREF=[F:ITM]ITMREF and SHIDAT>=XWDAT1 Order By BPCORD Asc
             Endif
           Endif
       Next
+Filter [F:SDD]
+
 #ESTADISTICAS VENTAS V_MARGENTOT,V_VENTASTOT
 For X=0 To 5
    ZWDAT2=gdat$(1,1,year(date$)-X)
@@ -564,7 +559,7 @@ Filter [F:SAT] Where COD="ZVEN0" and CRI1=[F:ITM]ITMREF  and DAT=ZWDAT2
               Else
                 V_MARGEN(X)=0
               Endif
-       Endif
+        Endif
 Next
 Filter [F:SAT]
 
@@ -613,43 +608,42 @@ Filter [F:SAT]
 For X=0 To 5
    ZWDAT2=gdat$(1,1,year(date$)-X)
    Filter [F:SAT] Where COD="ZOFPC" and CRI1=[F:ITM]ITMREF  and DAT=ZWDAT2 and CRI2<>'$$$'
-   For[F:SAT]
-     If !fstat
-        ZCLIVEN(X)=ZCLIVEN(X)+1
-        #ZLIN_OF(X)=[F:SAT]AMT(1)
-     Endif
-   Next
+     For[F:SAT]
+       If !fstat
+          ZCLIVEN(X)=ZCLIVEN(X)+1
+          #ZLIN_OF(X)=[F:SAT]AMT(1)
+       Endif
+     Next
 Next
-Filter [F:SAT]
+    Filter [F:SAT]
 
 
 #ESTADISTICAS ZCLIOFE
 For X=0 To 5
    ZWDAT2=gdat$(1,1,year(date$)-X)
    Filter [F:SAT] Where COD="ZOFTC" and CRI1=[F:ITM]ITMREF  and DAT=ZWDAT2 and CRI2<>'$$$'
-   For[F:SAT]
-     If !fstat
-        ZCLIOFE(X)=ZCLIOFE(X)+1
-        #ZLIN_OF(X)=[F:SAT]AMT(1)
-     Endif
-   Next
+     For[F:SAT]
+       If !fstat
+          ZCLIOFE(X)=ZCLIOFE(X)+1
+          #ZLIN_OF(X)=[F:SAT]AMT(1)
+       Endif
+     Next
 Next
-Filter [F:SAT]
+    Filter [F:SAT]
 
 
 #ESTADISTICAS ZCLIOFEOCULTO
-
 For X=0 To 5
    ZWDAT2=gdat$(1,1,year(date$)-X)
    Filter [F:SAT] Where COD="ZOFCO" and CRI1=[F:ITM]ITMREF  and DAT=ZWDAT2 and CRI2<>'$$$'
-   For[F:SAT]
-     If !fstat
-        ZCLIOFEOCULTO(X)=ZCLIOFEOCULTO(X)+1
-        #ZLIN_OF(X)=[F:SAT]AMT(1)
-     Endif
-   Next
+     For[F:SAT]
+       If !fstat
+          ZCLIOFEOCULTO(X)=ZCLIOFEOCULTO(X)+1
+          #ZLIN_OF(X)=[F:SAT]AMT(1)
+       Endif
+     Next
 Next
-Filter [F:SAT]
+    Filter [F:SAT]
 
 
 ##PALET
@@ -714,6 +708,9 @@ Endif
 
 Return
 
+
+
+###################################################################
 $CLOSE_TABLAS
-Close Local File [F:SAT],[F:ITM], [F:NTS] ,[F:AXX3] ,[F:AXX2],[F:AXX1],[F:AXX],[F:ITF],[F:ITV],[F:ITH],[F:PTD],[F:ZPPD],[F:BPS],[F:SDD]
+Close Local File [F:SAT],[F:ITM],[F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:ITF],[F:ITV],[F:ITH],[F:PTD],[F:ZPPD],[F:BPS],[F:SDD]
 Return
