@@ -8,8 +8,8 @@
 #Local Char S_UNIWEI(50) : S_UNIWEI = "G"
 #Infbox num$(func CONVERTIR_CANTIDAD(S_UNIWEI,"KG", 216742))
 #Infbox num$(func CANTIDAD_CAJA('2128'))
-Local Char LSTRING(250) : LSTRING = "Buenos d<>as, ruego cuando"
-Infbox func CODIFICA_CHR(LSTRING)
+#Local Char LSTRING(250) : LSTRING = "Buenos d<>as, ruego cuando"
+Infbox func ZAULIB01.CALC_EANCOD()
 End
 
 ###############################################################################
@@ -1881,3 +1881,40 @@ Local Clbfile PSTR(3) : PSTR=PCHARIN
   PSTR=func REPLACE(PSTR,"~","&#126;") : #PSTR=func REPLACE(PSTR,";","&#59;")
 
 End PSTR
+
+#######################
+# 06.288.121
+#**
+#* cálculo automático del código EAN
+#*
+#*!
+Funprog CALC_EANCOD()
+Local Integer   STAT,I,DC,WSUM,WNUM
+Local Char      WEANCOD(20)
+
+  # Código EANCOD
+  Call NUMERO("ZEAN",GFCYDEF(9),datesyst,"",WEANCOD,STAT) From SUBANM
+  If STAT = 0
+    # Cálculo dígito control
+    WSUM=0
+    # (suma de los números en posición impar) * 1
+    For I=1 To 12 Step 2
+      WNUM=val(mid$(WEANCOD,I,1))
+      WSUM+=(WNUM*1)
+    Next I
+    # (suma de los números en posición par) * 3
+    For I=2 To 12 Step 2
+      WNUM=val(mid$(WEANCOD,I,1))
+      WSUM+=(WNUM*3)
+    Next I
+    # dc = 10 - resto(suma/10)
+    DC = 10-(mod(WSUM,10))
+    If DC >= 10 : DC=0 : Endif
+
+    # EANCOD = EAN + DC
+    WEANCOD += num$(DC)
+  Else
+     GOK=0
+  Endif
+
+End WEANCOD

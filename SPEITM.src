@@ -1,25 +1,46 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # Gestión de la máscara ITM0 (Especifico)
+# 06.288.121 - JC.07012021.Forzar calculo código EAN al crear artículo si el usuario no lo ha asignado
+###############################################################################################
+
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ITM0) 07/05/2020 11:40:02 (ADMIN)
 ######################################################################################
 $ACTION
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "APRES_CRE" : Gosub APRES_MOD
-  When "APRES_MOD" : Gosub APRES_MOD
-  When "SETBOUT" : Gosub SETBOUT
+  When "INICRE"     : Gosub INICRE
+  When "INIMOD"     : Gosub INIMOD
+  When "APRES_CRE"  : Gosub APRES_MOD
+  When "APRES_MOD"  : Gosub APRES_MOD
+  When "SETBOUT"    : Gosub SETBOUT
  When Default
 Endcase
 Return
 
-$SETBOUT
-Gosub ACTION From SUBITM
-GPE = 1
-CHMEN+="-"
-
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$INICRE
+# 06.288.121.ini
+  If [M:ITM1]EANCOD='' and ([M:ITM0]TCLCOD='PROD' or [M:ITM0]TCLCOD='KIT' or [M:ITM0]TCLCOD='FCAD' or [M:ITM0]TCLCOD='SUBC')
+    [F:ITM]EANCOD = func ZAULIB01.CALC_EANCOD()
+  Endif
+# 06.288.121.fin
 Return
 
+##############################################################
+$INIMOD
+# 06.288.121.ini
+  If [M:ITM1]EANCOD='' and ([M:ITM0]TCLCOD='PROD' or [M:ITM0]TCLCOD='KIT' or [M:ITM0]TCLCOD='FCAD' or [M:ITM0]TCLCOD='SUBC')
+    [F:ITM]EANCOD = func ZAULIB01.CALC_EANCOD()
+  Endif
+# 06.288.121.fin
+Return
+
+##############################################################
 $APRES_MOD
 [F:ITM]ZPALENT=[M]ZPALENT
 
@@ -30,6 +51,22 @@ Endif
 
 Return
 
+##############################################################
+$SETBOUT
+Gosub ACTION From SUBITM
+GPE = 1
+CHMEN+="-"
+
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+##############################################################
 Subprog AS_DES1AXX(VALEUR)
 Variable Char    VALEUR()
 

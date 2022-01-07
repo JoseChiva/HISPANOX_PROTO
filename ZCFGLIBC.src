@@ -1,0 +1,22 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# PUNTO ENTRADA
+#
+# 06.288.121 - JC.07012021.Forzar calculo código EAN al crear artículo por configuración - BEFWRIITM
+###############################################################################################
+
+$ACTION
+Case ACTION
+  When "BEFWRIITM"     :   Gosub BEFWRIITM
+Endcase
+Return
+
+##############################################################
+$BEFWRIITM
+# 06.288.121.ini
+  If [M:ITM1]EANCOD='' and ([M:ITM0]TCLCOD='PROD' or [M:ITM0]TCLCOD='KIT' or [M:ITM0]TCLCOD='FCAD' or [M:ITM0]TCLCOD='SUBC')
+    [F:ITM]EANCOD = func ZAULIB01.CALC_EANCOD()
+#    [M:ITM1]EANCOD = func ZAULIB01.CALC_EANCOD()
+#    Affzo [M:ITM1]EANCOD
+  Endif
+# 06.288.121.fin
+Return
