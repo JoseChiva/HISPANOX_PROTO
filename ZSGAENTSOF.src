@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ 
+# 06.298.127 - JC.10012021.Entregas con transportista distinto
+###########################################################################
+
 #If GUSER="ADEV" Then
 Call ZSGAENTSOF From ZSGAENTSOF
 #Endif
@@ -3485,6 +3488,10 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   If !clalev([F:ZESO2]) Then : Local File ZVESOF2     [F:ZESO2] : Endif
   If !clalev([F:ZESO5]) Then : Local File ZVESOF5     [F:ZESO5] : Endif
   If !clalev([F:ZPRE])  Then : Local File STOPRED     [F:ZPRE]  : Endif
+# 06.298.127.ini
+  If !clalev([F:ZSOH1]) Then : Local File SORDER      [F:ZSOH1] : Endif
+  If !clalev([F:ZPRE1]) Then : Local File STOPRED     [F:ZPRE1] : Endif
+# 06.298.127.fin
 
   Filter [F:ZESO2] Where NOMFICH = PNOMFICH and ZGENSDHFLG = 2 Order By SDHNUM
   For [F:ZESO2]
@@ -3492,12 +3499,26 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
     Filter [F:ZESOF] Where NOMFICH = [F:ZESO2]NOMFICH and SDHNUM = [F:ZESO2]SDHNUM and INDICADOR = "H"
     Read [F:ZESOF] First
     If !fstat Then
+# 06.298.127.ini
+      Local Char LTRANSP(250)
+      # obtención del trasnportista del pedido que genera el vale de preparación
+      Filter [F:ZPRE1] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
+      Read   [F:ZPRE1] First
+        If !fstat Then
+          Read [F:ZSOH1]SOH0 = [F:ZPRE1]ORINUM
+          If !fstat Then
+            LTRANSP = [F:ZSOH1]BPTNUM
+          Endif
+        Endif
+      Filter [F:ZPRE1]
+# 06.298.127.fin
       LSHIDAT = left$(num$([F:ZESOF]SHIDAT),2)+mid$(num$([F:ZESOF]SHIDAT),4,2)+mid$(num$([F:ZESOF]SHIDAT),7,4)
       LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
+#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
     Endif
     Filter [F:ZESOF]
     # añade al fichero las líneas del vale desde la tabla específica
@@ -3529,7 +3550,10 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 
   Call ECR_TRACE("########################################################################",0) From GESECRAN
 
-  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE]
+# 06.298.127.ini
+#  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE]
+  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE],[ZSOH1],[ZPRE1]
+# 06.298.127.fin
 
   # cerramos el fichero
   Openo Using [ZIMP]
