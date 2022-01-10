@@ -1,4 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.298.132 - JC.10012021.dirección nueva pedido web
+########################################################################
+
+
 #If GUSER="ADEV"
 Gosub EXEC
 #Endif
@@ -661,14 +665,32 @@ Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2
     LCPENVIO    = [F:BPA0]POSCOD
     LCODADR     = [F:ZOPH2]CODADR
   Else
-    If !clalev([F:BPD1]) Then : Local File BPDLVCUST [F:BPD1] : Endif
-    Filter [F:BPD1] Where BPCNUM = [F:ZOPH2]BPCORD
-    Read [F:BPD1] First
+# 06.298.132.ini
+#    If !clalev([F:BPD1]) Then : Local File BPDLVCUST [F:BPD1] : Endif
+#    Filter [F:BPD1] Where BPCNUM = [F:ZOPH2]BPCORD
+#    Read [F:BPD1] First
+#    If !fstat Then
+#      LCODADR   = [F:BPD1]BPAADD
+#    Endif
+#    Filter [F:BPD1]
+#    Close Local File [BPD1]
+    If !clalev([F:BPC1]) Then : Local File BPCUSTOMER [F:BPC1] : Endif
+    If !clalev([F:BPA1]) Then : Local File BPADDRESS  [F:BPA1] : Endif
+    If !clalev([F:BPD1]) Then : Local File BPDLVCUST  [F:BPD1] : Endif
+    Read [F:BPC1]BPC0 = [F:ZOPH2]BPCORD
     If !fstat Then
-      LCODADR   = [F:BPD1]BPAADD
+      Read [F:BPA1]BPA0 = 1;[F:BPC1]BPCNUM;[F:BPC1]BPDADD
+      Read [F:BPD1]BPD0 = [F:BPC1]BPCNUM;[F:BPC1]BPDADD
+      LNOMENVIO   = [F:BPD1]BPDNAM(0)
+      LNOMENVIO2  = [F:BPD1]BPDNAM(1)
+      LDIRENVIO1  = left$([F:BPA1]BPAADDLIG(0),50)
+      LDIRENVIO2  = left$([F:BPA1]BPAADDLIG(1),50)
+      LPOBENVIO   = left$([F:BPA1]CTY,40)
+      LPROENVIO   = left$([F:BPA1]SAT,35)
+      LCPENVIO    = [F:BPA1]POSCOD
     Endif
-    Filter [F:BPD1]
-    Close Local File [BPD1]
+    Close Local File [BPC1],[BPA1],[BPD1]
+# 06.298.132.fin
   Endif
   Close Local File [BPD0],[BPA0]
 Return
