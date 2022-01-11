@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.298.685 - JC.11012021.no funciona la importación Ofertas Web
+#################################################################
+
 #If GUSER="ADEV" Then
 Gosub EXEC
 #Endif
@@ -35,7 +38,7 @@ Local Decimal LZPRECLI
 Local Integer LERRIMPORT
 
   LFICHEROIMP='WOFE*'
-#  LFICHEROIMP='WOFE20210916'
+#  LFICHEROIMP='WOFE20211222'
   Raz NFICHEROS
 
   LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
@@ -95,10 +98,16 @@ Local Integer LERRIMPORT
     Call ECR_TRACE("########################################################################",0) From GESECRAN
 
     # Abre fichero original para leer
-    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMP_R]
-    Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
+# 06.298.685.ini
+#    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMP_R]
+#    Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
+#    Openi   LFILE                     Using [ZIMP_R]
+#    Iomode  adxifs ";"                Using [ZIMP_R]
     Openi   LFILE                     Using [ZIMP_R]
+    Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
     Iomode  adxifs ";"                Using [ZIMP_R]
+    Iomode  adxirs chr$(10)           Using [ZIMP_R]
+# 06.298.685.fin
 
     LECOK = 1
     Local Integer LNUMLIN
