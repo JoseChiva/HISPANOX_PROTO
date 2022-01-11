@@ -1,5 +1,5 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-# 06.298.685 - JC.11012021.no funciona la importación Ofertas Web
+# 06.298.587 - JC.11012021.no funciona la importación Ofertas Web
 #################################################################
 
 #If GUSER="ADEV" Then
@@ -98,7 +98,7 @@ Local Integer LERRIMPORT
     Call ECR_TRACE("########################################################################",0) From GESECRAN
 
     # Abre fichero original para leer
-# 06.298.685.ini
+# 06.298.587.ini
 #    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMP_R]
 #    Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
 #    Openi   LFILE                     Using [ZIMP_R]
@@ -107,7 +107,7 @@ Local Integer LERRIMPORT
     Iomode  adxium 50                 Using [ZIMP_R] # 50 = ASCII 0 = UTF8
     Iomode  adxifs ";"                Using [ZIMP_R]
     Iomode  adxirs chr$(10)           Using [ZIMP_R]
-# 06.298.685.fin
+# 06.298.587.fin
 
     LECOK = 1
     Local Integer LNUMLIN
