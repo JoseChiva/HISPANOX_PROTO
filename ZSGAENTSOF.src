@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ 
 # 06.298.127 - JC.10012021.Entregas con transportista distinto
+# 06.298.712 - JC.11012021.Fecha expedición/entrega en las entregas
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -36,7 +37,7 @@ If !clalev([F:ZITM])  : Local File ITMMASTER  [ZITM] : Endif
 #If !clalev([F:ITG])   : Local File ITMCATEG   [ITG] : Endif
 If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
 
-  WFICHEROIMP='ABCSOF0*'
+  WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
 #  WFICHEROIMP='aaa_ABCSOF0120211210151858000-VP2100001'
 #  WFICHEROIMP='aaa222'
@@ -263,11 +264,18 @@ $GUARDA_SOF_EN_TABLA
       RESULT  = WPACNBR
       RESULT  = vireblc(RESULT,1)
       [F:ZESOF]PACNBR = RESULT
+# 06.298.712.ini
+#     #SHIDAT
+#      WLONG=10
+#      [F:ZESOF]SHIDAT = gdat$(val(mid$(WPRPRELEASEDATE,9,2)),val(mid$(WPRPRELEASEDATE,6,2)),val(mid$(WPRPRELEASEDATE,1,4)))
+#     #DLVDAT
+#      [F:ZESOF]DLVDAT = gdat$(val(mid$(WPRPRELEASEDATE,9,2)),val(mid$(WPRPRELEASEDATE,6,2)),val(mid$(WPRPRELEASEDATE,1,4)))
      #SHIDAT
       WLONG=10
-      [F:ZESOF]SHIDAT = gdat$(val(mid$(WPRPRELEASEDATE,9,2)),val(mid$(WPRPRELEASEDATE,6,2)),val(mid$(WPRPRELEASEDATE,1,4)))
+      [F:ZESOF]SHIDAT = mid$(LNOMFICHERO,6,8)
      #DLVDAT
-      [F:ZESOF]DLVDAT = gdat$(val(mid$(WPRPRELEASEDATE,9,2)),val(mid$(WPRPRELEASEDATE,6,2)),val(mid$(WPRPRELEASEDATE,1,4)))
+      [F:ZESOF]DLVDAT = mid$(LNOMFICHERO,6,8)
+# 06.298.712.fin
      #ZTIPOPEDSGA
       WLONG   = 20
       IANTES = I
