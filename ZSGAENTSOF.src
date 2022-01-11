@@ -562,7 +562,7 @@ $GUARDA_SOF_EN_TABLA
           Write [F:ZESOF]
           If !fstat Then
             Commit
-            Call ECR_TRACE("Línea:"-num$(WLNENUMBER),0) From GESECRAN
+#            Call ECR_TRACE("Línea:"-num$(WLNENUMBER),0) From GESECRAN
             GSTERROR = 0
           Else
             Rollback
@@ -1136,7 +1136,7 @@ Value Char PNOMFICH
         Rewrite [F:ZPRH]
         If !fstat Then
           Commit
-          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
+#          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
           GSTERROR = 0
         Else
           Rollback
@@ -3081,8 +3081,8 @@ Value Decimal PQTY
 
 #If GUSER="ADEV" Then Infbox "entra actualiza_stopred2" : Endif
 
-  Call ECR_TRACE("Actualiza tabla STOPRED",0) From GESECRAN
-  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+#  Call ECR_TRACE("Actualiza tabla STOPRED",0) From GESECRAN
+#  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
 
   If !clalev([F:ZPRE])  Then : Local File STOPRED [F:ZPRE]  : Endif
 
@@ -3099,7 +3099,7 @@ Value Decimal PQTY
     Rewrite [F:ZPRE]
     If !fstat Then
       Commit
-      Call ECR_TRACE("VP:"-PPRHNUM-"/ Línea:"-num$(PPRELIN),0) From GESECRAN
+#      Call ECR_TRACE("VP:"-PPRHNUM-"/ Línea:"-num$(PPRELIN),0) From GESECRAN
       GSTERROR = 0
     Else
       Rollback
@@ -3433,7 +3433,7 @@ Value Char PNOMFICH
         Rewrite [F:ZPRH]
         If !fstat Then
           Commit
-          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
+#          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
           GSTERROR = 0
         Else
           Rollback

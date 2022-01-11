@@ -2,8 +2,7 @@
 #MRR03 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
 #DEV: RPES 20201217 Tarifas transportistas
 #DEV: JESP 20210121 Tarifas transportistas
-######################################################################################
-## Etiqueta añadida por el supervisor (pantalla SDH1) 12/11/2020 12:36:50 (ADMIN)
+# 06.298.715 - JC.11012022.errores importación SOF
 ######################################################################################
 
 ######################################################################################
@@ -79,7 +78,10 @@ $VERIF_CRE
   Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO_MANUAL
   [M:SDH2]INVDTAAMT(GDACDLV) = [M:SDH1]ZIMPTRFACT+[M:SDH1]ZIMPTRFACMAN
   Affzo [M:SDH2]
+  Local Integer TMPLIN: TMPLIN = nolign             # 06.298.715.new
+  nolign = GDACDLV + 1                              # 06.298.715.new
   Call AM_INVDTAAMT([M:SDH2]INVDTAAMT(GDACDLV)) From W2SDH2
+  nolign = TMPLIN                                   # 06.298.715.new
 
   GPE=1
 # JC.150921.VTAS054.calculo porte en entregas.FIN
@@ -105,7 +107,10 @@ $VERIF_MOD
   Call CALCULO_TRANSPORTE_FACTURACION_PORTE_FACTURADO_MANUAL
   [M:SDH2]INVDTAAMT(GDACDLV) = [M:SDH1]ZIMPTRFACT+[M:SDH1]ZIMPTRFACMAN
   Affzo [M:SDH2]
+  Local Integer TMPLIN: TMPLIN = nolign             # 06.298.715.new
+  nolign = GDACDLV + 1                              # 06.298.715.new
   Call AM_INVDTAAMT([M:SDH2]INVDTAAMT(GDACDLV)) From W2SDH2
+  nolign = TMPLIN                                   # 06.298.715.new
 
   GPE=1
 # JC.150921.VTAS054.calculo porte en entregas.FIN
