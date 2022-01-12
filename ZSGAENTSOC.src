@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 #
 # 06.288.239 : error lectura SOC - nuevo estado 'Rotura stock'
+# 06.299.137 - JC.12012022.error SOC - nuevo estado
 ################################################################
 
 
@@ -15,7 +16,7 @@ Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), C
 Local Char WFICINP1(250), FICH2(250)
 Local Integer NFICHEROS, WNESTADO, NFICH2, I, M
 Local Char FICHEROS(250)(1..1000)
-Local Char WESTADOS(20)(1..6)         # 06.288.239.new
+Local Char WESTADOS(20)(1..7)         # 06.288.239.new
 Local Char FICHEROIMP(250), FICHEROEXP(250)
 Local Char WSITE(250), WSORCODE(250), WSTATUS(250), WUPDATEDATE(250), WCHECKNEXTSITE(250)
 Local Integer A, LFSTATFICHERO, NFICHEROS
@@ -42,12 +43,13 @@ Local Clbfile XDATA (10)
   WESTADOS(4)='Paused'
   WESTADOS(5)='Closed'
   WESTADOS(6)='StockFailure'          # 06.288.239.new
+  WESTADOS(7)='EntregaCompleta'       # 06.299.137.new
 
   If !clalev([F:ZPRH]) : Local File STOPREH   [ZPRH] : Endif
 
   Call ECR_TRACE('SOC* - Cambio de estado de órdenes de salida',0) From GESECRAN
 
-  WFICHEROIMP='ABCSOC01*'
+  WFICHEROIMP='SOC01*'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -93,25 +95,30 @@ Local Clbfile XDATA (10)
 
 
       Gosub RESU_WESTADOS
-      Read [ZPRH]PRH0=WSORCODE
-      If !fstat
-        Gosub RESU_PRH
-      Else
-        Call ECR_TRACE('Vale de preparacion: '+WSORCODE+' No existe',1) From GESECRAN
-        LERROR = 1
-#        Read [ZSRH]SRH0=WRORCODE
-#        Gosub RESU_SDH
-      Endif
-      M=I
-      [L]WCHECKNEXTSITE   =func GET_PROPXML(XDATA,"Site",M)
-      If [L]WCHECKNEXTSITE=''
-        Break
-      Endif
+      If WNESTADO <> 0 Then                                                 # 06.299.137.new
+        Read [ZPRH]PRH0=WSORCODE
+        If !fstat
+          Gosub RESU_PRH
+        Else
+          Call ECR_TRACE('Vale de preparacion: '+WSORCODE+' No existe',1) From GESECRAN
+          LERROR = 1
+#          Read [ZSRH]SRH0=WRORCODE
+#          Gosub RESU_SDH
+        Endif
+        M=I
+        [L]WCHECKNEXTSITE   =func GET_PROPXML(XDATA,"Site",M)
+        If [L]WCHECKNEXTSITE=''
+          Break
+        Endif
+      Else                                                                  # 06.299.137.new
+        Call ECR_TRACE('Error!!!! Estado inexistente',0) From GESECRAN      # 06.299.137.new
+        LERROR  = 1                                                         # 06.299.137.new
+        WDENTRO = 1                                                         # 06.299.137.new
+      Endif                                                                 # 06.299.137.new
 
     Wend
 
     Openi Using [ZZZ]
-    Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
 
     # JC.06102021.INI
     If LERROR = 1 Then
@@ -125,6 +132,9 @@ Local Clbfile XDATA (10)
   Next
   If WTRAZA=2
     Call FERME_TRACE From LECFIC
+    If !GSERVEUR Then
+      Call LEC_TRACE From LECFIC
+    Endif
   Endif
 End
 
@@ -151,7 +161,7 @@ Return
 ##############################################################
 $RESU_WESTADOS
   WNESTADO=0
-  For N=1 To 6                        # 06.288.239.new
+  For N=1 To dim(WESTADOS)                                                  # 06.288.239.new
     If WESTADOS(N)=WSTATUS
       WNESTADO=N
       Break
