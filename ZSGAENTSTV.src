@@ -2,6 +2,7 @@
 #############################################################
 # JC.03112021-1    Bug. Si la cantidad física es inferior a la asignada, hacía salida de la cantidad asignada. Ahora hace salida de cero
 # JC.03112021-2    Bug. Cuando no hay suficiente cantidad en asignaciones detalladas, no hacía desasignación de pedidos con asig. global
+# 06.299.138 - JC.12012022.error importación STV - ajustes stock
 #############################################################
 
 #If GUSER="ADEV"
@@ -54,6 +55,15 @@ Local Clbfile XDATA (10)
       #Call ECR_TRACE('No existe STV0*',1) From GESECRAN
       End
     Endif
+
+# 06.299.138.ini
+    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (STV0xxxxxxxxxxx.0.xml)
+    If WFICINP1 <> LNOMFICHERO Then
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERROR)
+      Gosub MUEVE_FILE_ERR
+      Break
+    Endif
+# 06.299.138.fin
 
     #Abrimos y leemos el fichero
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
@@ -776,6 +786,11 @@ Local     Integer LDES
           If LQTYDISPONIBLEX3 >= PQTYSTV Then
             Break
           Endif
+        Else
+# 06.299.138.ini
+          LERROR += 1
+          Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVAL]SOHNUM+" porque está abierto",0) From GESECRAN
+# 06.299.138.fin
         Endif
         Filter [F:ZALK]
       Next
@@ -839,6 +854,11 @@ Local     Integer LDES
         If LQTYDESGLOBALX3 >= (PQTYSTV - (LQTYFISICATOTALX3 - LQTYASIGLOBALX3)) Then
           Break
         Endif
+      Else
+# 06.299.138.ini
+        LERROR += 1
+        Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVA2]SOHNUM+" porque está abierto",0) From GESECRAN
+# 06.299.138.fin
       Endif
       Filter [F:ZALK]
     Next
