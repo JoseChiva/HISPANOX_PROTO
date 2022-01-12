@@ -143,6 +143,11 @@ $RESU_PRH
   [F:ZPRH]ZSTATUS=WNESTADO
   [F:ZPRH]ZUPDATE=num$(datetime$)
   Rewrite [ZPRH]
+# 06.288.239.ini
+  If fstat <> 0
+    LERROR = 1
+  Endif
+# 06.288.239.fin
   Call ECR_TRACE("Vale de preparacion: "+WSORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
 Return
 
