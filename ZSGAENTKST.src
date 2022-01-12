@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
+##########################################################################################################################
+
 #If GUSER="ADEV"
 Call ZSGAENTKST From ZSGAENTKST
 #Endif
@@ -31,6 +34,7 @@ Local Clbfile XDATA (10)
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
   WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
   WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\KST"
+  WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"                       # 06.299.138.new
 
   CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
   ORDSYS = "dir "+CFILE+" /A-d /b"
@@ -38,6 +42,7 @@ Local Clbfile XDATA (10)
   LFSTATFICHERO=0
 
   For A=1 To NFICHEROS
+    Local Integer LERROR                                                    # 06.299.138.new
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
     LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
@@ -45,6 +50,15 @@ Local Clbfile XDATA (10)
     If instr(1,FICHEROS(1),'xml')=0
       End
     Endif
+
+# 06.299.138.ini
+    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (KST0xxxxxxxxxxx.0.xml)
+    If WFICINP1 <> LNOMFICHERO Then
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERROR)
+      Gosub MUEVE_FILE_ERR
+      Break
+    Endif
+# 06.299.138.fin
 
     #Abrimos y leemos el fichero
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
@@ -80,8 +94,9 @@ Local Clbfile XDATA (10)
     mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
     Call FERME_TRACE From LECFIC
-    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                                 # si se producen errores
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                   # si se producen errores
       Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,"entrada")
+      LERROR = 1                                                            # 06.299.138.new
     Endif
 
     # salida varia
@@ -95,11 +110,16 @@ Local Clbfile XDATA (10)
     mkstat = 0 : fstat = 0 : GERRTRACE = 0
     Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
     Call FERME_TRACE From LECFIC
-    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                                 # si se producen errores
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                   # si se producen errores
       Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,"salida")
+      LERROR = 1                                                            # 06.299.138.new
     Endif
 
-    Gosub MUEVE_FILE
+    If LERROR = 1 Then                                                      # 06.299.138.new
+      Gosub MUEVE_FILE_ERR                                                  # 06.299.138.new
+    Else                                                                    # 06.299.138.new
+      Gosub MUEVE_FILE
+    Endif                                                                   # 06.299.138.new
   Next
 
 End
@@ -161,8 +181,10 @@ $GUARDA_KST_EN_TABLA
     Write   [F:ZEKST]
     If !fstat Then
       Commit
+      LERROR = 0                                                            # 06.299.138.new
     Else
       Rollback
+      LERROR = 1                                                            # 06.299.138.new
     Endif
 
 #### ARTÍCULOS COMPONENTE
@@ -231,8 +253,10 @@ $GUARDA_KST_EN_TABLA
       Write   [F:ZEKST]
       If !fstat Then
         Commit
+        LERROR = 0                                                          # 06.299.138.new
       Else
         Rollback
+        LERROR = 1                                                          # 06.299.138.new
       Endif
 
     Next
@@ -245,8 +269,10 @@ $GUARDA_KST_EN_TABLA
       Rewrite   [F:ZEKST]
       If !fstat Then
         Commit
+        LERROR = 0                                                          # 06.299.138.new
       Else
         Rollback
+        LERROR = 1                                                          # 06.299.138.new
       Endif
     Endif
 
@@ -581,6 +607,12 @@ Return
 ##############################################################
 $MUEVE_FILE
   ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGATRATADOS,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+##############################################################
+$MUEVE_FILE_ERR
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGAERROR,"", "","","","")
   Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
 Return
 

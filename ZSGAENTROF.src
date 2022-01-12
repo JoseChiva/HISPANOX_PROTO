@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
+##########################################################################################################################
+
 #If GUSER="ADEV" Then
 Call ZSGAENTROF From ZSGAENTROF
 #Endif
@@ -40,6 +43,7 @@ Local Clbfile XDATA (10)
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
   WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
   WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\ROF"
+  WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"                       # 06.299.138.new
 
   CFILE   = filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
   ORDSYS  = "dir "+CFILE+" /A-d /b"
@@ -57,6 +61,16 @@ Local Clbfile XDATA (10)
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
     LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    Local Integer LERROR                                                    # 06.299.138.new
+
+# 06.299.138.ini
+    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (ROF0xxxxxxxxxxx.0.xml)
+    If WFICINP1 <> LNOMFICHERO Then
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERROR)
+      Gosub MUEVE_FILE_ERR
+      Break
+    Endif
+# 06.299.138.fin
 
     #Abrimos y leemos el fichero
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
@@ -84,24 +98,34 @@ Local Clbfile XDATA (10)
     Openi Using [ZZZ]
 
     Gosub RESU_WESTADOS
-
-    WDEVOLUCION=1
-    If WRORCODE<>''
-      Read [ZSHH]SHH0=WRORCODE
-      If fstat
-        Read [ZSRH]SRH0=WRORCODE
-        If !fstat
-          WDEVOLUCION=2
-          Gosub RESU_SRH
+    If WNESTADO <> 0 Then                                                 # 06.299.138.new
+      WDEVOLUCION=1
+      If WRORCODE<>''
+        Read [ZSHH]SHH0=WRORCODE
+        If fstat
+          Read [ZSRH]SRH0=WRORCODE
+          If !fstat
+            WDEVOLUCION=2
+            Gosub RESU_SRH
+          Endif
+        Else
+          Gosub RESU_SHH
         Endif
-      Else
-        Gosub RESU_SHH
       Endif
-    Endif
+    Else                                                                  # 06.299.138.new
+      Call ECR_TRACE('Error!!!! Estado inexistente',0) From GESECRAN      # 06.299.138.new
+      LERROR  = 1                                                         # 06.299.138.new
+      WDENTRO = 1                                                         # 06.299.138.new
+    Endif                                                                 # 06.299.138.new
+
 
     Openi Using [ZECO]
 
-    Gosub MUEVE_FILE
+    If LERROR = 1 Then                                                    # 06.299.138.new
+      Gosub MUEVE_FILE_ERR                                                # 06.299.138.new
+    Else                                                                  # 06.299.138.new
+      Gosub MUEVE_FILE
+    Endif                                                                 # 06.299.138.new
 
   Next
 
@@ -756,9 +780,17 @@ $MUEVE_FILE
 Return
 
 ##############################################################
+# 06.288.239.ini
+$MUEVE_FILE_ERR
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGAERROR,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+# 06.288.239.fin
+
+##############################################################
 $RESU_WESTADOS
   WNESTADO=1
-  For N=1 To dim(WESTADOS)
+  For N=1 To dim(WESTADOS)                                                  # 06.288.239.new
     If WESTADOS(N)=WSTATUS
       WNESTADO=N
       Break
@@ -772,6 +804,11 @@ $RESU_SHH
    [F:ZSHH]ZUPDATE=num$(datetime$)
    #format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
    Rewrite [ZSHH]
+# 06.299.138.ini
+   If fstat <> 0
+     LERROR = 1
+   Endif
+# 06.299.138.fin
    Call ECR_TRACE("SHH: "+WRORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
 Return
 
@@ -786,6 +823,7 @@ $RESU_SRH
     Commit
    Else
     Rollback
+    LERROR = 1                                                              # 06.299.138.new
    Endif
    Call ECR_TRACE("SHH: "+WRORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
 Return
@@ -813,3 +851,29 @@ Local Integer J, OLDI
     I=OLDI
   Endif
 End ""
+
+###############################################################
+#**
+#* envía correo con la traza y el fichero que ha generado el error
+#*
+#* @param PNOMFICH  > nombre del fichero ROF
+#* @param PTIPO     > entrada/salida
+#*!
+Subprog LANZA_WORKFLOW_ERRORES(PNOMFICH,PTIPO)
+Value Char  PNOMFICH,PTIPO
+  # lanza un workflow para avisar de que la importación ha fallado
+  Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+  GASUNTO   = "Error en la "+PTIPO+" ROF del fichero"-PNOMFICH
+  GCORREO   = "sergi.cunill@hispanox.com"
+#  GCORREO   = "joseluis.chiva@auren.es"
+  GFICHERO  = PNOMFICH
+  GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
+  GTEXTO2   = "Documento adjunto con la traza."
+  Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+  If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+  If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+End

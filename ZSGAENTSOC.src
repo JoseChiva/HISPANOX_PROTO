@@ -76,6 +76,15 @@ Local Clbfile XDATA (10)
     LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
 
+# 06.299.138.ini
+    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (SOC0xxxxxxxxxxx.0.xml)
+    If WFICINP1 <> LNOMFICHERO Then
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1)
+      Gosub MUEVE_FILE_ERR
+      Break
+    Endif
+# 06.299.138.fin
+
     #Abrimos y leemos el fichero
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
 
@@ -143,11 +152,11 @@ $RESU_PRH
   [F:ZPRH]ZSTATUS=WNESTADO
   [F:ZPRH]ZUPDATE=num$(datetime$)
   Rewrite [ZPRH]
-# 06.288.239.ini
+# 06.299.137.ini
   If fstat <> 0
     LERROR = 1
   Endif
-# 06.288.239.fin
+# 06.299.137.fin
   Call ECR_TRACE("Vale de preparacion: "+WSORCODE+' Est: '+WESTADOS(WNESTADO),0) From GESECRAN
 Return
 
