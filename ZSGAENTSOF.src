@@ -1,7 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ 
 # 06.298.127 - JC.10012021.Entregas con transportista distinto
 # 06.298.712 - JC.11012021.Fecha expedición/entrega en las entregas
-# 06.299.397 - JC.13012022.direcciones VP erróneas
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -3522,29 +3521,13 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Filter [F:ZPRE1]
 # 06.298.127.fin
 
-# 06.299.397.ini
-      Gosub DIRECCIONES
-# 06.299.397.fin
-
       LSHIDAT = left$(num$([F:ZESOF]SHIDAT),2)+mid$(num$([F:ZESOF]SHIDAT),4,2)+mid$(num$([F:ZESOF]SHIDAT),7,4)
       LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
-# 06.299.397.ini
-#      Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
-#&           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
-#&           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
-##&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP     + ";" +
-&           LBPDNAM0            + ";" + LBPDNAM1          + ";" + LBPDADDLIG0           + ";" + LBPDADDLIG1 + ";" +
-&           LBPDADDLIG2         + ";" + LBPDPOSCOD        + ";" + LBPDCTY               + ";" + LBPDSAT     + ";" +
-&           LBPDCRY             + ";" + LBPDCRYNAM        + ";" + LCNDNAM               + ";" +
-&           LBPINAM0            + ";" + LBPINAM1          + ";" + LBPIADDLIG0           + ";" + LBPIADDLIG1 + ";" +
-&           LBPIADDLIG2         + ";" + LBPIPOSCOD        + ";" + LBPICTY               + ";" + LBPISAT     + ";" +
-&           LBPICRY             + ";" + LBPICRYNAM        + ";" + LCNINAM               Using [ZIMP]
-# 06.299.397.fin
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
+#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
     Endif
     Filter [F:ZESOF]
     # añade al fichero las líneas del vale desde la tabla específica
@@ -3590,10 +3573,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   Call ECR_TRACE("########################################################################",0) From GESECRAN
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
-# 06.299.397.ini
-#  Call IMPORTSIL ("ZSDHSOF3",LFILETXT)From GIMPOBJ
   Call IMPORTSIL ("ZSDHSOF",LFILETXT)From GIMPOBJ
-# 06.299.397.fin
 
   # gestiona un error en la importación
   If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
@@ -3763,48 +3743,46 @@ End
 #
 #End
 
-##############################################################
-# 06.299.397.ini
-$DIRECCIONES
-Local Char LBPDNAM0(250),LBPDNAM1(250),LBPDADDLIG0(250),LBPDADDLIG1(250),LBPDADDLIG2(250),LBPDPOSCOD(250),LBPDCTY(250),LBPDSAT(250),LBPDCRY(250),LBPDCRYNAM(250),LCNDNAM(250)
-Local Char LBPINAM0(250),LBPINAM1(250),LBPIADDLIG0(250),LBPIADDLIG1(250),LBPIADDLIG2(250),LBPIPOSCOD(250),LBPICTY(250),LBPISAT(250),LBPICRY(250),LBPICRYNAM(250),LCNINAM(250)
-
-  If !clalev([F:ZSOH2]) Then : Local File SORDER      [F:ZSOH2] : Endif
-  If !clalev([F:ZPRE2]) Then : Local File STOPRED     [F:ZPRE2] : Endif
-
-  Filter [F:ZPRE2] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
-  Read   [F:ZPRE2] First
-    If !fstat Then
-      Read [F:ZSOH2]SOH0 = [F:ZPRE2]ORINUM
-      If !fstat Then
-        # datos dirección entrega
-        LBPDNAM0    = vireblc([F:ZSOH2]BPDNAM(0),2)
-        LBPDNAM1    = vireblc([F:ZSOH2]BPDNAM(1),2)
-        LBPDADDLIG0 = vireblc([F:ZSOH2]BPDADDLIG(0),2)
-        LBPDADDLIG1 = vireblc([F:ZSOH2]BPDADDLIG(1),2)
-        LBPDADDLIG2 = vireblc([F:ZSOH2]BPDADDLIG(2),2)
-        LBPDPOSCOD  = vireblc([F:ZSOH2]BPDPOSCOD,2)
-        LBPDCTY     = vireblc([F:ZSOH2]BPDCTY,2)
-        LBPDSAT     = vireblc([F:ZSOH2]BPDSAT,2)
-        LBPDCRY     = vireblc([F:ZSOH2]BPDCRY,2)
-        LBPDCRYNAM  = vireblc([F:ZSOH2]BPDCRYNAM,2)
-        LCNDNAM     = vireblc([F:ZSOH2]CNDNAM,2)
-        # datos dirección facturación
-        LBPINAM0    = vireblc([F:ZSOH2]BPINAM(0),2)
-        LBPINAM1    = vireblc([F:ZSOH2]BPINAM(1),2)
-        LBPIADDLIG0 = vireblc([F:ZSOH2]BPIADDLIG(0),2)
-        LBPIADDLIG1 = vireblc([F:ZSOH2]BPIADDLIG(1),2)
-        LBPIADDLIG2 = vireblc([F:ZSOH2]BPIADDLIG(2),2)
-        LBPIPOSCOD  = vireblc([F:ZSOH2]BPIPOSCOD,2)
-        LBPICTY     = vireblc([F:ZSOH2]BPICTY,2)
-        LBPISAT     = vireblc([F:ZSOH2]BPISAT,2)
-        LBPICRY     = vireblc([F:ZSOH2]BPICRY,2)
-        LBPICRYNAM  = vireblc([F:ZSOH2]BPICRYNAM,2)
-        LCNINAM     = vireblc([F:ZSOH2]CNINAM,2)
-      Endif
-    Endif
-  Filter [F:ZPRE2]
-
-  Close Local File [ZSOH2],[ZPRE2]
-Return
-# 06.299.397.fin
+###############################################################
+#$DIRECCIONES
+#Local Char LBPDNAM0(250),LBPDNAM1(250),LBPDADDLIG0(250),LBPDADDLIG1(250),LBPDADDLIG2(250),LBPDPOSCOD(250),LBPDCTY(250),LBPDSAT(250),LBPDCRY(250),LBPDCRYNAM(250),LCNDNAM(250)
+#Local Char LBPINAM0(250),LBPINAM1(250),LBPIADDLIG0(250),LBPIADDLIG1(250),LBPIADDLIG2(250),LBPIPOSCOD(250),LBPICTY(250),LBPISAT(250),LBPICRY(250),LBPICRYNAM(250),LCNINAM(250)
+#
+#  If !clalev([F:ZSOH2]) Then : Local File SORDER      [F:ZSOH2] : Endif
+#  If !clalev([F:ZPRE2]) Then : Local File STOPRED     [F:ZPRE2] : Endif
+#
+#  Filter [F:ZPRE2] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
+#  Read   [F:ZPRE2] First
+#    If !fstat Then
+#      Read [F:ZSOH2]SOH0 = [F:ZPRE2]ORINUM
+#      If !fstat Then
+#        # datos dirección entrega
+#        LBPDNAM0    = vireblc([F:ZSOH2]BPDNAM(0),2)
+#        LBPDNAM1    = vireblc([F:ZSOH2]BPDNAM(1),2)
+#        LBPDADDLIG0 = vireblc([F:ZSOH2]BPDADDLIG(0),2)
+#        LBPDADDLIG1 = vireblc([F:ZSOH2]BPDADDLIG(1),2)
+#        LBPDADDLIG2 = vireblc([F:ZSOH2]BPDADDLIG(2),2)
+#        LBPDPOSCOD  = vireblc([F:ZSOH2]BPDPOSCOD,2)
+#        LBPDCTY     = vireblc([F:ZSOH2]BPDCTY,2)
+#        LBPDSAT     = vireblc([F:ZSOH2]BPDSAT,2)
+#        LBPDCRY     = vireblc([F:ZSOH2]BPDCRY,2)
+#        LBPDCRYNAM  = vireblc([F:ZSOH2]BPDCRYNAM,2)
+#        LCNDNAM     = vireblc([F:ZSOH2]CNDNAM,2)
+#        # datos dirección facturación
+#        LBPINAM0    = vireblc([F:ZSOH2]BPINAM(0),2)
+#        LBPINAM1    = vireblc([F:ZSOH2]BPINAM(1),2)
+#        LBPIADDLIG0 = vireblc([F:ZSOH2]BPIADDLIG(0),2)
+#        LBPIADDLIG1 = vireblc([F:ZSOH2]BPIADDLIG(1),2)
+#        LBPIADDLIG2 = vireblc([F:ZSOH2]BPIADDLIG(2),2)
+#        LBPIPOSCOD  = vireblc([F:ZSOH2]BPIPOSCOD,2)
+#        LBPICTY     = vireblc([F:ZSOH2]BPICTY,2)
+#        LBPISAT     = vireblc([F:ZSOH2]BPISAT,2)
+#        LBPICRY     = vireblc([F:ZSOH2]BPICRY,2)
+#        LBPICRYNAM  = vireblc([F:ZSOH2]BPICRYNAM,2)
+#        LCNINAM     = vireblc([F:ZSOH2]CNINAM,2)
+#      Endif
+#    Endif
+#  Filter [F:ZPRE2]
+#
+#  Close Local File [ZSOH2],[ZPRE2]
+#Return
