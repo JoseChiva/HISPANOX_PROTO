@@ -241,6 +241,19 @@ Local Clbfile XDATA (10)
     Endif
     # JC.06102021.FIN
 
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMR,"",""), 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMR,"","")
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMO,"",""), 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMO,"","")
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMR,"","")+".err", 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMR,"","")+".err"
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMO,"","")+".err", 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMO,"","")+".err"
+    Endif
+
     Call LANZA_WORKFLOW_SIN_SALIDA(WFICHEROIMP)
 
     Call FERME_TRACE From LECFIC
