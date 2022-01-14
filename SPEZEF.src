@@ -13,7 +13,9 @@
 ## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 23/02/2021 16:39:34 (DEVAU)
 ######################################################################################
 $ACTION
-#Infbox ACTION
+#If GUSER="ADMIN" and dim(NBRCPY)>0
+#Infbox ACTION+"/"+num$(NBRCPY)
+#Endif
 Case ACTION
   When "OUVRE"  : Gosub OUVRE
   When "DEBUT"  : Gosub DEBUT
@@ -21,6 +23,19 @@ Case ACTION
   When "SETBOUT" : Gosub SETBOUT
   When Default
 Endcase
+
+Case ACTION
+  When "IMPRIME"  : Gosub IMPRIME
+Endcase
+
+Return
+
+######################################################################################
+$IMPRIME
+If GACTION = "ZENVFAC"
+  Infbox "LinSPE/"+num$(NBRCPY)
+  NBRCPY=3
+Endif
 Return
 
 ######################################################################################
@@ -264,7 +279,7 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
 
       NBPAR += 1
       TBPAR(NBPAR) = "typefin"
-      TBVAL(NBPAR) = "5"
+      TBVAL(NBPAR) = "1"
 
       NBPAR += 1
       TBPAR(NBPAR) = "codimp"
@@ -281,14 +296,19 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
       TBPAR(NBPAR) = "nadxuid"
       TBVAL(NBPAR) = vireblc(num$(adxuid(1)),4)
 
+#      NBPAR+=1
+#      TBPAR(NBPAR) = "ncopias"
+#      #Esto varia
+#      If ZDESTINO = "FILE"
+#        TBVAL(NBPAR) = "0"
+#      Else
+#        TBVAL(NBPAR) = num$(ZCOP)
+#      Endif
+
       NBPAR+=1
-      TBPAR(NBPAR) = "ncopias"
-      #Esto varia
-      If ZDESTINO = "FILE"
-        TBVAL(NBPAR) = "0"
-      Else
-        TBVAL(NBPAR) = num$(ZCOP)
-      Endif
+      TBPAR(NBPAR) = "duplicata"
+      TBVAL(NBPAR) = "Si"
+
       NBPAR+=1
       TBPAR(NBPAR) = "etat"
       TBVAL(NBPAR) = [F:ARP]RPTCOD
@@ -300,7 +320,11 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
       #4 - 0 or 1 it shows or not the info message 'print executed'
       #5 - TBPAR_BP
       #6 - TBVAL_BP
-
+#      For I =1 To NBPAR
+#        Infbox TBPAR(I) + "/"+TBVAL(I)
+#      Next
+#
+#      End
       Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
       If ZDESTINO = "FILE"
         Call MRK_FAC(P_NUM,1)
