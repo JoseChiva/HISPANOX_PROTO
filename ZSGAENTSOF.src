@@ -2,6 +2,8 @@
 # 06.298.127 - JC.10012021.Entregas con transportista distinto
 # 06.298.712 - JC.11012021.Fecha expedición/entrega en las entregas
 # 06.299.407 - JC.13012022.Error SOF por una cancelación
+# 06.300.273 - JC.14012022.Error fichero SOF
+# 06.299.138 - JC.12012022.error importación STV - ajustes stock
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -82,8 +84,16 @@ If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
     LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    Local Integer LERROR                                                    # 06.299.138.new
 
-    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+# 06.299.138.ini
+    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (STV0xxxxxxxxxxx.0.xml)
+    If WFICINP1 <> LNOMFICHERO Then
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1)
+      Gosub MUEVE_FILE_ERR
+      Break
+    Endif
+# 06.299.138.fin
 
     #Abrimos y leemos el fichero XML
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
@@ -578,7 +588,6 @@ $GUARDA_SOF_EN_TABLA
       $ENDNEXTLINEA
       LCONTVALE+=1
     Endif
-    Call ECR_TRACE("---------------------------------------",0) From GESECRAN
 # 06.299.407.ini
     $ENDFOR
 # 06.299.407.fin
@@ -3065,7 +3074,7 @@ Value Decimal PQTY
     Endif
   Endif
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
   Close Local File [ZPRE],[ZSOQ]
 
@@ -3118,7 +3127,7 @@ Value Decimal PQTY
     GSTERROR = 1
   Endif
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
   Close Local File [ZPRE]
 
@@ -3157,7 +3166,7 @@ Value Decimal PQTY
     Rewrite [F:ZSTO]
     If !fstat
       Commit
-      Call ECR_TRACE("Artículo:"-PITMREF-"/ Lote:"-PLOT,0) From GESECRAN
+#      Call ECR_TRACE("Artículo:"-PITMREF-"/ Lote:"-PLOT,0) From GESECRAN
       GSTERROR = 0
     Else
       Rollback
@@ -3169,7 +3178,7 @@ Value Decimal PQTY
     GSTERROR = 1
   Endif
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
   Close Local File [ZSTO]
 
@@ -3207,7 +3216,7 @@ Value Decimal PQTY
     Rewrite [F:ZITV]
     If !fstat Then
       Commit
-      Call ECR_TRACE("Artículo:"-PITMREF-"/ Planta:"-PSTOFCY,0) From GESECRAN
+#      Call ECR_TRACE("Artículo:"-PITMREF-"/ Planta:"-PSTOFCY,0) From GESECRAN
       GSTERROR = 0
     Else
       Rollback
@@ -3320,8 +3329,8 @@ Local Char    LDELETE(5) : LDELETE = "YES"
         Write [F:ZSTA2]
         If !fstat Then
           Commit
-          Call ECR_TRACE("VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:ZSTA2]SEQ),
-& 0) From GESECRAN
+#          Call ECR_TRACE("VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-
+#&         num$([F:ZSTA2]SEQ),0) From GESECRAN
           GSTERROR = 0
         Else
           Rollback
@@ -3408,7 +3417,7 @@ Local Char    LDELETE(5) : LDELETE = "YES"
     Endif
   Next
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
   Close Local File [ZESO1],[ZESO3],[ZESOF],[ZSTO],[ZSTA1],[ZSTA2],[ZSTA3],[ZSTA4],[ZSTA5],[ZDS0],[ZDS1]
 
@@ -3456,7 +3465,7 @@ Value Char PNOMFICH
 #    Endif
   Next
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
   Filter [F:ZESO1]
   Close Local File [ZESO1],[ZPRH]
@@ -3507,6 +3516,9 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   If !clalev([F:ZSOH1]) Then : Local File SORDER      [F:ZSOH1] : Endif
   If !clalev([F:ZPRE1]) Then : Local File STOPRED     [F:ZPRE1] : Endif
 # 06.298.127.fin
+# 06.300.273.ini
+  If !clalev([F:ZES11]) Then : Local File ZVESOF11    [F:ZES11] : Endif
+# 06.300.273.fin
 
   Filter [F:ZESO2] Where NOMFICH = PNOMFICH and ZGENSDHFLG = 2 Order By SDHNUM
   For [F:ZESO2]
@@ -3537,19 +3549,30 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
     Endif
     Filter [F:ZESOF]
+# 06.300.273.ini
+#    # añade al fichero las líneas del vale desde la tabla específica
+#    Filter [F:ZESO5] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "L" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
+#    For [F:ZESO5]
+#      Call ECR_TRACE("  VP:"-[F:ZESO5]PRHNUM-"/ Línea:"-num$([F:ZESO5]PRELIN)-"/ Artículo:"-[F:ZESO5]ITMREF-"/ Cantidad:"-num$([F:ZESO5]QTY),0) From GESECRAN
+#      Wrseq [F:ZESO5]INDICADOR  + ";" + [F:ZESO5]PRHNUM   + ";" + num$([F:ZESO5]PRELIN) + ";" +
+#&           [F:ZESO5]ITMREF     + ";" + [F:ZESO5]ITMDES   + ";" + num$([F:ZESO5]QTY)    + ";" +
+#&           [F:ZESO5]SAU        + ";" + [F:ZESO5]ZLOTPROV + ";" + [F:ZESO5]ZUSRSERV     Using [ZIMP]
+##      STAT = func COMPRUEBA_STOCK([F:ZESO5]PRHNUM,[F:ZESO5]PRELIN,LMESSAGE)
+##      If STAT = 0 Then
+##        Call ECR_TRACE(LMESSAGE,1) From GESECRAN
+##      Endif
+#    Next
+#    Filter [F:ZESO5]
     # añade al fichero las líneas del vale desde la tabla específica
-    Filter [F:ZESO5] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "L" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
-    For [F:ZESO5]
-      Call ECR_TRACE("  VP:"-[F:ZESO5]PRHNUM-"/ Línea:"-num$([F:ZESO5]PRELIN)-"/ Artículo:"-[F:ZESO5]ITMREF-"/ Cantidad:"-num$([F:ZESO5]QTY),0) From GESECRAN
-      Wrseq [F:ZESO5]INDICADOR  + ";" + [F:ZESO5]PRHNUM   + ";" + num$([F:ZESO5]PRELIN) + ";" +
-&           [F:ZESO5]ITMREF     + ";" + [F:ZESO5]ITMDES   + ";" + num$([F:ZESO5]QTY)    + ";" +
-&           [F:ZESO5]SAU        + ";" + [F:ZESO5]ZLOTPROV + ";" + [F:ZESO5]ZUSRSERV     Using [ZIMP]
-#      STAT = func COMPRUEBA_STOCK([F:ZESO5]PRHNUM,[F:ZESO5]PRELIN,LMESSAGE)
-      If STAT = 0 Then
-        Call ECR_TRACE(LMESSAGE,1) From GESECRAN
-      Endif
+    Filter [F:ZES11] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "L" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
+    For [F:ZES11]
+      Call ECR_TRACE("  VP:"-[F:ZES11]PRHNUM-"/ Línea:"-num$([F:ZES11]PRELIN)-"/ Artículo:"-[F:ZES11]ITMREF-"/ Cantidad:"-num$([F:ZES11]QTY),0) From GESECRAN
+      Wrseq [F:ZES11]INDICADOR  + ";" + [F:ZES11]PRHNUM   + ";" + num$([F:ZES11]PRELIN) + ";" +
+&           [F:ZES11]ITMREF     + ";" + [F:ZES11]ITMDES   + ";" + num$([F:ZES11]QTY)    + ";" +
+&           [F:ZES11]SAU        + ";" + [F:ZES11]ZLOTPROV + ";" + [F:ZES11]ZUSRSERV     Using [ZIMP]
     Next
-    Filter [F:ZESO5]
+    Filter [F:ZES11]
+# 06.300.273.fin
     # añade al fichero, desde la tabla de líneas de vale de preparación, aquellas líneas que contengan artículos que no gestionen stock (CERT001)
     Filter [F:ZESOX] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "H" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
     For [F:ZESOX]
@@ -3564,11 +3587,11 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
     Next
   Next
 
-  Call ECR_TRACE("########################################################################",0) From GESECRAN
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
 
 # 06.298.127.ini
 #  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE]
-  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE],[ZSOH1],[ZPRE1]
+  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE],[ZSOH1],[ZPRE1],[ZES11]
 # 06.298.127.fin
 
   # cerramos el fichero
@@ -3616,9 +3639,9 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   If filinfo(LFILETXT, 7) > 0 Then
     System "ae_rm " + LFILETXT
   Endif
-  If filinfo(LFILETXT+".err", 7) > 0 Then
-    System "ae_rm " + LFILETXT+".err"
-  Endif
+#  If filinfo(LFILETXT+".err", 7) > 0 Then
+#    System "ae_rm " + LFILETXT+".err"
+#  Endif
 
   Call ECR_TRACE("########################################################################",0) From GESECRAN
 
