@@ -11,6 +11,7 @@ End
 #DEV: JESP 20210121 Tarifas transportistas
 # 06.288.426 : errores importación pedidos web - ML.03.01.2021
 # 06.288.473 : importación pedidos web - bloqueo por portes
+# 06.299.618 - JC.17012022.Presupuestos venta
 #######################################################################################
 
 
@@ -1397,6 +1398,22 @@ Variable Decimal VALEUR
     Affzo [M:SOH4]ZPFM(nolign-1)
   Endif
 #If GUSER="ADEV" Then : Infbox "salgo am_gropri"-num$(VALEUR) : Endif
+End
+
+######################################################################################
+## Antes del campo 'Precio bruto' (pantalla SOH4) 17/01/2022 19:01:17 (ADEV)
+######################################################################################
+Subprog AV_GROPRI(VALEUR)
+Variable Decimal VALEUR
+# 06.299.618.ini
+  Case [M:SOH4]ZUNPRE(nolign-1)
+    When "UN"        :   [M:SOH4]ZPRECLI(nolign-1)  = VALEUR
+    When "CEN"       :   [M:SOH4]ZPRECLI(nolign-1)  = VALEUR * 100
+    When "MIL"       :   [M:SOH4]ZPRECLI(nolign-1)  = VALEUR * 1000
+    When Default
+  Endcase
+  Affzo [M:SOH4]ZPRECLI(nolign-1)
+# 06.299.618.fin
 End
 
 ######################################################################################

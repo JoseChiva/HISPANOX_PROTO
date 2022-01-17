@@ -9,6 +9,7 @@
 #DEV: RPES 20201213  VTAS-029 PEDIDOS Y PRESUPUESTOS VENTAS
 #DEV: RPES 20201217 Tarifas transportistas
 # 06.288.553 - JC.05012022.Recálculo de GROPRI corregido tras modificar cantidad
+# 06.299.618 - JC.17012022.Presupuestos venta
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SQH2) 23/03/2020 10:26:41 (ADMIN)
 ######################################################################################
@@ -1232,8 +1233,17 @@ Variable Decimal VALEUR
 #      Call AM_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
 #    Endif
 # 06.288.553 - JC.05012022.fin
-
   Endif
+
+# 06.299.618.ini
+  Case [M:SQH2]ZUNPRE(nolign-1)
+    When "UN"        :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR
+    When "CEN"       :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR * 100
+    When "MIL"       :   [M:SQH2]ZPRECLI(nolign-1)  = VALEUR * 1000
+    When Default
+  Endcase
+  Affzo [M:SQH2]ZPRECLI(nolign-1)
+# 06.299.618.fin
 #If GUSER="ADEV" Then : Infbox "salgo av_gropri"-num$(VALEUR) : Endif
 End
 
