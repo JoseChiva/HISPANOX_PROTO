@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.298.132 - JC.10012021.dirección nueva pedido web
+# 06.301.868 - JC.18012022.problemas dirección entrega en importación pedidos WEB
 ########################################################################
 
 
@@ -419,10 +420,16 @@ $GENERA_SQH
     Gosub ELEM_FACT
 
     # datos de cabecera de presupuesto
+# 06.301.868.ini
+#    Wrseq "E" + ";" + "PHISP" + ";" + LPARAMTIPODOC + ";" + "" + ";" + [F:ZOPH2]BPCORD + ";" + num$([F:ZOPH2]ORDDAT) + ";" + [F:ZOPH2]CUSORDREF + ";" + "PHISP" + ";" +
+#&         [F:ZOPH2]CUR + ";" + LCODADR + ";" + LNOMENVIO + ";" + LNOMENVIO2 + ";" + LDIRENVIO1 + ";" + LDIRENVIO2 + ";" +
+#&         LPOBENVIO + ";" + LPROENVIO + ";" + LCPENVIO + ";" + GBPTNUM + ";" + num$(LPORTES) + ";" + "1" + ";" + "2" + ";" + num$(LDTOPP) + ";" + "3" + ";" + "3" +
+#&         ";" + [F:ZOPH2]SOHNUM + ";" + num$(GZFREINV) + ";" + [F:ZOPH2]COMCLI Using [ZIMPQ_W]
     Wrseq "E" + ";" + "PHISP" + ";" + LPARAMTIPODOC + ";" + "" + ";" + [F:ZOPH2]BPCORD + ";" + num$([F:ZOPH2]ORDDAT) + ";" + [F:ZOPH2]CUSORDREF + ";" + "PHISP" + ";" +
-&         [F:ZOPH2]CUR + ";" + LCODADR + ";" + LNOMENVIO + ";" + LNOMENVIO2 + ";" + LDIRENVIO1 + ";" + LDIRENVIO2 + ";" +
-&         LPOBENVIO + ";" + LPROENVIO + ";" + LCPENVIO + ";" + GBPTNUM + ";" + num$(LPORTES) + ";" + "1" + ";" + "2" + ";" + num$(LDTOPP) + ";" + "3" + ";" + "3" +
-&         ";" + [F:ZOPH2]SOHNUM + ";" + num$(GZFREINV) + ";" + [F:ZOPH2]COMCLI Using [ZIMPQ_W]
+&         [F:ZOPH2]CUR + ";" + LCODADR + ";" + LNOMENVIO + ";" + LNOMENVIO2 + ";" + LDIRENVIO1 + ";" + LDIRENVIO2 + ";" + LDIRENVIO3 + ";" +
+&         LPOBENVIO + ";" + LPROENVIO + ";" + LCPENVIO + ";" + LCPAISENVIO + ";" + LNPAISENVIO + ";" + GBPTNUM + ";" + num$(LPORTES) + ";" + "1" + ";" + "2" + ";" +
+&         num$(LDTOPP) + ";" + "3" + ";" + "3" + ";" + [F:ZOPH2]SOHNUM + ";" + num$(GZFREINV) + ";" + [F:ZOPH2]COMCLI Using [ZIMPQ_W]
+# 06.301.868.fin
 
     Local Integer OK_LIN
     # datos de las líneas de presupuesto
@@ -498,7 +505,8 @@ $OPEN_FILEQ_W
 
 adxifs = ";"
 adxirs = chr$(13)+chr$(10)
-Openo LFILETMP Using [ZIMPQ_W]
+Openo LFILETMP    Using [ZIMPQ_W]
+Iomode adxium 50  Using [ZIMPQ_W]           # 06.301.868.new
 
 Return
 
@@ -643,7 +651,7 @@ Return
 
 ########################################################
 $DIR_ENTREGA
-Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2(250),LPOBENVIO(250),LPROENVIO(250),LCPENVIO(250)
+Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2(250),LDIRENVIO3(250),LCPENVIO(250),LPOBENVIO(250),LPROENVIO(250),LCPAISENVIO(250),LNPAISENVIO(250)
   LNOMENVIO   = [F:ZOPH2]NOMENVIO
   LNOMENVIO2  = [F:ZOPH2]NOMENVIO2
   LDIRENVIO1  = left$([F:ZOPH2]DIRENVIO,50)
@@ -658,10 +666,19 @@ Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2
     Read [F:BPA0]BPA0 = 1;[F:BPD0]BPCNUM;[F:BPD0]BPAADD
     LNOMENVIO   = [F:BPD0]BPDNAM(0)
     LNOMENVIO2  = [F:BPD0]BPDNAM(1)
-    LDIRENVIO1  = left$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),50)
-    LDIRENVIO2  = mid$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),51,50)
-    LPOBENVIO   = left$([F:BPA0]CTY,40)
-    LPROENVIO   = left$([F:BPA0]SAT,35)
+# 06.301.868.ini
+#    LDIRENVIO1  = left$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),50)
+#    LDIRENVIO2  = mid$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),51,50)
+#    LPOBENVIO   = left$([F:BPA0]CTY,40)
+#    LPROENVIO   = left$([F:BPA0]SAT,35)
+    LDIRENVIO1  = [F:BPA0]BPAADDLIG(0)
+    LDIRENVIO2  = [F:BPA0]BPAADDLIG(1)
+    LDIRENVIO3  = [F:BPA0]BPAADDLIG(2)
+    LPOBENVIO   = [F:BPA0]CTY
+    LPROENVIO   = [F:BPA0]SAT
+    LCPAISENVIO = [F:BPA0]CRY
+    LNPAISENVIO = [F:BPA0]CRYNAM
+# 06.301.868.fin
     LCPENVIO    = [F:BPA0]POSCOD
     LCODADR     = [F:ZOPH2]CODADR
   Else
@@ -683,10 +700,19 @@ Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2
       Read [F:BPD1]BPD0 = [F:BPC1]BPCNUM;[F:BPC1]BPDADD
       LNOMENVIO   = [F:BPD1]BPDNAM(0)
       LNOMENVIO2  = [F:BPD1]BPDNAM(1)
-      LDIRENVIO1  = left$([F:BPA1]BPAADDLIG(0),50)
-      LDIRENVIO2  = left$([F:BPA1]BPAADDLIG(1),50)
-      LPOBENVIO   = left$([F:BPA1]CTY,40)
-      LPROENVIO   = left$([F:BPA1]SAT,35)
+# 06.301.868.ini
+#      LDIRENVIO1  = left$([F:BPA1]BPAADDLIG(0),50)
+#      LDIRENVIO2  = left$([F:BPA1]BPAADDLIG(1),50)
+#      LPOBENVIO   = left$([F:BPA1]CTY,40)
+#      LPROENVIO   = left$([F:BPA1]SAT,35)
+      LDIRENVIO1  = [F:BPA1]BPAADDLIG(0)
+      LDIRENVIO2  = [F:BPA1]BPAADDLIG(1)
+      LDIRENVIO3  = [F:BPA1]BPAADDLIG(2)
+      LPOBENVIO   = [F:BPA1]CTY
+      LPROENVIO   = [F:BPA1]SAT
+      LCPAISENVIO = [F:BPA1]CRY
+      LNPAISENVIO = [F:BPA1]CRYNAM
+# 06.301.868.fin
       LCPENVIO    = [F:BPA1]POSCOD
     Endif
     Close Local File [BPC1],[BPA1],[BPD1]
