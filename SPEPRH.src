@@ -1,7 +1,9 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ Vales de preparación
 #
 #MLGA - Al cambiar el Vale de Preparacion a ENTREGABLE(V) se general el XML SOR - 07/2020
-#
+# 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
+#############################################################################################
+
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
@@ -29,7 +31,8 @@ Local Integer LCON
     Read [F:PRE0]PRE0 = [M:PRH0]PRHNUM;[M:PRH1]PRELIN(LCON)
     If !fstat Then
       Trbegin [F:PRE0]
-      [F:PRE0]ZEXPORT = [M:PRH1]ZEXPORT(LCON)
+      [F:PRE0]ZEXPORT     = [M:PRH1]ZEXPORT(LCON)
+      [F:PRE0]ZTXTALMACEN = [M:PRH1]ZTXTALMACEN(LCON)             # 06.302.178.new
       Rewrite [F:PRE0]
       If !fstat Then
         Commit
@@ -40,7 +43,6 @@ Local Integer LCON
   Next
   Close Local File [PRE0]
   If dim(LCON)>0 Then : Kill LCON :Endif
-
 #  Call ZSGASOR([M:PRH0]PRHNUM,'') From ZSGASOR
 # JC.03062021.END
 

@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.397 - JC.13012022.direcciones VP erróneas
+# 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -444,9 +445,14 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
             If !fstat
       #        WLNECOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
 #              WLNECOMMENT = func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE)
-              WLNECOMMENT = ""
+# 06.302.178.ini
+#              WLNECOMMENT = ""
+# 06.302.178.fin
             Endif
           Endif
+# 06.302.178.ini
+          WLNECOMMENT = [F:ZPRE]ZTXTALMACEN
+# 06.302.178.fin
           AA=func PUT_PROPXML('LneComment',WLNECOMMENT,4,2)
           #LneQuantity
           AA=func PUT_PROPXML('LneQuantity','',4,1)
