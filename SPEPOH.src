@@ -7,14 +7,89 @@
 ## Etiqueta añadida por el supervisor (pantalla POH2) 20/02/2020 16:33:52 (ADMIN)
 ######################################################################################
 $ACTION
-#If GUSER = 'ADEV' Then : Infbox ACTION : Endif
+#If GUSER = 'ADMIN' Infbox ACTION  Endif
 Case ACTION
-  When "EXEBOUT"  : Gosub EXEBOUT
-  When "APRES_CRE": Gosub APRES_CRE
-  When "APRES_MOD": Gosub APRES_MOD
-  When "AP_ANNULE": Gosub AP_ANNULE
+  When "EXEBOUT"    : Gosub EXEBOUT
+  When "APRES_CRE"  : Gosub APRES_CRE
+  When "APRES_MOD"  : Gosub APRES_MOD
+  When "AP_ANNULE"  : Gosub AP_ANNULE
+  When "APRES_MODIF": Gosub APRES_MODIF
+  When "INICRE"     : Gosub INICRE
+  When "INIMOD"     : Gosub INIMOD
+  When "LIENS"      : Gosub LIENS
+  When "OUVRE"      : Gosub OUVRE
   When Default
 Endcase
+
+#Punto de entrada para mantener el Arancel al duplicar pedido
+Case ACTION
+  When "RECH_COST"      : Gosub RECH_COST
+Endcase
+
+Return
+
+#######################################################
+$RECH_COST
+Local Integer NX: Raz NX
+If dim([M:POH2]ZTMPCPRCOE)>0
+  For NX=0 To [M:POH2]NBLIG-1
+    [M:POH2]CPRCOE(NX) = [M:POH2]ZTMPCPRCOE(NX)
+  Next
+Endif
+Return
+
+#######################################################
+$OUVRE
+#adxsca = "...,**$_"
+
+Return
+
+#######################################################
+$LIENS
+Gosub ACTION From SUBPOH
+GPE=1
+Titcol [M:POH2]NBLIG "Arancel" For CPRCOE
+If [F:POH]CLEFLG<>2
+  Actzo [M:POH1]ZCPRCOE
+  Actzo [M:POH1]ZDISCRGVAL1
+  Actzo [M:POH1]ZHPRIDIV
+  Actzo [M:POH1]ZDTOPREC
+  Actzo [M:POH1]ZPORCTOL
+Endif
+Affzo [M:POH2]
+Affzo [M:POH1]ZDTOPREC
+Return
+
+#######################################################
+$INICRE
+Gosub ACTION From SUBPOH
+GPE=1
+For I = 0 To [M:POH2]NBLIG-1
+  [M:POH2]ZPORCOSTE(I) = 100*[M:POH2]CPR(I)
+  [M:POH2]ZTMPCPRCOE(I)=[M:POH2]CPRCOE(I)
+Next
+Return
+
+#######################################################
+$INIMOD
+Gosub ACTION From SUBPOH
+GPE=1
+For I = 0 To [M:POH2]NBLIG-1
+  [M:POH2]ZPORCOSTE(I) = 100*[M:POH2]CPR(I)
+  [M:POH2]ZTMPCPRCOE(I)=[M:POH2]CPRCOE(I)
+Next
+Return
+
+#######################################################
+$APRES_MODIF
+#If status = 65 # si se presiona el boton suprimmir de una linea de una grilla
+#  Raz [M:POH2]NBLIG2
+#  Affzo [M:POH2]
+#Endif
+#If status = 83  # si se presiona el boton suprimmir de una grilla
+#  Raz [M:POH2]NBLIG2
+#  Affzo [M:POH2]10
+#Endif
 Return
 
 #######################################################
@@ -69,7 +144,7 @@ Return
 #######################################################
 Subprog AM_ITMREF(VALEUR)
 Variable Char    VALEUR()
-
+Call CARGAR_OFERTAS(VALEUR)
 If !clalev([F:ITM1])   : Local File ITMMASTER[ITM1]    : Endif
 
 Filter [F:ITM1] Where ITMREF = VALEUR
@@ -90,15 +165,20 @@ Affzo [M:POH2]CPRCOE(nolign-1)
 
 #MRR02 ini
 If clalev([F:ITM2])=0:  Local File ITMMASTER[ITM2]: Endif
-
-Filter [F:ITM2] Where ITMREF = VALEUR
-Read [F:ITM2] First
+If clalev([F:ZSRU])=0:  Local File TABSTORUL[ZSRU]: Endif
+Read [F:ITM2]ITM0 = VALEUR
 If !fstat Then
   [M:POH2]ZITMDES2(nolign-1) = [F:ITM2]ITMDES2
   Affzo [M:POH2]ZITMDES2(nolign-1)
+
+  [M:POH2]ZSTA(nolign-1) = "A"
+  Affzo [M:POH2]ZSTA(nolign-1)
 Endif
 #MRR02 fin
-
+[M:POH2]ZLPORCTOL(nolign-1) = [M:POH1]ZPORCTOL
+[M:POH2]ZLPRIDIV(nolign-1) = [M:POH1]ZHPRIDIV
+Affzo [M:POH2]ZLPRIDIV(nolign-1)
+Affzo [M:POH2]ZLPORCTOL(nolign-1)
 End
 
 ######################################################################################
@@ -107,7 +187,12 @@ End
 Subprog AM_BPSNUM(VALEUR)
 Variable Char    VALEUR()
 [M:POH1]ZCPRCOE = [F:BPS]ZCPRCOE
+If [M:POH1]ZCPRCOE = 0 : [M:POH1]ZCPRCOE=1 Endif
+[M:POH1]ZHPRIDIV = [F:BPS]ZUNPRE
+[M:POH1]ZPORCTOL = [F:BPS]ZPORCTOL
 Affzo [M:POH1]ZCPRCOE
+Affzo [M:POH1]ZHPRIDIV
+Affzo [M:POH1]ZPORCTOL
 End
 
 ######################################################################################
@@ -122,7 +207,7 @@ If [M:POH2]NBLIG > 0
   If GBIDI2  = 2 Then
   For I = 0 To NBLIG-1
       [M:POH2]CPRCOE(I) = VALEUR
-      [M:POH2]UPDFLG = 2
+      [M:POH2]UPDFLG(I) = 2
       Affzo [M:POH2]CPRCOE(I)
   Next
 
@@ -134,21 +219,9 @@ End
 ## Etiqueta añadida por el supervisor (pantalla POH2) 05/06/2020 09:58:21 (ADMIN)
 ######################################################################################
 Subprog AVANT_NBLIG
-If [M:POH2]ITMREF(nolign-1)<> ""
-  If clalev([F:ZPPD])=0: Local File ZPRESPD [ZPPD]: Endif
-  Filter [F:ZPPD] Where [F:ZPPD]ITMREF = [M:POH2]ITMREF(nolign-1) and [F:ZPPD]BPSNUM = [M:POH0]BPSNUM Order By
-&       [F:ZPPD]LINRSPDAT Desc
-  Raz [M:POH2]NBLIG2
-  For [F:ZPPD]
-    I = [M:POH2]NBLIG2
-    [M:POH2]ZBPSPRI(I) = [F:ZPPD]BPSPRI
-    [M:POH2]NBLIG2+=1
-    If I = 15 :Break Endif
-  Next
-  Affzo [M:POH2]10
-  Filter [F:ZPPD]
-Endif
-
+  [M:POH0]ZSELLIN = nolign
+  Affzo [M:POH0]ZSELLIN
+  Call CARGAR_OFERTAS([M:POH2]ITMREF(nolign-1))
 End
 
 ######################################################################################
@@ -162,12 +235,14 @@ If [M:POH2]NBLIG > 0
   If GBIDI2  = 2 Then
     For Z = 0 To [M:POH2]NBLIG-1
         #Dbgaff
+        nolign=Z+1
+        Call AVANT_NBLIG() From SUBPOH
         Call PAMAPPFLG("POH2",Z,"DISCRGVAL1")
         Call PAMDISCRG(VALEUR,"POH2",1,Z,[M:POH1]CUR)
         Call PAMVATFLG("POH2",Z,"DISCRGVAL1") From TRTACHFAC1
         [M:POH2]DISCRGVAL1(Z)= VALEUR
         [M:POH2]UPDFLG(Z) = 2
-
+        Call APRES_NBLIG() From SUBPOH
     Next
     Affzo [M:POH2]
   Endif
@@ -243,12 +318,13 @@ Value  Integer  DISCRGNUM
 Value  Integer  NOLIG
 Value  Char     WCUR
 #Dbgaff
+
 #----- CHARGEMENT MOTIF MANUEL PAR DéFAUT -----#
 If DISCRGNUM>0 & DISCRGNUM<10
    If !GIMPORT & VALEUR=evalue("[M:"+WABMSK+"]DISCRGVAL"+num$(DISCRGNUM)+"(NOLIG)") End : Endif
    Assign "[M:"+WABMSK+"]DISCRGREN"+num$(DISCRGNUM)+"(NOLIG)" With GDACMANPUR
 Elsif DISCRGNUM=0
-   If !GIMPORT & VALEUR=evalue("[M:"+WABMSK+"]GROPRI(NOLIG)") End : Endif
+   #If !GIMPORT & VALEUR=evalue("[M:"+WABMSK+"]GROPRI(NOLIG)") End : Endif
    Assign "[M:"+WABMSK+"]PRIREN(NOLIG)" With GDACMANPUR
 Endif
 If evalue("dim([M:"+WABMSK+"]GROPRI(NOLIG))")<1 End : Endif
@@ -296,6 +372,7 @@ If dim(GCALNETLIN)>0  GCALNETLIN=NOLIG+1          : Endif
 If dim(GCALNETABR)>0  GCALNETABR="[M:"+WABMSK+"]" : Endif
 Call CALNET(2,[F:BPS]PLISTC,GROPRI,DISCRGVAL,QTY,NETPRI,WCUR) From TRTPRICE
 If GMESSAGE<>"" Call MESSAGE(GMESSAGE) From GESECRAN : Raz GMESSAGE : Endif
+
 Assign "[M:"+WABMSK+"]NETPRI(NOLIG)" With NETPRI
 If !GIMPORT Affzo [M:POH2]NETPRI(NOLIG) : Endif
 #----- calcul et affichage du montant ligne -----#
@@ -371,7 +448,245 @@ End
 ######################################################################################
 Subprog CL_ZSEL(VALEUR)
 Variable Char    VALEUR()
+Local Integer TMPNOLIGN: TMPNOLIGN = nolign
+
+If [M:POH2]NBLIG > 0 and [M:POH2]ITMREF([M:POH0]ZSELLIN-1) = [M:POH2]ZITMREF(nolign-1)
+  If  [M:POH1]CUR <> [M:POH2]ZLINCUR(TMPNOLIGN-1)
+    Errbox "Las divisas son distintas"
+    End
+  Endif
+  Call OUINON("Aplicar datos de la oferta proveedor? (SI/NO)",GBIDI2) From GESECRAN
+  If GBIDI2  = 2 Then
+    nolign = [M:POH0]ZSELLIN
+    [M:POH2]ZLBPSPRI([M:POH0]ZSELLIN-1) = [M:POH2]ZBPSPRI(TMPNOLIGN-1)
+    [M:POH2]DISCRGVAL1([M:POH0]ZSELLIN-1) = [M:POH2]ZLDISCRGVAL1(TMPNOLIGN-1)
+    [M:POH2]CPRCOE([M:POH0]ZSELLIN-1) = [M:POH2]ZLINCPRCOE(TMPNOLIGN-1)
+    [M:POH2]ZLPRIDIV([M:POH0]ZSELLIN-1) = [M:POH2]ZLINPRIDIV(TMPNOLIGN-1)
+    Affzo [M:POH2]ZLBPSPRI([M:POH0]ZSELLIN-1)
+    Affzo [M:POH2]DISCRGVAL1([M:POH0]ZSELLIN-1)
+    Affzo [M:POH2]CPRCOE([M:POH0]ZSELLIN-1)
+    Affzo [M:POH2]ZLPRIDIV([M:POH0]ZSELLIN-1)
+    Call AVANT_NBLIG() From SUBPOH
+    Call AM_ZLBPSPRI([M:POH2]ZLBPSPRI([M:POH0]ZSELLIN-1))
+    Call APRES_NBLIG() From SUBPOH
+    [M:POH2]WSTCUPD([M:POH0]ZSELLIN-1) = 2
+    nolign = TMPNOLIGN
+    Affzo [M:POH2]
+  Endif
+Endif
 End
 
 
 ######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH2) 22/10/2021 07:07:53 (ADMIN)
+######################################################################################
+Subprog C_ZSTA(VALEUR)
+Variable Char    VALEUR()
+If clalev([F:TST])=0: Local File TABSTASTO [TST]: Endif
+Read [F:TST]TST0 = VALEUR
+If fstat
+  Errbox "Valor incorrecto"
+  mkstat = 2
+Endif
+End
+
+Subprog S_ZSTA(VALEUR)
+Variable Char    VALEUR()
+
+If clalev([F:ZAXX])=0: Local File ATEXTRA [ZAXX]: Endif
+
+Filter [F:ZAXX] Where [F:ZAXX]CODFIC = "TABSTASTO" and [F:ZAXX]ZONE = "STAAXX" and [F:ZAXX]LANGUE = "SPA"
+ Choose [F:ZAXX]
+& Using [F:ZAXX]IDENT1 Titled "Estado",
+&[F:ZAXX]TEXTE Titled "Descripción" Titled "Selección estado de stock"
+Filter [F:ZAXX]
+Case status
+  When 0       : Call MESSAGE(mess(99,100,1)) From GESECRAN
+  When 7
+  When Default : VALEUR = [F:ZAXX]IDENT1
+Endcase
+
+End
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH2) 24/10/2021 03:28:59 (ADMIN)
+######################################################################################
+Subprog AM_ZLBPSPRI(VALEUR)
+Variable Decimal VALEUR
+Local Integer DIV : DIV = 1
+Case [M:POH2]ZLPRIDIV(nolign-1)
+  When "UN" : DIV = 1
+  When "CEN" : DIV = 100
+  When "MIL": DIV = 1000
+Endcase
+If [M:POH2]ZINIPRI(nolign-1) = 0 : [M:POH2]ZINIPRI(nolign-1)=VALEUR Endif
+[M:POH2]GROPRI(nolign-1) = VALEUR/DIV
+
+#Affzo [M:POH2]GROPRI(nolign-1)
+
+Call IB_GROPRI() From SUBPOH
+Call AP_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH
+Call AM_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH
+Call PAMAPPFLG("POH2",nolign-1,"GROPRI")
+Call PAMDISCRG([M:POH2]GROPRI(nolign-1),"POH2",0,nolign-1,[M:POH1]CUR)
+Call PAMVATFLG("POH2",nolign-1,"GROPRI") From TRTACHFAC1
+Affzo [M:POH2]GROPRI(nolign-1)
+End
+
+Subprog AM_ZLPRIDIV(VALEUR)
+Variable Char    VALEUR()
+Local Integer DIV : DIV = 1
+Case VALEUR
+  When "UN" : DIV = 1
+  When "CEN" : DIV = 100
+  When "MIL": DIV = 1000
+Endcase
+
+[M:POH2]GROPRI(nolign-1) = [M:POH2]ZLBPSPRI(nolign-1)/DIV
+Call IB_GROPRI() From SUBPOH
+Call AP_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH
+Call AM_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH
+Call PAMAPPFLG("POH2",nolign-1,"GROPRI")
+Call PAMDISCRG([M:POH2]GROPRI(nolign-1),"POH2",0,nolign-1,[M:POH1]CUR)
+Call PAMVATFLG("POH2",nolign-1,"GROPRI") From TRTACHFAC1
+Affzo [M:POH2]GROPRI(nolign-1)
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH1) 24/10/2021 03:29:34 (ADMIN)
+######################################################################################
+Subprog AM_ZHPRIDIV(VALEUR)
+Variable Char    VALEUR()
+If [M:POH2]NBLIG > 0
+  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
+  If GBIDI2  = 2 Then
+    For I = 0 To NBLIG-1
+      [M:POH2]ZLPRIDIV(I) = VALEUR
+      [M:POH2]UPDFLG(I) = 2
+      nolign = I+1
+      Call AVANT_NBLIG() From SUBPOH
+      Call AM_ZLPRIDIV(VALEUR)
+      Call APRES_NBLIG() From SUBPOH
+      Affzo [M:POH2]ZLPRIDIV(I)
+
+    Next
+    #Falta recalculo de valores
+  Endif
+Endif
+End
+
+
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH1) 24/10/2021 11:23:54 (ADMIN)
+######################################################################################
+Subprog AM_ZPORCTOL(VALEUR)
+Variable Decimal VALEUR
+If [M:POH2]NBLIG > 0
+  Call OUINON("Repercutir el valor tolerancia al detalle (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+  For I = 0 To NBLIG-1
+      [M:POH2]ZLPORCTOL(I) = VALEUR
+      [M:POH2]UPDFLG(I) = 2
+      Affzo [M:POH2]ZLPORCTOL(I)
+  Next
+
+  Endif
+Endif
+End
+
+######################################################################################
+
+Subprog CARGAR_OFERTAS(ZITMREF)
+Value Char ZITMREF
+adxsca = "...,**$_"
+Raz [M:POH2]NBLIG2
+If ZITMREF<> ""
+  If clalev([F:ZPPD])=0: Local File ZPRESPD [ZPPD]: Endif
+  Filter [F:ZPPD] Where [F:ZPPD]ITMREF = ZITMREF and [F:ZPPD]BPSNUM = [M:POH0]BPSNUM Order By
+&       [F:ZPPD]LINRSPDAT Desc
+
+  For [F:ZPPD]
+    I = [M:POH2]NBLIG2
+    [M:POH2]ZENDDAT(I) = [F:ZPPD]LINPLIENDDAT
+    [M:POH2]ZRSPDAT(I) = [F:ZPPD]LINRSPDAT
+    [M:POH2]ZQTYCON(I) = [F:ZPPD]QTYCON
+    [M:POH2]ZMINQTY(I) = [F:ZPPD]MINQTY
+    [M:POH2]ZOFERQTY(I) = [F:ZPPD]OFERQTY
+    [M:POH2]ZLINLTI(I) = [F:ZPPD]LINLTI
+    [M:POH2]ZBPSPRI(I) = [F:ZPPD]BPSPRI
+    [M:POH2]ZLDISCRGVAL1(I) = [F:ZPPD]LDISCRGVAL1
+    [M:POH2]ZLINCUR(I) = [F:ZPPD]LINCUR
+    [M:POH2]ZLINPRIDIV(I) = [F:ZPPD]LINPRIDIV
+    [M:POH2]ZLINCPRCOE(I) = [F:ZPPD]LINCPRCOE
+    [M:POH2]ZHXCOST(I) = [F:ZPPD]HXCOST
+    [M:POH2]ZNOTA(I) = [F:ZPPD]NOTA
+    [M:POH2]ZNUMRESP(I) = [F:ZPPD]LINNUMRESP
+    [M:POH2]ZLINRESP(I) = [F:ZPPD]PPDLIN
+    [M:POH2]ZITMREF(I) = ZITMREF
+
+    [M:POH2]NBLIG2+=1
+    If I = 15 :Break Endif
+  Next
+  Affzo [M:POH2]35
+  Filter [F:ZPPD]
+Endif
+
+End
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla POH1) 04/11/2021 18:02:39 (ADMIN)
+######################################################################################
+Subprog CL_ZDTOPREC(VALEUR)
+Variable Char    VALEUR()
+Local Decimal TMPDTO
+If [M:POH2]NBLIG > 0
+  Call OUINON("Aplicar descuento en Precio proveedor de líneas (SI/NO)",GBIDI2) From GESECRAN
+
+  If GBIDI2  = 2 Then
+    [M:POH1]ZDISCRGVAL1 = 0
+    Affzo [M:POH1]ZDISCRGVAL1
+    For Z = 0 To [M:POH2]NBLIG-1
+      If [M:POH2]DISCRGVAL1(Z) <> 0
+        Raz TMPDTO
+        TMPDTO = [M:POH2]DISCRGVAL1(Z)
+        [M:POH2]DISCRGVAL1(Z)= 0
+        Affzo [M:POH2]DISCRGVAL1(Z)
+        Call PAMAPPFLG("POH2",Z,"DISCRGVAL1")
+        Call PAMDISCRG(0,"POH2",1,Z,[M:POH1]CUR)
+        Call PAMVATFLG("POH2",Z,"DISCRGVAL1") From TRTACHFAC1
+        [M:POH2]UPDFLG(Z) = 2
+        [M:POH2]ZLBPSPRI(Z) = arr([M:POH2]ZLBPSPRI(Z)*(1-TMPDTO/100),0.01)
+        nolign = Z+1
+        Call AVANT_NBLIG() From SUBPOH
+        Call AM_ZLBPSPRI([M:POH2]ZLBPSPRI(Z))
+        Call APRES_NBLIG() From SUBPOH
+        Affzo [M:POH2]ZLBPSPRI(Z)
+      Endif
+    Next
+  Endif
+mkstat = 4
+Endif
+End
+
+
+######################################################################################
+Funprog CAMBIO(ZVALOR)
+Value Decimal ZVALOR
+Local Decimal ZRES :Raz ZRES
+If clalev([F:TCH])=0 Local File TABCHANGE [TCH]   : Endif
+If [M:POH1]CUR <> "EUR"
+  Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:POH1]CUR  Order By CHGSTRDAT Desc
+  Read [TCH]First
+  If !fstat
+    ZRES = ZVALOR / [TCH]CHGDIV
+  Endif
+  Filter [TCH]
+Else
+  ZRES = ZVALOR
+Endif
+
+End ZRES
