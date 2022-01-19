@@ -208,7 +208,7 @@ Local Char    LIMPDESCUP(250),LCOMCLI(250),LEXTRA(250),LNOMBREENVIOCOMPLETO(250)
     # cierra el fichero
     Openi Using [ZIMPH_R]
 
-    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+#    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
 
   Next
 
@@ -317,7 +317,7 @@ Local Char    LBPCORD(250)
     # cierra el fichero
     Openi Using [ZIMPD_R]
 
-    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+#    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
 
   Next
 
@@ -1006,7 +1006,7 @@ Subprog LANZA_WORKFLOW_ERRORES()
   Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
   GASUNTO   = "Error en la importación de pedido desde Prestashop"
   GCORREO   = "sergi.cunill@hispanox.com"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GTEXTO1   = "Errores producidos en el tratamiento de pedidos desde Prestashop"
   GTEXTO2   = "Documento adjunto con la traza."
   Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
