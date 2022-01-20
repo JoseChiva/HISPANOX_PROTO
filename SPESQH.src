@@ -1243,6 +1243,26 @@ Variable Decimal VALEUR
     When Default
   Endcase
   Affzo [M:SQH2]ZPRECLI(nolign-1)
+
+  If [M:SQH2]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA
+    Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]ZCOSOFER(nolign-1),1,[M:SQH0]QUODAT,LCOSTEOFERTA) From ZAULIB01
+    [M:SQH2]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SQH2]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SQH2]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SQH2]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SQH2]ZLINOCU(nolign-1) <> 2 Then
+      If [M:SQH2]ZPFM(nolign-1) < PUMBRALMRG Then
+        Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKRED"
+      Else
+        Chgstl [M:SQH2]NBLIG(nolign-1) With ""
+      Endif
+    Else
+      Chgstl [M:SQH2]NBLIG(nolign-1) With "BACKGREY"
+    Endif
+    Affzo [M:SQH2]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
 # 06.299.618.fin
 #If GUSER="ADEV" Then : Infbox "salgo av_gropri"-num$(VALEUR) : Endif
 End

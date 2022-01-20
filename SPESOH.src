@@ -1413,6 +1413,22 @@ Variable Decimal VALEUR
     When Default
   Endcase
   Affzo [M:SOH4]ZPRECLI(nolign-1)
+
+  If [M:SOH4]NETPRI(nolign-1) <> 0 Then
+    GCTRLSTA = 1
+    Local Decimal LCOSTEOFERTA
+    Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,[M:SOH4]ZCOSOFER(nolign-1),1,[M:SOH0]ORDDAT,LCOSTEOFERTA) From ZAULIB01
+    [M:SOH4]ZPFM(nolign-1) = func ZAULIB01.REDONDEA_ALZA((([M:SOH4]NETPRI(nolign-1) - LCOSTEOFERTA) / [M:SOH4]NETPRI(nolign-1)) * 100,2)
+    Affzo [M:SOH4]ZPFM(nolign-1)
+    Local Decimal PUMBRALMRG : PUMBRALMRG = val(func AFNC.PARAM("ZUMBRALMRG",""))
+    If [M:SOH4]ZPFM(nolign-1) < PUMBRALMRG Then
+      Chgstl [M:SOH4]NBLIG(nolign-1) With "BACKRED"
+    Else
+      Chgstl [M:SOH4]NBLIG(nolign-1) With ""
+    Endif
+    Affzo [M:SOH4]NBLIG(nolign-1)
+    GCTRLSTA = 0
+  Endif
 # 06.299.618.fin
 End
 
