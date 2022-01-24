@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.397 - JC.13012022.direcciones VP erróneas
 # 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
+# 06.303.784 - JC.24012022.Error aplicación VP envio SGA
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -72,10 +73,12 @@ Raz I
   #<TTTVVyyyyMMddHHmmssxxx.xml>
   If WVALORPRH <> '' Then
     WSEQ=val(right$(WVALORPRH,len(WVALORPRH)-3))
+    CNOMBREFILE='SOR01'+format$("D:YYYYMMDDhhmmss",datetime$)+num$(right$(WVALORPRH,len(WVALORPRH)-2))      # 06.303.784.new
   Else
     WSEQ=val(right$(WVALORPNH,len(WVALORPNH)-3))
+    CNOMBREFILE='SOR01'+format$("D:YYYYMMDDhhmmss",datetime$)+num$(right$(WVALORPNH,len(WVALORPNH)-2))      # 06.303.784.new
   Endif
-  CNOMBREFILE='SOR01'+format$("D:YYYYMMDDhhmmss",datetime$)+num$(format$("N0:3#",WSEQ))
+#  CNOMBREFILE='SOR01'+format$("D:YYYYMMDDhhmmss",datetime$)+num$(format$("N0:3#",WSEQ))                    # 06.303.784.new
 
   Openo filpath(WSGATMP,CNOMBREFILE,'xml'),0      Using [ZECO]
 
