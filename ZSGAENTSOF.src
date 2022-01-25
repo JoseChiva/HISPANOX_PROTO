@@ -360,7 +360,7 @@ $GUARDA_SOF_EN_TABLA
         WLNENUMBER    = toupper(ctrans(left$(WLNENUMBER+space$(WLONG),WLONG)))
         WLNENUMBER    = vireblc(WLNENUMBER,1)
 
-        WLONG         = 3
+        WLONG         = 15
         WLNECSTATT20  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
         WLNECSTATT20  = toupper(ctrans(left$(WLNECSTATT20+space$(WLONG),WLONG)))
         WLNECSTATT20  = vireblc(WLNECSTATT20,1)
