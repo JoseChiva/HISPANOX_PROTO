@@ -1,4 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.304.234 - JC.25012022.Error totales en ficheros csv de presupuestos modificados
+################################################################################################################
+
+
 Local Char NUM
 NUM = "OF2100434"
 #Call LINPRESUPUESTOS(NUM)
@@ -516,7 +520,7 @@ Return
 
 ##################################################################
 $NETPRI_CABECERA_CAB
-Local Decimal PRINET
+Local Decimal PRINET,PRIGRO
 Local Integer LINESP,LINART
 
   If !clalev([F:ZSQD]) Then : Local File SQUOTED    [F:ZSQD] : Endif
@@ -526,6 +530,7 @@ Local Integer LINESP,LINART
   For [F:ZSQD]
     # precio neto
     PRINET += [F:ZSQD]QTY * [F:ZSQD]NETPRI
+    PRIGRO += [F:ZSQD]QTY * [F:ZSQD]GROPRI                            # 06.304.234.new
     Read [F:ZITM]ITM0 = [F:ZSQD]ITMREF
     If!fstat Then
       If [F:ZITM]TCLCOD = "TEXTO" Then
@@ -633,7 +638,10 @@ $ESC_REGISTRO_CAB
   Wrseq ctrans(num$(LTOTWEILINNOOCU),".",","); Using [IMP_SQH]                # Peso
   Wrseq ctrans(num$([F:SQH]ZFREINV),".",",");  Using [IMP_SQH]                # Portes
   Wrseq ctrans(num$(TRAIMP),".",",");          Using [IMP_SQH]                # Portes (importe)
-  Wrseq ctrans(num$([F:SQH]QUONOT),".",",");   Using [IMP_SQH]                # Total bruto
+# 06.304.234.ini
+#  Wrseq ctrans(num$([F:SQH]QUONOT),".",",");   Using [IMP_SQH]                # Total bruto
+  Wrseq ctrans(num$(PRIGRO),".",",");          Using [IMP_SQH]                # Total bruto
+# 06.304.234.fin
   Wrseq ctrans(num$(DPPPOR),".",",");          Using [IMP_SQH]                # DTOPP
   Wrseq ctrans(num$(DPPIMP),".",",");          Using [IMP_SQH]                # Importe PP
   Wrseq ctrans(num$(DTOPOR),".",",");          Using [IMP_SQH]                # DTO
