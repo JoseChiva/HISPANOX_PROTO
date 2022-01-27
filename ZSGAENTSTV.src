@@ -2,11 +2,14 @@
 #############################################################
 # JC.03112021-1    Bug. Si la cantidad física es inferior a la asignada, hacía salida de la cantidad asignada. Ahora hace salida de cero
 # JC.03112021-2    Bug. Cuando no hay suficiente cantidad en asignaciones detalladas, no hacía desasignación de pedidos con asig. global
-# 06.299.138 - JC.12012022.error importación STV - ajustes stock
+# 06.299.138 - JC.12012022.Error importación STV - ajustes stock
+# 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 #############################################################
 
 #If GUSER="ADEV"
+mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
 Call ZSGAENTSTV From ZSGAENTSTV
+mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
 #Endif
 End
 
@@ -50,7 +53,7 @@ Local Clbfile XDATA (10)
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
     LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
-    Local Integer LERROR                                                    # 06.299.138.new
+    Local Integer LERRORSTV                                                    # 06.299.138.new
 
     If instr(1,FICHEROS(1),'xml')=0
       #Call ECR_TRACE('No existe STV0*',1) From GESECRAN
@@ -60,7 +63,7 @@ Local Clbfile XDATA (10)
 # 06.299.138.ini
     # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (STV0xxxxxxxxxxx.0.xml)
     If WFICINP1 <> LNOMFICHERO Then
-      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERROR)
+      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERRORSTV)
       Gosub MUEVE_FILE_ERR
       Break
     Endif
@@ -196,7 +199,7 @@ Local Clbfile XDATA (10)
           mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-            LERROR += 1
+            LERRORSTV += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
           Endif
         Elsif WOPERATIONACT='U'
@@ -205,13 +208,13 @@ Local Clbfile XDATA (10)
           mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-            LERROR += 1
+            LERRORSTV += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
           Endif
           mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-            LERROR += 1
+            LERRORSTV += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
           Endif
         Else
@@ -219,7 +222,7 @@ Local Clbfile XDATA (10)
           mkstat = 0 : fstat = 0 : GERRTRACE = 0
           Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-            LERROR += 1
+            LERRORSTV += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
           Endif
         Endif
@@ -233,8 +236,8 @@ Local Clbfile XDATA (10)
 
 
     # JC.06102021.INI
-    If LERROR <> 0 Then
-      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,LERROR)
+    If LERRORSTV <> 0 Then
+      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,LERRORSTV)
       Gosub MUEVE_FILE_ERR
     Else
       Gosub MUEVE_FILE
@@ -802,7 +805,7 @@ Local     Integer LDES
           Endif
         Else
 # 06.299.138.ini
-          LERROR += 1
+          LERRORSTV += 1
           Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVAL]SOHNUM+" porque está abierto",0) From GESECRAN
 # 06.299.138.fin
         Endif
@@ -870,7 +873,7 @@ Local     Integer LDES
         Endif
       Else
 # 06.299.138.ini
-        LERROR += 1
+        LERRORSTV += 1
         Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVA2]SOHNUM+" porque está abierto",0) From GESECRAN
 # 06.299.138.fin
       Endif

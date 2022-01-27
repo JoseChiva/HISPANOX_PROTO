@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.298.132 - JC.10012021.dirección nueva pedido web
 # 06.301.868 - JC.18012022.problemas dirección entrega en importación pedidos WEB
+# 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 ########################################################################
 
 
@@ -26,7 +27,9 @@ Local   Char    LUSR(50)
 
   LUSR  = GUSER
   GUSER ="WEB"
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
   Gosub LANZA_PROCESO
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
   GUSER = LUSR
 
   If dim(GBLOCK)      > 0 Then : Kill GBLOCK      : Endif
@@ -48,7 +51,7 @@ Local   Char    CAMPO(200)(1..7)
 Local   Integer LECOK : Raz LECOK
 Local   Integer LSTAT : Raz LSTAT
 Local   Char    LPARAMTIPODOC(20) : LPARAMTIPODOC = func AFNC.PARAM("ZTDOCWEB","")
-Local   Integer LERROR
+Local   Integer LERRORPS
 
   Call OUVRE_TRACE ("Importación Pedidos PRESTASHOP")    From LECFIC
   Call ECR_TRACE("########################################################################",0) From GESECRAN
@@ -66,7 +69,7 @@ Local   Integer LERROR
     Call LEC_TRACE From LECFIC
   Endif
 
-  If LERROR = 1 Then
+  If LERRORPS = 1 Then
     Call LANZA_WORKFLOW_ERRORES()
   Endif
 
@@ -475,7 +478,7 @@ $GENERA_SQH
 
       # mueve el fichero
       If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
-        LERROR = 1
+        LERRORPS = 1
         Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
         If filinfo(LFILETMP+".err", 7) > 0 Then
           Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
@@ -594,7 +597,7 @@ Local Char LPTE(250)
 
     # mueve el fichero
     If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
-      LERROR = 1
+      LERRORPS = 1
       Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
       If filinfo(LFILETMP+".err", 7) > 0 Then
         Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
