@@ -3,7 +3,8 @@
 # 06.298.712 - JC.11012021.Fecha expedición/entrega en las entregas
 # 06.299.407 - JC.13012022.Error SOF por una cancelación
 # 06.300.273 - JC.14012022.Error fichero SOF
-# 06.299.138 - JC.12012022.error importación STV - ajustes stock
+# 06.299.138 - JC.12012022.Error importación STV - ajustes stock
+# 06.304.506 - JC.26012022.Error importación SOF por cliente destinatario inactivo
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -42,7 +43,7 @@ If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
 
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
-#  WFICHEROIMP='aaa_ABCSOF0120211210151858000-VP2100001'
+#  WFICHEROIMP='SOF0120220127145747000'
 #  WFICHEROIMP='aaa222'
   Raz NFICHEROS
 
@@ -122,8 +123,10 @@ If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
     Call  VP_ENTREGABLE(LNOMFICHERO)
 #    Sleep 1
     Call  UNLOCK_OSTCTL(LNOMFICHERO)
+    Call  UNLOCK_BPCSTA(LNOMFICHERO)                                                          # 06.304.506.new
     Call  GENERA_ENTREGA2(LNOMFICHERO,WSGATMP,WFICINP1,WSGARECIBIDOS,WSGATRATADOS,WSGAERROR)
     Call  LOCK_OSTCTL(LNOMFICHERO)
+    Call  LOCK_BPCSTA(LNOMFICHERO)                                                            # 06.304.506.new
 
 #    Call  AJUSTES_ESTADO_LINEA_PEDIDO_ORIGEN(LNOMFICHERO)
 
@@ -261,6 +264,13 @@ $GUARDA_SOF_EN_TABLA
       If !fstat Then
         [F:ZESOF]OSTCTL = [F:ZBPC]OSTCTL
       Endif
+# 06.304.506.ini
+     #BPCSTA
+      Read [ZBPC]BPC0 = [ZPRH]BPCORD
+      If !fstat Then
+        [F:ZESOF]BPCSTA = [F:ZBPC]BPCSTA
+      Endif
+# 06.304.506.fin
      #BPAADD
       WLONG   = 3
       RESULT  = [ZPRH]BPAADD
@@ -3709,110 +3719,64 @@ Value Char    PNOMFICH
   Close Local File [ZESO9],[ZBPC]
 End
 
-##############################################################
-#Subprog AJUSTES_ESTADO_LINEA_PEDIDO_ORIGEN(PNOMFICH)
-#Value Char    PNOMFICH
-#
-#Local Decimal LQTYSOF,LQTYPRH
-#
-#  If !clalev([F:ZESO1]) Then : Local File ZVESOF1 [F:ZESO1] : Endif
-#  If !clalev([F:ZPRE1]) Then : Local File STOPRED [F:ZPRE1] : Endif
-#  If !clalev([F:ZSOQ1]) Then : Local File SORDERQ [F:ZSOQ1] : Endif
-#
-#  # cantidad en preparación         = OPRQTY  ; OPRQTYSTU
-#  # cantidad preparada              = PREQTY  ; PREQTYSTU
-#  # cantidad pendiente entrega      = RDLVQTY
-#  # cantidad pendiente preparación  = RPREQTY
-#  # cantidad pendiente asignar      = RALLQTY
-#
-#  Filter [F:ZESO1] Where NOMFICH = PNOMFICH and INDICADOR = 'L'
-#  For [ZESO1]
-#    LQTYSOF = [F:ZESO1]QTY
-#    Read [F:ZPRE1]PRE0 = [F:ZESO1]PRHNUM;[F:ZESO1]PRELIN
-#    If !fstat Then
-#      LQTYPRH = [F:ZPRE1]QTYSTU
-#      Read [F:ZSOQ1]SOQ0 = [F:ZPRE1]ORINUM;[F:ZPRE1]ORILIN;[F:ZPRE1]ORISEQ
-#      If !fstat Then
-#        # cantidad SOF = cantidad VALE
-#        If LQTYSOF = LQTYPRH Then
-#          [F:ZSOQ1]OPRQTY     -= LQTYPRH
-#          [F:ZSOQ1]OPRQTYSTU  -= LQTYPRH
-#          [F:ZSOQ1]PREQTY     += LQTYPRH
-#          [F:ZSOQ1]PREQTYSTU  += LQTYPRH
-#        # cantidad SOF > cantidad VALE
-#        Elsif LQTYSOF > LQTYPRH Then
-#          [F:ZSOQ1]OPRQTY     -= LQTYPRH
-#          [F:ZSOQ1]OPRQTYSTU  -= LQTYPRH
-#          [F:ZSOQ1]PREQTY     += LQTYSOF
-#          [F:ZSOQ1]PREQTYSTU  += LQTYSOF
-##          [F:ZSOQ1]TDLQTY     += (LQTYSOF - LQTYPRH)
-##          [F:ZSOQ1]TDLQTYSTU  += (LQTYSOF - LQTYPRH)
-#        # cantidad SOF < cantidad VALE
-#        Elsif LQTYSOF < LQTYPRH Then
-#          [F:ZSOQ1]OPRQTY     -= LQTYPRH
-#          [F:ZSOQ1]OPRQTYSTU  -= LQTYPRH
-#          [F:ZSOQ1]PREQTY     += LQTYSOF
-#          [F:ZSOQ1]PREQTYSTU  += LQTYSOF
-#          # Ctd pendiente preparación ?????????????????
-#        Endif
-#        [F:ZSOQ1]ALLQTY       += (LQTYPRH - LQTYSOF)
-#        [F:ZSOQ1]ALLQTYSTU    += (LQTYPRH - LQTYSOF)
-#        Trbegin [F:ZSOQ1]
-#        Rewrite [F:ZSOQ1]
-#        If !fstat Then
-#          Commit
-#        Else
-#          Rollback
-#        Endif
-#      Endif
-#    Endif
-#  Next
-#  Filter [F:ZESO1]
-#  Close Local File [ZESO1],[ZPRE1]
-#
-#
-#End
+###############################################################
+# 06.304.506
+#**
+#* activa cliente
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog UNLOCK_BPCSTA(PNOMFICH)
+Value Char    PNOMFICH
+
+  If !clalev([F:ZESO9]) Then : Local File ZVESOF9     [F:ZESO9] : Endif
+  If !clalev([F:ZBPC])  Then : Local File BPCUSTOMER  [F:ZBPC]  : Endif
+
+  Filter [F:ZESO9] Where NOMFICH = PNOMFICH and BPCSTA <> 2
+  For [ZESO9]
+    Read [F:ZBPC]BPC0 = [F:ZESO9]BPCORD
+    If !fstat Then
+      [F:ZBPC]BPCSTA = 2
+      Trbegin [F:ZBPC]
+      Rewrite [F:ZBPC]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+  Filter [F:ZESO9]
+  Close Local File [ZESO9],[ZBPC]
+End
 
 ###############################################################
-#$DIRECCIONES
-#Local Char LBPDNAM0(250),LBPDNAM1(250),LBPDADDLIG0(250),LBPDADDLIG1(250),LBPDADDLIG2(250),LBPDPOSCOD(250),LBPDCTY(250),LBPDSAT(250),LBPDCRY(250),LBPDCRYNAM(250),LCNDNAM(250)
-#Local Char LBPINAM0(250),LBPINAM1(250),LBPIADDLIG0(250),LBPIADDLIG1(250),LBPIADDLIG2(250),LBPIPOSCOD(250),LBPICTY(250),LBPISAT(250),LBPICRY(250),LBPICRYNAM(250),LCNINAM(250)
-#
-#  If !clalev([F:ZSOH2]) Then : Local File SORDER      [F:ZSOH2] : Endif
-#  If !clalev([F:ZPRE2]) Then : Local File STOPRED     [F:ZPRE2] : Endif
-#
-#  Filter [F:ZPRE2] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
-#  Read   [F:ZPRE2] First
-#    If !fstat Then
-#      Read [F:ZSOH2]SOH0 = [F:ZPRE2]ORINUM
-#      If !fstat Then
-#        # datos dirección entrega
-#        LBPDNAM0    = vireblc([F:ZSOH2]BPDNAM(0),2)
-#        LBPDNAM1    = vireblc([F:ZSOH2]BPDNAM(1),2)
-#        LBPDADDLIG0 = vireblc([F:ZSOH2]BPDADDLIG(0),2)
-#        LBPDADDLIG1 = vireblc([F:ZSOH2]BPDADDLIG(1),2)
-#        LBPDADDLIG2 = vireblc([F:ZSOH2]BPDADDLIG(2),2)
-#        LBPDPOSCOD  = vireblc([F:ZSOH2]BPDPOSCOD,2)
-#        LBPDCTY     = vireblc([F:ZSOH2]BPDCTY,2)
-#        LBPDSAT     = vireblc([F:ZSOH2]BPDSAT,2)
-#        LBPDCRY     = vireblc([F:ZSOH2]BPDCRY,2)
-#        LBPDCRYNAM  = vireblc([F:ZSOH2]BPDCRYNAM,2)
-#        LCNDNAM     = vireblc([F:ZSOH2]CNDNAM,2)
-#        # datos dirección facturación
-#        LBPINAM0    = vireblc([F:ZSOH2]BPINAM(0),2)
-#        LBPINAM1    = vireblc([F:ZSOH2]BPINAM(1),2)
-#        LBPIADDLIG0 = vireblc([F:ZSOH2]BPIADDLIG(0),2)
-#        LBPIADDLIG1 = vireblc([F:ZSOH2]BPIADDLIG(1),2)
-#        LBPIADDLIG2 = vireblc([F:ZSOH2]BPIADDLIG(2),2)
-#        LBPIPOSCOD  = vireblc([F:ZSOH2]BPIPOSCOD,2)
-#        LBPICTY     = vireblc([F:ZSOH2]BPICTY,2)
-#        LBPISAT     = vireblc([F:ZSOH2]BPISAT,2)
-#        LBPICRY     = vireblc([F:ZSOH2]BPICRY,2)
-#        LBPICRYNAM  = vireblc([F:ZSOH2]BPICRYNAM,2)
-#        LCNINAM     = vireblc([F:ZSOH2]CNINAM,2)
-#      Endif
-#    Endif
-#  Filter [F:ZPRE2]
-#
-#  Close Local File [ZSOH2],[ZPRE2]
-#Return
+# 06.304.506
+#**
+#* desactiva cliente
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog LOCK_BPCSTA(PNOMFICH)
+Value Char    PNOMFICH
+
+  If !clalev([F:ZESO9]) Then : Local File ZVESOF9     [F:ZESO9] : Endif
+  If !clalev([F:ZBPC])  Then : Local File BPCUSTOMER  [F:ZBPC]  : Endif
+
+  Filter [F:ZESO9] Where NOMFICH = PNOMFICH and BPCSTA <> 2
+  For [ZESO9]
+    Read [F:ZBPC]BPC0 = [F:ZESO9]BPCORD
+    If !fstat Then
+      [F:ZBPC]BPCSTA = [F:ZESO9]BPCSTA
+      Trbegin [F:ZBPC]
+      Rewrite [F:ZBPC]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+  Filter [F:ZESO9]
+  Close Local File [ZESO9],[ZBPC]
+End
