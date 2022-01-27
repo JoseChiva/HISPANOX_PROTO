@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # JC.24112021-1. Añadir líneas de detalle de lote
+# 06.304.683 - JC.27012022.Versión kit en el ROR para artículos con estructura KIT
 ##############################################################
 
 #FILTRO EXTERNO
@@ -42,6 +43,10 @@ Raz I
   If !clalev([F:ZSRD2]) : Local File SRETURND    [ZSRD2] : Endif
 
   If !clalev([F:ZORI])  : Local File ZORIG      [ZORI] : Endif
+
+# 06.304.683.ini
+  If !clalev([F:ZBOM0]) Then : Local File BOM   [F:ZBOM0] : Endif
+# 06.304.683.fin
 
   WSGATMP='ZSGA\TMP'
   WSGADEFINITIVO='ZSGA\SGA\ERP_to_SGA'
@@ -360,6 +365,15 @@ Local Char    LSTRLIN(5)
 #       Endif
      #LneAttWeight
       AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr([F:ZSHD2]QTYWEU,0.001)),2),5,2)
+# 06.304.683.ini
+     #LneAttVersion
+      Filter [F:ZBOM0] Where ITMREF = [F:ZSHD2]ITMREF
+      Read [F:ZBOM0] First
+      If !fstat Then
+        AA=func PUT_PROPXML('LneAttVersion','1',5,2)
+      Endif
+      Filter [F:ZBOM0]
+# 06.304.683.fin
       AA=func PUT_PROPXML('/LneAttributes','',4,1)
      #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
      #LneCustomAttributes --------------------------------------------------------------------------------
@@ -436,6 +450,15 @@ Local Char    LSTRLIN(5)
         AA=func PUT_PROPXML('LneAttributes','',4,1)
        #LneAttWeight
         AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(([F:ZSHD2]QTYWEU/[F:ZSHD2]SHIQTY)*[F:ZORI]ZQTYLIN,0.001)),2),5,2)
+# 06.304.683.ini
+       #LneAttVersion
+        Filter [F:ZBOM0] Where ITMREF = [F:ZSHD2]ITMREF
+        Read [F:ZBOM0] First
+        If !fstat Then
+          AA=func PUT_PROPXML('LneAttVersion','1',5,2)
+        Endif
+        Filter [F:ZBOM0]
+# 06.304.683.fin
         AA=func PUT_PROPXML('/LneAttributes','',4,1)
        #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
        #LneCustomAttributes --------------------------------------------------------------------------------
@@ -539,6 +562,15 @@ $LINEASSRH
     Endif
     Read [F:ZITM]ITM0=[F:ZSRD2]ITMREF
     AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(WLNEQTYEXPECTED*[F:ZITM]ITMWEI/1000,0.001)),2),3,2)
+# 06.304.683.ini
+   #LneAttVersion
+    Filter [F:ZBOM0] Where ITMREF = [F:ZSHD2]ITMREF
+    Read [F:ZBOM0] First
+    If !fstat Then
+      AA=func PUT_PROPXML('LneAttVersion','1',5,2)
+    Endif
+    Filter [F:ZBOM0]
+# 06.304.683.fin
     AA=func PUT_PROPXML('/LneAttributes','',4,1)
    #LneAttributes +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
    #LneCustomAttributes --------------------------------------------------------------------------------
