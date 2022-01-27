@@ -4,9 +4,10 @@
 #ASR COMP-51 campo Arancel
 #<AdxTL>@(#)8.0.0.0 $Revision$
 #DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
-
+#AUR01: 20/01/2022 ML campo Campo suma en la grilla detalle de expediciones
+#AUR02: 20/01/2022 ML campo Campo planta por defecto "PHISP"
 $ACTION
-#If GUSER="ADMIN" and dim(SHIQTYSTU)>0 Then : Infbox ACTION+"/"+num$(SHIQTYSTU) : Endif
+#If GUSER="ADMIN" and dim([M:CSTS]TOTSOC)>0 :Infbox ACTION+"/"+num$([M:CSTS]TOTSOC) Endif
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
   When "APRES_CRE" : Gosub APRES_MOD
@@ -23,8 +24,9 @@ Case ACTION
   When "SETBOUT"      : Gosub SETBOUT From SPESHIPA
   When "APRES_MODIF"  : Gosub APRES_MODIF From SPESHIPA
   When "STYLE"      : #Gosub STYLE From SPESHIPA
-
-
+#AUR02.ini
+  When "RAZCRE"      : Gosub RAZCRE From SPESHIPA
+#AUR02.fin
 #FIN MODIF AFVI
   When Default
 Endcase
@@ -147,6 +149,9 @@ For X = 0 To [M:SHIP1]NBLIG2-1
 Next
 
 Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR01.ini
+Raz [M:SHIP1]ZSUMSUP
+#AUR01.fin
 Grizo [M:SHIP1]NBLIG2
 
 If [M:SHIP1]LOT(nolign-1) = "" and [M:SHIP1]ZPALET(nolign-1) = "" and ZDEL = 0
@@ -158,6 +163,9 @@ If [M:SHIP1]LOT(nolign-1) = "" and [M:SHIP1]ZPALET(nolign-1) = "" and ZDEL = 0
       [M:SHIP1]ZLOTEAUX(K) = [M:SHIP1]ZLOTE(I)
       [M:SHIP1]ZQTYLINAUX(K) = [M:SHIP1]ZQTYLIN(I)
       [M:SHIP1]ZPALETPAUX(K) = [M:SHIP1]ZPALETP(I)
+#AUR01.ini
+      [M:SHIP1]ZSUMSUP += [M:SHIP1]ZQTYLIN(I)
+#AUR01.fin
       [M:SHIP1]NBLIG2+=1
     Endif
   Next
@@ -211,8 +219,14 @@ Next
 If [L]I_COUNT > [M:SHIP1]ZQTYSUP Then
   mkstat = 2
   Call ERREUR ("Cantidad total excedida") From GESECRAN
+#AUR01.ini
+  End
+#AUR01.fin
 Endif
-
+#AUR01.ini
+[M:SHIP1]ZSUMSUP = [L]I_COUNT
+Affzo [M:SHIP1]ZSUMSUP
+#AUR01.fin
 End
 
 
