@@ -40,10 +40,11 @@ If !clalev([F:ZITM])  : Local File ITMMASTER  [ZITM] : Endif
 #If !clalev([F:ITM])   : Local File ITMMASTER  [ITM] : Endif
 #If !clalev([F:ITG])   : Local File ITMCATEG   [ITG] : Endif
 If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
+If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                                  # 06.304.506.new
 
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
-#  WFICHEROIMP='SOF0120220127145747000'
+#  WFICHEROIMP='SOF0120220127154629000'
 #  WFICHEROIMP='aaa222'
   Raz NFICHEROS
 
@@ -266,9 +267,9 @@ $GUARDA_SOF_EN_TABLA
       Endif
 # 06.304.506.ini
      #BPCSTA
-      Read [ZBPC]BPC0 = [ZPRH]BPCORD
+      Read [ZBPD]BPD0 = [ZPRH]BPCORD;[ZPRH]BPAADD
       If !fstat Then
-        [F:ZESOF]BPCSTA = [F:ZBPC]BPCSTA
+        [F:ZESOF]BPCSTA = [F:ZBPD]ENAFLG
       Endif
 # 06.304.506.fin
      #BPAADD
@@ -3730,15 +3731,15 @@ Subprog UNLOCK_BPCSTA(PNOMFICH)
 Value Char    PNOMFICH
 
   If !clalev([F:ZESO9]) Then : Local File ZVESOF9     [F:ZESO9] : Endif
-  If !clalev([F:ZBPC])  Then : Local File BPCUSTOMER  [F:ZBPC]  : Endif
+  If !clalev([F:ZBPD0]) Then : Local File BPDLVCUST   [F:ZBPD0]  : Endif
 
   Filter [F:ZESO9] Where NOMFICH = PNOMFICH and BPCSTA <> 2
   For [ZESO9]
-    Read [F:ZBPC]BPC0 = [F:ZESO9]BPCORD
+    Read [F:ZBPD0]BPD0 = [F:ZESO9]BPCORD;[F:ZESO9]BPAADD
     If !fstat Then
-      [F:ZBPC]BPCSTA = 2
-      Trbegin [F:ZBPC]
-      Rewrite [F:ZBPC]
+      [F:ZBPD0]ENAFLG = 2
+      Trbegin [F:ZBPD0]
+      Rewrite [F:ZBPD0]
       If !fstat Then
         Commit
       Else
@@ -3747,7 +3748,7 @@ Value Char    PNOMFICH
     Endif
   Next
   Filter [F:ZESO9]
-  Close Local File [ZESO9],[ZBPC]
+  Close Local File [ZESO9],[ZBPD0]
 End
 
 ###############################################################
@@ -3761,15 +3762,15 @@ Subprog LOCK_BPCSTA(PNOMFICH)
 Value Char    PNOMFICH
 
   If !clalev([F:ZESO9]) Then : Local File ZVESOF9     [F:ZESO9] : Endif
-  If !clalev([F:ZBPC])  Then : Local File BPCUSTOMER  [F:ZBPC]  : Endif
+  If !clalev([F:ZBPD0]) Then : Local File BPDLVCUST   [F:ZBPD0]  : Endif
 
   Filter [F:ZESO9] Where NOMFICH = PNOMFICH and BPCSTA <> 2
   For [ZESO9]
-    Read [F:ZBPC]BPC0 = [F:ZESO9]BPCORD
+    Read [F:ZBPD0]BPD0 = [F:ZESO9]BPCORD;[F:ZESO9]BPAADD
     If !fstat Then
-      [F:ZBPC]BPCSTA = [F:ZESO9]BPCSTA
-      Trbegin [F:ZBPC]
-      Rewrite [F:ZBPC]
+      [F:ZBPD0]ENAFLG  = [F:ZESO9]BPCSTA
+      Trbegin [F:ZBPD0]
+      Rewrite [F:ZBPD0]
       If !fstat Then
         Commit
       Else
@@ -3778,5 +3779,5 @@ Value Char    PNOMFICH
     Endif
   Next
   Filter [F:ZESO9]
-  Close Local File [ZESO9],[ZBPC]
+  Close Local File [ZESO9],[ZBPD0]
 End
