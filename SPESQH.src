@@ -10,6 +10,7 @@
 #DEV: RPES 20201217 Tarifas transportistas
 # 06.288.553 - JC.05012022.Recálculo de GROPRI corregido tras modificar cantidad
 # 06.299.618 - JC.17012022.Presupuestos venta
+# 06.304.994 - JC.31012022.Cálculo precios factura
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SQH2) 23/03/2020 10:26:41 (ADMIN)
 ######################################################################################
@@ -512,9 +513,9 @@ COUZON ="GROPRI"
 [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1) = F_PRECIO
 Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
 Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
-  When "UN"        :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO
-  When "CEN"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO / 100
-  When "MIL"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = F_PRECIO / 1000
+  When "UN"        :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO,0.000001)            # 06.304.994
+  When "CEN"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 100,0.000001)      # 06.304.994
+  When "MIL"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 1000,0.000001)     # 06.304.994
   When Default
 Endcase
 Affzo [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
@@ -1517,7 +1518,7 @@ Local Integer YESNO       : YESNO   = 2
     # el precio oferta que hemos obtenido, descuento lo dejamos a cero y el flag
     # tipo precio lo ponemos a precio tarifa
     If [M:SQH2]GROPRI(nolign-1) = 0 Then
-      [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]ZPREOFERTA(nolign-1)
+      [M:SQH2]GROPRI(nolign-1)      = arr([M:SQH2]ZPREOFERTA(nolign-1),0.000001)      # 06.304.994
       [M:SQH2]DISCRGVAL1(nolign-1)  = 0
       [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
       Affzo [M:SQH2]GROPRI(nolign-1)
@@ -1722,7 +1723,7 @@ Local Integer LNUMLIN
         # ASIGNA EL PRECIO OFERTA AL PRECIO BRUTO
         LNUMLIN = nolign
         nolign = LCON+1
-        [M:SQH2]GROPRI(LCON)      = [M:SQH2]ZPREOFERTA(LCON)
+        [M:SQH2]GROPRI(LCON)      = arr([M:SQH2]ZPREOFERTA(LCON),0.000001)      # 06.304.994
         [M:SQH2]DISCRGVAL1(LCON)  = LDTO
         Affzo [M:SQH2]GROPRI(LCON)
         Affzo [M:SQH2]DISCRGVAL1(LCON)
@@ -2310,7 +2311,7 @@ Local Decimal LDTO
 # bruto con el precio oferta calculado
   # precio calculado
   If [M:SQH2]ZTIPOPRECIO(nolign-1) <> 1 Then
-    [M:SQH2]GROPRI(nolign-1) = [M:SQH2]ZPREOFERTA(nolign-1)
+    [M:SQH2]GROPRI(nolign-1) = arr([M:SQH2]ZPREOFERTA(nolign-1),0.000001)      # 06.304.994
     Affzo [M:SQH2]GROPRI(nolign-1)
     Default Mask [M:SQH2]
     Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
@@ -2334,7 +2335,7 @@ Local Decimal LDTO
 
     Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
     If [L]S_VALEUR = "2" Then
-      [M:SQH2]GROPRI = val ([L]S_PARAM(6))
+      [M:SQH2]GROPRI = arr(val ([L]S_PARAM(6)),0.000001)      # 06.304.994
       For I = 0 To 2
         Assign "[M]DISCRGVAL"+num$(I+1)+"(nolign-1)" With 0
         Assign "[M]DISCRGREN"+num$(I+1)+"(nolign-1)" With 0
@@ -2523,9 +2524,9 @@ Variable Decimal VALEUR
 
 # JC.14062021.STR.ddf unipre.ZUNPR
   Case [M:SQH2]ZUNPRE(nolign-1)
-    When "UN"        :   [M:SQH2]GROPRI(nolign-1) = VALEUR       : Affzo [M:SQH2]GROPRI(nolign-1)
-    When "CEN"       :   [M:SQH2]GROPRI(nolign-1) = VALEUR/100   : Affzo [M:SQH2]GROPRI(nolign-1)
-    When "MIL"       :   [M:SQH2]GROPRI(nolign-1) = VALEUR/1000  : Affzo [M:SQH2]GROPRI(nolign-1)
+    When "UN"        :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR,0.000001)      : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
+    When "CEN"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/100,0.000001)  : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
+    When "MIL"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/1000,0.000001) : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
     When Default
   Endcase
   Affzo [M:SQH2]GROPRI(nolign-1)

@@ -12,6 +12,7 @@ End
 # 06.288.426 : errores importación pedidos web - ML.03.01.2021
 # 06.288.473 : importación pedidos web - bloqueo por portes
 # 06.299.618 - JC.17012022.Presupuestos venta
+# 06.304.994 - JC.31012022.Cálculo precios factura
 #######################################################################################
 
 
@@ -697,9 +698,9 @@ If [M:SOH4]ZACTPEDAB([M:SOH0]ZSAVNOLIN-1) <> 2 Then
   [M:SOH4]ZPRECLI([M:SOH0]ZSAVNOLIN-1) = F_PRECIO
   Affzo [M:SOH4]ZPRECLI([M:SOH0]ZSAVNOLIN-1)
   Case [M:SOH4]ZUNPRE([M:SOH0]ZSAVNOLIN-1)
-    When "UN"        :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = F_PRECIO
-    When "CEN"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = F_PRECIO / 100
-    When "MIL"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = F_PRECIO / 1000
+    When "UN"        :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = arr(F_PRECIO,0.000001)            # 06.304.994
+    When "CEN"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 100,0.000001)      # 06.304.994
+    When "MIL"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 1000,0.000001)     # 06.304.994
     When Default
   Endcase
   Affzo [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)
@@ -1684,7 +1685,7 @@ Local Integer YESNO       : YESNO   = 2
     # el precio oferta que hemos obtenido, descuento lo dejamos a cero y el flag
     # tipo precio lo ponemos a precio tarifa
     If [M:SOH4]GROPRI(nolign-1) = 0 Then
-      [M:SOH4]GROPRI(nolign-1)      = [M:SOH4]ZPREOFERTA(nolign-1)
+      [M:SOH4]GROPRI(nolign-1)      = arr([M:SOH4]ZPREOFERTA(nolign-1),0.000001)            # 06.304.994
       [M:SOH4]DISCRGVAL1(nolign-1)  = 0
       [M:SOH4]ZTIPOPRECIO(nolign-1) = 2
       Affzo [M:SOH4]GROPRI(nolign-1)
@@ -1765,7 +1766,7 @@ Local Integer LNUMLIN
           If [M:SOH4]ZACTPEDAB(LCON) <> 2 Then
             LNUMLIN = nolign
             nolign = LCON+1
-            [M:SOH4]GROPRI(LCON)      = [M:SOH4]ZPREOFERTA(LCON)
+            [M:SOH4]GROPRI(LCON)      = arr([M:SOH4]ZPREOFERTA(LCON),0.000001)            # 06.304.994
             [M:SOH4]DISCRGVAL1(LCON)  = LDTO
             Affzo [M:SOH4]GROPRI(LCON)
             Affzo [M:SOH4]DISCRGVAL1(LCON)
@@ -2522,7 +2523,7 @@ Local Decimal LDTO
 # bruto con el precio oferta calculado
   # precio calculado
   If [M:SOH4]ZTIPOPRECIO(nolign-1) <> 1 Then
-    [M:SOH4]GROPRI(nolign-1) = [M:SOH4]ZPREOFERTA(nolign-1)
+    [M:SOH4]GROPRI(nolign-1) = arr([M:SOH4]ZPREOFERTA(nolign-1),0.000001)            # 06.304.994
     Affzo [M:SOH4]GROPRI(nolign-1)
     Default Mask [M:SOH4]
     Call AS_GROPRI([M:SOH4]GROPRI(nolign-1)) From W1SOH4
@@ -2545,7 +2546,7 @@ Local Decimal LDTO
 
     Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
     If [L]S_VALEUR = "2" Then
-      [M:SOH4]GROPRI = val ([L]S_PARAM(6))
+      [M:SOH4]GROPRI = arr(val ([L]S_PARAM(6)),0.000001)            # 06.304.994
       For I = 0 To 2
         Assign "[M]DISCRGVAL"+num$(I+1)+"(nolign-1)" With 0
         Assign "[M]DISCRGREN"+num$(I+1)+"(nolign-1)" With 0
@@ -2631,9 +2632,9 @@ Variable Decimal VALEUR
 
 If [M:SOH4]ZACTPEDAB(nolign-1) <> 2 Then
     Case [M:SOH4]ZUNPRE(nolign-1)
-      When "UN"        :   [M:SOH4]GROPRI(nolign-1) = VALEUR       : Affzo [M:SOH4]GROPRI(nolign-1)
-      When "CEN"       :   [M:SOH4]GROPRI(nolign-1) = VALEUR/100   : Affzo [M:SOH4]GROPRI(nolign-1)
-      When "MIL"       :   [M:SOH4]GROPRI(nolign-1) = VALEUR/1000  : Affzo [M:SOH4]GROPRI(nolign-1)
+      When "UN"        :   [M:SOH4]GROPRI(nolign-1) = arr(VALEUR,0.000001)      : Affzo [M:SOH4]GROPRI(nolign-1)    # 06.304.994
+      When "CEN"       :   [M:SOH4]GROPRI(nolign-1) = arr(VALEUR/100,0.000001)  : Affzo [M:SOH4]GROPRI(nolign-1)    # 06.304.994
+      When "MIL"       :   [M:SOH4]GROPRI(nolign-1) = arr(VALEUR/1000,0.000001) : Affzo [M:SOH4]GROPRI(nolign-1)    # 06.304.994
       When Default
     Endcase
     Affzo [M:SOH4]GROPRI(nolign-1)
