@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.300.491 - JC.01022022.Intrastat. Desarrollo automatización país origen
+################################################################################
+
 $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
@@ -81,13 +84,35 @@ Next
 Return
 ##############################################################
 $APRES_CRE
-# JC.05102021.COST-004.INI
 Local Integer LCON
+
+# 06.300.491.ini
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+  If !clalev([F:ZBPR]) Then : Local File BPARTNER   [F:ZBPR] : Endif
+  Read [F:ZBPR]BPR0 = [M:PTH0]BPSNUM
+# 06.300.491.fin
+
   For LCON = 0 To [M:PTH1]NBLIG-1
+# JC.05102021.COST-004.INI
     Call CALC_CMREP([M:PTH1]ITMREF(LCON),[M:PTH0]PRHFCY) From ZSTKLIB
-  Next
 # JC.05102021.COST-004.FIN
 
+# 06.300.491.ini
+    Read [F:ZITM]ITM0 = [M:PTH1]ITMREF(LCON)
+    If !fstat Then
+      [F:ZITM]STAFED = [F:ZBPR]CRY
+      Trbegin [F:ZITM]
+      Rewrite [F:ZITM]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+# 06.300.491.fin
+  Next
+
+  Close Local File [ZITM],[ZBPR]                                              # 06.300.491.new
 Return
 
 ##############################################################

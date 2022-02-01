@@ -1,9 +1,12 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.300.491 - JC.01022022.Intrastat. Desarrollo automatización país origen.AUREN
+################################################################################
+
 $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "EXEC"     : Gosub EXEC
+  When "ZRENORICRY"     : Gosub ZRENORICRY            # 06.300.491 punto de entrada específico
   When Default
 Endcase
 
@@ -12,13 +15,22 @@ Return
 ##############################################################
 ######################    ACCIONES    ########################
 ##############################################################
-##############################################################
-$EXEC
-Return
 
 ##############################################################
 ######################    ETIQUETAS    #######################
 ##############################################################
+##############################################################
+# 06.300.491
+$ZRENORICRY
+  If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
+  If [M:DEBG]VCRNUM <> '' Then
+    Read [F:ZITM]ITM0 = [M:DEBG]ITMREF(nolign-1)
+    If !fstat and [F:ZITM]STAFED <> '' Then
+      [M:DEBG]ORICRY(nolign-1) = [F:ZITM]STAFED
+    Endif
+  Endif
+  Close Local File [ZITM]
+Return
 
 ##############################################################
 #################    ACCIONES DE CAMPO    ####################

@@ -1,4 +1,7 @@
 #<AdxTL>@(#)1.0.0.0 $Revision$
+# 06.300.491 - JC.01022022.Intrastat. Desarrollo automatización país origen.AUREN
+################################################################################
+
 #@ Check diff -CPO-16/12/13
 #########################################################################
 # FUNDEB                                                                #
@@ -2998,6 +3001,12 @@ Else
   [M:DEBG]ORICRY(nolign-1)=[F:TCY]ISO
 Endif
 Endif
+
+# 06.300.491.ini.AUREN
+GPOINT = "ZRENORICRY"
+Gosub ENTREE From EXEFNC
+# 06.300.491.fin.AUREN
+
 #Issue end X3-124702
 [M:DEBG]REG     (nolign-1) = [M:DEBG]REG(0)          : # site expé à l'entête
 If [F:ITM]ITMWEI<>0
