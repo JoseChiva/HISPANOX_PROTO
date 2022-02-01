@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
+# 06.308.477 - JC.01022022.Coste entrada varia por montaje KITS - mensaje KST
 ##########################################################################################################################
 
 #If GUSER="ADEV"
@@ -28,7 +29,7 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZITV]) : Local File ITMMVT      [ZITV] : Endif
 
   WFICHEROIMP='KST0*'
-#  WFICHEROIMP='AAAKST0120211018134612000'
+#  WFICHEROIMP='_KST0120220131113445000'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -128,7 +129,7 @@ End
 $GUARDA_KST_EN_TABLA
 
   Local Char    WLNENUMBER(250),WWORKORDERCODE(250)
-  Local Integer WNLIN2,CONTROL1,CONTROL2,K,N
+  Local Integer WNLIN2,CONTROL1,CONTROL2,K1,K2,K3,N
   Local Decimal PMPTOT
 
   If !clalev([F:ZEKST]) Then : Local File ZEXPORTKST [F:ZEKST] : Endif
@@ -170,12 +171,14 @@ $GUARDA_KST_EN_TABLA
    #CONTAINER
     [F:ZEKST]CONTAINER    = func GET_PROPXML(XDATA,"KitContainer",I)
    #ATTLOT
-    [F:ZEKST]ATTLOT       = func GET_PROPXML(XDATA,"KitAttLot",I)
+    K1 = I                                                                  # 06.308.477.new
+    [F:ZEKST]ATTLOT       = func GET_PROPXML(XDATA,"KitAttLot",K1)
    #KITCSTATT01
-    K = I
-    [F:ZEKST]KITCSTATT01  = func GET_PROPXML(XDATA,"KitCstAtt01",K)
+    K2 = I                                                                  # 06.308.477.new
+    [F:ZEKST]KITCSTATT01  = func GET_PROPXML(XDATA,"KitCstAtt01",K2)
    #KITCSTATT02
-    [F:ZEKST]KITCSTATT02  = func GET_PROPXML(XDATA,"KitCstAtt05",K)
+    K3 = I                                                                  # 06.308.477.new
+    [F:ZEKST]KITCSTATT02  = func GET_PROPXML(XDATA,"KitCstAtt05",K3)
 
     Trbegin [F:ZEKST]
     Write   [F:ZEKST]
@@ -196,7 +199,10 @@ $GUARDA_KST_EN_TABLA
       WLNENUMBER    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL1)
       If WLNENUMBER <> ""
         CONTROL2    = CONTROL1
-        WLNENUMBER  = func GET_PROPXML(XDATA,"KitStocksAssembled",CONTROL2)
+# 06.308.477.ini
+#        WLNENUMBER  = func GET_PROPXML(XDATA,"KitStocksAssembled",CONTROL2)
+        WLNENUMBER  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+# 06.308.477.fin
         If (CONTROL1 < CONTROL2) or (CONTROL1 > CONTROL2 and CONTROL2 = 0) Then
           WNLIN2     +=1
         Else
@@ -235,20 +241,104 @@ $GUARDA_KST_EN_TABLA
      #UOMCODE
       [F:ZEKST]UOMCODE      = func GET_PROPXML(XDATA,"CompQttyUomCode",I)
      #COMPCSTATT01
-      [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt01",I)
+# 06.308.477.ini
+#      [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt01",I)
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CompCstAtt01",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL2)
+      If RESULT = '' Then
+        CONTROL2 = I
+        RESULT  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+      Endif
+      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+        Goto ENDCOMPCSTATT01
+      # existe CompCstAtt01 para esa línea
+      Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt01",I)
+      Endif
+      $ENDCOMPCSTATT01
+# 06.308.477.fin
      #COMPCSTATT02
-      [F:ZEKST]COMPCSTATT02 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+# 06.308.477.ini
+#      [F:ZEKST]COMPCSTATT02 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CompCstAtt02",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL2)
+      If RESULT = '' Then
+        CONTROL2 = I
+        RESULT  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+      Endif
+      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+        Goto ENDCOMPCSTATT02
+      # existe CompCstAtt02 para esa línea
+      Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+      Endif
+      $ENDCOMPCSTATT02
+# 06.308.477.fin
      #COMPCSTATT03
-      [F:ZEKST]COMPCSTATT03 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+# 06.308.477.ini
+#      [F:ZEKST]COMPCSTATT03 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CompCstAtt03",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL2)
+      If RESULT = '' Then
+        CONTROL2 = I
+        RESULT  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+      Endif
+      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+        Goto ENDCOMPCSTATT03
+      # existe CompCstAtt03 para esa línea
+      Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+      Endif
+      $ENDCOMPCSTATT03
+# 06.308.477.fin
      #COMPCSTATT04
-      [F:ZEKST]COMPCSTATT04 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+# 06.308.477.ini
+#      [F:ZEKST]COMPCSTATT04 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CompCstAtt04",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL2)
+      If RESULT = '' Then
+        CONTROL2 = I
+        RESULT  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+      Endif
+      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+        Goto ENDCOMPCSTATT04
+      # existe CompCstAtt04 para esa línea
+      Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+      Endif
+      $ENDCOMPCSTATT04
+# 06.308.477.fin
      #COMPCSTATT05
-      [F:ZEKST]COMPCSTATT05 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+# 06.308.477.ini
+#      [F:ZEKST]COMPCSTATT05 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CompCstAtt05",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CompItemCode",CONTROL2)
+      If RESULT = '' Then
+        CONTROL2 = I
+        RESULT  = func GET_PROPXML(XDATA,"KitCstAtt05",CONTROL2)
+      Endif
+      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+        Goto ENDCOMPCSTATT05
+      # existe CompCstAtt05 para esa línea
+      Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+      Endif
+      $ENDCOMPCSTATT05
+# 06.308.477.fin
      #PMP
       Read [F:ZITV]ITV0     = [F:ZEKST]ITEMCODE;[F:ZEKST]SALFCY
       [F:ZEKST]PMP          = [F:ZITV]AVC
       PMPTOT               += [F:ZITV]AVC * [F:ZEKST]QUANTITY
-
       Trbegin [F:ZEKST]
       Write   [F:ZEKST]
       If !fstat Then
