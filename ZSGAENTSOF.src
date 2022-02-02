@@ -5,6 +5,7 @@
 # 06.300.273 - JC.14012022.Error fichero SOF
 # 06.299.138 - JC.12012022.Error importación STV - ajustes stock
 # 06.304.506 - JC.26012022.Error importación SOF por cliente destinatario inactivo
+# 06.308.480 - JC.02022022.Comandes certificats
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -44,7 +45,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
-#  WFICHEROIMP='SOF0120220127154629000'
+#  WFICHEROIMP='SOF0120220124123938000'
 #  WFICHEROIMP='aaa222'
   Raz NFICHEROS
 
@@ -2992,37 +2993,39 @@ Local Decimal LQTYPRE
     Filter [F:AXX4] Where PRHNUM = [F:AXX3]PRHNUM and ZSGASOFFLG <> 2
     Read [F:AXX4] First
     If !fstat Then
+      If [F:AXX4]STOMGTCOD<>1                                           # 06.308.480.new
 # 3.- desasignar la línea del VP
-      Call DELALL(3,[F:AXX4]PRHNUM,[F:AXX4]PRELIN,0,[F:AXX4]ITMREF,0,[F:AXX4]ALLQTY,[F:AXX4]ALLQTY,LRET) From STKALL
-      If LRET<>0 Goto ENDNEXTDEL Endif
+        Call DELALL(3,[F:AXX4]PRHNUM,[F:AXX4]PRELIN,0,[F:AXX4]ITMREF,0,[F:AXX4]ALLQTY,[F:AXX4]ALLQTY,LRET) From STKALL
+        If LRET<>0 Goto ENDNEXTDEL Endif
 # 4.- borrar la línea del VP
-      LSOHNUM = [F:AXX4]ORINUM
-      LSOPLIN = [F:AXX4]ORILIN
-      LSOPSEQ = [F:AXX4]ORISEQ
-      LQTYPRE = [F:AXX4]QTYSTU
-      Trbegin [F:AXX4]
-      Delete [F:AXX4]
-      If !fstat Then
-        Commit
-      Else
-        Rollback
-      Endif
+        LSOHNUM = [F:AXX4]ORINUM
+        LSOPLIN = [F:AXX4]ORILIN
+        LSOPSEQ = [F:AXX4]ORISEQ
+        LQTYPRE = [F:AXX4]QTYSTU
+        Trbegin [F:AXX4]
+        Delete [F:AXX4]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
 # 5.- reasignar la línea del pedido
-      Read [F:ZSOH]SOH0 = LSOHNUM
-      Read [F:ZSOQ]SOQ0 = LSOHNUM;LSOPLIN;LSOPSEQ
-      Read [F:ZSOP]SOP0 = LSOHNUM;LSOPLIN;LSOPSEQ
-      Trbegin [F:ZSOQ]
+        Read [F:ZSOH]SOH0 = LSOHNUM
+        Read [F:ZSOQ]SOQ0 = LSOHNUM;LSOPLIN;LSOPSEQ
+        Read [F:ZSOP]SOP0 = LSOHNUM;LSOPLIN;LSOPSEQ
+        Trbegin [F:ZSOQ]
 #      [F:ZSOQ]OPRQTY    = 0
 #      [F:ZSOQ]OPRQTYSTU = 0
-      [F:ZSOQ]OPRQTY    -= LQTYPRE
-      [F:ZSOQ]OPRQTYSTU -= LQTYPRE
-      Rewrite [F:ZSOQ]
-      If !fstat Then
-        Commit
+        [F:ZSOQ]OPRQTY    -= LQTYPRE
+        [F:ZSOQ]OPRQTYSTU -= LQTYPRE
+        Rewrite [F:ZSOQ]
+        If !fstat Then
+          Commit
 #        Call UPD_ASIG_SOH(LSOHNUM,LSOPLIN,LSOPSEQ,[F:ZSOQ]STOFCY,[F:ZSOQ]SHIDAT) From ZAULIB01
-      Else
-        Rollback
-      Endif
+        Else
+          Rollback
+        Endif
+      Endif                                                             # 06.308.480.new
     Endif
     $ENDNEXTDEL
   Next
