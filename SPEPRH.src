@@ -2,6 +2,7 @@
 #
 #MLGA - Al cambiar el Vale de Preparacion a ENTREGABLE(V) se general el XML SOR - 07/2020
 # 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
+# 06.308.862 - JC.02022022.VP diferent adreça entrega
 #############################################################################################
 
 $ACTION
@@ -25,6 +26,10 @@ Return
 $APRES_MOD
 Local Integer LCON
 
+# 06.308.862.ini
+  If !clalev([F:ZSOH0]) Then : Local File SORDER [F:ZSOH0] : Endif
+# 06.308.862.fin
+
 # JC.03062021.STR
   If !clalev([F:PRE0]) Then : Local File STOPRED [F:PRE0] : Endif
   For LCON=0 To [M:PRH1]NBLIG-1
@@ -33,6 +38,22 @@ Local Integer LCON
       Trbegin [F:PRE0]
       [F:PRE0]ZEXPORT     = [M:PRH1]ZEXPORT(LCON)
       [F:PRE0]ZTXTALMACEN = [M:PRH1]ZTXTALMACEN(LCON)             # 06.302.178.new
+# 06.308.862.ini
+      Read [F:ZSOH0]SOH0  = [M:PRH1]ORINUM(LCON)
+      If !fstat Then
+        [F:PRE0]ZBPAADD     = [F:ZSOH0]BPAADD
+        [F:PRE0]ZBPDNAM0    = [F:ZSOH0]BPDNAM(0)
+        [F:PRE0]ZBPDNAM1    = [F:ZSOH0]BPDNAM(1)
+        [F:PRE0]ZBPDADDLIG0 = [F:ZSOH0]BPDADDLIG(0)
+        [F:PRE0]ZBPDADDLIG1 = [F:ZSOH0]BPDADDLIG(1)
+        [F:PRE0]ZBPDADDLIG2 = [F:ZSOH0]BPDADDLIG(2)
+        [F:PRE0]ZBPDPOSCOD  = [F:ZSOH0]BPDPOSCOD
+        [F:PRE0]ZBPDCTY     = [F:ZSOH0]BPDCTY
+        [F:PRE0]ZBPDSAT     = [F:ZSOH0]BPDSAT
+        [F:PRE0]ZBPDCRY     = [F:ZSOH0]BPDCRY
+        [F:PRE0]ZBPDCRYNAM  = [F:ZSOH0]BPDCRYNAM
+      Endif
+# 06.308.862.fin
       Rewrite [F:PRE0]
       If !fstat Then
         Commit
@@ -90,12 +111,26 @@ Return
 ##############################################################
 ##############################################################
 $SEL_ZSELVPADRE
-Local Char LCRIT(250)
+Local Clbfile LCRIT(2)
 
   If !clalev([F:ZVVP1]) Then : Local File ZVVPPADRE1 [F:ZVVP1] : Endif
   LCRIT  = "BPCORD = [M:PRH0]BPCORD"                   # del mismo cliente
   LCRIT += " and DLVFLG = 1"                           # sólo estado = encurso
   LCRIT += " and PRHNUM <> [M:PRH0]PRHNUM"             # no muestra el propio VP
+  # sólo VPs con direcciones de entrega iguales en las líneas de los pedidos
+# 06.308.862.ini
+  LCRIT += " and BPAADDSOH   = [M:PRH1]ZBPAADD(0)"
+  LCRIT += " and BPDNAM0     = [M:PRH1]ZBPDNAM0(0)"
+  LCRIT += " and BPDNAM1     = [M:PRH1]ZBPDNAM1(0)"
+  LCRIT += " and BPDADDLIG0  = [M:PRH1]ZBPDADDLIG0(0)"
+  LCRIT += " and BPDADDLIG1  = [M:PRH1]ZBPDADDLIG1(0)"
+  LCRIT += " and BPDADDLIG2  = [M:PRH1]ZBPDADDLIG2(0)"
+  LCRIT += " and BPDPOSCOD   = [M:PRH1]ZBPDPOSCOD(0)"
+  LCRIT += " and BPDCTY      = [M:PRH1]ZBPDCTY(0)"
+  LCRIT += " and BPDSAT      = [M:PRH1]ZBPDSAT(0)"
+  LCRIT += " and BPDCRY      = [M:PRH1]ZBPDCRY(0)"
+  LCRIT += " and BPDCRYNAM   = [M:PRH1]ZBPDCRYNAM(0)"
+# 06.308.862.ini
   Default File [F:ZVVP1]
   Filter [F:ZVVP1] Where evalue(LCRIT)
 
@@ -293,6 +328,20 @@ Local Char    LCRIT(250)
               Filter [F:PRE0]
             Endif
             Close Local File [PRH0],[PRE0],[SOH0],[SOH1]
+# 06.308.862.ini
+            If !clalev([F:ZVVP2]) Then : Local File ZVVPPADRE1 [F:ZVVP2] : Endif
+            Filter [F:ZVVP2] Where BPAADDSOH  = [M:PRH1]ZBPAADD(0)      and BPDNAM0     = [M:PRH1]ZBPDNAM0(0)     and BPDNAM1     = [M:PRH1]ZBPDNAM1(0)     and
+&                                  BPDADDLIG0 = [M:PRH1]ZBPDADDLIG0(0)  and BPDADDLIG1  = [M:PRH1]ZBPDADDLIG1(0)  and BPDADDLIG2  = [M:PRH1]ZBPDADDLIG2(0)  and
+&                                  BPDPOSCOD  = [M:PRH1]ZBPDPOSCOD(0)   and BPDCTY      = [M:PRH1]ZBPDCTY(0)      and BPDSAT      = [M:PRH1]ZBPDSAT(0)      and
+&                                  BPDCRY     = [M:PRH1]ZBPDCRY(0)      and BPDCRYNAM   = [M:PRH1]ZBPDCRYNAM(0)   and PRHNUM      = VALEUR
+            Read [F:ZVVP2] First
+            If fstat <> 0 Then
+              LSTA = 6
+              Goto CREA_BLOQUEO
+            Endif
+            Filter [F:ZVVP2]
+            Close Local File [ZVVP2]
+# 06.308.862.fin
           Endif
         Endif
       Endif
@@ -324,6 +373,11 @@ Local Char    LCRIT(250)
       mkstat = 2
     When 5
       Call ERREUR("No se puede seleccionar este VP porque los pedidos tienen distintos elementos de facturación (dto o dto pp)") From GESECRAN
+      Raz [M:PRH0]ZVPPADRE
+      Affzo [M:PRH0]ZVPPADRE
+      mkstat = 2
+    When 6
+      Call ERREUR("No se puede seleccionar este VP porque las direcciones de los pedidos son distintas") From GESECRAN
       Raz [M:PRH0]ZVPPADRE
       Affzo [M:PRH0]ZVPPADRE
       mkstat = 2

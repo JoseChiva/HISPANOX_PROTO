@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.308.862 - JC.02022022.VP diferent adreça entrega
+#############################################################################
+
 $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
@@ -28,7 +31,16 @@ Return
 $BOUTON
   Case BOUT
     When "s"  : Gosub CREA_SOR  # JC.20052021
+    When "Q"
+# 06.308.862.ini
+      Gosub BOUTON From TRTPREPA
+      If WOK = 0 Then
+        Gosub UPD_DIRENTREGA
+      Endif
+      GPE=1
+# 06.308.862.fin
   Endcase
+
 Return
 
 ##############################################################
@@ -92,6 +104,47 @@ Local Integer YESNO : YESNO = 2   # yes
 
   If dim(LCON)    > 0 Then : Kill LCON    : Endif
   If dim(LPRHNUM) > 0 Then : Kill LPRHNUM : Endif
+Return
+
+##############################################################
+# 06.308.862
+$UPD_DIRENTREGA
+Local Integer LCON
+
+  If !clalev([F:ZSOH0]) Then : Local File SORDER  [F:ZSOH0] : Endif
+  If !clalev([F:ZPRE0]) Then : Local File STOPRED [F:ZPRE0] : Endif
+
+  For LCON=0 To [M:PREP]NBLIG-1
+    If [M:PREP]COCHAGE(LCON) = 2 and [M:PREP]PRHNUM(LCON) <> '' Then
+      Read [F:ZSOH0]SOH0  = [M:PREP]ORINUM(LCON)
+      If !fstat Then
+        Trbegin [F:ZPRE0]
+        Read [F:ZPRE0]PRE0 = [M:PREP]PRHNUM(LCON);[M:PREP]PRELIN(LCON)
+        If !fstat Then
+          [F:ZPRE0]ZBPAADD     = [F:ZSOH0]BPAADD
+          [F:ZPRE0]ZBPDNAM0    = [F:ZSOH0]BPDNAM(0)
+          [F:ZPRE0]ZBPDNAM1    = [F:ZSOH0]BPDNAM(1)
+          [F:ZPRE0]ZBPDADDLIG0 = [F:ZSOH0]BPDADDLIG(0)
+          [F:ZPRE0]ZBPDADDLIG1 = [F:ZSOH0]BPDADDLIG(1)
+          [F:ZPRE0]ZBPDADDLIG2 = [F:ZSOH0]BPDADDLIG(2)
+          [F:ZPRE0]ZBPDPOSCOD  = [F:ZSOH0]BPDPOSCOD
+          [F:ZPRE0]ZBPDCTY     = [F:ZSOH0]BPDCTY
+          [F:ZPRE0]ZBPDSAT     = [F:ZSOH0]BPDSAT
+          [F:ZPRE0]ZBPDCRY     = [F:ZSOH0]BPDCRY
+          [F:ZPRE0]ZBPDCRYNAM  = [F:ZSOH0]BPDCRYNAM
+        Endif
+        Rewrite [F:ZPRE0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Endif
+    Endif
+  Next
+  Close Local File [ZPRE0],[ZSOH0]
+  If dim(LCON)>0 Then : Kill LCON :Endif
+
 Return
 
 ##############################################################
