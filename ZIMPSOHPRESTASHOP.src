@@ -2,6 +2,7 @@
 # 06.298.132 - JC.10012021.dirección nueva pedido web
 # 06.301.868 - JC.18012022.problemas dirección entrega en importación pedidos WEB
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
+# 06.309.392 - JC.04022022.Errores importación web
 ########################################################################
 
 
@@ -564,17 +565,13 @@ Local Char LPTE(250)
       Rollback
     Endif
 
+    Local Integer OK_LIN                                                                      # 06.309.392.new
+
     # datos de las líneas de pedido
 #    Filter [F:ZOPD3] Where IMPORTFLG = "Q" and SOHNUM = [F:ZOPH3]SOHNUM
     Filter [F:ZOPD3] Where (IMPORTFLG = "Q" or IMPORTFLG = "E") and SOHNUM = [F:ZOPH3]SOHNUM
     For [ZOPD3]
-#      Local Decimal LQTYLIN
-#      Local Integer LZCANTJUSTA
-#      Local Char    LSAU(10)
-#      Call DATOS_LINEA([F:ZOPD3]ITMREF,"PHISP",[F:ZOPD3]QTY,LZCANTJUSTA,LQTYLIN,LSAU)
-#      If LQTYLIN = 0 Then : LQTYLIN = [F:ZOPD3]QTY : Endif
-#      Wrseq "L" + ";" + num$([F:ZOPD3]SOPLIN) + ";" + [F:ZOPD3]ITMREF + ";" + "PHISP" + ";" + LSAU + ";" + num$(LQTYLIN) + ";" +
-#&           num$([F:ZOPD3]GROPRI/100) + ";" + num$([F:ZOPD3]DISCRGVAL1) + ";" + "4" + ";" + [F:ZOPD3]SQHNUM + ";" + num$([F:ZOPD3]SQDLIN) + ";" + num$(LZCANTJUSTA) Using [ZIMPO_W]
+      OK_LIN = 1                                                                              # 06.309.392.new
       Wrseq "L" + ";" + num$([F:ZOPD3]SOPLIN) + ";" + [F:ZOPD3]ITMREF + ";" + "PHISP" + ";" + [F:ZOPD3]SAU + ";" + num$([F:ZOPD3]QTY) + ";" +
 &           num$([F:ZOPD3]GROPRI/100) + ";" + num$([F:ZOPD3]DISCRGVAL1) + ";" + "4" + ";" + [F:ZOPD3]SQHNUM + ";" + num$([F:ZOPD3]SQDLIN) + ";" + num$([F:ZOPD3]ZCANTJUSTA) Using [ZIMPO_W]
       Trbegin [F:ZOPD3]
@@ -591,28 +588,37 @@ Local Char LPTE(250)
     # cierra el fichero
     Gosub CLOSE_FILEO_W
 
-    # lanza la importación
-    mkstat = 0 : fstat = 0 : GERRTRACE = 0
-    Call IMPORTSIL ("ZSOHPSDP",LFILETMP)From GIMPOBJ
+# 06.309.392.ini
+    If OK_LIN = 1 Then
+      # si se han procesado líneas para ese pedido, se actualiza el estado de la cabecera a procesado
+# 06.309.392.fin
+      # lanza la importación
+      mkstat = 0 : fstat = 0 : GERRTRACE = 0
+      Call IMPORTSIL ("ZSOHPSDP",LFILETMP)From GIMPOBJ
 
-    # mueve el fichero
-    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
-      LERRORPS = 1
-      Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
-      If filinfo(LFILETMP+".err", 7) > 0 Then
-        Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
+      # mueve el fichero
+      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
+        LERRORPS = 1
+        Call ECR_TRACE("ERROR!!!!!!!!!",0) From GESECRAN
+        If filinfo(LFILETMP+".err", 7) > 0 Then
+          Call MOVE(LFILETMP+".err",filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS       # mueve el fichero .err con errores en la importación
+        Endif
+        Call MOVE(LFILETMP,filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS                # mueve el fichero .err con errores en la importación
+        System "ae_rm " + LFILETMP                                                      # borra el fichero .txt que ha dado errores
+        Call ECR_TRACE("########################################################################",0) From GESECRAN
+        Call ECR_TRACE("Error en la importación del pedido " + [F:ZOPH3]SOHNUM + " para el cliente"-[F:ZOPH3]BPCORD,1) From GESECRAN
+      Else
+        Call MOVE(LFILETMP,filpath(LPSHOPPROCESADOS,"",""),LSTAT) From ORDSYS           # mueve el fichero txt a la carpeta de procesados
+        Call ECR_TRACE("Pedido " + [F:ZOPH3]SOHNUM + " creado para el cliente"-[F:ZOPH3]BPCORD,0) From GESECRAN
       Endif
-      Call MOVE(LFILETMP,filpath(LPSHOPERROR,"",""),LSTAT) From ORDSYS                # mueve el fichero .err con errores en la importación
-      System "ae_rm " + LFILETMP                                                      # borra el fichero .txt que ha dado errores
-      Call ECR_TRACE("########################################################################",0) From GESECRAN
-      Call ECR_TRACE("Error en la importación del pedido " + [F:ZOPH3]SOHNUM + " para el cliente"-[F:ZOPH3]BPCORD,1) From GESECRAN
-    Else
-      Call MOVE(LFILETMP,filpath(LPSHOPPROCESADOS,"",""),LSTAT) From ORDSYS           # mueve el fichero txt a la carpeta de procesados
-      Call ECR_TRACE("Pedido " + [F:ZOPH3]SOHNUM + " creado para el cliente"-[F:ZOPH3]BPCORD,0) From GESECRAN
-    Endif
 
-    Call ECR_TRACE("########################################################################",0) From GESECRAN
-    Call ECR_TRACE("      ",0) From GESECRAN
+      Call ECR_TRACE("########################################################################",0) From GESECRAN
+      Call ECR_TRACE("      ",0) From GESECRAN
+# 06.309.392.ini
+    Else
+      Call ECR_TRACE("El pedido PW"+[F:ZOPH3]SOHNUM-"no se ha podido importar",0)                  From GESECRAN
+    Endif
+# 06.309.392.fin
 
   Next
   Filter [F:ZOPH3]
@@ -664,24 +670,47 @@ Local Char LCODADR(50),LNOMENVIO(250),LNOMENVIO2(250),LDIRENVIO1(250),LDIRENVIO2
   If !clalev([F:BPA0]) Then : Local File BPADDRESS [F:BPA0] : Endif
   Read [F:BPD0]BPD0 = [F:ZOPH2]BPCORD;[F:ZOPH2]CODADR
   If !fstat Then
-    Read [F:BPA0]BPA0 = 1;[F:BPD0]BPCNUM;[F:BPD0]BPAADD
-    LNOMENVIO   = [F:BPD0]BPDNAM(0)
-    LNOMENVIO2  = [F:BPD0]BPDNAM(1)
+    If [F:BPD0]ENAFLG = 2                                                                     # 06.309.392.new
+      Read [F:BPA0]BPA0 = 1;[F:BPD0]BPCNUM;[F:BPD0]BPAADD
+      LNOMENVIO   = [F:BPD0]BPDNAM(0)
+      LNOMENVIO2  = [F:BPD0]BPDNAM(1)
 # 06.301.868.ini
-#    LDIRENVIO1  = left$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),50)
-#    LDIRENVIO2  = mid$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),51,50)
-#    LPOBENVIO   = left$([F:BPA0]CTY,40)
-#    LPROENVIO   = left$([F:BPA0]SAT,35)
-    LDIRENVIO1  = [F:BPA0]BPAADDLIG(0)
-    LDIRENVIO2  = [F:BPA0]BPAADDLIG(1)
-    LDIRENVIO3  = [F:BPA0]BPAADDLIG(2)
-    LPOBENVIO   = [F:BPA0]CTY
-    LPROENVIO   = [F:BPA0]SAT
-    LCPAISENVIO = [F:BPA0]CRY
-    LNPAISENVIO = [F:BPA0]CRYNAM
+#      LDIRENVIO1  = left$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),50)
+#      LDIRENVIO2  = mid$([F:BPA0]BPAADDLIG(0)-[F:BPA0]BPAADDLIG(1),51,50)
+#      LPOBENVIO   = left$([F:BPA0]CTY,40)
+#      LPROENVIO   = left$([F:BPA0]SAT,35)
+      LDIRENVIO1  = [F:BPA0]BPAADDLIG(0)
+      LDIRENVIO2  = [F:BPA0]BPAADDLIG(1)
+      LDIRENVIO3  = [F:BPA0]BPAADDLIG(2)
+      LPOBENVIO   = [F:BPA0]CTY
+      LPROENVIO   = [F:BPA0]SAT
+      LCPAISENVIO = [F:BPA0]CRY
+      LNPAISENVIO = [F:BPA0]CRYNAM
 # 06.301.868.fin
-    LCPENVIO    = [F:BPA0]POSCOD
-    LCODADR     = [F:ZOPH2]CODADR
+      LCPENVIO    = [F:BPA0]POSCOD
+      LCODADR     = [F:ZOPH2]CODADR
+# 06.309.392.ini
+    # si la dirección de entrega indicada en el fichero no está activa, se filtra por la dirección 'Cliente destinatario por defecto'
+    Else
+      If !clalev([F:BPC0]) Then : Local File BPCUSTOMER [F:BPC0] : Endif
+      Read [F:BPC0]BPC0 = [F:ZOPH2]BPCORD
+      If !fstat Then
+      Read [F:BPA0]BPA0 = 1;[F:BPC0]BPCNUM;[F:BPC0]BPDADD
+        LNOMENVIO   = [F:BPD0]BPDNAM(0)
+        LNOMENVIO2  = [F:BPD0]BPDNAM(1)
+        LDIRENVIO1  = [F:BPA0]BPAADDLIG(0)
+        LDIRENVIO2  = [F:BPA0]BPAADDLIG(1)
+        LDIRENVIO3  = [F:BPA0]BPAADDLIG(2)
+        LPOBENVIO   = [F:BPA0]CTY
+        LPROENVIO   = [F:BPA0]SAT
+        LCPAISENVIO = [F:BPA0]CRY
+        LNPAISENVIO = [F:BPA0]CRYNAM
+        LCPENVIO    = [F:BPA0]POSCOD
+        LCODADR     = [F:BPC0]BPDADD
+      Endif
+      Close Local File [BPC0]
+    Endif
+# 06.309.392.fin
   Else
 # 06.298.132.ini
 #    If !clalev([F:BPD1]) Then : Local File BPDLVCUST [F:BPD1] : Endif
@@ -730,6 +759,12 @@ $TRANSPORTE
   Read [F:ZBPC0]BPC0 = [F:ZOPH2]BPCORD
   If [F:ZOPH2]CODADR <> "" Then
     Read [F:ZBPD0]BPD0 = [F:ZBPC0]BPCNUM;[F:ZOPH2]CODADR
+# 06.309.392.ini
+    # si la dirección de entrega indicada en el fichero no está activa, se filtra por la dirección 'Cliente destinatario por defecto'
+    If [F:ZBPD0]ENAFLG <> 2 Then
+      Read [F:ZBPD0]BPD0 = [F:ZBPC0]BPCNUM;[F:ZBPC0]BPDADD
+    Endif
+# 06.309.392.fin
   Else
     Read [F:ZBPD0]BPD0 = [F:ZBPC0]BPCNUM;[F:ZBPC0]BPDADD
   Endif
@@ -750,7 +785,7 @@ $TRANSPORTE
       # si transportista ficha cliente <> SUS MEDIOS (T0077) -> trasnportista pedido = transportista ficha cliente
       If [F:ZBPD0]BPTNUM <> "T0077" Then
         GBPTNUM   = [F:ZBPD0]BPTNUM
-      # si transportista ficha cliente = SUS MEDIOS -> trasnportista pedido = en blanco
+      # si transportista ficha cliente = SUS MEDIOS -> transportista pedido = en blanco
       Else
         GBPTNUM   = ""
       Endif
@@ -1009,7 +1044,7 @@ Subprog LANZA_WORKFLOW_ERRORES()
   Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
   GASUNTO   = "Error en la importación de pedido desde Prestashop"
   GCORREO   = "sergi.cunill@hispanox.com"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GTEXTO1   = "Errores producidos en el tratamiento de pedidos desde Prestashop"
   GTEXTO2   = "Documento adjunto con la traza."
   Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
