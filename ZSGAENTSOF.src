@@ -6,6 +6,7 @@
 # 06.299.138 - JC.12012022.Error importación STV - ajustes stock
 # 06.304.506 - JC.26012022.Error importación SOF por cliente destinatario inactivo
 # 06.308.480 - JC.02022022.Comandes certificats
+# 06.309.060 - JC.07022022.Nº conformidad cooperativa
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -3542,13 +3543,15 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
     If !fstat Then
 # 06.298.127.ini
       Local Char LTRANSP(250)
+      Local Char LCONFCOOP(250)                                                         # 06.309.060.new
       # obtención del trasnportista del pedido que genera el vale de preparación
       Filter [F:ZPRE1] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
       Read   [F:ZPRE1] First
         If !fstat Then
           Read [F:ZSOH1]SOH0 = [F:ZPRE1]ORINUM
           If !fstat Then
-            LTRANSP = [F:ZSOH1]BPTNUM
+            LTRANSP   = [F:ZSOH1]BPTNUM
+            LCONFCOOP = [F:ZSOH1]ZNUMCOOPE                                              # 06.309.060.new
           Endif
         Endif
       Filter [F:ZPRE1]
@@ -3559,7 +3562,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
+#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
     Endif
     Filter [F:ZESOF]
