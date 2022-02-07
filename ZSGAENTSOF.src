@@ -45,7 +45,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
-#  WFICHEROIMP='SOF0120220124123938000'
+#  WFICHEROIMP='SOF0120220202170105000 - EN2221184'
 #  WFICHEROIMP='aaa222'
   Raz NFICHEROS
 
@@ -3618,6 +3618,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSDHSOF",LFILETXT)From GIMPOBJ
+  Call ECR_TRACE("Datos importsil: fstat="+num$(fstat)-"-"-"GERRTRACE="+num$(GERRTRACE),0) From GESECRAN
 
   # gestiona un error en la importación
   If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
