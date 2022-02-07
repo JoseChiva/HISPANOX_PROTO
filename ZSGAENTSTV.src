@@ -4,6 +4,7 @@
 # JC.03112021-2    Bug. Cuando no hay suficiente cantidad en asignaciones detalladas, no hacía desasignación de pedidos con asig. global
 # 06.299.138 - JC.12012022.Error importación STV - ajustes stock
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
+# 06.309.971 - JC.07022022.Error en la importación STV del fichero
 #############################################################
 
 #If GUSER="ADEV"
@@ -101,12 +102,170 @@ Local Clbfile XDATA (10)
       WOWNERCODE        = func GET_PROPXML(XDATA,"OwnerCode",I)
       WLOCATIONCODE     = func GET_PROPXML(XDATA,"LocationCode",I)
       WSTAUSRCODE       = func GET_PROPXML(XDATA,"StaUsrCode",I)
-      WCSTATT01FCA      = func GET_PROPXML(XDATA,"CstAtt01",I)
-      WCSTATT02FCA      = func GET_PROPXML(XDATA,"CstAtt02",I)
-      WCSTATT03FCA      = func GET_PROPXML(XDATA,"CstAtt03",I)
-      WCSTATT04FCA      = func GET_PROPXML(XDATA,"CstAtt04",I)
-      WCSTATT05FCA      = func GET_PROPXML(XDATA,"CstAtt05",I)
-      WCSTATT06FCA      = func GET_PROPXML(XDATA,"CstAtt06",I)
+# 06.309.971.ini
+#      WCSTATT01FCA      = func GET_PROPXML(XDATA,"CstAtt01",I)
+#      WCSTATT02FCA      = func GET_PROPXML(XDATA,"CstAtt02",I)
+#      WCSTATT03FCA      = func GET_PROPXML(XDATA,"CstAtt03",I)
+#      WCSTATT04FCA      = func GET_PROPXML(XDATA,"CstAtt04",I)
+#      WCSTATT05FCA      = func GET_PROPXML(XDATA,"CstAtt05",I)
+#      WCSTATT06FCA      = func GET_PROPXML(XDATA,"CstAtt06",I)
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt01",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT01
+      # existe CstAtt01 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt01",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt01 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt01",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt01",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT01
+      WCSTATT01FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt02",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT02
+      # existe CstAtt02 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt02",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt02 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt02",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt02",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT02
+      WCSTATT02FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt03",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT03
+      # existe CstAtt03 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt03",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt03 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt03",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt03",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT03
+      WCSTATT03FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt04",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT04
+      # existe CstAtt04 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt04",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt04 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt04",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt04",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT04
+      WCSTATT04FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt05",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT05
+      # existe CstAtt05 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt05",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt05 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt05",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt05",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT05
+      WCSTATT05FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt06",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT06
+      # existe CstAtt06 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt06",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt06 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt06",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt06",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT06
+      WCSTATT06FCA      = RESULT
+# 06.309.971.fin
       WQUANTITYVAR      = func GET_PROPXML(XDATA,"QuantityVar",I)
       WUOMCODE          = func GET_PROPXML(XDATA,"UoMCode",I)
       WREASONCODE       = func GET_PROPXML(XDATA,"ReasonCode",I)
@@ -678,7 +837,7 @@ Value Integer PNUMERR
   GASUNTO   = "Error en la importación STV del fichero"-PNOMFICH
   GCORREO   = "sergi.cunill@hispanox.com"
 #  GCORREO   = "sergi.cunill@hispanox.com;joseluis.chiva@auren.es"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GFICHERO  = PNOMFICH
   GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
   GTEXTO2   = "Se han producido " + num$(PNUMERR) + " errores."
@@ -942,7 +1101,7 @@ Local   Integer LCONTROL
 
   # destinatario del mensaje
   GCORREO   = "info@hispanox.com"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
 
   # cuerpo del mensaje
   If !clalev([F:ZSD1]) Then : Local File ZSTVDESSOH [F:ZSD1] : Endif
@@ -1007,7 +1166,7 @@ Value   Char    PFICHERO
 
     # destinatario del mensaje
     GCORREO   = "info@hispanox.com"
-#    GCORREO   = "joseluis.chiva@auren.es"
+    GCORREO   = "joseluis.chiva@auren.es"
 
     For [F:ZSS1]
       If LCONTROL = 0 Then
