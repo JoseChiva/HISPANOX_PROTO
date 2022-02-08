@@ -1,4 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.304.285 - ML.07022022.Fitxa client - Notas - Error aplicación
+##############################################################
+
+
 ##################################################################
 Subprog NOTAS(WNTS)
 Variable Char WNTS
@@ -14,6 +18,10 @@ If rowcount([F:NTS])>0
     Next
   Openo Using [NTS]
 Endif
+# 06.304.285.ini
+Filter [F:AXX]
+Filter [F:NTS]
+# 06.304.285.fin
 Gosub CLOSE_TABLAS
 End
 
