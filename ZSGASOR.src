@@ -2,6 +2,7 @@
 # 06.299.397 - JC.13012022.direcciones VP erróneas
 # 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
 # 06.303.784 - JC.24012022.Error aplicación VP envio SGA
+# 06.310.959 - JC.08022022.Texto documento entrega en DlvAddComment
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -353,13 +354,19 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
     Read [ZBPD]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
     If !fstat
       If [F:ZBPD]DLVTEX<>''
-        Read [ZTXC]TXC1='';'';[F:ZBPD]DLVTEX
+# 06.310.959.ini
+#        Read [ZTXC]TXC1='';'';[F:ZBPD]DLVTEX
+        Read [ZTXC]TXC0=[F:ZBPD]DLVTEX
+# 06.310.959.fin
         If !fstat
           #WDLVADDCOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
 # JC.31122021.INI
 #          WDLVADDCOMMENT=[F:ZTXC]TEXTE
           If [F:ZTXC]TEXTE <> '' Then
-           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
+# 06.310.959.ini
+#           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
+           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR(func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE))
+# 06.310.959.fin
           Else
            WDLVADDCOMMENT=[F:ZTXC]TEXTE
           Endif
