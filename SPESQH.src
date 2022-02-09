@@ -513,9 +513,9 @@ COUZON ="GROPRI"
 [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1) = F_PRECIO
 Affzo [M:SQH2]ZPRECLI([M:SQH0]ZSAVNOLIN-1)
 Case [M:SQH2]ZUNPRE([M:SQH0]ZSAVNOLIN-1)
-  When "UN"        :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO,0.000001)            # 06.304.994
-  When "CEN"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 100,0.000001)      # 06.304.994
-  When "MIL"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = arr(F_PRECIO / 1000,0.000001)     # 06.304.994
+  When "UN"        :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO,4)            # 06.304.994
+  When "CEN"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 100,4)      # 06.304.994
+  When "MIL"       :   [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 1000,4)     # 06.304.994
   When Default
 Endcase
 Affzo [M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)
@@ -1518,7 +1518,7 @@ Local Integer YESNO       : YESNO   = 2
     # el precio oferta que hemos obtenido, descuento lo dejamos a cero y el flag
     # tipo precio lo ponemos a precio tarifa
     If [M:SQH2]GROPRI(nolign-1) = 0 Then
-      [M:SQH2]GROPRI(nolign-1)      = arr([M:SQH2]ZPREOFERTA(nolign-1),0.000001)      # 06.304.994
+      [M:SQH2]GROPRI(nolign-1)      = func ZAULIB01.REDONDEA_ALZA([M:SQH2]ZPREOFERTA(nolign-1),4)      # 06.304.994
       [M:SQH2]DISCRGVAL1(nolign-1)  = 0
       [M:SQH2]ZTIPOPRECIO(nolign-1) = 2
       Affzo [M:SQH2]GROPRI(nolign-1)
@@ -1723,7 +1723,7 @@ Local Integer LNUMLIN
         # ASIGNA EL PRECIO OFERTA AL PRECIO BRUTO
         LNUMLIN = nolign
         nolign = LCON+1
-        [M:SQH2]GROPRI(LCON)      = arr([M:SQH2]ZPREOFERTA(LCON),0.000001)      # 06.304.994
+        [M:SQH2]GROPRI(LCON)      = func ZAULIB01.REDONDEA_ALZA([M:SQH2]ZPREOFERTA(LCON),4)      # 06.304.994
         [M:SQH2]DISCRGVAL1(LCON)  = LDTO
         Affzo [M:SQH2]GROPRI(LCON)
         Affzo [M:SQH2]DISCRGVAL1(LCON)
@@ -2186,7 +2186,7 @@ Local Integer LCON,LNUMLIN
           [M:SQH2]NETPRI(LCON)      = [M:SQH2]ZCOSOFER(LCON)/(1-([M:SQH2]ZPFM(LCON)/100))
         Endif
         Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]NETPRI(LCON),1,[M:SQH0]QUODAT,[M:SQH2]NETPRI(LCON)) From ZAULIB01      # JC.27102021.Cambio de divisas
-        [M:SQH2]GROPRI(LCON)      = [M:SQH2]NETPRI(LCON)
+        [M:SQH2]GROPRI(LCON)      = func ZAULIB01.REDONDEA_ALZA([M:SQH2]NETPRI(LCON),4)      # 06.304.994
         [M:SQH2]DISCRGVAL1(LCON)  = 0
         [M:SQH2]DISCRGVAL2(LCON)  = 0
         [M:SQH2]DISCRGVAL3(LCON)  = 0
@@ -2311,7 +2311,7 @@ Local Decimal LDTO
 # bruto con el precio oferta calculado
   # precio calculado
   If [M:SQH2]ZTIPOPRECIO(nolign-1) <> 1 Then
-    [M:SQH2]GROPRI(nolign-1) = arr([M:SQH2]ZPREOFERTA(nolign-1),0.000001)      # 06.304.994
+    [M:SQH2]GROPRI(nolign-1) = func ZAULIB01.REDONDEA_ALZA([M:SQH2]ZPREOFERTA(nolign-1),4)      # 06.304.994
     Affzo [M:SQH2]GROPRI(nolign-1)
     Default Mask [M:SQH2]
     Call AS_GROPRI([M:SQH2]GROPRI(nolign-1)) From W1SQH2
@@ -2335,7 +2335,7 @@ Local Decimal LDTO
 
     Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
     If [L]S_VALEUR = "2" Then
-      [M:SQH2]GROPRI = arr(val ([L]S_PARAM(6)),0.000001)      # 06.304.994
+      [M:SQH2]GROPRI = func ZAULIB01.REDONDEA_ALZA(val ([L]S_PARAM(6)),4)      # 06.304.994
       For I = 0 To 2
         Assign "[M]DISCRGVAL"+num$(I+1)+"(nolign-1)" With 0
         Assign "[M]DISCRGREN"+num$(I+1)+"(nolign-1)" With 0
@@ -2406,7 +2406,7 @@ Local Decimal F_SAV_NETPRI
           [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
         Endif
         Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,[M:SQH2]NETPRI(nolign-1),1,[M:SQH0]QUODAT,[M:SQH2]NETPRI(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
-        [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]NETPRI(nolign-1)
+        [M:SQH2]GROPRI(nolign-1)      = func ZAULIB01.REDONDEA_ALZA([M:SQH2]NETPRI(nolign-1),4)      # 06.304.994
         [M:SQH2]DISCRGVAL1(nolign-1)  = 0
         [M:SQH2]DISCRGVAL2(nolign-1)  = 0
         [M:SQH2]DISCRGVAL3(nolign-1)  = 0
@@ -2459,7 +2459,7 @@ Local Decimal F_SAV_NETPRI
       If (1-(VALEUR/100)) <> 0 Then
         [M:SQH2]NETPRI(nolign-1)      = [M:SQH2]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
       Endif
-      [M:SQH2]GROPRI(nolign-1)      = [M:SQH2]NETPRI(nolign-1)
+      [M:SQH2]GROPRI(nolign-1)      = func ZAULIB01.REDONDEA_ALZA([M:SQH2]NETPRI(nolign-1),4)      # 06.304.994
       [M:SQH2]DISCRGVAL1(nolign-1)  = 0
       [M:SQH2]DISCRGVAL2(nolign-1)  = 0
       [M:SQH2]DISCRGVAL3(nolign-1)  = 0
@@ -2524,9 +2524,9 @@ Variable Decimal VALEUR
 
 # JC.14062021.STR.ddf unipre.ZUNPR
   Case [M:SQH2]ZUNPRE(nolign-1)
-    When "UN"        :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR,0.000001)      : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
-    When "CEN"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/100,0.000001)  : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
-    When "MIL"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/1000,0.000001) : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
+    When "UN"        :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR,0.00001)      : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
+    When "CEN"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/100,0.00001)  : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
+    When "MIL"       :   [M:SQH2]GROPRI(nolign-1) = arr(VALEUR/1000,0.00001) : Affzo [M:SQH2]GROPRI(nolign-1)  # 06.304.994
     When Default
   Endcase
   Affzo [M:SQH2]GROPRI(nolign-1)
