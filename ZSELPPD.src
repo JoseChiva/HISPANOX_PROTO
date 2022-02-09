@@ -2,7 +2,7 @@
 $ACTION
 Case ACTION
   When "SEL_TABLE"      : Gosub SEL_TABLE
-#  When "VERF_TABLE"     : Gosub VERF_TABLE
+  #When "CHX_TABLE"     : Gosub CHX_TABLE
   When Default
 Endcase
 Return
@@ -10,22 +10,218 @@ Return
 $SEL_TABLE
   Case TABLE
     When "ZSELPPD"    : Gosub ZSELPPD
+    When "ZSELPQH"    : Gosub ZSELPQH
+    When "ZSELPDCHOI"    : Gosub ZSELPDCHOI
+    When "ZITMCHOICE"    : Gosub ZITMCHOICE
+    When "ZPQHITMSEL"    : Gosub ZPQHITMSEL
   Endcase
 
 Return
 
-$ZSELPPD
+$ZPQHITMSEL
 
-If clalev([F:PQF])= 0: Local File PQUOTATF[PQF]:Endif
-Default File [F:PQF]
-TIT(0) = "Seleccion"
-START = ""
-CODFIC = "PQF"
+If clalev([F:ZPQD])=0 : Local File PQUOTATD[ZPQD] : Endif
 
-CRITERE(1) += 'PQHFCY="'+[M:ZPPH0]PQHFCY+'"'
-NBCOL += 1 : COL(NBCOL) = "BPSNUM" : TIT(NBCOL)= "Proveedor"
-NBCOL += 1 : COL(NBCOL) = "PQHNUM" : TIT(NBCOL)= "NºSolicitud"
-NBCOL += 1 : COL(NBCOL) = "PQHREF" : TIT(NBCOL)= "Referencia"
+Local Integer NBCHOI, CHOI
+Raz NBCHOI,CHOI
+Local Char    TEX(GLONDES)(1..5000,1..4) , TIT(GLONDES)(0..4) : Raz TEX,TIT: Raz NBCHOI,CHOI
+Filter [ZPQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM
+
+For [ZPQD]
+  NBCHOI += 1
+  TEX(NBCHOI,1) = [ZPQD]ITMREF
+  TEX(NBCHOI,2) = [ZPQD]ITMDES
+  TEX(NBCHOI,3) = [ZPQD]ZITMDES2
+  TEX(NBCHOI,4) = [ZPQD]PQHNUM
+Next
+Filter [ZPQD]
+CHOI = 0
+TIT(0) = "Seleccion Artículo"
+TIT(1) = "Artículo"
+TIT(2) = "Desc."
+TIT(3) = "Desc. 2"
+TIT(4) = "NºSolicitud"
+Call SAITEX_COL_MAX(NBCHOI,TEX,CHOI,TIT,240,60) From GESECRAN
+If status<>7 & CHOI<>0
+  VALEUR = TEX(CHOI,1)
+Endif
 
 Return
 
+$ZITMCHOICE
+If VALEUR="" : OK=0 : Return : Endif
+
+If clalev([F:ITM])=0 : Local File ITMMASTER [ITM] : Endif
+If clalev([F:ZPQD])=0 : Local File PQUOTATD[ZPQD] : Endif
+
+Local Char    UPVAL(type(VALEUR)-10) : UPVAL = toupper(VALEUR)
+Local Integer NBREC
+#
+Filter [ZPQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM  and ITMREF = VALEUR
+If rowcount([ZPQD]) = 1
+  Filter [ZPQD]
+  OK=0
+  Return
+Endif
+
+Local Integer NBCHOI, CHOI
+Raz NBCHOI,CHOI
+Local Char    TEX(GLONDES)(1..5000,1..4) , TIT(GLONDES)(0..4) : Raz TEX,TIT: Raz NBCHOI,CHOI
+Filter [ZPQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM
+
+For [ZPQD]
+  If ((left$([ZPQD]ITMREF, len(UPVAL)) =UPVAL) or  (pat(toupper([ZPQD]ITMDES),"*"+UPVAL+"*")<>0))
+    NBCHOI += 1
+    TEX(NBCHOI,1) = [ZPQD]ITMREF
+    TEX(NBCHOI,2) = [ZPQD]ITMDES
+    TEX(NBCHOI,3) = [ZPQD]ZITMDES2
+    TEX(NBCHOI,4) = [ZPQD]PQHNUM
+  Endif
+Next
+Filter [ZPQD]
+CHOI = 0
+TIT(0) = "Seleccion Artículo"
+TIT(1) = "Artículo"
+TIT(2) = "Desc."
+TIT(3) = "Desc. 2"
+TIT(4) = "NºSolicitud"
+Call SAITEX_COL_MAX(NBCHOI,TEX,CHOI,TIT,240,60) From GESECRAN
+If status<>7 & CHOI<>0
+  VALEUR = TEX(CHOI,1)
+Endif
+Return
+
+$ZSELPPD
+If clalev([F:ZPQH])= 0: Local File PQUOTAT[ZPQH]:Endif
+If clalev([F:ZPQF])= 0: Local File PQUOTATF[ZPQF]:Endif
+If clalev([F:ZBPS])= 0: Local File BPSUPPLIER[ZBPS]:Endif
+Local Integer NBCHOI, CHOI
+Raz NBCHOI,CHOI
+Local Char    TEX(GLONDES)(1..5000,1..5) , TIT(GLONDES)(0..5) : Raz TEX,TIT: Raz NBCHOI,CHOI
+If dim([M:ZIMR]PQHNUM)>0
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK] Order By  [F:ZPQH]PQHDAT Desc
+Else
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK] Where [F:ZPQF]PQHFCY = [ZPPH0]PQHFCY Order By  [F:ZPQH]PQHDAT Desc
+Endif
+For [PQHLINK]
+    NBCHOI += 1
+    TEX(NBCHOI,1) = [F:ZPQF]BPSNUM
+    TEX(NBCHOI,2) = [F:ZPQF]BPRNAM
+    Read [F:ZBPS]BPS0 = [F:ZPQF]BPSNUM
+    TEX(NBCHOI,3) = [F:ZBPS]BPSSHO
+    TEX(NBCHOI,4) = [F:ZPQF]PQHNUM
+    Read [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM
+    TEX(NBCHOI,5) = [F:ZPQH]PQHREF
+Next
+#Filter [F:PQF]
+CHOI = 0
+TIT(0) = "Seleccion Proveedor"
+TIT(1) = "Proveedor"
+TIT(2) = "Razon Social"
+TIT(3) = "Desc. Corta"
+TIT(4) = "NºSolicitud"
+TIT(5) = "Referencia"
+Call SAITEX_COL_MAX(NBCHOI,TEX,CHOI,TIT,240,60) From GESECRAN
+If status<>7 & CHOI<>0
+  VALEUR = TEX(CHOI,1)
+  If dim([M:ZIMR]PQHNUM)>0
+    [M:ZIMR]PQHNUM = TEX(CHOI,4)
+  Else
+    [M:ZPPH0]PQHNUM = TEX(CHOI,4)
+  Endif
+Endif
+Return
+
+$ZSELPDCHOI
+If VALEUR="" : OK=0 : Return : Endif
+Local Char    UPVAL(type(VALEUR)-10) : UPVAL = toupper(VALEUR)
+
+If clalev([F:ZPQH])= 0: Local File PQUOTAT[ZPQH]:Endif
+If clalev([F:ZPQF])= 0: Local File PQUOTATF[ZPQF]:Endif
+If clalev([F:ZBPS])= 0: Local File BPSUPPLIER[ZBPS]:Endif
+
+If dim([M:ZIMR]PQHNUM)>0
+  Filter [F:ZPQF] Where BPSNUM = VALEUR
+Else
+  Filter [F:ZPQF] Where [F:ZPQF]PQHFCY = [ZPPH0]PQHFCY and BPSNUM = VALEUR
+Endif
+If rowcount([F:ZPQF]) > 1
+  Filter [F:ZPQF]
+  OK=0
+  Return
+Endif
+Filter [F:ZPQF]
+
+Local Integer NBCHOI, CHOI
+Raz NBCHOI,CHOI
+Local Char    TEX(GLONDES)(1..5000,1..5) , TIT(GLONDES)(0..5) : Raz TEX,TIT: Raz NBCHOI,CHOI
+If dim([M:ZIMR]PQHNUM)>0
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK]
+& Order By  [F:ZPQH]PQHDAT Desc
+Else
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK] Where [F:ZPQF]PQHFCY = [ZPPH0]PQHFCY
+& Order By  [F:ZPQH]PQHDAT Desc
+Endif
+For [PQHLINK]
+  If ((left$([F:ZPQF]BPSNUM, len(UPVAL)) =UPVAL) or  (pat(toupper([F:ZPQF]BPRNAM),"*"+UPVAL+"*")<>0))
+    NBCHOI += 1
+    TEX(NBCHOI,1) = [F:ZPQF]BPSNUM
+    TEX(NBCHOI,2) = [F:ZPQF]BPRNAM
+    Read [F:ZBPS]BPS0 = [F:ZPQF]BPSNUM
+    TEX(NBCHOI,3) = [F:ZBPS]BPSSHO
+    TEX(NBCHOI,4) = [F:ZPQF]PQHNUM
+    Read [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM
+    TEX(NBCHOI,5) = [F:ZPQH]PQHREF
+  Endif
+Next
+#Filter [F:PQF]
+CHOI = 0
+TIT(0) = "Seleccion Proveedor"
+TIT(1) = "Proveedor"
+TIT(2) = "Razon Social"
+TIT(3) = "Desc. Corta"
+TIT(4) = "NºSolicitud"
+TIT(5) = "Referencia"
+Call SAITEX_COL_MAX(NBCHOI,TEX,CHOI,TIT,240,60) From GESECRAN
+If status<>7 & CHOI<>0
+  VALEUR = TEX(CHOI,1)
+  If dim([M:ZIMR]PQHNUM)>0
+    [M:ZIMR]PQHNUM = TEX(CHOI,4)
+  Else
+    [M:ZPPH0]PQHNUM = TEX(CHOI,4)
+  Endif
+Endif
+Return
+
+$ZSELPQH
+If clalev([F:ZPQH])= 0: Local File PQUOTAT[ZPQH]:Endif
+If clalev([F:ZPQF])= 0: Local File PQUOTATF[ZPQF]:Endif
+If clalev([F:ZBPS])= 0: Local File BPSUPPLIER[ZBPS]:Endif
+Local Integer NBCHOI, CHOI
+Local Char TMPBPS(15):Raz TMPBPS
+Raz NBCHOI,CHOI
+Local Char    TEX(GLONDES)(1..5000,1..3) , TIT(GLONDES)(0..3) : Raz TEX,TIT: Raz NBCHOI,CHOI
+If dim([M:ZIMR]BPSNUM)>0
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK] Where BPSNUM = [M:ZIMR]BPSNUM Order By  [F:ZPQH]PQHDAT Desc
+Else
+  Link [F:ZPQF] With [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM As [PQHLINK] Where [F:ZPQF]PQHFCY = [ZPPH0]PQHFCY
+& and BPSNUM = [ZPPH0]BPSNUM Order By  [F:ZPQH]PQHDAT Desc
+Endif
+For [PQHLINK]
+  NBCHOI += 1
+  TEX(NBCHOI,1) = [F:ZPQF]PQHNUM
+  Read [F:ZPQH]PQH0 = [F:ZPQF]PQHNUM
+  TEX(NBCHOI,2) = [F:ZPQH]PQHREF
+  TEX(NBCHOI,3) = format$("D:DD[/]MM[/]YY",[F:ZPQH]PQHDAT)
+Next
+
+CHOI = 0
+TIT(0) = "Seleccion Sol. oferta"
+TIT(1) = "NºSolicitud"
+TIT(2) = "Referencia"
+TIT(3) = "Fecha solicitud"
+Call SAITEX_COL_MAX(NBCHOI,TEX,CHOI,TIT,240,60) From GESECRAN
+If status<>7 & CHOI<>0
+  VALEUR = TEX(CHOI,1)
+Endif
+Return

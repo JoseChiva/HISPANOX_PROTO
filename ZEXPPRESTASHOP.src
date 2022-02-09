@@ -12,9 +12,9 @@ Return
 ## marcada por la tarea batch que se parametrice
 ########################################################################
 $EXEC
-  Call CLIENTES   From ZCLIPRESTASHOP
-  Call ARTICULOS  From ZITMPRESTASHOP
-  Call PRECIONETO From ZNETPRESTASHOP
-  Call TARIFAS    From ZTARPRESTASHOP
-  Call DIRAUX     From ZDIRPRESTASHOP
+   Call CLIENTES   From ZCLIPRESTASHOP
+   Call ARTICULOS  From ZITMPRESTASHOP
+   Call PRECIONETO From ZNETPRESTASHOP
+   Call TARIFAS    From ZTARPRESTASHOP
+   Call DIRAUX     From ZDIRPRESTASHOP
 Return

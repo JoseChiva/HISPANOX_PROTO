@@ -14,7 +14,9 @@
 # Codigo Actividad: ZC015
 #######################################################################################
 #DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
-
+#AUR01: 20/01/2022 ML campo Total en divisa
+#AUR02: 20/01/2022 ML campo Campo suma en la grilla detalle de expediciones
+#AUR03: 20/01/2022 ML campo Campo planta por defecto "PHISP"
 $OUVRE
 If clalev([ZPOP])<=0  :  Local File PORDERP [ZPOP]  :  Endif
 If clalev([ZPOQ])<=0  :  Local File PORDERQ [ZPOQ]  :  Endif
@@ -46,12 +48,24 @@ Next
 Return
 
 #############################################################################
+#AUR03.ini
+$RAZCRE
+Gosub ACTION From SUBSHIP
+GPE=1
+[M:SHIP0]FCY="PHISP"
+Affzo [M:SHIP0]FCY
+Return
+#AUR03.fin
+#############################################################################
 $SETBOUT
 
 Gosub ACTION From SUBSHIP
 GPE=1
 If [M:SHIP1]ZVCRLINSUP = 0 and [M:SHIP1]NBLIG>0
-  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+  Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
   Grizo [M:SHIP1]NBLIG2
 Endif
 
@@ -60,6 +74,12 @@ For K = 0 To [M:SHIP1]NBLIG-1
   nolign = K+1
   Gosub COLOR_ROJO
 Next
+For K = 0 To [M:SHIP1]NBLIG-1
+  nolign = K+1
+  Chgstl [M:SHIP1]ZPALENT(nolign-1) With ""
+  Gosub COLOR_PALET
+Next
+Gosub COLOR_PALET2
 nolign=TMPLIG
 Return
 
@@ -68,7 +88,10 @@ $APRES_MODIF
 ZDEL = 0
 If status = 65 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una linea de una grilla
   ZDEL = 1
-  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+  Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
   Grizo [M:SHIP1]NBLIG2
   Affzo [M:SHIP1]10
   Affzo [M:SHIP1]15
@@ -81,10 +104,24 @@ If status = 65 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una l
   Next
   Affzo [M:SHIP1]20
 Endif
+#AUR02.ini
+If status = 65 and COUZON = "NBLIG2" # si se presiona el boton suprimmir de una linea de una grilla
+  Raz [M:SHIP1]ZSUMSUP
+  For I=0 To [M:SHIP1]NBLIG2-1
+    If I <> nolign-1 Then
+      [M:SHIP1]ZSUMSUP += [M:SHIP1]ZQTYLINAUX(I)
+    Endif
+  Next
+  Affzo [M:SHIP1]ZSUMSUP
+Endif
+#AUR02.fin
 
 If status = 83 and COUZON = "NBLIG" # si se presiona el boton suprimmir de una grilla
   ZDEL = 1
-  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+  Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
   Affzo [M:SHIP1]10
   Affzo [M:SHIP1]15
   Grizo [M:SHIP1]NBLIG2
@@ -102,6 +139,7 @@ Titcol [M:SHIP1]NBLIG "Arancel" For CPRCOE
 #Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
 #
 #Grizo [M:SHIP1]NBLIG2
+Local Integer TMPLIG:TMPLIG=nolign
 nolign = 0
 
 Raz [M:SHIP1]NBLIG3
@@ -112,30 +150,42 @@ For [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
   [M:SHIP1]ZQTYLIN(nolign) = [F:ZOR]ZQTYLIN
   [M:SHIP1]ZPALETP(nolign) = [F:ZOR]ZPALETP
   [M:SHIP1]ZVCRLIN(nolign) = [F:ZOR]ZVCRLIN
+  [M:SHIP1]ZSHIPLIN(nolign) = [F:ZOR]ZSHIPLIN
   [M:SHIP1]NBLIG3 += 1
   nolign+=1
 Next
 
+#AUR01.ini
+Raz [M:CSTS]ZTOTCUR
+#AUR01.fin
 
 For I = 0 To [M:SHIP1]NBLIG-1
+#AUR01.ini
+  [M:CSTS]ZTOTCUR+=[M:SHIP1]LINAMT(I)
+#AUR01.fin
   Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
   If !fstat
     Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
     [M:SHIP1]ZLPORCTOL(I) = [F:ZPOP]ZLPORCTOL
     [M:SHIP1]ZQTYTOL(I) = [F:ZPOQ]QTYSTU*([F:ZPOP]ZLPORCTOL)/100 # Cantidad tolerancia
-    [M:SHIP1]ZQTYPENDENV(I) = [F:ZPOQ]QTYSTU - max([M:SHIP1]RCPQTYSTU(I),[M:SHIP1]SHIQTY(I))# Cantidad pendiente enviar
+    [M:SHIP1]ZQTYPENDENV(I) = [F:ZPOQ]QTYSTU - ([F:ZPOQ]RCPQTYSTU+[F:ZPOQ]SHIQTYSTU)# Cantidad pendiente enviar
+    If [M:SHIP1]ZQTYPENDENV(I)<0 : [M:SHIP1]ZQTYPENDENV(I) = 0 Endif
     [M:SHIP1]ZWQTYPENV(I) = [M:SHIP1]ZQTYPENDENV(I)*[F:ZPOQ]QTYWEU/[F:ZPOQ]QTYSTU # Peso cantidad pendiente de enviar
-    [M:SHIP1]ZQTYEXE(I) = [M:SHIP1]RCPQTYSTU(I)+[M:SHIP1]SHIQTY(I) - [F:ZPOQ]QTYSTU # Cantidad enviada excedida
+    If [M:SHIP1]ZWQTYPENV(I)<0 : [M:SHIP1]ZWQTYPENV(I) = 0 Endif
+    [M:SHIP1]ZQTYEXE(I) = [F:ZPOQ]RCPQTYSTU+[F:ZPOQ]SHIQTYSTU - [F:ZPOQ]QTYSTU # Cantidad enviada excedida
     If [M:SHIP1]ZQTYEXE(I)<0 : [M:SHIP1]ZQTYEXE(I) = 0 Endif
     [M:SHIP1]ZQTYSTU(I) = [F:ZPOQ]QTYSTU # Cantidad pedido
-    [M:SHIP1]ZQTYSERV(I) = [M:SHIP1]RCPQTYSTU(I)+[M:SHIP1]SHIQTY(I) # Cantidad servida
+    [M:SHIP1]ZQTYSERV(I) = [F:ZPOQ]RCPQTYSTU+[F:ZPOQ]SHIQTYSTU # Cantidad servida
     Read [F:ZORD]ORD0 = [F:ZPOQ]WIPTYP;[F:ZPOQ]WIPNUM;[F:ZPOQ]ITMREF
     If !fstat
       [M:SHIP1]ZQTYASIG(I) = [F:ZORD]MTOQTY
     Endif
   Endif
 Next
-
+#AUR01.ini
+Affzo [M:CSTS]ZTOTCUR
+#AUR01.fin
+nolign=TMPLIG
 Return
 
 #############################################################################
@@ -178,6 +228,7 @@ For I=0 To [M:SHIP1]NBLIG3-1
     Raz [F:ZOR]
     [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
     [F:ZOR]ZVCRLIN = [M:SHIP1]ZVCRLIN(I)
+    [F:ZOR]ZSHIPLIN = [M:SHIP1]ZSHIPLIN(I)
     [F:ZOR]ZLIN = I+1
     [F:ZOR]ZITMREF = [M:SHIP1]ZITMREF(I)
     [F:ZOR]ZPOHNUM = [M:SHIP1]ZPOHNUM(I)
@@ -201,6 +252,7 @@ If status=0 and currbox = GBOXPO6
   [M:SHIP1]ZLPRIDIV(NOL) = [F:POP]ZLPRIDIV
   [M:SHIP1]ZDISCRGVAL1(NOL) = [F:POP]DISCRGVAL1
   [M:SHIP1]ZLPORCTOL(NOL) = [F:POP]ZLPORCTOL
+  [M:SHIP1]ZITMDES2(NOL) = [F:POP]ZITMDES2
   [M:SHIP1]ZQTYTOL(NOL) = [F:POQ]QTYSTU*([F:ZPOP]ZLPORCTOL)/100
   If [F:POQ]ZSTA <> ""
     [M:SHIP1]STA(NOL) = [F:POQ]ZSTA
@@ -215,9 +267,12 @@ If status=0 and currbox = GBOXPO6
   Affzo [M:SHIP1]ZLPORCTOL(NOL)
 Endif
 If currbox = GBOXCTRH
-  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
-
+  Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+  Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
   Grizo [M:SHIP1]NBLIG2
+  Local Integer TMPLIG:TMPLIG=nolign
   nolign = 0
 
   For [F:ZOR] Where [F:ZOR]ZVCRNUM = [F:CTRH]CTRNUM
@@ -227,9 +282,11 @@ If currbox = GBOXCTRH
     [M:SHIP1]ZQTYLIN(nolign) = [F:ZOR]ZQTYLIN
     [M:SHIP1]ZPALETP(nolign) = [F:ZOR]ZPALETP
     [M:SHIP1]ZVCRLIN(nolign) = [F:ZOR]ZVCRLIN
+    [M:SHIP1]ZSHIPLIN(nolign) = [F:ZOR]ZSHIPLIN
     [M:SHIP1]NBLIG3 += 1
     nolign+=1
   Next
+  nolign=TMPLIG
 Endif
 
 Return
@@ -248,7 +305,10 @@ Return
 
 #############################################################################
 $DEPICK_PO6
-Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
 Grizo [M:SHIP1]NBLIG2
 Affzo [M:SHIP1]10
 Affzo [M:SHIP1]15
@@ -265,7 +325,10 @@ Return
 
 #############################################################################
 $DEPICK_CTRH
-Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP,[M:SHIP1]ZSHIPLINSUP
+#AUR02.ini
+Raz [M:SHIP1]ZSUMSUP
+#AUR02.fin
 Grizo [M:SHIP1]NBLIG2
 Affzo [M:SHIP1]10
 Affzo [M:SHIP1]15
@@ -324,13 +387,13 @@ If !fstat
     Chgstl [M:SHIP1]ZQTYTOL(nolign-1) With ""
   Endif
   #######
-  If [M:SHIP1]ZQTYPENDENV(nolign-1)< [M:SHIP1]ZQTYTOL(nolign-1)
+  If [M:SHIP1]ZQTYPENDENV(nolign-1)< [M:SHIP1]ZQTYTOL(nolign-1) and [M:SHIP1]ZQTYPENDENV(nolign-1) <> 0
     Chgstl [M:SHIP1]ZQTYPENDENV(nolign-1) With "BACKRED"
   Else
     Chgstl [M:SHIP1]ZQTYPENDENV(nolign-1) With ""
   Endif
   #######
-  If [M:SHIP1]ZQTYEXE(nolign-1)>0
+  If [M:SHIP1]ZQTYEXE(nolign-1)>0 and [M:SHIP1]ZQTYEXE(nolign-1)>[M:SHIP1]ZQTYTOL(nolign-1)
     Chgstl [M:SHIP1]ZQTYEXE(nolign-1) With "BACKRED"
   Else
     Chgstl [M:SHIP1]ZQTYEXE(nolign-1) With ""
@@ -343,24 +406,90 @@ If !fstat
   Endif
 Endif
 
+Return
+
+$COLOR_PALET
+
 If [M:SHIP1]ZPALENT(nolign-1) = 2
-  Local Integer J,FPAL : Raz J,FPAL
+  Local Integer N,J,FPAL,M : Raz N,J,FPAL,M
   For J = 0 To [M:SHIP1]NBLIG-1
     If J<>nolign-1
-      If [M:SHIP1]CTRNUM(J) = [M:SHIP1]CTRNUM(nolign-1) and [M:SHIP1]ZCPALET(J) = [M:SHIP1]ZCPALET(nolign-1)
-&     and [M:SHIP1]ITMREF(J) <> [M:SHIP1]ITMREF(nolign-1)
-        FPAL=1
-        Break
+      If [M:SHIP1]CTRNUM(J) = [M:SHIP1]CTRNUM(nolign-1)
+        If  [M:SHIP1]ZPALET(nolign-1) <> "" # Con palet en linea principal
+          If [M:SHIP1]ZPALET(J) = [M:SHIP1]ZPALET(nolign-1) and [M:SHIP1]ITMREF(J) <> [M:SHIP1]ITMREF(nolign-1) # Busco en otras lineas principales
+            FPAL=1
+            Break
+          Endif
+          If FPAL = 0 # Si no encuentro en lineas principales busco en la grilla de lotes
+            For N=0 To [M:SHIP1]NBLIG3-1
+              If [M:SHIP1]ZPALETP(N)= [M:SHIP1]ZPALET(nolign-1) and [M:SHIP1]ZSHIPLIN(N)= [M:SHIP1]SHIPLIN(J)
+&             and [M:SHIP1]ZITMREF(N) <> [M:SHIP1]ITMREF(nolign-1)
+                FPAL=1
+                Break
+              Endif
+            Next
+            If FPAL=1 Break Endif
+          Endif
+        Endif
       Endif
     Endif
   Next
+
   If FPAL=1
     Chgstl [M:SHIP1]ZPALENT(nolign-1) With "BACKRED"
-  Else
-    Chgstl [M:SHIP1]ZPALENT(nolign-1) With ""
   Endif
 Endif
-
-
 Return
-#[M:SHIP1]ZQTYASIG(I)
+
+$COLOR_PALET2
+Local Integer N,J,FPAL,M
+Local Char TMPITM(30),TMPPV(20),TMPCT(20),TMPCT2(20)
+Local Integer TMPPSI,TMPPSI2,NROLIN,NROLIN2
+Raz N,J,FPAL,M
+Raz TMPITM,TMPPV,TMPCT,TMPPSI
+
+
+For N = 0 To [M:SHIP1]NBLIG3-1
+  Raz TMPITM,TMPPV,TMPCT,TMPPSI
+  TMPITM = [M:SHIP1]ZITMREF(N)
+  TMPPV = [M:SHIP1]ZPALETP(N)
+  Call FINDCT([M:SHIP1]ZSHIPLIN(N),TMPCT,TMPPSI,NROLIN)
+  If TMPPSI=2
+    For IM = 0 To [M:SHIP1]NBLIG-1
+     If [M:SHIP1]SHIPLIN(IM)<>NROLIN and [M:SHIP1]ITMREF(IM)<>TMPITM and [M:SHIP1]ZPALET(IM) = TMPPV
+      Chgstl [M:SHIP1]ZPALENT(NROLIN-1) With "BACKRED"
+      FPAL=1
+      Break
+     Endif
+    Next
+
+    If FPAL = 0
+      For J = 0 To [M:SHIP1]NBLIG3-1
+        Raz TMPCT2,TMPPSI2
+        If N<>J and [M:SHIP1]ZPALETP(J) = TMPPV and [M:SHIP1]ZITMREF(J)<>TMPITM
+          Call FINDCT([M:SHIP1]ZSHIPLIN(J),TMPCT2,TMPPSI2,NROLIN2)
+          If TMPCT2 = TMPCT
+            Chgstl [M:SHIP1]ZPALENT(NROLIN-1) With "BACKRED"
+            Break
+          Endif
+        Endif
+      Next
+    Endif
+  Endif
+Next
+Return
+
+Subprog FINDCT(LINEA,CT,PSI,NLIN)
+Value Integer LINEA
+Variable Char CT
+Variable Integer PSI,NLIN
+Raz CT,PSI
+For IX = 0 To [M:SHIP1]NBLIG-1
+  If [M:SHIP1]SHIPLIN(IX)=LINEA
+    CT = [M:SHIP1]CTRNUM(IX)
+    PSI = [M:SHIP1]ZPALENT(IX)
+    NLIN=IX+1
+    Break
+  Endif
+Next
+End

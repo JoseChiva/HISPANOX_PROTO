@@ -13,9 +13,7 @@
 ## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 23/02/2021 16:39:34 (DEVAU)
 ######################################################################################
 $ACTION
-#If GUSER="ADMIN" and dim(NBRCPY)>0
-#Infbox ACTION+"/"+num$(NBRCPY)
-#Endif
+#Infbox ACTION
 Case ACTION
   When "OUVRE"  : Gosub OUVRE
   When "DEBUT"  : Gosub DEBUT
@@ -23,19 +21,6 @@ Case ACTION
   When "SETBOUT" : Gosub SETBOUT
   When Default
 Endcase
-
-Case ACTION
-  When "IMPRIME"  : Gosub IMPRIME
-Endcase
-
-Return
-
-######################################################################################
-$IMPRIME
-If GACTION = "ZENVFAC"
-  Infbox "LinSPE/"+num$(NBRCPY)
-  NBRCPY=3
-Endif
 Return
 
 ######################################################################################
@@ -279,7 +264,7 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
 
       NBPAR += 1
       TBPAR(NBPAR) = "typefin"
-      TBVAL(NBPAR) = "1"
+      TBVAL(NBPAR) = "5"
 
       NBPAR += 1
       TBPAR(NBPAR) = "codimp"
@@ -304,11 +289,6 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
 #      Else
 #        TBVAL(NBPAR) = num$(ZCOP)
 #      Endif
-
-      NBPAR+=1
-      TBPAR(NBPAR) = "duplicata"
-      TBVAL(NBPAR) = "Si"
-
       NBPAR+=1
       TBPAR(NBPAR) = "etat"
       TBVAL(NBPAR) = [F:ARP]RPTCOD
@@ -320,22 +300,23 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
       #4 - 0 or 1 it shows or not the info message 'print executed'
       #5 - TBPAR_BP
       #6 - TBVAL_BP
-#      For I =1 To NBPAR
-#        Infbox TBPAR(I) + "/"+TBVAL(I)
-#      Next
-#
-#      End
-      Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
+
       If ZDESTINO = "FILE"
+        Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
+        While filinfo(GZNOMFIC,7) < 0 Wend
+        Sleep 10
+        Gosub LANZA_WORKFLOW
         Call MRK_FAC(P_NUM,1)
       Else
+        If ZCOP>1
+          For NX= 1 To ZCOP
+            Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
+          Next
+        Else
+          Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
+        Endif
         Call MRK_FAC(P_NUM,0)
       Endif
-      Sleep 5
-      If ZDESTINO = "FILE" :Gosub LANZA_WORKFLOW Endif
-
-
-
 
     Endif
 
@@ -355,16 +336,15 @@ Local Char TMPCORREO(50)(6) :Raz TMPCORREO
 Global Char GCORREO2(50),GCORREO3(50),GCORREO4(50),GCORREO5(50)
 Raz GCORREO,GCORREO2,GCORREO3,GCORREO4,GCORREO5
 # "contabilidad@hispanox.com"   jespert@hotmail.com
-
 ZGUSER = GUSER
 GUSER = "INVOI"
-I = func F_SPLIT(ZCORREO,",",TMPCORREO)
-#GCORREO = ZCORREO
-GCORREO =TMPCORREO(0)
-GCORREO2 =TMPCORREO(1)
-GCORREO3 =TMPCORREO(2)
-GCORREO4 =TMPCORREO(3)
-GCORREO5 =TMPCORREO(4)
+#I = func F_SPLIT(ZCORREO,",",TMPCORREO)
+GCORREO = "miguelandres17@hotmail.com"
+#GCORREO =TMPCORREO(0)
+#GCORREO2 =TMPCORREO(1)
+#GCORREO3 =TMPCORREO(2)
+#GCORREO4 =TMPCORREO(3)
+#GCORREO5 =TMPCORREO(4)
 Gosub ENV_CORREO
 GUSER = ZGUSER
 If dim(GCORREO) > 0 Then : Kill GCORREO : Endif
@@ -394,7 +374,7 @@ If [F:ZBPR2]LAN = "SPA"
   GASUNTO = "HX Factura "+[F:SIV]NUM+" "+[F:ZBPR2]BPRSHO
   GLINEA1 = "Estimado cliente,"
   GLINEA2 =  "Adjuntamos nuestra factura nº " +[F:SIV]NUM + " de fecha "+format$("D:DD[/]MM[/]YY", [F:SIV]INVDAT)+" e importe "+
-&  format$("N3vF:9.2",[F:ZSIH1]AMTNOTL)+" "+[F:ZTCU]CURSYM
+&  format$("N3vF:9.2",[F:ZSIH1]AMTATIL)+" "+[F:ZTCU]CURSYM
   GLINEA3 =  "Saludos cordiales,"
   GLINEA4 = "DPTO.ADMINISTRACIÓN"
   GLINEA5 = "HISPANOX S.A"
@@ -402,13 +382,14 @@ Else
   GASUNTO = "HX Invoice "+[F:SIV]NUM+" "+[F:ZBPR2]BPRSHO
   GLINEA1 = "Dear customer,"
   GLINEA2 =  "Please find enclosed our invoice nº " +[F:SIV]NUM + " dated "+format$("D:MM[/]DD[/]YY", [F:SIV]INVDAT)+" and amount "+
-&  format$("N3vF:9.2",[F:ZSIH1]AMTNOTL)+" "+[F:ZTCU]CURSYM
+&  format$("N3vF:9.2",[F:ZSIH1]AMTATIL)+" "+[F:ZTCU]CURSYM
   GLINEA3 =  "Best regards,"
   GLINEA4 = "Administration Department"
   GLINEA5 = "HISPANOX S.A"
 Endif
 adxsca = "....**$_"
-Call WORKFLOW (1,"ZEF","",GUSER) From AWRK
+#Call WORKFLOW (1,"ZEF","",GUSER) From AWRK
+Call WORKFLOW (1,"ZEF","","") From AWRK
 Return
 ########################################################################################################
 #Túnel factura

@@ -20,7 +20,7 @@ Return
 
 ################################################################
 $CALC_CMO
-#If find([F:STJ]TRSTYP,1,3,12,13,16,23,33,35)=0 : Return : Endif
+If find([F:STJ]TRSTYP,1,2,3,4,11,12,16,23,33)=0 : Return : Endif
 Local Decimal ZCMO
 Raz ZCMO
 
@@ -31,24 +31,34 @@ Read [F:ITV1]ITV0 = [F:STJ]ITMREF;[F:STJ]STOFCY
 If !fstat Then
   Read [F:ITF1]ITF0 = [F:STJ]ITMREF;[F:STJ]STOFCY
   If !fstat Then
-      If ([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU) <> 0
-        If [F:STJ]QTYSTU>0
-          If [F:STJ]AMTDEV2 = 0
-            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
-          Else
-            ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARVAL)/([F:ITV1]AVCBASQTY)
-          Endif
-          [F:ITF1]ZCMO = arr(ZCMO,0.0000001)
-          Rewrite [F:ITF1]
+    If [F:STJ]QTYSTU>0 or [F:STJ]TRSTYP = 11 or [F:STJ]TRSTYP = 2 or ([F:STJ]TRSTYP = 3 and [F:STJ]VCRNUMREG = "") or [F:STJ]TRSTYP = 4
+      If [F:STJ]AMTDEV2 = 0
+        If ([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU) <> 0
+          ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARORD)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
+        Endif
+      Else
+        If [F:ITV1]AVCBASQTY<>0
+          ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARORD)/([F:ITV1]AVCBASQTY)
         Endif
       Endif
+      [F:ITF1]ZCMO = arr(ZCMO,0.0000001)
+      #[F:ITF1]ZCMO = ZCMO
+      Rewrite [F:ITF1]
+    Endif
+    If [F:STJ]TRSTYP = 23
+      If [F:ITV1]AVCBASQTY<>0
+        ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]VARORD)/([F:ITV1]AVCBASQTY)
+        [F:ITF1]ZCMO = arr(ZCMO,0.0000001)
+        Rewrite [F:ITF1]
+      Endif
+    Endif
   Endif
 Endif
 
 Return
 
 ################################################################
-#$CALC_CMO3
+#$CALC_CMO3 # para pruebas
 ## en una salida varia el CMO no debe modificarse
 ##If GFONCTION = "GESSMO" or GFONCTION = "GESPTH" Then : Return : Endif
 #If GFONCTION = "GESSMO" Then : Return : Endif
@@ -94,6 +104,52 @@ Return
 #         Endif
 #        Endif
 #      Endif
+#  Endif
+#Endif
+#
+#
+#Return
+
+
+################################################################
+#$CALC_CMO #Anterior
+##mlga - ini
+##If GIMPORT : Return :Endif                                                                                          # JC.05102021.NEW
+#
+##Infbox 'CALC_CMO'
+#
+##Return                                                                                                             # JC.05102021.NEW
+##mlga - fin
+#
+##
+#
+## en una salida varia el CMO no debe modificarse
+#If GFONCTION = "GESSMO" Then : Return : Endif                                                                       # JC.18102021.NEW
+#
+#Local Decimal ZCMO
+#Raz ZCMO
+#
+#If clalev([F:ITF1])=0 Local File ITMFACILIT[ITF1]  : Endif
+#If clalev([F:ITV1])=0 Local File ITMMVT    [ITV1]  : Endif
+#
+##Infbox 'stojou QTYSTU: ' + num$([F:STJ]QTYSTU) + ' PRIORD: ' + num$([F:STJ]PRIORD)
+#Filter [F:ITV1] Where ITMREF = [F:STJ]ITMREF and STOFCY = [F:STJ]STOFCY
+#Read [F:ITV1] First
+#If !fstat Then
+#  #Infbox 'ITMMVT itmref:  ' + [F:ITV1]ITMREF + ' AVCBASQTY ' + num$([F:ITV1]AVCBASQTY)
+#  Filter [F:ITF1] Where ITMREF = [F:STJ]ITMREF and STOFCY = [F:STJ]STOFCY
+#  Read [F:ITF1] First
+#  If !fstat Then
+#    #Infbox 'ITMFACILIT antes ' + [F:ITF1]ITMREF + ' ' + num$([F:ITF1]ZCMO)
+#    #If [F:STJ]PRIORD <> [F:STJ]PRIVAL Then
+#      If ([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU) <> 0 Then                                                                # JC.05102021.NEW
+#        ZCMO = ([F:ITF1]ZCMO*[F:ITV1]AVCBASQTY+[F:STJ]QTYSTU*[F:STJ]PRIORD)/([F:ITV1]AVCBASQTY+[F:STJ]QTYSTU)
+#      Endif                                                                                                         # JC.05102021.NEW
+##      ZCMO = arr(ZCMO,0.0001)
+#      #Infbox 'ZCMO despues ' + num$(ZCMO)
+#      [F:ITF1]ZCMO = ZCMO
+#      Rewrite [F:ITF1]
+#    #Endif
 #  Endif
 #Endif
 #

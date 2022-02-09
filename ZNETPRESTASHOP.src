@@ -1,4 +1,5 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$
 Call PRECIONETO()
 
 End
@@ -6,35 +7,92 @@ End
 ###########################################################
 Subprog PRECIONETO()
   Gosub OPEN_TABLAS
-#  Filter [F:ITM1] Where ZWEB=2 and (ITMREF = '21452') #or ITMREF = '1000' or ITMREF = '10000' or ITMREF = '10001') Order By ITMREF
-#  Filter [F:ITM1] Where ZWEB=2 and len(ITMREF) = 6 Order By ITMREF
-  Filter [F:ITM1] Where ZWEB=2 Order By ITMREF
-  Filter [F:ADI1] Where NUMTAB=33
-  If rowcount([F:ITM1])>0
+ # Filter [F:ZNET1] Where  (ITMREF = '1298') #or ITMREF = '1000' or ITMREF = '10000' or ITMREF = '10001') Order By ITMREF
+  #Filter [F:ITM1] Where ZWEB=2 Order By ITMREF
+ # Filter [F:ADI1] Where NUMTAB=33
+  #If rowcount([F:ITM1])>0
+Filter [F:ZNET1] Order By ITMREF
+ # If rowcount([F:ZNET1])>0
     Gosub CREAR_FICHERO
-    For [ITM1]
-      For [F:ADI1]CODE
+    #For [ITM1]
+     # For [F:ADI1]CODE
+     For [F:ZNET1]
+        Gosub BUSCAR_DATOS
         Gosub ESC_REGISTRO
       Next
-    Next
+    #Next
     Openo Using [ITM]
-  Endif
+ # Endif
   Gosub CLOSE_TABLAS
 End
 
+$BUSCAR_DATOS
+  Raz LIMITE_0, LIMITE_1, LIMITE_2,PS_CO,PS_FRANJA1,PS_FRANJA2,PS_FRANJA3
+  Raz PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3,LMBEXTRA,PS_ITMREF,PS_FCY,PS_COC
+
+  #COSTE_OFERTA  = func ZAULIB01.GET_COSTEOFERTA([F:ITM1]ITMREF,"PHISP")
+ #COSTE_OFERTA  = func ZAULIB01.GET_COSTEOFERTA( [F:ZNET1]ITMREF,"PHISP")
+
+
+  If [F:ZNET1]ZCMOFIX <> 0 Then
+            COSTE_OFERTA = [F:ZNET1]ZCMOFIX
+  Else
+      If [F:ZNET1]ZCMO > [F:ZNET1]ZCMOMIN Then
+            COSTE_OFERTA = [F:ZNET1]ZCMO
+      Else
+            COSTE_OFERTA = [F:ZNET1]ZCMOMIN
+      Endif
+      If COSTE_OFERTA = 0 Then
+            COSTE_OFERTA = [F:ZNET1]AVC
+      Endif
+  Endif
+
+PS_ITMREF=[F:ZNET1]ITMREF
+PS_FCY="PHISP"
+PS_COC=[F:ZNET1]CODE
+
+LMBEXTRA = func ZAULIB01.GET_MBEXTRA(PS_ITMREF,PS_FCY,PS_COC)
+
+
+  # búsqueda en tabla ZMMBASE según clasificación oferta artículo
+      LIMITE_0 = [F:ZNET1]FRANJA0
+      LIMITE_1 = [F:ZNET1]FRANJA1
+      LIMITE_2 = [F:ZNET1]FRANJA2
+
+
+  # búsqueda en tabla ZMBBASED según clasificación oferta artículo y clasificación oferta cliente
+
+    PRECIO_NETO_1 = (COSTE_OFERTA*100) / (1-([F:ZNET1]MB1/100 + LMBEXTRA/100))
+    PRECIO_NETO_2 = (COSTE_OFERTA*100) / (1-([F:ZNET1]MB2/100 + LMBEXTRA/100))
+    PRECIO_NETO_3 = (COSTE_OFERTA*100) / (1-([F:ZNET1]MB3/100 + LMBEXTRA/100))
+
+
+ #Call GET_PBASE([F:ITM1]ITMREF,"PHISP",[F:ADI1]CODE,COSTE_OFERTA,LIMITE_0,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2,PRECIO_NETO_3) From ZAULIB01
+ #Call GET_PBASE( [F:ZNET1]ITMREF,"PHISP", [F:ZNET1]CODE,COSTE_OFERTA,LIMITE_0,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2,PRECIO_NETO_3) From ZAULIB01
+
+
+
+
+Return
 ##################################################################
 $ESC_REGISTRO
-  If (6-len([F:ITM1]ITMREF)) > 0 Then
-    Wrseq ctrans(space$(6-len([F:ITM1]ITMREF))+[F:ITM1]ITMREF,' ','0'); Using [ITM]
-  Else
-    Wrseq left$([F:ITM1]ITMREF,6);                                      Using [ITM]
-  Endif
-  Wrseq [F:ADI1]CODE;                                                   Using [ITM]
-  Raz LIMITE_0, LIMITE_1, LIMITE_2
-  Raz PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3
-#  Call CALC_PRECIO([F:ITM1]ITMREF,[F:ADI1]CODE,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2, PRECIO_NETO_3)
-  COSTE_OFERTA  = func ZAULIB01.GET_COSTEOFERTA([F:ITM1]ITMREF,"PHISP")
-  Call GET_PBASE([F:ITM1]ITMREF,"PHISP",[F:ADI1]CODE,COSTE_OFERTA,LIMITE_0,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2,PRECIO_NETO_3) From ZAULIB01
+#  If (6-len([F:ITM1]ITMREF)) > 0 Then
+#    Wrseq ctrans(space$(6-len([F:ITM1]ITMREF))+[F:ITM1]ITMREF,' ','0'); Using [ITM]
+#  Else
+#    Wrseq left$([F:ITM1]ITMREF,6);                                      Using [ITM]
+#  Endif
+ # Wrseq format$("N0:6", [F:ITM1]ITMREF);                                 Using [ITM]
+  Wrseq format$("N0:6", [F:ZNET1]ITMREF);                                 Using [ITM]
+#  Wrseq [F:ADI1]CODE;
+  Wrseq [F:ZNET1]CODE;                                                  Using [ITM]
+#  Raz LIMITE_0, LIMITE_1, LIMITE_2
+#  Raz PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3
+#  Call CALC_PRECIO([F:ITM1]ITMREF,[F:ADI1]CODE,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2, PRECIO_NETO_3) #comentado
+
+
+ # COSTE_OFERTA  = func ZAULIB01.GET_COSTEOFERTA([F:ITM1]ITMREF,"PHISP")
+
+ # Call GET_PBASE([F:ITM1]ITMREF,"PHISP",[F:ADI1]CODE,COSTE_OFERTA,LIMITE_0,LIMITE_1,LIMITE_2,PRECIO_NETO_1,PRECIO_NETO_2,PRECIO_NETO_3) From ZAULIB01
   Wrseq format$("N0:3#",LIMITE_1);                                      Using [ITM]
   Wrseq format$("N0:3#",LIMITE_2);                                      Using [ITM]
   Wrseq ctrans(format$("N0:6.4#",arr(PRECIO_NETO_1,0.0001)),".",",");   Using [ITM]
@@ -68,6 +126,7 @@ If !clalev([F:ITV])   Then : Local File ITMMVT      [F:ITV]   : Endif
 If !clalev([F:ZITG])  Then : Local File ITMCATEG    [F:ZITG]  : Endif
 If !clalev([F:ITG])   Then : Local File ITMCATEG    [F:ITG]   : Endif
 If !clalev([F:ZSAT])  Then : Local File STAT        [F:ZSAT]  : Endif
+
 
   Read [F:ZITM0]ITM0=[L]ITMREF
 
@@ -134,20 +193,26 @@ If !clalev([F:ZSAT])  Then : Local File STAT        [F:ZSAT]  : Endif
 
   Close Local File [ZITM0],[ZITF],[ZMBB],[ZMBBD],[ZMBE],[ZMBED],[ZITV],[ITV],[ZITG],[ITG],[ZSAT]
 
+
 End
 
 ##################################################################
 $OPEN_TABLAS
-  If !clalev([F:ITM1]) Then : Local File ITMMASTER  [F:ITM1] : Endif
-  If !clalev([F:ADI1]) Then : Local File ATABDIV    [F:ADI1] : Endif
 
-  Local Decimal LIMITE_0, LIMITE_1, LIMITE_2
-  Local Decimal PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3, COSTE_OFERTA
+ # If !clalev([F:ITM1]) Then : Local File ITMMASTER  [F:ITM1] : Endif
+ # If !clalev([F:ADI1]) Then : Local File ATABDIV    [F:ADI1] : Endif
+If !clalev([F:ZNET1]) Then : Local File ZNETPRESTAEX    [F:ZNET1] : Endif
+
+  Local Decimal LIMITE_0, LIMITE_1, LIMITE_2,PRECIO_NETO_1, PRECIO_NETO_2, PRECIO_NETO_3, COSTE_OFERTA,LMBEXTRA
+  Local Char PS_ITMREF(20),PS_FCY(5),PS_COC(5)
+  Local Decimal PS_CO,PS_FRANJA1,PS_FRANJA2,PS_FRANJA3
 Return
 
 ##################################################################
 $CLOSE_TABLAS
-  Close Local File [ITM1],[ADI1]
+
+  #Close Local File [ITM1],[ADI1]
+  Close Local File  [F:ZNET1]
 Return
 
 ##################################################################

@@ -1,0 +1,123 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+
+$ACTION
+#If GUSER="ADMIN" : Infbox ACTION : Endif
+  Case ACTION
+    When "IMP_OUVRE"      : Gosub  IMP_OUVRE
+    When "AP_IMPORT"      : Gosub AP_IMPORT
+    When "IMP_FERME"      : Gosub IMP_FERME
+    When Default
+  Endcase
+Return
+
+$IMP_OUVRE
+If !clalev([F:ZBPS]): Local File BPSUPPLIER[ZBPS]: Endif
+If !clalev([F:ZITM]): Local File ITMMASTER[ZITM]: Endif
+If !clalev([F:ZBPA]): Local File BPADDRESS[ZBPA]: Endif
+
+If !clalev([F:ZPQH]): Local File PQUOTAT[ZPQH]: Endif
+If !clalev([F:ZPQH2]): Local File PQUOTAT[ZPQH2]: Endif
+If !clalev([F:ZPQD]): Local File PQUOTATD[ZPQD]: Endif
+If !clalev([F:ZPQF]): Local File PQUOTATF[ZPQF]: Endif
+Local Integer INICIO: INICIO = 1
+Local Char CONTADOR(20):Raz CONTADOR
+Local Char TMPCONT(20):Raz TMPCONT
+Local Integer LINEA
+Local Integer NUMA,NUMF
+Local Char PROV(15) : Raz PROV
+GERRTRACE=0                    # reset error
+GSERVEUR=1
+Return
+
+$AP_IMPORT
+If INICIO = 1
+  Call PARAM("","ZINTPQHBPS",PROV) From ADOVAL
+  If PROV = "" :Errbox "No se encuentra valor parametro proveedor genérico": Return Endif
+  INICIO = 0
+  Raz NUMA,NUMF
+  LINEA = 1000
+  Raz [F:ZPQH]
+  Call CONTADOR_PQH(CONTADOR)
+  [F:ZPQH]PQHNUM = CONTADOR
+  [F:ZPQH]CPY = "HISPA"
+  [F:ZPQH]PQHDAT = date$
+  [F:ZPQH]RSPDEA = date$+30
+  [F:ZPQH]PQHFCY = "PHISP"
+  [F:ZPQH]PQHREF = "Importación"
+  Write [F:ZPQH]
+
+  NUMF = 1
+  Read [F:ZBPS]BPS0 = PROV
+  If !fstat
+    [F:ZPQF]BPRNAM=[F:ZBPS]BPSNAM
+    [F:ZPQF] = [F:ZBPS]
+    If [F:ZBPS]ZCPRCOE = 0 : [F:ZPQF]ZCPRCOE = 1 Endif
+    Read [F:ZBPA]BPA0 = 1;[F:ZBPS]BPSNUM;[F:ZBPS]BPAADD
+    If !fstat
+      [F:ZPQF] = [F:ZBPA]
+    Endif
+  Endif
+  [F:ZPQF]CPY = "HISPA"
+  [F:ZPQF]PQHFCY = "PHISP"
+  [F:ZPQF]PQHNUM=[F:ZPQH]PQHNUM
+  [F:ZPQF]BPSNUM=PROV
+  [F:ZPQF]PRNFLG = 1
+  Write [F:ZPQF]
+Endif
+
+If  IMPFIC = "PQD" and [F:PQD]ITMREF <> "" and PROV <> ""
+  NUMA += 1
+  Filter [F:ZITM] Where [F:ZITM]EANCOD = [F:PQD]ITMREF
+  Read [F:ZITM] First
+  If !fstat
+    [F:ZPQD]PQHNUM=[F:ZPQH]PQHNUM
+    [F:ZPQD]PQDLIN=LINEA
+    [F:ZPQD]ITMREF=[F:ZITM]ITMREF
+    [F:ZPQD]ITMDES = [F:ZITM]ITMDES1
+    [F:ZPQD]ZITMDES2 = [F:ZITM]ITMDES2
+    [F:ZPQD]ZPALENT = [F:ZITM]ZPALENT
+    [F:ZPQD]PUU = [F:ZITM]PUU
+    [F:ZPQD]STU = [F:ZITM]STU
+    [F:ZPQD]QTYPUU=[F:PQD]QTYPUU
+
+    [F:ZPQD]CPY = "HISPA"
+    [F:ZPQD]PQHFCY = "PHISP"
+    Write [F:ZPQD]
+    LINEA+=1000
+  Endif
+  Filter [F:ZITM]
+Endif
+
+Return
+
+$IMP_FERME
+GSERVEUR=0
+Call OUVRE_TRACE("Importación Solicitud de Oferta") From LECFIC
+If CONTADOR <> "" and PROV <> ""
+Call ECR_TRACE("Solicitud de Oferta creada nro: "+CONTADOR,0) From GESECRAN
+Call ECR_TRACE("Cantidad de artículos: "+num$(NUMA),0) From GESECRAN
+  Read [F:ZPQH2]PQH0 = CONTADOR
+  If !fstat
+    [F:ZPQH2]BPSNBR = NUMF
+    [F:ZPQH2]LINNBR = NUMA
+    Rewrite [F:ZPQH2]
+  Endif
+Endif
+Delete [F:ZPQH] Where PQHNUM = ""
+Delete [F:ZPQD] Where PQHNUM = ""
+Call FERME_TRACE From LECFIC
+Call LEC_TRACE From LECFIC
+
+Return
+
+
+Subprog CONTADOR_PQH(CONTA)
+Variable Char CONTA : Raz CONTA
+Local Integer ZSTAT
+Call NUMERO("PQH",GFCYDEF(9), date$, "", CONTA, ZSTAT) From SUBANM
+If GOK<0 End Endif
+  If ZSTAT <> 0
+     GERR=1 : GMESSAGE = GWIP-mess(60,199,1)
+     End
+  Endif
+End

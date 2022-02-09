@@ -3,6 +3,8 @@
 #ASR COMP-51 campo arancel
 #DEV: RPES 21-08-2020 COMP-061 Importación contenedor
 #DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
+#AUR01 : 11/01/2022 ML Descripcion 2 en la grilla principal de contenedores
+#AUR02 : 11/01/2022 ML Campo suma en la grilla detalle de contenedores
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla CTRH1) 20/02/2020 16:45:59 (ADMIN)
 ######################################################################################
@@ -21,7 +23,6 @@ Case ACTION
   When "MODIF"       : Gosub MODIF From SPECTRHA
   When "ANNULE"      : Gosub ANNULE From SPECTRHA
 #FIN MODIF AFVI
-  When "FILGAUCHE"   : Gosub FILGAUCHE From SPECTRHA
   When "APRES_MODIF" : Gosub APRES_MODIF From SPECTRHA
   When "DEPICK"       : Gosub DEPICK From SPECTRHA
   When "SETBOUT"      : Gosub SETBOUT From SPECTRHA
@@ -43,6 +44,9 @@ Gosub ACTION From SUBCTRH
 GPE = 1
 If status=0
   [M:CTRH1]ZPALENT(NOL) = [F:POQ]ZPALENT
+#AUR01.ini
+  [M:CTRH1]ZITMDES2(NOL) = [F:POP]ZITMDES2
+#AUR01.fin
   If [F:POQ]ZSTA <> ""
     [M:CTRH1]STA(NOL) = [F:POQ]ZSTA
   Else
@@ -78,6 +82,9 @@ For X = 0 To [M:CTRH1]NBLIG2-1
 Next
 
 Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+#AUR02.ini
+Raz [M:CTRH1]ZSUMSUP
+#AUR02.fin
 Grizo [M:CTRH1]NBLIG2
 
 If ZDEL = 0
@@ -89,6 +96,9 @@ If ZDEL = 0
       [M:CTRH1]ZLOTEAUX(K) = [M:CTRH1]ZLOTE(I)
       [M:CTRH1]ZQTYLINAUX(K) = [M:CTRH1]ZQTYLIN(I)
       [M:CTRH1]ZPALETPAUX(K) = [M:CTRH1]ZPALETP(I)
+#AUR02.ini
+      [M:CTRH1]ZSUMSUP += [M:CTRH1]ZQTYLIN(I)
+#AUR02.fin
       [M:CTRH1]NBLIG2+=1
     Endif
   Next
@@ -162,8 +172,14 @@ Next
 If [L]I_COUNT > [M:CTRH1]ZQTYSUP Then
   mkstat = 2
   Call ERREUR ("Cantidad total excedida") From GESECRAN
+#AUR02.ini
+  End
+#AUR02.fin
 Endif
-
+#AUR02.ini
+[M:CTRH1]ZSUMSUP = [L]I_COUNT
+Affzo [M:CTRH1]ZSUMSUP
+#AUR02.fin
 End
 
 
@@ -238,4 +254,12 @@ End
 
 
 
+######################################################################################
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla CTRH2) 27/11/2021 00:35:38 (ADMIN)
+######################################################################################
+Subprog AM_ZFILITM(VALEUR)
+Variable Char    VALEUR()
+[M:PLCW]WITMREF=VALEUR
+End
 ######################################################################################

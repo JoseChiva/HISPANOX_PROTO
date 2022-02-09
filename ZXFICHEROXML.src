@@ -1,0 +1,11 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+$ACTION
+Case ACTION
+When "WRISIIFILE": Gosub WSIIFILE
+Endcase
+Return
+$WSIIFILE
+Openo filpath("SII/ENV","SII_"+date$+"_"+left$(time$,2)+mid$(time$,4,2)+"_0"+mid$(time$,7,1),"XML"),0 Using [XXX]
+Wrseq DATAXML Using [XXX]
+Openo Using [XXX]
+Return

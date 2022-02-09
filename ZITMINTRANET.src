@@ -1,8 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 #Local Char NUM
-#NUM = '2128'
+#NUM = '10007'
 #100 salinox 1000 nada
-#
+
 #Call ARTICULOS(NUM)
 #End
 ##################################################################
@@ -400,7 +400,14 @@ If !fstat
     STOCK_DISP=[F:ITV]PHYSTO-[F:ITV]GLOALL-[F:ITV]PHYALL
     STOCK_MIN=[F:ITV]SALSTO
     COSTE_MEDIO=[F:ITV]AVC*100
-    ZCOSTE=[F:ITV]LASRCPPRI*100
+    #06.304.004 - coste última recepción
+    #str.auren 03/02/2022
+    If [F:ITV]LASPURPRI=0 Then
+      ZCOSTE=[F:ITV]LASRCPPRI*100
+    Else
+      ZCOSTE=[F:ITV]LASPURPRI*100
+    Endif
+    #fin.auren 03/02/2022
     If [F:ITM]ITMWEI>0
       COSTE_M_KG=([F:ITV]AVC/[F:ITM]ITMWEI)*1000
     Else

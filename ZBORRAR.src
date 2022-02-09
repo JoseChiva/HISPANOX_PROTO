@@ -1,0 +1,9 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+
+Local Decimal ZLSTUACTDIS
+Local File ITMMVT    [ITV]
+Local File ITMCATEG  [ITG]
+Read [F:ITV]ITV0 = "10";"PHISP"
+Read [ITG]ITG0 = "PHISP";"PROD"
+Call STODISTOT("[F:ITV]",0,0,"",ZLSTUACTDIS) From STKLIB
+Infbox num$(ZLSTUACTDIS)

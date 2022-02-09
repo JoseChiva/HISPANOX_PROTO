@@ -12,7 +12,12 @@
 # Les autres traitements se trouvent dans le SUBPTHB                    #
 #########################################################################
 # Issue X3-102712 - 2018-07-31 by BAKHA : Disable Non-conformance create/List buttons in Create/Amend mode
-
+######################################################################################
+# ID   Autor  Fecha       Descripción
+#---------------------------------------------------------------------------
+# 001  MLL     30/11/2021  Campos SPE
+#
+#
 $DEFTRANS
 #--------------------------------------------------------#
 # Avant lecture des transactions de saisie disponibles : #
@@ -976,22 +981,22 @@ Endcase
 # End issue 106506
 
 #MRR01 ini.AUREN
-If [F:ITM]ZPALENT = 2 Then
-  [M:PTH1]ZPALENT(NOL) = 2
-Else
-  [M:PTH1]ZPALENT(NOL) = 1
-Endif
-
-Affzo [M:PTH1]ZPALENT(NOL)
-#MRR01 fin.AUREN
-#ASR  COMP-15 ini.AUREN
-[M:PTH1]ZPALET(NOL) = [F:SHD]ZPALET
-Affzo [M:PTH1]ZPALET(NOL)
-#ASR  COMP-15 fin.AUREN
-#ASR  COMP-51 ini.AUREN
-[M:PTH1]CPRCOE(NOL) = [F:SHD]CPRCOE
-Affzo [M:PTH1]CPRCOE(NOL)
-#ASR  COMP-51 fin.AUREN
+#If [F:ITM]ZPALENT = 2 Then
+#  [M:PTH1]ZPALENT(NOL) = 2
+#Else
+#  [M:PTH1]ZPALENT(NOL) = 1
+#Endif
+#
+#Affzo [M:PTH1]ZPALENT(NOL)
+##MRR01 fin.AUREN
+##ASR  COMP-15 ini.AUREN
+#[M:PTH1]ZPALET(NOL) = [F:SHD]ZPALET
+#Affzo [M:PTH1]ZPALET(NOL)
+##ASR  COMP-15 fin.AUREN
+##ASR  COMP-51 ini.AUREN
+#[M:PTH1]CPRCOE(NOL) = [F:SHD]CPRCOE
+#Affzo [M:PTH1]CPRCOE(NOL)
+##ASR  COMP-51 fin.AUREN
 Gosub GRISAGE
 Return
 
