@@ -1,7 +1,4 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ Pedidos
-Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
-End
-
 #MRR   - Cod. act.: ZQ003 - Fecha validez oferta
 #MRR01 - 23/03/2020 - Cód.act.: ZQ006 - Línea oculta en Oferta
 #MRR02 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
@@ -13,7 +10,11 @@ End
 # 06.288.473 : importación pedidos web - bloqueo por portes
 # 06.299.618 - JC.17012022.Presupuestos venta
 # 06.304.994 - JC.31012022.Cálculo precios factura
+# 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
 #######################################################################################
+
+Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
+End
 
 
 #######################################################################################
@@ -628,7 +629,7 @@ Local Decimal LZCOSTMED
           [M:ZSOH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZSOH0]ZCOSTMEDEK  / 100,2)
         When "MIL"
           [M:ZSOH0]ZCOSTOFEREK  = func ZAULIB01.REDONDEA_ALZA([M:ZSOH0]ZCOSTOFEREK / 1000,2)
-          [M:ZSOH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZS0H0]ZCOSTMEDEK  / 1000,2)
+          [M:ZSOH0]ZCOSTMEDEK   = func ZAULIB01.REDONDEA_ALZA([M:ZSOH0]ZCOSTMEDEK  / 1000,2)
       Endcase
     Endif
   Endif
@@ -680,6 +681,7 @@ $CARGAR_GRID_PRESUPUESTO
   If fstat = 0 Then
     [M:ZSOH1]VLYDAT([L]I_NUM_REG)   = [XSQH]VLYDAT
   Endif
+  [M:ZSOH1]ZGROPRISQH([L]I_NUM_REG) = [XSQD]GROPRI                                            # 06.311.333.new
   [M:ZSOH1]NBLIG2 = I_NUM_REG + 1
 
 Return
@@ -697,12 +699,15 @@ COUZON ="GROPRI"
 If [M:SOH4]ZACTPEDAB([M:SOH0]ZSAVNOLIN-1) <> 2 Then
   [M:SOH4]ZPRECLI([M:SOH0]ZSAVNOLIN-1) = F_PRECIO
   Affzo [M:SOH4]ZPRECLI([M:SOH0]ZSAVNOLIN-1)
-  Case [M:SOH4]ZUNPRE([M:SOH0]ZSAVNOLIN-1)
-    When "UN"        :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO,4)            # 06.304.994
-    When "CEN"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 100,4)      # 06.304.994
-    When "MIL"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 1000,4)     # 06.304.994
-    When Default
-  Endcase
+# 06.311.333.ini
+#  Case [M:SOH4]ZUNPRE([M:SOH0]ZSAVNOLIN-1)
+#    When "UN"        :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO,4)            # 06.304.994
+#    When "CEN"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 100,4)      # 06.304.994
+#    When "MIL"       :   [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = func ZAULIB01.REDONDEA_ALZA(F_PRECIO / 1000,4)     # 06.304.994
+#    When Default
+#  Endcase
+  [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)  = LGROPRIORI
+# 06.311.333.fin
   Affzo [M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1)
 
   #[M:SOH4]GROPRI([M:SOH0]ZSAVNOLIN-1) = [L]F_PRECIO
@@ -1033,6 +1038,7 @@ If [M:ZSOH1]ZSOHNUM(nolign-1) <> "" Then
       Local Decimal F_PRECIO : [L]F_PRECIO = [M:ZSOH1]ZPRISOH(nolign-1)
       Local Decimal F_DTO    : [L]F_DTO    = [M:ZSOH1]ZDESCSOH(nolign-1)
       Local Date D_VLYDAT
+      Local Decimal LGROPRIORI : LGROPRIORI = [M:ZSOH1]ZGROPRISOH(nolign-1)                   # 06.311.333.new
       Gosub CARGAR_PRECIO
 
 # JC.12072021.vtas029.STR
@@ -1134,6 +1140,7 @@ If [M:ZSOH1]ZSQHNUM(nolign-1) <> "" Then
       Local Decimal F_PRECIO : F_PRECIO = [M:ZSOH1]ZPRI(nolign-1)
       Local Decimal F_DTO    : F_DTO    = [M:ZSOH1]ZDISC(nolign-1)
       Local Date D_VLYDAT    : D_VLYDAT = [M:ZSOH1]VLYDAT(nolign-1)
+      Local Decimal LGROPRIORI : LGROPRIORI = [M:ZSOH1]ZGROPRISQH(nolign-1)                   # 06.311.333.new
       Gosub CARGAR_PRECIO
 
 # JC.12072021.vtas029.STR
@@ -2822,6 +2829,7 @@ Local Integer I_NUM_REG
     [M:ZSOH1]ZDESCSOH([L]I_NUM_REG)   = [F:Z00]LDISCRGVAL1
     [M:ZSOH1]ZLINORDNOT([L]I_NUM_REG) = [F:Z00]LNETPRINOT * [F:Z00]LQTY
     [M:ZSOH1]ZSALDADAFLG([L]I_NUM_REG)= 1
+    [M:ZSOH1]ZGROPRISOH([L]I_NUM_REG) = [F:Z00]LGROPRI                                        # 06.311.333.new
     [M:ZSOH1]NBLIG1 = I_NUM_REG + 1
     I_NUM_REG + = 1
     If I_NUM_REG >= 50 Then
@@ -2854,6 +2862,7 @@ Local Integer I_NUM_REG
       [M:ZSOH1]ZDESCSOH([L]I_NUM_REG)   = [F:Z00]LDISCRGVAL1
       [M:ZSOH1]ZLINORDNOT([L]I_NUM_REG) = [F:Z00]LNETPRINOT * [F:Z00]LQTY
       [M:ZSOH1]ZSALDADAFLG([L]I_NUM_REG)= 2
+      [M:ZSOH1]ZGROPRISOH([L]I_NUM_REG) = [F:Z00]LGROPRI                                      # 06.311.333.new
       [M:ZSOH1]NBLIG1 = I_NUM_REG + 1
       [L]I_NUM_REG + = 1
       If [L]I_NUM_REG >= 50 Then
