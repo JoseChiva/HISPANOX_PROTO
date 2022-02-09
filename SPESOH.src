@@ -1260,7 +1260,7 @@ Affzo [M:SOH0]ZESPECIALES
 #MODIF RPES 20201217 Tarifas transportistas
 [M:SOH2]ZFREINV = func GET_ZFREINV(VALEUR)
 Affzo [M:SOH2]ZFREINV
-Call AM_ZFREINV([M:SOH2]ZFREINV)
+#Call AM_ZFREINV([M:SOH2]ZFREINV)  # VERIFICAR si esta línea hay que descomentarla
 #FIN MODIF RPES 20201217 Tarifas transportistas
 #MLGA - FIN
 
@@ -1270,7 +1270,7 @@ Call AM_ZFREINV([M:SOH2]ZFREINV)
   If !fstat Then
     [M:SOH1]ZCLAOFER = [F:ZBPC]TSCCOD(3)
     Affzo [M:SOH1]ZCLAOFER
-    Call AM_ZCLAOFER([M:SOH1]ZCLAOFER)
+    #Call AM_ZCLAOFER([M:SOH1]ZCLAOFER) # VERIFICAR si esta línea hay que descomentarla
   Endif
   Close Local File [ZBPC]
 # JC.08072021.END.vtas025_077
