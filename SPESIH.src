@@ -1,15 +1,41 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 #MRR - 08/07/2020 - Cod. act.: ZQ012 Vencimiento inicial
 #MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+#AUR01 04/02/2022 ML - Error al seleccionar una factura desde abono y al duplicar factura,
+#                      flag Mail enviado/impreso papel se marcan solos
 ######################################################################################
 $ACTION
-#If GUSER="ADEV" Then : Infbox ACTION : Endif
+#If GUSER="ADMIN" Then : Infbox ACTION : Endif
 Case ACTION
   When "FIN_PICK"     :   Gosub FIN_PICK
   When "APRES_CRE"    :   Gosub APRES_CRE
+#AUR01.ini
+  When "PICKE"        :   Gosub PICKE
+  When "RAZDUP"       :   Gosub RAZDUP
+#AUR01.fin
   When Default
 Endcase
 Return
+
+#AUR01.ini
+######################################################################################
+$PICKE
+Gosub ACTION From SUBSIH
+GPE=1
+[M:SIH1]ZFACM=1
+[M:SIH1]ZFACP=1
+Return
+
+######################################################################################
+$RAZDUP
+Gosub ACTION From SUBSIH
+GPE=1
+[M:SIH1]ZFACM=1
+[M:SIH1]ZFACP=1
+Affzo [M:SIH1]ZFACM
+Affzo [M:SIH1]ZFACP
+Return
+#AUR01.fin
 
 ######################################################################################
 $FIN_PICK
@@ -32,26 +58,27 @@ Return
 
 ######################################################################################
 $APRES_CRE
-If !clalev([F:DUD1])   : Local File GACCDUDATE[DUD1]    : Endif
-If !clalev([F:SIH1])   : Local File SINVOICE  [SIH1]    : Endif
+#AUREN comentamos spe ZDUDINI, para trabajar con inicio vencimientos por estandar
+#If !clalev([F:DUD1])   : Local File GACCDUDATE[DUD1]    : Endif
+#If !clalev([F:SIH1])   : Local File SINVOICE  [SIH1]    : Endif
 
-Filter [F:DUD1] Where NUM = [F:SIH]NUM
-Read [F:DUD1] First
-If !fstat Then
-  Filter [F:SIH1] Where NUM = [F:SIH]NUM
-  Read [F:SIH1] First
-  If !fstat Then
-    Trbegin [F:SIH1]
-    [F:SIH1]ZDUDINI = [F:DUD1]DUDDAT
-    Rewrite [F:SIH1]
-    If !fstat
-      Commit
-    Else
-      Rollback
-    Endif
-    Affzo [M:SIH2]ZDUDINI
-  Endif
-Endif
+#Filter [F:DUD1] Where NUM = [F:SIH]NUM
+#Read [F:DUD1] First
+#If !fstat Then
+#  Filter [F:SIH1] Where NUM = [F:SIH]NUM
+#  Read [F:SIH1] First
+#  If !fstat Then
+#    Trbegin [F:SIH1]
+#    [F:SIH1]ZDUDINI = [F:DUD1]DUDDAT
+#    Rewrite [F:SIH1]
+#    If !fstat
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#    Affzo [M:SIH2]ZDUDINI
+#  Endif
+#Endif
 
 Return
 
