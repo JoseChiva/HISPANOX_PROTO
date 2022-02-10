@@ -11,6 +11,7 @@
 # 06.299.618 - JC.17012022.Presupuestos venta
 # 06.304.994 - JC.31012022.Cálculo precios factura
 # 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
+# 06.311.528 - JC.09022022.Validació Agència Entregas -- Pedidos
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -290,7 +291,10 @@ Local Decimal LZCOSTOFEREK
 
   # si el pedido se crea desde un presupuesto se tiene que arrastrar el campo transportista
   If [F:SOH]SQHNUM <> "" Then
-    If !clalev([F:ZSQH]) Then : Local File SQUOTE [F:ZSQH] : Endif
+    If !clalev([F:ZSQH]) Then : Local File SQUOTE   [F:ZSQH] : Endif
+# 06.311.528.ini
+    If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
+# 06.311.528.fin
     Read [F:ZSQH]SQH0 = [F:SOH]SQHNUM
     If !fstat Then
       [F:SOH]BPTNUM = [F:ZSQH]BPTNUM
@@ -301,8 +305,24 @@ Local Decimal LZCOSTOFEREK
       Else
         Rollback
       Endif
+# 06.311.528.ini
+# añado este código porque en la tabla SORDERQ también está el campo BPTNUM y si no se actualiza hay incoherencia entre cabecera y líneas de pedido
+# además, el VP se crea con el transportista indicado en las líneas del pedido y también se genera incoherencia entre pedido y VP
+      Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
+      For [ZSOQ]
+        [F:ZSOQ]BPTNUM = [F:ZSQH]BPTNUM
+        Trbegin [F:ZSOQ]
+        Rewrite [F:ZSOQ]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Next
+      Filter [F:ZSOQ]
+# 06.311.528.fin
     Endif
-    Close Local File [ZSQH]
+    Close Local File [ZSQH],[ZSOQ]
   Endif
 
   # crea e fichero JOB para actualizar las líneas del pedido abierto
