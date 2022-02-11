@@ -1,6 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # JC.25102021-EXP  - Lectura del fichero REF para Expediciones
 # 06.288.868 - JC.05012022.Arrastre del arancel desde expedición a recepción
+# 06.302.893 - JC.21012022.Problema no contemplat amb recepcions
+# 06.308.334 - JC.01022022.Mensaje error REF pero no vemos el error
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -34,7 +36,8 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZPOH]) : Local File PORDER      [ZPOH] : Endif
 
   WFICHEROIMP='REF0*'
-#  WFICHEROIMP='aaaREF0*'
+#  WFICHEROIMP='REF0120220122132222000'      # larga
+#  WFICHEROIMP='REF0120220122131846000'      # corta
 #  WFICHEROIMP='aaaREF0120211129115529000-DC2100096'
 #  WFICHEROIMP='aaaREF0120211222081625000-EX2100010'
   Raz NFICHEROS
@@ -55,6 +58,8 @@ Local Clbfile XDATA (10)
   Endif
   WTRAZA=1
   For A=1 To NFICHEROS
+
+    Raz LERROR                                                                                # 06.308.334.new
 
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
 
@@ -1009,11 +1014,11 @@ Return
 ##############################################################
 $GUARDA_REFEXP_EN_TABLA
 
-Local Integer LPOS,N,S,T,CONTROL1,CONTROL2,LCONTVALE,LNUMORDEN
-Local Integer WNLIN,WNUMSTATUS
+Local Integer LPOS,P,N,S,T,CONTROL1,CONTROL2,LCONTVALE,LNUMORDEN
+Local Integer WNCAB,WNLIN,WNUMSTATUS
 Local Char    WSITE(250),WRECEIPTCODE(250),WSTATUS(250)
 Local Char    WLNENUMBER(250),WLNERECORDERCODE(250),WLNESTOCKITEMCODE(250),WRECEIPTCODEPLUS(250),WLNECSTATT01(250)
-Local Char    WLNESTOCKCSTATT01(250),WLNESTOCKCSTATT03(250),WLNESTOCKCSTATT04(250),WLNESTOCKUOMCODE(250)
+Local Char    WLNESTOCKCSTATT01(250),WLNESTOCKCSTATT03(250),WLNESTOCKCSTATT04(250),WLNESTOCKUOMCODE(250),WLNERECORDERNUMBER(250)
 Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQTYUOMCODE(250),WLNESTOCKRECDATE(250)
 
   LPOS      = 1
@@ -1021,81 +1026,49 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
   If !clalev([F:ZREF0]) Then : Local File ZEXPOREFEXP [F:ZREF0] : Endif
   Execsql From "5" Sql "Truncate table" - nomap + ".ZEXPOREFEXP"
 
-#CABECERA #######################################################
-  WSITE               = func GET_PROPXML(XDATA,"Site",LPOS)
-  WRECEIPTCODE        = func GET_PROPXML(XDATA,"ReceiptCode",LPOS)
-  # encuentra la cadena que hay detrás del primer guión en la etiqueta ReceiptCode
-  If instr(instr(1,WRECEIPTCODE,"-")+1,WRECEIPTCODE,"-")-1 > 0 Then
-    WRECEIPTCODEPLUS  = seg$(WRECEIPTCODE,instr(1,WRECEIPTCODE,"-")+1,instr(instr(1,WRECEIPTCODE,"-")+1,WRECEIPTCODE,"-")-1)
-  Else
-    WRECEIPTCODEPLUS  = seg$(WRECEIPTCODE,instr(1,WRECEIPTCODE,"-")+1,len(WRECEIPTCODE))
-  Endif
-  WRECEIPTCODE        = seg$(WRECEIPTCODE,1,instr(1,WRECEIPTCODE,"-")-1)
-  WSTATUS             = func GET_PROPXML(XDATA,"Status",LPOS)
-  Case WSTATUS
-    When "Closed"     : WNUMSTATUS = 8
-    When "Cancelled"  : WNUMSTATUS = 7
-  Endcase
-  Trbegin [F:ZREF0]
-  [F:ZREF0]NOMFICH    = LNOMFICHERO
-  [F:ZREF0]INDICADOR  = "E"
-  [F:ZREF0]ZSTATUS    = WNUMSTATUS
-  [F:ZREF0]SHIPNUM    = WRECEIPTCODE
-  [F:ZREF0]ZNUMORDEN  = LNUMORDEN
-  LNUMORDEN += 1
-  Write [F:ZREF0]
-  If !fstat Then
-    Commit
-  Else
-    Rollback
-  Endif
-#LINEAS #######################################################
-  # calcula el número de líneas
-  CONTROL1 = LPOS
-  Raz WNLIN
-  While 1=1
-    WLNENUMBER    = ""
-    WLNENUMBER    = func GET_PROPXML(XDATA,"LneNumber",CONTROL1)
-    If val(WLNENUMBER)<>0
-      CONTROL2    = I
-#      WLNENUMBER  = func GET_PROPXML(XDATA,"ReceiptCode",CONTROL2)
-      WLNENUMBER  = func GET_PROPXML(XDATA,"RecCustomAttributes",CONTROL2)
-      If (CONTROL1 < CONTROL2) or (CONTROL1 > CONTROL2 and CONTROL2 = 0) Then
-        WNLIN     +=1
+  # calcula el número de expediciones
+    Local Integer V
+    Local Char    LTEMP1(250)
+    Raz WNCAB
+    V = LPOS
+    While 1=1
+      WRECEIPTCODE  = ""
+      WRECEIPTCODE  = func GET_PROPXML(XDATA,"ReceiptCode",V)
+      LTEMP1        = func GET_PROPXML(XDATA,"Status",V)
+      If WRECEIPTCODE <> ""
+        WNCAB += 1
       Else
         Break
       Endif
-    Else
-      If WLNENUMBER=''
+      If WNCAB>999
         Break
       Endif
-    Endif
-    If WNLIN>999
-      Break
-    Endif
-  Wend
+    Wend
 
-  For N=1 To WNLIN
-    WLNENUMBER          = func GET_PROPXML(XDATA,"LneNumber",LPOS)
-    WLNERECORDERCODE    = func GET_PROPXML(XDATA,"LneRecOrderCode",LPOS)
-    WLNERECORDERNUMBER  = func GET_PROPXML(XDATA,"LneRecOrderNumber",LPOS)
-    WLNERECORDERNUMBER  = left$(WLNERECORDERNUMBER,len(WLNERECORDERNUMBER)-2)
-    WLNEITEMCODE        = func GET_PROPXML(XDATA,"LneItemCode",LPOS)
-    WLNESTOCKSTATUS     = func GET_PROPXML(XDATA,"LneStockStatus",LPOS)
-    WLNEQTYRECEIVED     = func GET_PROPXML(XDATA,"LneQtyReceived",LPOS)
-    WLNEQTYUOMCODE      = func GET_PROPXML(XDATA,"LneQtyUoMCode",LPOS)
-    WLNECSTATT01        = func GET_PROPXML(XDATA,"LneCstAtt01",LPOS)
+#Infbox "WNCAB:"-num$(WNCAB)
+
+  For P=1 To WNCAB
+#CABECERA #######################################################
+    WSITE               = func GET_PROPXML(XDATA,"Site",LPOS)
+    WRECEIPTCODE        = func GET_PROPXML(XDATA,"ReceiptCode",LPOS)
+    # encuentra la cadena que hay detrás del primer guión en la etiqueta ReceiptCode
+    If instr(instr(1,WRECEIPTCODE,"-")+1,WRECEIPTCODE,"-")-1 > 0 Then
+      WRECEIPTCODEPLUS  = seg$(WRECEIPTCODE,instr(1,WRECEIPTCODE,"-")+1,instr(instr(1,WRECEIPTCODE,"-")+1,WRECEIPTCODE,"-")-1)
+    Else
+      WRECEIPTCODEPLUS  = seg$(WRECEIPTCODE,instr(1,WRECEIPTCODE,"-")+1,len(WRECEIPTCODE))
+    Endif
+    WRECEIPTCODE        = seg$(WRECEIPTCODE,1,instr(1,WRECEIPTCODE,"-")-1)
+    WSTATUS             = func GET_PROPXML(XDATA,"Status",LPOS)
+    Case WSTATUS
+      When "Closed"     : WNUMSTATUS = 8
+      When "Cancelled"  : WNUMSTATUS = 7
+    Endcase
+    Raz [F:ZREF0]
     Trbegin [F:ZREF0]
     [F:ZREF0]NOMFICH    = LNOMFICHERO
-    [F:ZREF0]INDICADOR  = "L"
-    [F:ZREF0]SHIPNUM    = WLNERECORDERCODE
-    [F:ZREF0]SHIPLIN    = val(WLNERECORDERNUMBER)
-    [F:ZREF0]ITMREF     = WLNEITEMCODE
-    [F:ZREF0]STA        = WLNESTOCKSTATUS
+    [F:ZREF0]INDICADOR  = "E"
     [F:ZREF0]ZSTATUS    = WNUMSTATUS
-    [F:ZREF0]QTY        = val(WLNEQTYRECEIVED)
-    [F:ZREF0]UOM        = WLNEQTYUOMCODE
-    [F:ZREF0]CTRNUM     = WLNECSTATT01
+    [F:ZREF0]SHIPNUM    = WRECEIPTCODE
     [F:ZREF0]ZNUMORDEN  = LNUMORDEN
     LNUMORDEN += 1
     Write [F:ZREF0]
@@ -1104,156 +1077,478 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
     Else
       Rollback
     Endif
+#LINEAS #######################################################
+#    # calcula el número de líneas
+      Local Integer B,C,D,E
+      Local Char    LTEMP1(250)
+      Raz WNLIN
+      B = LPOS
+      While 1=1
+        WLNENUMBER  = ""
+        WLNENUMBER  = func GET_PROPXML(XDATA,"LneNumber",B)
+        If WLNENUMBER <> ""
+          WNLIN += 1
+        Else
+          Break
+        Endif
+        If WNLIN>999
+          Break
+        Endif
+        If WLNENUMBER <> "" Then : C = B : D = C : E = C : Endif
+        LTEMP1 =  func GET_PROPXML(XDATA,"LneNumber",C)
+        LTEMP1 =  func GET_PROPXML(XDATA,"RecCustomAttributes",D)
+        If C > D and D <> 0 Then
+          B=C
+          Break
+        Endif
+      Wend
 
+#Infbox "WNLIN:"-num$(WNLIN)
+
+    For N=1 To WNLIN
+      WLNENUMBER          = func GET_PROPXML(XDATA,"LneNumber",LPOS)
+
+
+# 06.302.893.ini
+# LneRecOrderPotential.ini
+    # calcula el número de líneas anidadas
+      Local Integer A1,A2,A3,A4,A5,WNLINOP
+      Local Char    LTEMP1(250),WLNERON(250)
+      If !clalev([F:ZANR0]) Then : Local File ZANIDAREF [F:ZANR0] : Endif
+      Execsql From "5" Sql "Truncate table" - nomap + ".ZANIDAREF"
+      Raz WNLINOP
+      A1 = LPOS
+      A5 = LPOS
+      While 1=1
+        WLNERON     = ""
+        WLNERON     = func GET_PROPXML(XDATA,"LneRecOrderNumber",A1)
+
+        LTEMP1 =  func GET_PROPXML(XDATA,"LneRecOrderCode",A5)
+        If LTEMP1 <> '' Then
+          [F:ZANR0]SHIPNUM = LTEMP1
+          LTEMP1 = func GET_PROPXML(XDATA,"LneRecOrderNumber",A5)
+          LTEMP1 = left$(LTEMP1,len(LTEMP1)-2)
+          [F:ZANR0]SHIPLIN = val(LTEMP1)
+          Trbegin [F:ZANR0]
+          Write [F:ZANR0]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
+        Endif
+
+        If WLNERON <> ""
+          WNLINOP += 1
+        Else
+          Break
+        Endif
+        If WNLINOP>999
+          Break
+        Endif
+        If WLNERON <> "" Then : A2 = A1 : A3 = A2 : A4 = A2 : A5 = A2 : Endif
+        LTEMP1 = func GET_PROPXML(XDATA,"LneRecOrderNumber",A2)
+        LTEMP1 = func GET_PROPXML(XDATA,"LneItemCode",A3)
+        If A2 > A3 and A3 <> 0 Then
+          A1=A2
+          Break
+        Endif
+      Wend
+      Close Local File [ZANR0]
+# LneRecOrderPotential.fin
+# 06.302.893.fin
+
+      If WNLINOP = 1 Then                                                                     # 06.302.893.new
+        WLNERECORDERCODE    = func GET_PROPXML(XDATA,"LneRecOrderCode",LPOS)
+        WLNERECORDERNUMBER  = func GET_PROPXML(XDATA,"LneRecOrderNumber",LPOS)
+        WLNERECORDERNUMBER  = left$(WLNERECORDERNUMBER,len(WLNERECORDERNUMBER)-2)
+        WLNEITEMCODE        = func GET_PROPXML(XDATA,"LneItemCode",LPOS)
+        WLNESTOCKSTATUS     = func GET_PROPXML(XDATA,"LneStockStatus",LPOS)
+        WLNEQTYRECEIVED     = func GET_PROPXML(XDATA,"LneQtyReceived",LPOS)
+        WLNEQTYUOMCODE      = func GET_PROPXML(XDATA,"LneQtyUoMCode",LPOS)
+
+        If WLNEQTYRECEIVED = "0" Then : Goto ENDFORLINS : Endif
+
+        CONTROL1  = LPOS
+        CONTROL2  = LPOS
+        RESULT    = func GET_PROPXML(XDATA,"LneCstAtt01",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDWLNECSTATT01EXP
+        # existe LneStockCstAtt05 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+          WLNECSTATT01 = func GET_PROPXML(XDATA,"LneCstAtt01",LPOS)
+        Endif
+        $ENDWLNECSTATT01EXP
 #LINEAS DETALLE #######################################################
-    # número de líneas detalle
-    Local Integer J,K,L,WNLINDETAIL
-    Local Char    WLNENUMBERDETAIL(10),LTEMP1(50),WLNESTOCKITEMCODE(250),WLNESTOCKQTY(250),WLNESTOCKSTOCKSTATUSREC(250),WLNESTOCKCSTATT05(250)
-    L = LPOS
-    While 1=1
-      WLNENUMBERDETAIL  = ""
-      WLNENUMBERDETAIL  = func GET_PROPXML(XDATA,"LneStockItemCode",L)
-      If WLNENUMBERDETAIL <> ""
-        WNLINDETAIL+=1
+        # número de líneas detalle
+        Local Integer J,K,L,T,WNLINDETAIL
+        Local Char    WLNENUMBERDETAIL(10),LTEMP1(50),WLNESTOCKITEMCODE(250),WLNESTOCKQTY(250),WLNESTOCKSTOCKSTATUSREC(250),WLNESTOCKCSTATT05(250)
+        Local Decimal WLNESTOCKQTYTOT
+        L = LPOS
+        While 1=1
+          WLNENUMBERDETAIL  = ""
+          WLNENUMBERDETAIL  = func GET_PROPXML(XDATA,"LneStockItemCode",L)
+          WLNESTOCKQTYTOT  += val(func GET_PROPXML(XDATA,"LneStockQty",L))
+          If WLNENUMBERDETAIL <> ""
+            WNLINDETAIL+=1
+          Else
+            Break
+          Endif
+          If WNLINDETAIL>999
+            Break
+          Endif
+          If WLNENUMBERDETAIL <> "" Then : J = L : K = J : T = J : Endif
+          LTEMP1 =  func GET_PROPXML(XDATA,"LneStockItemCode",J)
+          LTEMP1 =  func GET_PROPXML(XDATA,"LneNumber",K)
+# 06.302.893.ini
+          If LTEMP1 = '' Then
+            LTEMP1 = func GET_PROPXML(XDATA,"CstAtt20",T)
+            K = T
+          Endif
+# 06.302.893.fin
+          If J > K and K <> 0 Then
+            L=J
+            Break
+          Endif
+        Wend
+# 06.302.893.ini
+        WLNEQTYRECEIVED     = num$(WLNESTOCKQTYTOT)
+        Raz [F:ZREF0]
+        Trbegin [F:ZREF0]
+        [F:ZREF0]NOMFICH    = LNOMFICHERO
+        [F:ZREF0]INDICADOR  = "L"
+        [F:ZREF0]SHIPNUM    = WLNERECORDERCODE
+        [F:ZREF0]SHIPLIN    = val(WLNERECORDERNUMBER)
+        [F:ZREF0]ITMREF     = WLNEITEMCODE
+        [F:ZREF0]STA        = WLNESTOCKSTATUS
+        [F:ZREF0]ZSTATUS    = WNUMSTATUS
+        [F:ZREF0]QTY        = val(WLNEQTYRECEIVED)
+        [F:ZREF0]UOM        = WLNEQTYUOMCODE
+        [F:ZREF0]CTRNUM     = WLNECSTATT01
+        [F:ZREF0]ZNUMORDEN  = LNUMORDEN
+        LNUMORDEN += 1
+        Write [F:ZREF0]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+# 06.302.893.fin
+        For M=1 To WNLINDETAIL
+          WLNESTOCKITEMCODE       = func GET_PROPXML(XDATA,"LneStockItemCode",LPOS)
+          WLNESTOCKQTY            = func GET_PROPXML(XDATA,"LneStockQty",LPOS)
+          WLNESTOCKUOMCODE        = func GET_PROPXML(XDATA,"LneStockUoMCode",LPOS)
+          WLNESTOCKSTOCKSTATUSREC = func GET_PROPXML(XDATA,"LneStockStockStatusRec",LPOS)
+
+          Raz WLNESTOCKCSTATT01
+          CONTROL1  = LPOS
+          CONTROL2  = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt01",CONTROL1)
+          RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+          If RESULT = '' Then
+            CONTROL2 = LPOS
+            RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+          Endif
+          If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+            Goto ENDLNESTOCKCSTATT01EXP
+          # existe LneStockCstAtt01 para esa línea
+          Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+            WLNESTOCKCSTATT01 = func GET_PROPXML(XDATA,"LneStockCstAtt01",LPOS)
+          Endif
+          $ENDLNESTOCKCSTATT01EXP
+
+          Raz WLNESTOCKCSTATT03
+          CONTROL1  = LPOS
+          CONTROL2  = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt03",CONTROL1)
+          RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+          If RESULT = '' Then
+            CONTROL2 = LPOS
+            RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+          Endif
+          If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+            Goto ENDLNESTOCKCSTATT03EXP
+          # existe LneStockCstAtt03 para esa línea
+          Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+            WLNESTOCKCSTATT03 = func GET_PROPXML(XDATA,"LneStockCstAtt03",LPOS)
+          Endif
+          $ENDLNESTOCKCSTATT03EXP
+
+          Raz WLNESTOCKCSTATT04
+          CONTROL1  = LPOS
+          CONTROL2  = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt04",CONTROL1)
+          RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+          If RESULT = '' Then
+            CONTROL2 = LPOS
+            RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+          Endif
+          If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+            Goto ENDLNESTOCKCSTATT04EXP
+          # existe LneStockCstAtt04 para esa línea
+          Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+            WLNESTOCKCSTATT04 = func GET_PROPXML(XDATA,"LneStockCstAtt04",LPOS)
+          Endif
+          $ENDLNESTOCKCSTATT04EXP
+# 06.302.893.ini
+          Raz WLNESTOCKCSTATT05
+          CONTROL1  = LPOS
+          CONTROL2  = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt05",CONTROL1)
+          RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+          If RESULT = '' Then
+            CONTROL2 = LPOS
+            RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+          Endif
+          If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+            Goto ENDLNESTOCKCSTATT05EXP
+          # existe LneStockCstAtt05 para esa línea
+          Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+            WLNESTOCKCSTATT05 = func GET_PROPXML(XDATA,"LneStockCstAtt05",LPOS)
+          Endif
+          $ENDLNESTOCKCSTATT05EXP
+# 06.302.893.fin
+          WLNESTOCKRECDATE    = left$(func GET_PROPXML(XDATA,"LneStockRecDate",LPOS),10)
+          Raz [F:ZREF0]
+          Trbegin [F:ZREF0]
+          [F:ZREF0]NOMFICH    = LNOMFICHERO
+          [F:ZREF0]INDICADOR  = "S"
+          [F:ZREF0]ZSTATUS    = WNUMSTATUS
+          [F:ZREF0]SHIPNUM    = WRECEIPTCODE
+          [F:ZREF0]SHIPLIN    = val(WLNERECORDERNUMBER)
+          [F:ZREF0]STA        = WLNESTOCKSTOCKSTATUSREC
+          [F:ZREF0]ITMREF     = WLNESTOCKITEMCODE
+          [F:ZREF0]QTY        = val(WLNESTOCKQTY)
+          [F:ZREF0]UOM        = WLNESTOCKUOMCODE
+          [F:ZREF0]LOT        = WLNESTOCKCSTATT05
+          [F:ZREF0]BPSLOTSGA  = WLNESTOCKCSTATT01
+          [F:ZREF0]BPSNUM     = WLNESTOCKCSTATT03
+          [F:ZREF0]BPSLOTERP  = WLNESTOCKCSTATT04
+          [F:ZREF0]CTRNUM     = WLNECSTATT01
+          [F:ZREF0]SHLDAT     = WLNESTOCKRECDATE
+          [F:ZREF0]ZNUMORDEN  = LNUMORDEN
+          LNUMORDEN += 1
+          Write [F:ZREF0]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
+        Next
+        $ENDFORLINS
+# 06.302.893.ini
       Else
-        Break
-      Endif
-      If WNLINDETAIL>999
-        Break
-      Endif
-      If WLNENUMBERDETAIL <> "" Then : J = L : K = J : Endif
-      LTEMP1 =  func GET_PROPXML(XDATA,"LneStockItemCode",J)
-      LTEMP1 =  func GET_PROPXML(XDATA,"LneNumber",K)
-      If J > K and K <> 0 Then
-        L=J
-        Break
-      Endif
-    Wend
-    For M=1 To WNLINDETAIL
-      Trbegin [F:ZREF0]
-      WLNESTOCKITEMCODE       = func GET_PROPXML(XDATA,"LneStockItemCode",LPOS)
-      WLNESTOCKQTY            = func GET_PROPXML(XDATA,"LneStockQty",LPOS)
-      WLNESTOCKUOMCODE        = func GET_PROPXML(XDATA,"LneStockUoMCode",LPOS)
-      WLNESTOCKSTOCKSTATUSREC = func GET_PROPXML(XDATA,"LneStockStockStatusRec",LPOS)
-      Raz WLNESTOCKCSTATT01
-      CONTROL1  = LPOS
-      CONTROL2  = LPOS
-      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt01",CONTROL1)
-      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#      If CONTROL1 = 0 and CONTROL2 = 0 Then
-      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
-        Goto ENDLNESTOCKCSTATT01EXP
-      # existe LneStockCstAtt01 para esa línea
-      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
-        WLNESTOCKCSTATT01 = func GET_PROPXML(XDATA,"LneStockCstAtt01",LPOS)
-      # existe LneStockCstAtt01 pero en otra línea
-      Else
+        Local Integer J,K,L,T,WNLINDETAIL
+        Local Char    WLNENUMBERDETAIL(10),LTEMP1(50),WLNESTOCKITEMCODE(250),WLNESTOCKQTY(250),WLNESTOCKSTOCKSTATUSREC(250),WLNESTOCKCSTATT05(250)
+        Local Decimal WLNESTOCKQTYTOT
+        WLNEITEMCODE        = func GET_PROPXML(XDATA,"LneItemCode",LPOS)
+        WLNESTOCKSTATUS     = func GET_PROPXML(XDATA,"LneStockStatus",LPOS)
+        WLNEQTYRECEIVED     = func GET_PROPXML(XDATA,"LneQtyReceived",LPOS)
+        WLNEQTYUOMCODE      = func GET_PROPXML(XDATA,"LneQtyUoMCode",LPOS)
+        If WLNEQTYRECEIVED = "0" Then : Goto ENDFORLINS2 : Endif
+
+        CONTROL1  = LPOS
+        CONTROL2  = LPOS
+        RESULT    = func GET_PROPXML(XDATA,"LneCstAtt01",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDWLNECSTATT01EXP2
+        # existe LneStockCstAtt05 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
+          WLNECSTATT01 = func GET_PROPXML(XDATA,"LneCstAtt01",LPOS)
+        Endif
+        $ENDWLNECSTATT01EXP2
+
+        # número de líneas detalle
+        Local Integer J,K,L,T,WNLINDETAIL
+        Local Char    WLNENUMBERDETAIL(10),LTEMP1(50),WLNESTOCKITEMCODE(250),WLNESTOCKQTY(250),WLNESTOCKSTOCKSTATUSREC(250),WLNESTOCKCSTATT05(250)
+        Local Decimal WLNESTOCKQTYTOT
+        L = LPOS
+        While 1=1
+          WLNENUMBERDETAIL  = ""
+          WLNENUMBERDETAIL  = func GET_PROPXML(XDATA,"LneStockItemCode",L)
+          WLNESTOCKQTYTOT  += val(func GET_PROPXML(XDATA,"LneStockQty",L))
+          If WLNENUMBERDETAIL <> ""
+            WNLINDETAIL+=1
+          Else
+            Break
+          Endif
+          If WNLINDETAIL>999
+            Break
+          Endif
+          If WLNENUMBERDETAIL <> "" Then : J = L : K = J : T = J : Endif
+          LTEMP1 =  func GET_PROPXML(XDATA,"LneStockItemCode",J)
+          LTEMP1 =  func GET_PROPXML(XDATA,"LneNumber",K)
+          If LTEMP1 = '' Then
+            LTEMP1 = func GET_PROPXML(XDATA,"CstAtt20",T)
+            K = T
+          Endif
+          If J > K and K <> 0 Then
+            L=J
+            Break
+          Endif
+        Wend
+
+        WLNEQTYRECEIVED         = num$(WLNESTOCKQTYTOT)
+        WLNESTOCKITEMCODE       = func GET_PROPXML(XDATA,"LneStockItemCode",LPOS)
+        WLNESTOCKQTY            = func GET_PROPXML(XDATA,"LneStockQty",LPOS)
+        WLNESTOCKUOMCODE        = func GET_PROPXML(XDATA,"LneStockUoMCode",LPOS)
+        WLNESTOCKSTOCKSTATUSREC = func GET_PROPXML(XDATA,"LneStockStockStatusRec",LPOS)
+
+        Raz WLNESTOCKCSTATT01
         CONTROL1  = LPOS
         CONTROL2  = LPOS
         RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt01",CONTROL1)
         RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) or (CONTROL1 > CONTROL2) Then
-        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) Then
+        If RESULT = '' Then
+          CONTROL2 = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+        Endif
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDLNESTOCKCSTATT01EXP2
+        # existe LneStockCstAtt01 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
           WLNESTOCKCSTATT01 = func GET_PROPXML(XDATA,"LneStockCstAtt01",LPOS)
         Endif
-      Endif
-      $ENDLNESTOCKCSTATT01EXP
-      Raz WLNESTOCKCSTATT03
-      CONTROL1  = LPOS
-      CONTROL2  = LPOS
-      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt03",CONTROL1)
-      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#      If CONTROL1 = 0 and CONTROL2 = 0 Then
-      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
-        Goto ENDLNESTOCKCSTATT03EXP
-      # existe LneStockCstAtt03 para esa línea
-      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
-        WLNESTOCKCSTATT03 = func GET_PROPXML(XDATA,"LneStockCstAtt03",LPOS)
-      # existe LneStockCstAtt03 pero en otra línea
-      Else
+        $ENDLNESTOCKCSTATT01EXP2
+
+        Raz WLNESTOCKCSTATT03
         CONTROL1  = LPOS
         CONTROL2  = LPOS
         RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt03",CONTROL1)
         RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) or (CONTROL1 > CONTROL2) Then
-        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) Then
+        If RESULT = '' Then
+          CONTROL2 = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+        Endif
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDLNESTOCKCSTATT03EXP2
+        # existe LneStockCstAtt03 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
           WLNESTOCKCSTATT03 = func GET_PROPXML(XDATA,"LneStockCstAtt03",LPOS)
         Endif
-      Endif
-      $ENDLNESTOCKCSTATT03EXP
-      Raz WLNESTOCKCSTATT04
-      CONTROL1  = LPOS
-      CONTROL2  = LPOS
-      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt04",CONTROL1)
-      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#      If CONTROL1 = 0 and CONTROL2 = 0 Then
-      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
-        Goto ENDLNESTOCKCSTATT04EXP
-      # existe LneStockCstAtt04 para esa línea
-      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
-        WLNESTOCKCSTATT04 = func GET_PROPXML(XDATA,"LneStockCstAtt04",LPOS)
-      # existe LneStockCstAtt04 pero en otra línea
-      Else
+        $ENDLNESTOCKCSTATT03EXP2
+
+        Raz WLNESTOCKCSTATT04
         CONTROL1  = LPOS
         CONTROL2  = LPOS
         RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt04",CONTROL1)
         RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) or (CONTROL1 > CONTROL2) Then
-        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) Then
+        If RESULT = '' Then
+          CONTROL2 = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+        Endif
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDLNESTOCKCSTATT04EXP2
+        # existe LneStockCstAtt04 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
           WLNESTOCKCSTATT04 = func GET_PROPXML(XDATA,"LneStockCstAtt04",LPOS)
         Endif
-      Endif
-      $ENDLNESTOCKCSTATT04EXP
-      Raz WLNESTOCKCSTATT05
-      CONTROL1  = LPOS
-      CONTROL2  = LPOS
-      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt05",CONTROL1)
-      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#      If CONTROL1 = 0 and CONTROL2 = 0 Then
-      If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
-        Goto ENDLNESTOCKCSTATT05EXP
-      # existe LneStockCstAtt05 para esa línea
-      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
-        WLNESTOCKCSTATT05 = func GET_PROPXML(XDATA,"LneStockCstAtt05",LPOS)
-      # existe LneStockCstAtt05 pero en otra línea
-      Else
+        $ENDLNESTOCKCSTATT04EXP2
+        Raz WLNESTOCKCSTATT05
         CONTROL1  = LPOS
         CONTROL2  = LPOS
         RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt05",CONTROL1)
         RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
-#        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) or (CONTROL1 > CONTROL2) Then
-        If ((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0)) Then
+        If RESULT = '' Then
+          CONTROL2 = LPOS
+          RESULT    = func GET_PROPXML(XDATA,"CstAtt20",CONTROL2)
+        Endif
+        If (CONTROL1 = 0 and CONTROL2 = 0) or (CONTROL1 > CONTROL2) Then
+          Goto ENDLNESTOCKCSTATT05EXP2
+        # existe LneStockCstAtt05 para esa línea
+        Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
           WLNESTOCKCSTATT05 = func GET_PROPXML(XDATA,"LneStockCstAtt05",LPOS)
         Endif
+        $ENDLNESTOCKCSTATT05EXP2
+        WLNESTOCKRECDATE    = left$(func GET_PROPXML(XDATA,"LneStockRecDate",LPOS),10)
+
+        If !clalev([F:ZANR1]) Then : Local File ZANIDAREF [F:ZANR1] : Endif
+        If !clalev([F:ZSHI1]) Then : Local File SHIPMENTD [F:ZSHI1] : Endif
+        If !clalev([F:ZPOQ1]) Then : Local File PORDERQ   [F:ZPOQ1] : Endif
+        Local Integer LNUMREGS
+        Local Decimal LQTYEXP,LQTYASIG
+        Filter [F:ZANR1] Order By SHIPLIN Asc
+        LNUMREGS = rowcount([F:ZANR1])
+        For [ZANR1]
+          If LNUMREGS > 0 and val(WLNEQTYRECEIVED) > 0 Then
+            Read [F:ZSHI1]SHD0      = [F:ZANR1]SHIPNUM;[F:ZANR1]SHIPLIN
+            If !fstat Then
+              Read [F:ZPOQ1]POQ0    = [F:ZSHI1]POHNUM;[F:ZSHI1]POPLIN;1
+              If !fstat Then
+                If LNUMREGS > 1 Then
+                  LQTYEXP           = val(WLNEQTYRECEIVED)-[F:ZPOQ1]QTYUOM
+                  If LQTYEXP > 0 Then
+                    LQTYASIG        = [F:ZPOQ1]QTYUOM
+                  Else
+                    LQTYASIG        = val(WLNEQTYRECEIVED)
+                  Endif
+                Else
+                  LQTYASIG          = val(WLNEQTYRECEIVED)
+                Endif
+
+                Raz [F:ZREF0]
+                Trbegin [F:ZREF0]
+                [F:ZREF0]NOMFICH    = LNOMFICHERO
+                [F:ZREF0]INDICADOR  = "L"
+                [F:ZREF0]SHIPNUM    = [F:ZANR1]SHIPNUM
+                [F:ZREF0]SHIPLIN    = [F:ZANR1]SHIPLIN
+                [F:ZREF0]ITMREF     = WLNEITEMCODE
+                [F:ZREF0]STA        = WLNESTOCKSTATUS
+                [F:ZREF0]ZSTATUS    = WNUMSTATUS
+                [F:ZREF0]QTY        = LQTYASIG
+                [F:ZREF0]UOM        = WLNEQTYUOMCODE
+                [F:ZREF0]CTRNUM     = WLNECSTATT01
+                [F:ZREF0]ZNUMORDEN  = LNUMORDEN
+                [F:ZREF0]ZNUMORDEN  = LNUMORDEN
+                LNUMORDEN += 1
+                Write [F:ZREF0]
+                If !fstat Then
+                  Commit
+                Else
+                  Rollback
+                Endif
+
+                Trbegin [F:ZREF0]
+                [F:ZREF0]NOMFICH    = LNOMFICHERO
+                [F:ZREF0]INDICADOR  = "S"
+                [F:ZREF0]ZSTATUS    = WNUMSTATUS
+                [F:ZREF0]SHIPNUM    = [F:ZANR1]SHIPNUM
+                [F:ZREF0]SHIPLIN    = [F:ZANR1]SHIPLIN
+                [F:ZREF0]STA        = WLNESTOCKSTOCKSTATUSREC
+                [F:ZREF0]ITMREF     = WLNESTOCKITEMCODE
+                [F:ZREF0]QTY        = LQTYASIG
+                [F:ZREF0]UOM        = WLNESTOCKUOMCODE
+                [F:ZREF0]LOT        = WLNESTOCKCSTATT05
+                [F:ZREF0]BPSLOTSGA  = WLNESTOCKCSTATT01
+                [F:ZREF0]BPSNUM     = WLNESTOCKCSTATT03
+                [F:ZREF0]BPSLOTERP  = WLNESTOCKCSTATT04
+                [F:ZREF0]CTRNUM     = WLNECSTATT01
+                [F:ZREF0]SHLDAT     = WLNESTOCKRECDATE
+                [F:ZREF0]ZNUMORDEN  = LNUMORDEN
+                LNUMORDEN += 1
+                Write [F:ZREF0]
+                If !fstat Then
+                  Commit
+                Else
+                  Rollback
+                Endif
+
+                WLNEQTYRECEIVED = num$(val(WLNEQTYRECEIVED)-LQTYASIG)
+              Endif
+            Endif
+            LNUMREGS -= 1
+          Endif
+        Next
+        Filter [F:ZANR1]
+        Close Local File [ZANR1],[ZSHI1],[ZPOQ1]
+
+        $ENDFORLINS2
       Endif
-      $ENDLNESTOCKCSTATT05EXP
-      WLNESTOCKRECDATE    = left$(func GET_PROPXML(XDATA,"LneStockRecDate",LPOS),10)
-      [F:ZREF0]NOMFICH    = LNOMFICHERO
-      [F:ZREF0]INDICADOR  = "S"
-      [F:ZREF0]ZSTATUS    = WNUMSTATUS
-      [F:ZREF0]SHIPNUM    = WRECEIPTCODE
-      [F:ZREF0]SHIPLIN    = val(WLNERECORDERNUMBER)
-      [F:ZREF0]STA        = WLNESTOCKSTOCKSTATUSREC
-      [F:ZREF0]ITMREF     = WLNESTOCKITEMCODE
-      [F:ZREF0]QTY        = val(WLNESTOCKQTY)
-      [F:ZREF0]UOM        = WLNESTOCKUOMCODE
-      [F:ZREF0]LOT        = WLNESTOCKCSTATT05
-      [F:ZREF0]BPSLOTSGA  = WLNESTOCKCSTATT01
-      [F:ZREF0]BPSNUM     = WLNESTOCKCSTATT03
-      [F:ZREF0]BPSLOTERP  = WLNESTOCKCSTATT04
-      [F:ZREF0]CTRNUM     = WLNECSTATT01
-      [F:ZREF0]SHLDAT     = WLNESTOCKRECDATE
-      [F:ZREF0]ZNUMORDEN  = LNUMORDEN
-      LNUMORDEN += 1
-      Write [F:ZREF0]
-      If !fstat Then
-        Commit
-      Else
-        Rollback
-      Endif
+# 06.302.893.ini
     Next
   Next
-
   Close Local File [ZREF0]
 Return
 
@@ -1277,7 +1572,7 @@ Local   Integer LCONTROL
     Endif
   Endif
   Close Local File [SRH0],[AUT0]
-#  GCORREO   = "joseluis.chiva@auren.es"     # desactivarlo en real
+  GCORREO   = "joseluis.chiva@auren.es"     # desactivarlo en real
 
   # cuerpo del mensaje
   If !clalev([F:ZREF1]) Then : Local File ZEXPOREFDEV [F:ZREF1] : Endif
@@ -1325,7 +1620,7 @@ Value Integer PNUMERR
   GASUNTO   = "Error en la importación REF del fichero"-PNOMFICH
   GCORREO   = "sergi.cunill@hispanox.com"
 #  GCORREO   = "sergi.cunill@hispanox.com;joseluis.chiva@auren.es"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GFICHERO  = PNOMFICH
   GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
   GTEXTO2   = "Se han producido " + num$(PNUMERR) + " errores."
