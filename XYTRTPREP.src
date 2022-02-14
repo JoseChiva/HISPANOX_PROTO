@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.308.862 - JC.02022022.VP diferent adreça entrega
+# 06.312.723 - JC.14022022.Vale preparación padre
 #############################################################################
 
 $ACTION
@@ -34,9 +35,12 @@ $BOUTON
     When "Q"
 # 06.308.862.ini
       Gosub BOUTON From TRTPREPA
-      If WOK = 0 Then
-        Gosub UPD_DIRENTREGA
-      Endif
+# 06.312.723.ini
+#      If WOK = 0 Then
+#        Gosub UPD_DIRENTREGA
+#      Endif
+      Gosub UPD_DIRENTREGA
+# 06.312.723.fin
       GPE=1
 # 06.308.862.fin
   Endcase
