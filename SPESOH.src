@@ -12,6 +12,7 @@
 # 06.304.994 - JC.31012022.Cálculo precios factura
 # 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
 # 06.311.528 - JC.09022022.Validació Agència Entregas -- Pedidos
+# 06.314.525 - JC.14022022.Modificación precios pedido abierto
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -2660,7 +2661,7 @@ Variable Decimal VALEUR
 #
 #[M:SOH4]ZPORCOS(nolign-1) = [M:SOH4]CPRPRI(nolign-1) * 100 : Affzo [M:SOH4]ZPORCOS(nolign-1)
 
-If [M:SOH4]ZACTPEDAB(nolign-1) <> 2 Then
+#If [M:SOH4]ZACTPEDAB(nolign-1) <> 2 Then                                                      # 06.314.525.new
     Case [M:SOH4]ZUNPRE(nolign-1)
       When "UN"        :   [M:SOH4]GROPRI(nolign-1) = arr(VALEUR,0.00001)      : Affzo [M:SOH4]GROPRI(nolign-1)    # 06.304.994
       When "CEN"       :   [M:SOH4]GROPRI(nolign-1) = arr(VALEUR/100,0.00001)  : Affzo [M:SOH4]GROPRI(nolign-1)    # 06.304.994
@@ -2699,7 +2700,7 @@ If [M:SOH4]ZACTPEDAB(nolign-1) <> 2 Then
       GCTRLSTA = 0
     Endif
 # JC.14062021.vtas029.END
-Endif
+#Endif                                                                                         # 06.314.525.new
 
 #If GUSER="ADEV" Then : Infbox "salgo am_zprecli"-num$([M:SOH4]GROPRI(nolign-1)) : Endif
 End
