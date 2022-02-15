@@ -8,6 +8,7 @@
 # 06.308.480 - JC.02022022.Comandes certificats
 # 06.309.060 - JC.07022022.Nº conformidad cooperativa
 # 06.310.719 - JC.08022022.Condiciones de pago en entregas
+# 06.314.358 - JC.14022022.Error importación SOF. Stock con estado A y Q
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -31,7 +32,7 @@ Local Char FICHEROIMP(250), FICHEROEXP(250)
 Local Integer A, LFSTATFICHERO, NFICHEROS, WTRAZA
 Local Clbfile XDATA (15)
 
-Global Integer GSTERROR
+Global Integer GSTERROR,GERRSTOCK
 
 If !clalev([F:ZFCY])  : Local File FACILITY   [ZFCY] : Endif
 If !clalev([F:ZPRH])  : Local File STOPREH    [ZPRH] : Endif
@@ -47,7 +48,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
-#  WFICHEROIMP='SOF0120220202170105000 - EN2221184'
+#  WFICHEROIMP='SOF0120220211165012000'
 #  WFICHEROIMP='aaa222'
   Raz NFICHEROS
 
@@ -153,7 +154,8 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
   Endif
 
 
-  If dim(GSTERROR) > 0 Then : Kill GSTERROR : Endif
+  If dim(GSTERROR) > 0 Then : Kill GSTERROR   : Endif
+  If dim(GERRSTOCK)> 0 Then : Kill GERRSTOCK  : Endif
 
 End
 
@@ -1417,7 +1419,7 @@ Value Char  PNOMFICH
   Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
   GASUNTO   = "Error en la importación SOF del fichero"-PNOMFICH
   GCORREO   = "sergi.cunill@hispanox.com"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GFICHERO  = PNOMFICH
   GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
   GTEXTO2   = "Documento adjunto con la traza."
@@ -2417,13 +2419,22 @@ Local Integer LUPDFLG
         # JC.14122021.INI
         # Se cancela la cantidad asignada global
         Call DELALL(3,[F:ZES1]PRHNUM,[F:ZES1]PRELIN,0,[F:ZES1]ITMREF,0,[F:ZES1]QTY,[F:ZES1]QTY,LRET) From STKALL
+# 06.314.358.ini
+        If LRET = 1 Then
+          Call ECR_TRACE("Error al desasignar la línea"-num$([F:ZES1]PRELIN)-"del VP"-[F:ZES1]PRHNUM,1) From GESECRAN
+          GERRSTOCK = 1
+        Endif
+# 06.314.358.fin
 
         # Se asigna la cantidad detallada en la línea del vale por el lote indicado
         Filter [F:ZES6] Where NOMFICH = [F:ZES1]NOMFICH and PRHNUM = [F:ZES1]PRHNUM and PRELIN = [F:ZES1]PRELIN and ITMREF = [F:ZES1]ITMREF
         For [ZES6]
           Local Integer LSTOCOU
           If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
-          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+# 06.314.358.ini
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY and STA = 'A' and LOC = "SGA"
+# 06.314.358.fin
           Read [F:STO9] First
           If !fstat Then
             LSTOCOU = [F:STO9]STOCOU
@@ -2433,6 +2444,12 @@ Local Integer LUPDFLG
 
           Call CREALL(2,[F:ZES6]STOFCY,[F:ZES6]ITMREF,LSTOCOU,[0/0/0],[F:ZES6]QTY,[F:ZES6]QTY,3,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,0,
 &                     '',date$,'','','','','','',0,0,'SGA','SGA','','',1,'',LRET) From STKALL
+# 06.314.358.ini
+          If LRET = 1 Then
+            Call ECR_TRACE("Error al asignar la línea"-num$([F:ZES6]PRELIN)-"del VP"-[F:ZES6]PRHNUM,1) From GESECRAN
+            GERRSTOCK = 1
+          Endif
+# 06.314.358.fin
         Next
         Filter [F:ZES6]
         # JC.14122021.FIN
@@ -2476,13 +2493,22 @@ Local Integer LUPDFLG
         # JC.14122021.INI
         # Se cancela la cantidad asignada global
         Call DELALL(3,[F:ZES1]PRHNUM,[F:ZES1]PRELIN,0,[F:ZES1]ITMREF,0,[F:ZES1]QTY,[F:ZES1]QTY,LRET) From STKALL
+# 06.314.358.ini
+        If LRET = 1 Then
+          Call ECR_TRACE("Error al desasignar la línea"-num$([F:ZES1]PRELIN)-"del VP"-[F:ZES1]PRHNUM,1) From GESECRAN
+          GERRSTOCK = 1
+        Endif
+# 06.314.358.fin
 
         # Se asigna la cantidad detallada en la línea del vale por el lote indicado
         Filter [F:ZES6] Where NOMFICH = [F:ZES1]NOMFICH and PRHNUM = [F:ZES1]PRHNUM and PRELIN = [F:ZES1]PRELIN and ITMREF = [F:ZES1]ITMREF
         For [ZES6]
           Local Integer LSTOCOU
           If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
-          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+# 06.314.358.ini
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY and STA = 'A' and LOC = "SGA"
+# 06.314.358.fin
           Read [F:STO9] First
           If !fstat Then
             LSTOCOU = [F:STO9]STOCOU
@@ -2492,6 +2518,12 @@ Local Integer LUPDFLG
 
           Call CREALL(2,[F:ZES6]STOFCY,[F:ZES6]ITMREF,LSTOCOU,[0/0/0],[F:ZES6]QTY,[F:ZES6]QTY,3,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,0,
 &                     '',date$,'','','','','','',0,0,'SGA','SGA','','',1,'',LRET) From STKALL
+# 06.314.358.ini
+          If LRET = 1 Then
+            Call ECR_TRACE("Error al asignar la línea"-num$([F:ZES6]PRELIN)-"del VP"-[F:ZES6]PRHNUM,1) From GESECRAN
+            GERRSTOCK = 1
+          Endif
+# 06.314.358.fin
         Next
         Filter [F:ZES6]
         # JC.14122021.FIN
@@ -2544,13 +2576,22 @@ Local Integer LUPDFLG
         # Se cancela la cantidad asignada global
         # JC.14122021.INI
         Call DELALL(3,[F:ZES1]PRHNUM,[F:ZES1]PRELIN,0,[F:ZES1]ITMREF,0,[F:ZES1]QTY,[F:ZES1]QTY,LRET) From STKALL
+# 06.314.358.ini
+        If LRET = 1 Then
+          Call ECR_TRACE("Error al desasignar la línea"-num$([F:ZES1]PRELIN)-"del VP"-[F:ZES1]PRHNUM,1) From GESECRAN
+          GERRSTOCK = 1
+        Endif
+# 06.314.358.fin
 
         # Se asigna la cantidad detallada en la línea del vale por el lote indicado
         Filter [F:ZES6] Where NOMFICH = [F:ZES1]NOMFICH and PRHNUM = [F:ZES1]PRHNUM and PRELIN = [F:ZES1]PRELIN and ITMREF = [F:ZES1]ITMREF
         For [ZES6]
           Local Integer LSTOCOU
           If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
-          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+# 06.314.358.ini
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY and STA = 'A' and LOC = "SGA"
+# 06.314.358.fin
           Read [F:STO9] First
           If !fstat Then
             LSTOCOU = [F:STO9]STOCOU
@@ -2560,6 +2601,12 @@ Local Integer LUPDFLG
 
           Call CREALL(2,[F:ZES6]STOFCY,[F:ZES6]ITMREF,LSTOCOU,[0/0/0],[F:ZES6]QTY,[F:ZES6]QTY,3,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,0,
 &                     '',date$,'','','','','','',0,0,'SGA','SGA','','',1,'',LRET) From STKALL
+# 06.314.358.ini
+          If LRET = 1 Then
+            Call ECR_TRACE("Error al asignar la línea"-num$([F:ZES6]PRELIN)-"del VP"-[F:ZES6]PRHNUM,1) From GESECRAN
+            GERRSTOCK = 1
+          Endif
+# 06.314.358.fin
         Next
         Filter [F:ZES6]
         # JC.14122021.FIN
@@ -3629,7 +3676,10 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   Call ECR_TRACE("Datos importsil: fstat="+num$(fstat)-"-"-"GERRTRACE="+num$(GERRTRACE),0) From GESECRAN
 
   # gestiona un error en la importación
-  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
+# 06.314.358.ini
+#  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
+  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 or GERRSTOCK = 1 Then          # si se produce error de importación...
+# 06.314.358.fin
     If filinfo(LFILETXT+".err", 7) > 0 Then
       Call MOVE(LFILETXT+".err",LDIRIMPORTERROR,STAT) From ORDSYS                 # mueve el fichero .err con errores en la importación
     Endif
