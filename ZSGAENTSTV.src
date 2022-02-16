@@ -5,6 +5,7 @@
 # 06.299.138 - JC.12012022.Error importación STV - ajustes stock
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 # 06.309.971 - JC.07022022.Error en la importación STV del fichero
+# 06.315.255 - JC.16022022.Error ajuste de stock STV por FusionLote antes de recibir un REF
 #############################################################
 
 #If GUSER="ADEV"
@@ -83,6 +84,57 @@ Local Clbfile XDATA (10)
     Local Char    WCSTATT01CA(250),WCSTATT02CA(250),WCSTATT03CA(250),WCSTATT04CA(250),WCSTATT05CA(250),WCSTATT06CA(250)
     Local Char    WREFSMR(250),WREFSMO(250),RESULT(250)
     Local Integer WNLIN,IANT,CONTROL1,CONTROL2,WLONG
+
+# 06.315.255.ini
+    Local Integer J
+    Local Char    C1(250),C2(250)
+    J=1
+    WOPERATION = func GET_PROPXML(XDATA,"Operation",J)
+    If WOPERATION = "U" Then
+      WITEMCODE     = func GET_PROPXML(XDATA,"ItemCode",J)
+      WCSTATT05FCA  = func GET_PROPXML(XDATA,"CstAtt05",J)
+      WCSTATT16     = func GET_PROPXML(XDATA,"CstAtt16",J)
+      If !clalev([F:ZSTO0]) Then : Local File STOCK [F:ZSTO0] : Endif
+      Filter [F:ZSTO0] Where STOFCY = 'PHISP' and ITMREF = WITEMCODE and LOT = WCSTATT05FCA and STA = 'A' and  LOC = 'SGA'
+      Read [F:ZSTO0] First
+      # no existe stock para ese artículo/lote -> No procesa este fichero, se queda en cola de nuevo
+      If fstat <> 0 Then
+        Openi Using [ZZZ]
+        Break
+      # existe stock para ese artículo/lote
+      Else
+        # comprobar el stock disponible
+        Local Integer WSTA
+        Local Decimal WDISPO
+        WSTA=0
+        WDISPO=0
+        If !clalev([F:ITM]) Then : Local File ITMMASTER [F:ITM] : Endif
+        If !clalev([F:ITG]) Then : Local File ITMCATEG  [F:ITG] : Endif
+        If !clalev([F:ITV]) Then : Local File ITMMVT    [F:ITV] : Endif
+        Read [F:ITM]ITM0 = WITEMCODE
+        If !fstat Then
+          Read [F:ITV]ITV0 = WITEMCODE;'PHISP'
+          If !fstat Then
+            Read [F:ITG]ITG1  = [F:ITM]TCLCOD;'PHISP'
+            If !fstat
+              If [F:ITG]GLOAAAFLG = 2   WSTA += 1  Endif
+              If [F:ITG]GLOQQQFLG = 2   WSTA += 2  Endif
+              If [F:ITG]GLORRRFLG = 2   WSTA += 4  Endif
+              Call STODISPO("","PHISP",WITEMCODE,WCSTATT05FCA,"SGA",1,WSTA,"","","","",WDISPO) From STKLIB
+              # si el stock disponible es menor que el indicado en el fichero -> No procesa este fichero, se queda en cola de nuevo
+              If WDISPO < val(WCSTATT16) Then
+                Openi Using [ZZZ]
+                Break
+              Endif
+            Endif
+          Endif
+          Close Local File [ITM],[ITG],[ITV]
+        Endif
+      Endif
+      Filter [F:ZSTO0]
+      Close Local File [ZSTO0]
+    Endif
+# 06.315.255.fin
 
     Call OUVRE_TRACE ("Imp. STV - "+LNOMFICHERO)  From LECFIC
 
