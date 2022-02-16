@@ -9,6 +9,7 @@
 # 06.309.060 - JC.07022022.Nº conformidad cooperativa
 # 06.310.719 - JC.08022022.Condiciones de pago en entregas
 # 06.314.358 - JC.14022022.Error importación SOF. Stock con estado A y Q
+# 06.315.150 - JC.16022022.Error cuando hay una línea en fichero SOF que no existe en el VP
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -663,6 +664,10 @@ Value Char PNOMFICH
       For [F:AXX2]
         [F:AXX2]ZGENSDHFLG = 1
         [F:AXX2]ZMSGERROR  = "La línea no existe en Sage"
+# 06.315.150.ini
+        GERRSTOCK = 1
+        Call ECR_TRACE("No existe la línea:"-num$([F:AXX1]PRELIN)-"del VP"-[F:AXX1]PRHNUM,1) From GESECRAN
+# 06.315.150.fin
         Trbegin [F:AXX2]
         Rewrite [F:AXX2]
         If !fstat Then
@@ -691,6 +696,10 @@ Value Char PNOMFICH
         For [F:AXX2]
           [F:AXX2]ZGENSDHFLG = 1
           [F:AXX2]ZMSGERROR  = "El artículo o las unidades de la línea no coincide en Sage"
+# 06.315.150.ini
+          GERRSTOCK = 1
+          Call ECR_TRACE("El artículo o las unidades de la línea:"-num$([F:AXX1]PRELIN)-"del VP"-[F:AXX1]PRHNUM-"no coincide en Sage",1) From GESECRAN
+# 06.315.150.fin
           Trbegin [F:AXX2]
           Rewrite [F:AXX2]
           If !fstat Then
@@ -2317,7 +2326,10 @@ Local Integer LUPDFLG
   If !clalev([F:ZES1]) Then : Local File ZVESOF1 [F:ZES1] : Endif
   If !clalev([F:ZES6]) Then : Local File ZVESOF6 [F:ZES6] : Endif
 
-  Filter [F:ZES1] Where NOMFICH = PNOMFICH and INDICADOR = 'L'
+# 06.315.150.ini
+#  Filter [F:ZES1] Where NOMFICH = PNOMFICH and INDICADOR = 'L'
+  Filter [F:ZES1] Where NOMFICH = PNOMFICH and INDICADOR = 'L' and ZGENSDHFLG = 2
+# 06.315.150.fin
   # proceso por cada línea del vale de preparación
   For [ZES1]
     Raz LUPDQTY
@@ -3187,7 +3199,8 @@ Value Decimal PQTY
     Endif
   Else
     Call ECR_TRACE("No existe el VP:"-PPRHNUM-"/ Línea:"-num$(PPRELIN),1) From GESECRAN
-    GSTERROR = 1
+    GSTERROR  = 1
+    GERRSTOCK = 1                                                                             # 06.315.150.new
   Endif
 
 #  Call ECR_TRACE("########################################################################",0) From GESECRAN
