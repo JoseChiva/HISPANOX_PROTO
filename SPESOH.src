@@ -2394,7 +2394,7 @@ Local Decimal F_SAV_NETPRI
           [M:SOH4]NETPRI(nolign-1)      = [M:SOH4]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
         Endif
         Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,[M:SOH4]NETPRI(nolign-1),1,[M:SOH0]ORDDAT,[M:SOH4]NETPRI(nolign-1)) From ZAULIB01      # JC.27102021.Cambio de divisas
-        [M:SOH4]GROPRI(nolign-1)      = func ZAULIB01.REDONDEA_ALZA([M:SOH4]NETPRI(nolign-1),4)            # 06.304.994
+        [M:SOH4]GROPRI(nolign-1)      = arr([M:SOH4]NETPRI(nolign-1),0.0001)#func ZAULIB01.REDONDEA_ALZA([M:SOH4]NETPRI(nolign-1),6)#4)            # 06.304.994 XXX ACA TAMBIEN ES
         [M:SOH4]DISCRGVAL1(nolign-1)  = 0
         [M:SOH4]DISCRGVAL2(nolign-1)  = 0
         [M:SOH4]DISCRGVAL3(nolign-1)  = 0
@@ -2429,7 +2429,7 @@ Local Decimal F_SAV_NETPRI
       If (1-(VALEUR/100)) <> 0 Then
         [M:SOH4]NETPRI(nolign-1)      = [M:SOH4]ZCOSOFER(nolign-1)/(1-(VALEUR/100))
       Endif
-      [M:SOH4]GROPRI(nolign-1)      = func ZAULIB01.REDONDEA_ALZA([M:SOH4]NETPRI(nolign-1),4)            # 06.304.994
+      [M:SOH4]GROPRI(nolign-1)      = arr([M:SOH4]NETPRI(nolign-1),0.0001)#func ZAULIB01.REDONDEA_ALZA([M:SOH4]NETPRI(nolign-1),6)#4)            # 06.304.994 XXXX ACA ES
       [M:SOH4]DISCRGVAL1(nolign-1)  = 0
       [M:SOH4]DISCRGVAL2(nolign-1)  = 0
       [M:SOH4]DISCRGVAL3(nolign-1)  = 0
