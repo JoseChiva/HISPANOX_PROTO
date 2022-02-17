@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.308.862 - JC.02022022.VP diferent adreça entrega
 # 06.312.723 - JC.14022022.Vale preparación padre
+# 06.315.256 - JC.16022022.Aviso riesgo sobrepasado en plan de preparación
 #############################################################################
 
 $ACTION
@@ -33,16 +34,28 @@ $BOUTON
   Case BOUT
     When "s"  : Gosub CREA_SOR  # JC.20052021
     When "Q"
-# 06.308.862.ini
-      Gosub BOUTON From TRTPREPA
-# 06.312.723.ini
-#      If WOK = 0 Then
-#        Gosub UPD_DIRENTREGA
-#      Endif
-      Gosub UPD_DIRENTREGA
-# 06.312.723.fin
-      GPE=1
-# 06.308.862.fin
+# 06.315.256.ini
+      Gosub COMPRUEBA_RIESGO
+      If maxtab(BPCCODLOCK) > 0 Then
+        Local Integer OKCAN : OKCAN = 1 :# Cancel
+        Call AVERTIR("Atención, hay clientes con riesgo sobrepasado\¿Continuar?",OKCAN) From GESECRAN
+        If OKCAN = 1 Then
+          GPE=1
+          Return
+        Else
+    # 06.308.862.ini
+          Gosub BOUTON From TRTPREPA
+    # 06.312.723.ini
+    #      If WOK = 0 Then
+    #        Gosub UPD_DIRENTREGA
+    #      Endif
+          Gosub UPD_DIRENTREGA
+    # 06.312.723.fin
+          GPE=1
+    # 06.308.862.fin
+        Endif
+      Endif
+# 06.315.256.fin
   Endcase
 
 Return
@@ -148,6 +161,35 @@ Local Integer LCON
   Next
   Close Local File [ZPRE0],[ZSOH0]
   If dim(LCON)>0 Then : Kill LCON :Endif
+
+Return
+
+##############################################################
+# # 06.315.256
+$COMPRUEBA_RIESGO
+Local Integer LCON, CDTSTA, I
+Local Char    BPCCODLOCK(50)(1..),BPCNAMLOCK(50)(1..)
+  Raz GERR,GMESSAGE
+
+  If !clalev([F:ZSOH1]) Then : Local File SORDER [F:ZSOH1] : Endif
+
+  I = 1
+
+  For LCON=0 To [M:PREP]NBLIG-1
+    If [M:PREP]COCHAGE(LCON) = 2 Then
+      Read [F:ZSOH1]SOH0 = [M:PREP]ORINUM(LCON)
+      If !fstat Then
+        # Contrôle état crédit de la commande
+        Call SDCDTSTA ([F:ZSOH1]SOHNUM,[F:ZSOH1]BPCORD,[F:ZSOH1]CHGTYP,0,"",[F:ZSOH1]ORDDAT,[F:ZSOH1]UNL,2,CDTSTA,GBIDD1,GBIDD1) From TRTVENCDT
+        If CDTSTA = 2 or CDTSTA = 3 or CDTSTA = 4 or CDTSTA = 5 Then
+          BPCCODLOCK(I) = [F:ZSOH1]BPCORD
+          BPCNAMLOCK(I) = [F:ZSOH1]BPCNAM
+        Endif
+      Endif
+    Endif
+  Next
+
+  Close Local File [ZSOH1]
 
 Return
 
