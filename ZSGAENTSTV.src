@@ -100,7 +100,7 @@ Local Clbfile XDATA (10)
       # no existe stock para ese artículo/lote -> No procesa este fichero, se queda en cola de nuevo
       If fstat <> 0 Then
         Openi Using [ZZZ]
-        Break
+        Goto ENDFOR
       # existe stock para ese artículo/lote
       Else
         # comprobar el stock disponible
@@ -124,7 +124,7 @@ Local Clbfile XDATA (10)
               # si el stock disponible es menor que el indicado en el fichero -> No procesa este fichero, se queda en cola de nuevo
               If WDISPO < val(WCSTATT16) Then
                 Openi Using [ZZZ]
-                Break
+                Goto ENDFOR
               Endif
             Endif
           Endif
@@ -474,6 +474,8 @@ Local Clbfile XDATA (10)
     If !GSERVEUR Then
       Call LEC_TRACE From LECFIC
     Endif
+
+    $ENDFOR
   Next
 
 End
