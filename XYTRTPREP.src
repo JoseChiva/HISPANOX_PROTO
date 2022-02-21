@@ -36,9 +36,18 @@ $BOUTON
     When "Q"
 # 06.315.256.ini
       Gosub COMPRUEBA_RIESGO
-      If maxtab(BPCCODLOCK) > 0 Then
+      If !clalev([F:ZCR0])  Then : Local File ZCLIRIESGO  [F:ZCR0]  : Endif
+      Local Integer LNUM
+      Filter [F:ZCR0]
+      Read [F:ZCR0] First
+      LNUM = rowcount([F:ZCR0])
+      If LNUM > 0 Then
+        Local Clbfile LCAD(2)
+        For [ZCR0]
+          LCAD += "\"+[F:ZCR0]BPCNUM+"-"+[F:ZCR0]BPCNAM
+        Next
         Local Integer OKCAN : OKCAN = 1 :# Cancel
-        Call AVERTIR("Atención, hay clientes con riesgo sobrepasado\¿Continuar?",OKCAN) From GESECRAN
+        Call AVERTIR("Atención, hay clientes con riesgo sobrepasado"+LCAD,OKCAN) From GESECRAN
         If OKCAN = 1 Then
           GPE=1
           Return
@@ -55,6 +64,8 @@ $BOUTON
     # 06.308.862.fin
         Endif
       Endif
+      Filter [F:ZCR0]
+      Close Local File [ZCR0]
 # 06.315.256.fin
   Endcase
 
@@ -167,13 +178,13 @@ Return
 ##############################################################
 # # 06.315.256
 $COMPRUEBA_RIESGO
-Local Integer LCON, CDTSTA, I
-Local Char    BPCCODLOCK(50)(1..),BPCNAMLOCK(50)(1..)
+Local Integer LCON, CDTSTA
   Raz GERR,GMESSAGE
 
-  If !clalev([F:ZSOH1]) Then : Local File SORDER [F:ZSOH1] : Endif
+  If !clalev([F:ZSOH1]) Then : Local File SORDER      [F:ZSOH1] : Endif
+  If !clalev([F:ZCR1])  Then : Local File ZCLIRIESGO  [F:ZCR1]  : Endif
 
-  I = 1
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZCLIRIESGO"
 
   For LCON=0 To [M:PREP]NBLIG-1
     If [M:PREP]COCHAGE(LCON) = 2 Then
@@ -182,14 +193,21 @@ Local Char    BPCCODLOCK(50)(1..),BPCNAMLOCK(50)(1..)
         # Contrôle état crédit de la commande
         Call SDCDTSTA ([F:ZSOH1]SOHNUM,[F:ZSOH1]BPCORD,[F:ZSOH1]CHGTYP,0,"",[F:ZSOH1]ORDDAT,[F:ZSOH1]UNL,2,CDTSTA,GBIDD1,GBIDD1) From TRTVENCDT
         If CDTSTA = 2 or CDTSTA = 3 or CDTSTA = 4 or CDTSTA = 5 Then
-          BPCCODLOCK(I) = [F:ZSOH1]BPCORD
-          BPCNAMLOCK(I) = [F:ZSOH1]BPCNAM
+          [F:ZCR1]BPCNUM = [F:ZSOH1]BPCORD
+          [F:ZCR1]BPCNAM = [F:ZSOH1]BPCNAM
+          Trbegin [F:ZCR1]
+          Write   [F:ZCR1]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
         Endif
       Endif
     Endif
   Next
 
-  Close Local File [ZSOH1]
+  Close Local File [ZSOH1],[ZCR1]
 
 Return
 
