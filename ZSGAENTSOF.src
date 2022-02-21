@@ -10,6 +10,7 @@
 # 06.310.719 - JC.08022022.Condiciones de pago en entregas
 # 06.314.358 - JC.14022022.Error importación SOF. Stock con estado A y Q
 # 06.315.150 - JC.16022022.Error cuando hay una línea en fichero SOF que no existe en el VP
+# 06.315.591 - JC.17022022.Error importación entrega cuando el detalle de línea en SOF es igual por detalle de línea Sage pero no suma lo mismo que el total de Sage
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -50,7 +51,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
   WFICHEROIMP='SOF0*'
 #  WFICHEROIMP='aaaSOF123'
 #  WFICHEROIMP='SOF0120220211165012000'
-#  WFICHEROIMP='aaa222'
+#  WFICHEROIMP='SOF0120220216161912000'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -2425,7 +2426,21 @@ Local Integer LUPDFLG
         Endif
       Next
       Filter [F:ZES6]
-      If LUPDFLG = 1 Then
+
+# 06.315.591.ini
+      Local Decimal LQTYVP
+      If LUPDFLG = 0 Then
+        If !clalev([F:ZPRE2]) Then : Local File STOPRED [F:ZPRE2] : Endif
+        Read [F:ZPRE2]PRE0 = [F:ZES1]PRHNUM;[F:ZES1]PRELIN
+        If !fstat Then
+          LQTYVP = [F:ZPRE2]QTYSTU
+        Endif
+        Close Local File [ZPRE2]
+      Endif
+
+#      If LUPDFLG = 1 Then
+      If LUPDFLG = 1 or LQTYVP > LUPDQTY Then
+# 06.315.591.fin
 #If GUSER="ADEV" Then Infbox "1lupdqty:"-num$(LUPDQTY) Endif
 
         # JC.14122021.INI
