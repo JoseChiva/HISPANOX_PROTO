@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
 # 06.308.477 - JC.01022022.Coste entrada varia por montaje KITS - mensaje KST
+# 06.315.225 - JC.24022022.Errores lotes en ajustes creados por KST
 ##########################################################################################################################
 
 #If GUSER="ADEV"
@@ -274,7 +275,10 @@ $GUARDA_KST_EN_TABLA
         Goto ENDCOMPCSTATT02
       # existe CompCstAtt02 para esa línea
       Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
-        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+# 06.315.225.ini
+#        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+        [F:ZEKST]COMPCSTATT02 = func GET_PROPXML(XDATA,"CompCstAtt02",I)
+# 06.315.225.ini
       Endif
       $ENDCOMPCSTATT02
 # 06.308.477.fin
@@ -293,7 +297,10 @@ $GUARDA_KST_EN_TABLA
         Goto ENDCOMPCSTATT03
       # existe CompCstAtt03 para esa línea
       Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
-        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+# 06.315.225.ini
+#        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+        [F:ZEKST]COMPCSTATT03 = func GET_PROPXML(XDATA,"CompCstAtt03",I)
+# 06.315.225.ini
       Endif
       $ENDCOMPCSTATT03
 # 06.308.477.fin
@@ -312,7 +319,10 @@ $GUARDA_KST_EN_TABLA
         Goto ENDCOMPCSTATT04
       # existe CompCstAtt04 para esa línea
       Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
-        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+# 06.315.225.ini
+#        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+        [F:ZEKST]COMPCSTATT04 = func GET_PROPXML(XDATA,"CompCstAtt04",I)
+# 06.315.225.ini
       Endif
       $ENDCOMPCSTATT04
 # 06.308.477.fin
@@ -331,7 +341,10 @@ $GUARDA_KST_EN_TABLA
         Goto ENDCOMPCSTATT05
       # existe CompCstAtt05 para esa línea
       Elsif (((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0) or (((CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0))) Then
-        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+# 06.315.225.ini
+#        [F:ZEKST]COMPCSTATT01 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+        [F:ZEKST]COMPCSTATT05 = func GET_PROPXML(XDATA,"CompCstAtt05",I)
+# 06.315.225.ini
       Endif
       $ENDCOMPCSTATT05
 # 06.308.477.fin
