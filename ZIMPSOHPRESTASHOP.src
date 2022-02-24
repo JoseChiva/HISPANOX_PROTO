@@ -448,7 +448,7 @@ $GENERA_SQH
 #      Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + LSAU + ";" + num$(LQTYLIN) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
 #&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$(LZCANTJUSTA) Using [ZIMPQ_W]
       Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + [F:ZOPD2]SAU + ";" + num$([F:ZOPD2]QTY) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
-&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$([F:ZOPD2]ZCANTJUSTA) Using [ZIMPQ_W]
+&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$([F:ZOPD2]ZCANTJUSTA) + ";" + LCODADR Using [ZIMPQ_W]
       Trbegin [F:ZOPD2]
       [F:ZOPD2]IMPORTFLG = "Q"   # línea procesada
       Rewrite [F:ZOPD2]
