@@ -3005,6 +3005,20 @@ Local Integer   LCON,LPROCESA
   adxirs = chr$(13)+chr$(10)
   Openo LFILETMP Using [ZIMP_W]
 
+#################################################################################
+# 06.314.525
+# copia del fichero que se importa
+  Local Char LFECHA(250),LHORA(250),LFILE2(250)
+  LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,9,2)
+  LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,4)
+  LFILE2 = filpath("ZIMPORT","","")
+  LFILE2 = LFILE2+"\import_"+LFECHA+"_"+LHORA+".txt"
+  # abre el fichero
+  adxifs = ";"
+  adxirs = chr$(13)+chr$(10)
+  Openo LFILE2 Using [XXX]
+#################################################################################
+
   For LCON=0 To [M:SOH4]NBLIG-1
 
     If [M:SOH4]ZSOHNUMACT(LCON) <> "" and [M:SOH4]ZSOPLINACT(LCON) <> 0 and [M:SOH4]ZQTYLINACT(LCON) <> 0 Then
@@ -3034,6 +3048,17 @@ Local Integer   LCON,LPROCESA
 &           num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" + num$(LSOQSTA) + ";" + "2" + ";" + num$([F:ZSOP]ZPORCOSTE) + ";" +
 &           num$([F:ZSOP]ZPFM) + ";" + num$([F:ZSOP]ZPRECLI) + ";" + num$([F:ZSOP]GROPRI) + ";" + num$([F:ZSOP]ZPREOFERTA) Using [ZIMP_W]
 
+#################################################################################
+# 06.314.525
+# copia del fichero que se importa
+      # datos de cabecera de pedido
+      Wrseq "E" + ";" + [F:ZSOH]SALFCY + ";" + [F:ZSOH]SOHTYP + ";" + [F:ZSOH]SOHNUM + ";" + [F:ZSOH]BPCORD + ";" + LORDDAT + ";" + [F:ZSOH]CUSORDREF + ";" +
+&           [F:ZSOH]STOFCY + ";" + [F:ZSOH]CUR + ";" + [F:ZSOH]ZCLAOFER Using [XXX]
+      # datos de la línea de pedido
+      Wrseq "L" + ";" + num$([F:ZSOP]SOPLIN) + ";" + [F:ZSOP]ITMREF + ";" + [F:ZSOP]STOFCY + ";" + num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) + ";" +
+&           num$(LQTYSOHDIF) + ";" + num$(LQTYSOHDIF) Using [XXX]
+#################################################################################
+
       # desasignación de la línea de pedido
       Local Integer FGSERVEUR : FGSERVEUR=GSERVEUR
       GSERVEUR = 1
@@ -3052,6 +3077,16 @@ Local Integer   LCON,LPROCESA
   Next
 
   Openo Using [ZIMP_W]
+
+#################################################################################
+# 06.314.525
+# copia del fichero que se importa
+  Openo Using [XXX]
+  # borramos el fichero si está vacío
+  If filinfo(LFILE2, 7) = 0 Then
+    System "ae_rm " + LFILE2
+  Endif
+#################################################################################
 
   If LPROCESA = 1 Then
     Gosub GEN_JOBSOH
@@ -3099,6 +3134,7 @@ Local Char    LMESS(250),LTRA(250)
           GCORREO = [F:ZAUT]ADDEML
         Endif
       Endif
+      GCORREO   = "joseluis.chiva@auren.es"
       Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,
 & "Petición finalizada con errores")        From GESECRAN
       # lanza un workflow para avisar de que la importación ha fallado
@@ -3123,6 +3159,7 @@ Local Char    LMESS(250),LTRA(250)
           GCORREO = [F:ZAUT]ADDEML
         Endif
       Endif
+      GCORREO   = "joseluis.chiva@auren.es"
       Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"Tratamiento no lanzado") From
 & GESECRAN
       # lanza un workflow para avisar de que la importación ha fallado
@@ -3147,6 +3184,7 @@ Local Char    LMESS(250),LTRA(250)
           GCORREO = [F:ZAUT]ADDEML
         Endif
       Endif
+      GCORREO   = "joseluis.chiva@auren.es"
       Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"Tratamiento detenido") From
 & GESECRAN
       # lanza un workflow para avisar de que la importación ha fallado
@@ -3171,6 +3209,7 @@ Local Char    LMESS(250),LTRA(250)
           GCORREO = [F:ZAUT]ADDEML
         Endif
       Endif
+      GCORREO   = "joseluis.chiva@auren.es"
       Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"TIMEOUT") From GESECRAN
       # lanza un workflow para avisar de que la importación ha fallado
       GASUNTO   = "Error en la actualización de pedido abierto"
@@ -3187,13 +3226,14 @@ Local Char    LMESS(250),LTRA(250)
       Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
       GFILPATH = filpath("SRV\TRA",LTRA,"tra")
       GCORREO   = "sergi.cunill@hispanox.com"
-      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+        If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
       Read [F:ZAUT]CODUSR = GUSER
       If !fstat Then
         If [F:ZAUT]ADDEML <> "" Then
           GCORREO = [F:ZAUT]ADDEML
         Endif
       Endif
+      GCORREO   = "joseluis.chiva@auren.es"
       Call ERREUR(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH) From GESECRAN
       # lanza un workflow para avisar de que la importación ha fallado
       GASUNTO   = "Error en la actualización de pedido abierto"
