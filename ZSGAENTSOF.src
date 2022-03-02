@@ -11,6 +11,7 @@
 # 06.314.358 - JC.14022022.Error importación SOF. Stock con estado A y Q
 # 06.315.150 - JC.16022022.Error cuando hay una línea en fichero SOF que no existe en el VP
 # 06.315.591 - JC.17022022.Error importación entrega cuando el detalle de línea en SOF es igual por detalle de línea Sage pero no suma lo mismo que el total de Sage
+# 06.319.759 - JC.02032022.Facturas Canarias. Añadir Incoterm al generar la entrega
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -3621,6 +3622,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Local Char LTRANSP(250)
       Local Char LCONFCOOP(250)                                                         # 06.309.060.new
       Local Char LCONDPAGO(250)                                                         # 06.310.719.new
+      Local Char LINCOTERM(250)                                                         # 06.319.759.new
       # obtención del trasnportista del pedido que genera el vale de preparación
       Filter [F:ZPRE1] Where PRHNUM = [F:ZESOF]PRHNUM and ORINUM <> ''
       Read   [F:ZPRE1] First
@@ -3630,6 +3632,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
             LTRANSP   = [F:ZSOH1]BPTNUM
             LCONFCOOP = [F:ZSOH1]ZNUMCOOPE                                              # 06.309.060.new
             LCONDPAGO = [F:ZSOH1]PTE                                                    # 06.310.719.new
+            LINCOTERM = [F:ZSOH1]EECICT                                                 # 06.319.759.new
           Endif
         Endif
       Filter [F:ZPRE1]
@@ -3640,7 +3643,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM Using [ZIMP]      # 06.319.759.new
+#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
