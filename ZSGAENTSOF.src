@@ -3643,8 +3643,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM Using [ZIMP]      # 06.319.759.new
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
+#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM Using [ZIMP]      # 06.319.759.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
