@@ -13,6 +13,7 @@
 # 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
 # 06.311.528 - JC.09022022.Validació Agència Entregas -- Pedidos
 # 06.314.525 - JC.14022022.Modificación precios pedido abierto
+# 06.320.448 - JC.03032022.Error al recalcular Coste%
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -1996,7 +1997,10 @@ Local Integer LCON
         PARAM(10)= "DISCRGVAL1"
         Gosub DIVPRIPFM From TRTVENPRI
         Raz PARAM
-        Affzo [M:SOH4]DISCRGVAL1(nolign-1)
+# 06.320.448.ini
+#        Affzo [M:SOH4]DISCRGVAL1(nolign-1)
+        Affzo [M:SOH4]DISCRGVAL1(LCON)
+# 06.320.448.fin
 
 #        # EJECUTA EL RECÁLCULO DEL CAMPO ZCOSOFER
 #        If func ZAULIB01.GET_COSTEOFERTA([M:SOH4]ITMREF(LCON),[M:SOH0]SALFCY) <> 0 Then
@@ -2585,7 +2589,10 @@ Local Decimal LDTO
 
     Call SAISIE_CHAR([L]S_VALEUR, [L]S_PARAM, "ZSELPRI", "","SPEZSP")From GSAISIE
     If [L]S_VALEUR = "2" Then
-      [M:SOH4]GROPRI = func ZAULIB01.REDONDEA_ALZA(val ([L]S_PARAM(6)),4)            # 06.304.994
+# 06.320.448.ini
+#      [M:SOH4]GROPRI = func ZAULIB01.REDONDEA_ALZA(val ([L]S_PARAM(6)),4)            # 06.304.994
+      [M:SOH4]GROPRI(nolign-1) = func ZAULIB01.REDONDEA_ALZA(val ([L]S_PARAM(6)),4)            # 06.304.994
+# 06.320.448.fin
       For I = 0 To 2
         Assign "[M]DISCRGVAL"+num$(I+1)+"(nolign-1)" With 0
         Assign "[M]DISCRGREN"+num$(I+1)+"(nolign-1)" With 0
