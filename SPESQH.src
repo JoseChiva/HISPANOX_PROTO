@@ -2138,6 +2138,17 @@ Else
   Actzo [M:SQH2]ZPORCOSTE(nolign-1)
   Actzo [M:SQH2]ZPFM(nolign-1)
   Actzo [M:SQH2]ZPRECLI(nolign-1)
+# 06.320.448.ini
+  Actzo [M:SQH2]ZUNPRE(nolign-1)
+  If !clalev([F:ZBPC0]) Then : Local File BPCUSTOMER [F:ZBPC0] : Endif
+  Read [F:ZBPC0]BPC0 = [M:SQH0]BPCORD
+  If !fstat Then
+    [M:SQH2]ZUNPRE(nolign-1) = [F:ZBPC0]ZUNPRE
+    Affzo [M:SQH2]ZUNPRE(nolign-1)
+  Endif
+  Actzo [M:SQH2]DISCRGVAL1(nolign-1)
+  Actzo [M:SQH2]DDAYLTI(nolign-1)
+# 06.320.448.fin
 Endif
 
 Affzo [M:SQH2]14-64
