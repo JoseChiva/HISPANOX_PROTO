@@ -3,6 +3,7 @@
 # 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
 # 06.303.784 - JC.24012022.Error aplicación VP envio SGA
 # 06.310.959 - JC.08022022.Texto documento entrega en DlvAddComment
+# 06.314.023 - JC.04032022.Adaptación generación SOR desde VP para subcontratación
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -265,11 +266,13 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
 #    Else
 #      AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA]BPAADDLIG(0),3,2)
 #    Endif
-    If [F:ZSOH1]BPDADDLIG(0) <> '' Then
-      AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(0)),3,2)
-    Else
-      AA=func PUT_PROPXML('DlvAddLine01',[F:ZSOH1]BPDADDLIG(0),3,2)
-    Endif
+    # vale de preparación de pedido de compra
+    If [F:ZPRH]ORIPRH = 1 Then                                                                      # 06.314.023.new
+      If [F:ZSOH1]BPDADDLIG(0) <> '' Then
+        AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(0)),3,2)
+      Else
+        AA=func PUT_PROPXML('DlvAddLine01',[F:ZSOH1]BPDADDLIG(0),3,2)
+      Endif
 # 06.299.397.fin
 # JC.31122021.FIN
     #DlvAddLine02
@@ -287,16 +290,16 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
 #    Else
 #     WCSTATT04=[F:ZBPA]BPAADDLIG(2)
 #    Endif
-    If [F:ZSOH1]BPDADDLIG(1) <> '' Then
-     AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(1)),3,2)
-    Else
-     AA=func PUT_PROPXML('DlvAddLine02',[F:ZSOH1]BPDADDLIG(1),3,2)
-    Endif
-    If [F:ZSOH1]BPDADDLIG(2) <> '' Then
-     WCSTATT04=func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(2))
-    Else
-     WCSTATT04=[F:ZSOH1]BPDADDLIG(2)
-    Endif
+      If [F:ZSOH1]BPDADDLIG(1) <> '' Then
+       AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(1)),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddLine02',[F:ZSOH1]BPDADDLIG(1),3,2)
+      Endif
+      If [F:ZSOH1]BPDADDLIG(2) <> '' Then
+       WCSTATT04=func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDADDLIG(2))
+      Else
+       WCSTATT04=[F:ZSOH1]BPDADDLIG(2)
+      Endif
 # 06.299.397.fin
 # JC.31122021.FIN
     #DlvAddZipCode
@@ -330,113 +333,187 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
 #    Else
 #     AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA]CRY,3,2)
 #    Endif
-    If [F:ZSOH1]BPDCTY <> '' Then
-     AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDCTY),3,2)
-    Else
-     AA=func PUT_PROPXML('DlvAddCity',[F:ZSOH1]BPDCTY,3,2)
-    Endif
-    #DlvAddState
-    If [F:ZSOH1]BPDSAT <> '' Then
-     AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDSAT),3,2)
-    Else
-     AA=func PUT_PROPXML('DlvAddState',[F:ZSOH1]BPDSAT,3,2)
-    Endif
-    #DlvAddISOCountryCode
-    If [F:ZSOH1]BPDCRY <> '' Then
-     AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDCRY),3,2)
-    Else
-     AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZSOH1]BPDCRY,3,2)
-    Endif
+      If [F:ZSOH1]BPDCTY <> '' Then
+       AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDCTY),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddCity',[F:ZSOH1]BPDCTY,3,2)
+      Endif
+      #DlvAddState
+      If [F:ZSOH1]BPDSAT <> '' Then
+       AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDSAT),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddState',[F:ZSOH1]BPDSAT,3,2)
+      Endif
+      #DlvAddISOCountryCode
+      If [F:ZSOH1]BPDCRY <> '' Then
+       AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZSOH1]BPDCRY),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZSOH1]BPDCRY,3,2)
+      Endif
 # 06.299.397.fin
 # JC.31122021.FIN
     #DlvAddComment
-    WDLVADDCOMMENT=''
-    Read [ZBPD]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
-    If !fstat
-      If [F:ZBPD]DLVTEX<>''
+      WDLVADDCOMMENT=''
+      Read [ZBPD]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
+      If !fstat
+        If [F:ZBPD]DLVTEX<>''
 # 06.310.959.ini
-#        Read [ZTXC]TXC1='';'';[F:ZBPD]DLVTEX
-        Read [ZTXC]TXC0=[F:ZBPD]DLVTEX
+#          Read [ZTXC]TXC1='';'';[F:ZBPD]DLVTEX
+          Read [ZTXC]TXC0=[F:ZBPD]DLVTEX
 # 06.310.959.fin
-        If !fstat
+          If !fstat
           #WDLVADDCOMMENT=func F_RTF2TEXT([F:ZTXC]TEXTE)
 # JC.31122021.INI
-#          WDLVADDCOMMENT=[F:ZTXC]TEXTE
-          If [F:ZTXC]TEXTE <> '' Then
+#            WDLVADDCOMMENT=[F:ZTXC]TEXTE
+            If [F:ZTXC]TEXTE <> '' Then
 # 06.310.959.ini
-#           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
-           WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR(func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE))
+#             WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR([F:ZTXC]TEXTE)
+             WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR(func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE))
 # 06.310.959.fin
-          Else
-           WDLVADDCOMMENT=[F:ZTXC]TEXTE
-          Endif
+            Else
+             WDLVADDCOMMENT=[F:ZTXC]TEXTE
+            Endif
 # JC.31122021.FIN
+          Endif
         Endif
       Endif
-    Endif
-    AA=func PUT_PROPXML('DlvAddComment',WDLVADDCOMMENT,3,2)
-    AA=func PUT_PROPXML('/DeliveryAddress','',2,1)
-    #DeliveryContact
-    AA=func PUT_PROPXML('DeliveryContact','',2,1)
-    WDLVCNTNAME=''
-    WDLVCNTPHONE=''
-    WDLVCNTFAX=''
-    WDLVCNTCELLPHONE=''
-    WDLVCNTEMAIL=''
-    Read [ZBPR]BPR0=[ZPRH]BPCORD
+      AA=func PUT_PROPXML('DlvAddComment',WDLVADDCOMMENT,3,2)
+      AA=func PUT_PROPXML('/DeliveryAddress','',2,1)
+     #DeliveryContact
+      AA=func PUT_PROPXML('DeliveryContact','',2,1)
+      WDLVCNTNAME=''
+      WDLVCNTPHONE=''
+      WDLVCNTFAX=''
+      WDLVCNTCELLPHONE=''
+      WDLVCNTEMAIL=''
+      Read [ZBPR]BPR0=[ZPRH]BPCORD
 # JC.11082021.INICIO
-#    Filter [ZCNT] Where BPATYP=1 and CNTFNC=13 and BPANUM=[F:ZPRH]BPCORD
-#    Read [ZCNT] First
-#    If !fstat
-#      #Read [ZCNT]CNT0=1;[F:ZPRH]BPCORD;[F:ZBPR]CNTNAM
-#      Read [ZAIN]AIN0=[ZCNT]CCNCRM
-#      If [F:ZCNT]BPAADD=[F:ZPRH]BPAADD or [F:ZCNT]BPAADD=''
-#        WDLVCNTNAME=vireblc([F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,2)
-#        WDLVCNTPHONE=[F:ZCNT]TEL
-#        WDLVCNTFAX=[F:ZCNT]FAX
-#        WDLVCNTCELLPHONE=[F:ZCNT]TEL
-#        WDLVCNTEMAIL=[F:ZCNT]WEB
+#      Filter [ZCNT] Where BPATYP=1 and CNTFNC=13 and BPANUM=[F:ZPRH]BPCORD
+#      Read [ZCNT] First
+#      If !fstat
+#        #Read [ZCNT]CNT0=1;[F:ZPRH]BPCORD;[F:ZBPR]CNTNAM
+#        Read [ZAIN]AIN0=[ZCNT]CCNCRM
+#        If [F:ZCNT]BPAADD=[F:ZPRH]BPAADD or [F:ZCNT]BPAADD=''
+#          WDLVCNTNAME=vireblc([F:ZAIN]CNTFNA-[F:ZAIN]CNTLNA,2)
+#          WDLVCNTPHONE=[F:ZCNT]TEL
+#          WDLVCNTFAX=[F:ZCNT]FAX
+#          WDLVCNTCELLPHONE=[F:ZCNT]TEL
+#          WDLVCNTEMAIL=[F:ZCNT]WEB
+#        Endif
 #      Endif
-#    Endif
-#    Filter [ZCNT]
+#      Filter [ZCNT]
 
 # 06.299.397.ini
-#    If !clalev([F:ZPRE1]) Then : Local File STOPRED [F:ZPRE1] : Endif
-#    If !clalev([F:ZSOH1]) Then : Local File SORDER  [F:ZSOH1] : Endif
-#    Filter [F:ZPRE1] Where PRHNUM = [F:PRH]PRHNUM
-#    Read [F:ZPRE1] First
-#    If !fstat Then
-#      Read [F:ZSOH1]SOH0 = [F:ZPRE1]ORINUM
+#      If !clalev([F:ZPRE1]) Then : Local File STOPRED [F:ZPRE1] : Endif
+#      If !clalev([F:ZSOH1]) Then : Local File SORDER  [F:ZSOH1] : Endif
+#      Filter [F:ZPRE1] Where PRHNUM = [F:PRH]PRHNUM
+#      Read [F:ZPRE1] First
 #      If !fstat Then
-        WDLVCNTNAME=vireblc([F:ZSOH1]BPDNAM(0)-[F:ZSOH1]BPDNAM(1),2)
+#        Read [F:ZSOH1]SOH0 = [F:ZPRE1]ORINUM
+#        If !fstat Then
+          WDLVCNTNAME=vireblc([F:ZSOH1]BPDNAM(0)-[F:ZSOH1]BPDNAM(1),2)
+#        Endif
 #      Endif
-#    Endif
-#    Filter [F:ZPRE1]
-#    Close Local File [ZPRE1],[ZSOH1]
+#      Filter [F:ZPRE1]
+#      Close Local File [ZPRE1],[ZSOH1]
 # 06.299.397.fin
 # JC.11082021.FIN
 
     #DlvCntName
 # JC.31122021.INI
-#    AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
-    If WDLVCNTNAME <> '' Then
-     AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
-    Else
-     AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
-    Endif
+#      AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+      If WDLVCNTNAME <> '' Then
+       AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+      Endif
 # JC.31122021.FIN
 # JC.04062021.STR
 # comento las etiquetas que vienen a continuación por indicaciones de Sergi Cunill
-#    #DlvCntPhone
-#    AA=func PUT_PROPXML('DlvCntPhone',WDLVCNTPHONE,3,2)
-#    #DlvCntFax
-#    AA=func PUT_PROPXML('DlvCntFax',WDLVCNTFAX,3,2)
-#    #DlvCntCellPhone
-#    AA=func PUT_PROPXML('DlvCntCellPhone',WDLVCNTCELLPHONE,3,2)
-#    #DlvCntEmail
-#    AA=func PUT_PROPXML('DlvCntEmail',WDLVCNTEMAIL,3,2)
+#     #DlvCntPhone
+#      AA=func PUT_PROPXML('DlvCntPhone',WDLVCNTPHONE,3,2)
+#      #DlvCntFax
+#      AA=func PUT_PROPXML('DlvCntFax',WDLVCNTFAX,3,2)
+#      #DlvCntCellPhone
+#      AA=func PUT_PROPXML('DlvCntCellPhone',WDLVCNTCELLPHONE,3,2)
+#     #DlvCntEmail
+#      AA=func PUT_PROPXML('DlvCntEmail',WDLVCNTEMAIL,3,2)
 # JC.04062021.STR
-    AA=func PUT_PROPXML('/DeliveryContact','',2,1)
+      AA=func PUT_PROPXML('/DeliveryContact','',2,1)
+
+# 06.314.023.ini
+    # vale de preparación de subcontratación
+    Elsif [F:ZPRH]ORIPRH = 3 Then
+      If !clalev([F:ZBPA1]) Then : Local File BPADDRESS [F:ZBPA1] : Endif
+      Read [F:ZBPA1]BPA0 = 1;[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
+      If [F:ZBPA1]BPAADDLIG(0) <> '' Then
+        AA=func PUT_PROPXML('DlvAddLine01',func ZAULIB01.CODIFICA_CHR([F:ZBPA1]BPAADDLIG(0)),3,2)
+      Else
+        AA=func PUT_PROPXML('DlvAddLine01',[F:ZBPA1]BPAADDLIG(0),3,2)
+      Endif
+      If [F:ZBPA1]BPAADDLIG(1) <> '' Then
+       AA=func PUT_PROPXML('DlvAddLine02',func ZAULIB01.CODIFICA_CHR([F:ZBPA1]BPAADDLIG(1)),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddLine02',[F:ZBPA1]BPAADDLIG(1),3,2)
+      Endif
+      If [F:ZBPA1]BPAADDLIG(2) <> '' Then
+       WCSTATT04=func ZAULIB01.CODIFICA_CHR([F:ZBPA1]BPAADDLIG(2))
+      Else
+       WCSTATT04=[F:ZBPA1]BPAADDLIG(2)
+      Endif
+      AA=func PUT_PROPXML('DlvAddZipCode',[F:ZBPA1]POSCOD,3,2)
+      If [F:ZBPA1]CTY <> '' Then
+       AA=func PUT_PROPXML('DlvAddCity',func ZAULIB01.CODIFICA_CHR([F:ZBPA1]CTY),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddCity',[F:ZBPA1]CTY,3,2)
+      Endif
+     #DlvAddState
+      If [F:ZBPA1]SAT <> '' Then
+       AA=func PUT_PROPXML('DlvAddState',func ZAULIB01.CODIFICA_CHR([F:ZBPA1]SAT),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddState',[F:ZBPA1]SAT,3,2)
+      Endif
+     #DlvAddISOCountryCode
+      If [F:ZBPA1]CRY <> '' Then
+       AA=func PUT_PROPXML('DlvAddISOCountryCode',func ZAULIB01.CODIFICA_CHR([F:ZBPA1]CRY),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvAddISOCountryCode',[F:ZBPA1]CRY,3,2)
+      Endif
+     #DlvAddComment
+      WDLVADDCOMMENT=''
+      Read [ZBPD]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD
+      If !fstat
+        If [F:ZBPD]DLVTEX<>''
+          Read [ZTXC]TXC0=[F:ZBPD]DLVTEX
+          If !fstat
+            If [F:ZTXC]TEXTE <> '' Then
+             WDLVADDCOMMENT=func ZAULIB01.CODIFICA_CHR(func ZAULIB01.F_RTF2TEXT([F:ZTXC]TEXTE))
+            Else
+             WDLVADDCOMMENT=[F:ZTXC]TEXTE
+            Endif
+          Endif
+        Endif
+      Endif
+      AA=func PUT_PROPXML('DlvAddComment',WDLVADDCOMMENT,3,2)
+      AA=func PUT_PROPXML('/DeliveryAddress','',2,1)
+     #DeliveryContact
+      AA=func PUT_PROPXML('DeliveryContact','',2,1)
+      If !clalev([F:ZBPC1]) Then : Local File BPCUSTOMER [F:ZBPC1] : Endif
+      If !clalev([F:ZAIN1]) Then : Local File CONTACTCRM [F:ZAIN1] : Endif
+      Read [F:ZBPC1]BPC0=[F:ZPRH]BPCORD
+      Read [F:ZAIN1]AIN0=[F:ZBPC1]CNTNAM
+     #DlvCntName
+      WDLVCNTNAME = [F:ZAIN1]CNTLNA
+      If WDLVCNTNAME <> '' Then
+       AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
+      Else
+       AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
+      Endif
+      AA=func PUT_PROPXML('/DeliveryContact','',2,1)
+      Close Local File [ZBPC1],[ZAIN1]
+    Endif
+# 06.314.023.fin
+
     #Lines
     AA=func PUT_PROPXML('Lines complete="1" transactional="1"','',2,1)
     For [ZPRE] Where PRHNUM=WPRHNUM and (ZEXPORT<=1 or ZEXPORT=3)
