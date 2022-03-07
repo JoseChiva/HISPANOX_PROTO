@@ -12,6 +12,7 @@
 # 06.315.150 - JC.16022022.Error cuando hay una línea en fichero SOF que no existe en el VP
 # 06.315.591 - JC.17022022.Error importación entrega cuando el detalle de línea en SOF es igual por detalle de línea Sage pero no suma lo mismo que el total de Sage
 # 06.319.759 - JC.02032022.Facturas Canarias. Añadir Incoterm al generar la entrega
+# 06.314.024 - JC.07032022.Adapación importación SOF para subcontratación
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -182,6 +183,7 @@ $GUARDA_SOF_EN_TABLA
 
   If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF [F:ZESOF] : Endif
   If !clalev([F:ZPRE0]) Then : Local File STOPRED    [F:ZPRE0] : Endif
+  If !clalev([F:ZPRH0]) Then : Local File STOPREH    [F:ZPRH0] : Endif                        # 06.314.024.new
 
   # calcula el número de vales que hay dentro del fichero SOF
   # para ejecutar el proceso de lectura de vales, sólamente, tantas veces como vales de preparación contenga el fichero SOF
@@ -231,6 +233,7 @@ $GUARDA_SOF_EN_TABLA
       Trbegin [ZESOF]
       Raz [F:ZESOF]
       Local Integer WLONG
+      Read [F:ZPRH0]PRH0 = WSORCODE                                                           # 06.314.024.new
      #NOMFICH
       [F:ZESOF]NOMFICH = LNOMFICHERO
      #H
@@ -257,6 +260,7 @@ $GUARDA_SOF_EN_TABLA
      #SDHTYP
       WLONG   = 2
       RESULT  = 'EN'
+      If [F:ZPRH0]ORIPRH = 3 Then : RESULT = 'ES' : Endif                                     # 06.314.024.new
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
       [F:ZESOF]SDHTYP = RESULT
      #BPCORD
@@ -435,6 +439,7 @@ $GUARDA_SOF_EN_TABLA
          #SDHTYP
           WLONG   = 2
           RESULT  = 'EN'
+          If [F:ZPRH0]ORIPRH = 3 Then : RESULT = 'ES' : Endif                                 # 06.314.024.new
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
           [F:ZESOF]SDHTYP = RESULT
          #PRHNUM
