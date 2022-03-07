@@ -1,5 +1,6 @@
-#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$ Recepciones
 # 06.300.491 - JC.01022022.Intrastat. Desarrollo automatización país origen
+# 06.314.025 - JC.07032022.Adapación generación ROR desde Recepciones para subcontratación
 ################################################################################
 
 $ACTION
@@ -84,6 +85,8 @@ Next
 Return
 ##############################################################
 $APRES_CRE
+Local Integer LSUBC                                                                           # 06.314.025.new
+
 Local Integer LCON
 
 # 06.300.491.ini
@@ -110,19 +113,45 @@ Local Integer LCON
       Endif
     Endif
 # 06.300.491.fin
+
+# 06.314.025.ini
+    If [M:PTH1]ITMKND(LCON) = 2 Then
+      LSUBC = 1
+    Endif
+# 06.314.025.fin
   Next
+
+# 06.314.025.ini
+  If !GIMPORT and LSUBC Then
+    Call ZSGARORPTH([M:PTH0]PTHNUM) From ZSGARORPTH
+  Endif
+# 06.314.025.fin
 
   Close Local File [ZITM],[ZBPR]                                              # 06.300.491.new
 Return
 
 ##############################################################
 $APRES_MOD
+Local Integer LSUBC                                                                           # 06.314.025.new
+
 # JC.05102021.COST-004.INI
 Local Integer LCON
   For LCON = 0 To [M:PTH1]NBLIG-1
     Call CALC_CMREP([M:PTH1]ITMREF(LCON),[M:PTH0]PRHFCY) From ZSTKLIB
+# 06.314.025.ini
+    If [M:PTH1]ITMKND(LCON) = 2 Then
+      LSUBC = 1
+    Endif
+# 06.314.025.fin
   Next
 # JC.05102021.COST-004.FIN
+
+# 06.314.025.ini
+  If !GIMPORT and LSUBC Then
+    Call ZSGARORPTH([M:PTH0]PTHNUM) From ZSGARORPTH
+  Endif
+# 06.314.025.fin
+
 Return
 
 ##############################################################
