@@ -3220,29 +3220,32 @@ Local Char    LMESS(250),LTRA(250)
       If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
       Close Local File [ZAUT]
     When 4
-      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
-      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
-      GCORREO   = "sergi.cunill@hispanox.com"
-      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
-      Read [F:ZAUT]CODUSR = GUSER
-      If !fstat Then
-        If [F:ZAUT]ADDEML <> "" Then
-          GCORREO = [F:ZAUT]ADDEML
-        Endif
-      Endif
-      GCORREO   = "joseluis.chiva@auren.es"
-      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"TIMEOUT") From GESECRAN
-      # lanza un workflow para avisar de que la importación ha fallado
-      GASUNTO   = "Error en la actualización de pedido abierto"
-      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
-      GTEXTO3   = "Documento adjunto con la traza"
-      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
-      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
-      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
-      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
-      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
-      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
-      Close Local File [ZAUT]
+# 06.314.525.ini
+#      Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+#      GFILPATH = filpath("SRV\TRA",LTRA,"tra")
+#      GCORREO   = "sergi.cunill@hispanox.com"
+#      If !clalev([F:ZAUT]) Then : Local File AUTILIS [F:ZAUT] : Endif
+#      Read [F:ZAUT]CODUSR = GUSER
+#      If !fstat Then
+#        If [F:ZAUT]ADDEML <> "" Then
+#          GCORREO = [F:ZAUT]ADDEML
+#        Endif
+#      Endif
+#      GCORREO   = "joseluis.chiva@auren.es"
+#      Call ERRTIT(LMESS+"\Se enviará un correo con la traza a la dirección"-GCORREO+"\El fichero con la traza se encuentra en la siguiente ruta del servidor:\"+GFILPATH,"TIMEOUT") From GESECRAN
+#      # lanza un workflow para avisar de que la importación ha fallado
+#      GASUNTO   = "Error en la actualización de pedido abierto"
+#      GTEXTO1   = "Errores producidos en la modificación del pedido"-[F:ZSOH]SOHNUM
+#      GTEXTO3   = "Documento adjunto con la traza"
+#      Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+#      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+#      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+#      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+#      If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+#      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+#      Close Local File [ZAUT]
+      Call MESSAGE("Proceso finalizado") From GESECRAN
+# 06.314.525.fin
     When 5
       Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
       GFILPATH = filpath("SRV\TRA",LTRA,"tra")
