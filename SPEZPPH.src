@@ -726,6 +726,14 @@ End
 
 Subprog AM_CUR(VALEUR)
 Variable Char    VALEUR()
+[M:ZPPH1]CHGDIV=1
+Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
+Read [TCH]First
+If !fstat
+  [M:ZPPH1]CHGDIV= [TCH]CHGDIV
+Endif
+Filter [TCH]
+Affzo [M:ZPPH1]CHGDIV
 If [M:ZPPH2]NBLIG > 0
   Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
 
@@ -737,13 +745,7 @@ If [M:ZPPH2]NBLIG > 0
       #Calculamos importe HX
       PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* [M:ZPPH2]LINCPRCOE(Z)
       If [M:ZPPH2]LINCUR(Z) <> "EUR"
-          Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
-          Read [TCH]First
-          If !fstat
-          #Infbox num$([TCH]CHGDIV)
-          PRECIO = PRECIO / [TCH]CHGDIV
-          Endif
-          Filter [TCH]
+          PRECIO = PRECIO / [M:ZPPH1]CHGDIV
       Endif
       [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
       [M:ZPPH2]UPDFLG(Z) = 2
