@@ -1,6 +1,10 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.322.340 -JC.08032022 referencia interna en pantalla ofertas proveedores
+#############################################################################################
+
+
 $ACTION
- #If GUSER = "ADMIN":Infbox ACTION Endif
+#If GUSER = "ADEV":Infbox ACTION Endif
 Case ACTION
   When "OUVRE"      :   Gosub OUVRE
   When "FILTRE"     :   Gosub FILTRE
@@ -587,6 +591,15 @@ Affzo [M:ZPPH1]CUR
 Affzo [M:ZPPH1]EECICT
 Affzo [M:ZPPH1]MDL
 
+# 06.322.340.ini
+  If !clalev([F:ZPQH0]) Then : Local File PQUOTAT [F:ZPQH0] : Endif
+  Read [F:ZPQH0]PQH0 = [M:ZPPH0]PQHNUM
+  If !fstat Then
+    [M:ZPPH0]PQHREF = [F:ZPQH0]PQHREF
+    Affzo [M:ZPPH0]PQHREF
+  Endif
+  Close Local File [F:ZPQH0]
+# 06.322.340.fin
 
 End
 
@@ -649,7 +662,6 @@ If [F:PQH]PQHNUM <> VALEUR
 Endif
 [M:ZPPH0]PQHREF = [F:PQH]PQHREF
 Affzo [M:ZPPH0]PQHREF
-
 ############ Esto estaba en C_BPSNUM#######################
 
 Read [F:LPQF]PQF0 = VALEUR;[M:ZPPH0]BPSNUM
@@ -689,6 +701,16 @@ If !GIMPORT Then
   Next
   Affzo [M:ZPPH2]
 Endif
+
+# 06.322.340.ini
+  If !clalev([F:ZPQH0]) Then : Local File PQUOTAT [F:ZPQH0] : Endif
+  Read [F:ZPQH0]PQH0 = VALEUR
+  If !fstat Then
+    [M:ZPPH0]PQHREF = [F:ZPQH0]PQHREF
+    Affzo [M:ZPPH0]PQHREF
+  Endif
+  Close Local File [F:ZPQH0]
+# 06.322.340.fin
 
 ##########################
 End
@@ -1493,5 +1515,17 @@ mkstat = 4
 #REP = "M":GREP = "M"
 End
 
-
 ######################################################################################
+## Después de modificar el campo 'Referencia interna' (pantalla ZPPH0) 08/03/2022 11:14:09 (ADEV)
+######################################################################################
+# 06.322.340
+Subprog AM_PQHREF(VALEUR)
+Variable Char    VALEUR()
+
+Local Integer LCON
+
+  For LCON=0 To [M:ZPPH2]NBLIG-1
+    [M:ZPPH2]LINPQHREF(LCON) = VALEUR
+    Affzo [M:ZPPH2]LINPQHREF(LCON)
+  Next
+End
