@@ -13,6 +13,9 @@
 # 06.304.994 - JC.31012022.Cálculo precios factura
 # 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
 # 06.320.448 - JC.03032022.Error al recalcular Coste%
+# 06.322.933 - JC.09032022.Cálculo erróneo de los bloques 'Marge/Acumulado' y 'Bloque informativo'
+######################################################################################
+
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SQH2) 23/03/2020 10:26:41 (ADMIN)
 ######################################################################################
@@ -539,6 +542,17 @@ Call AM_GROPRI([M:SQH2]GROPRI([M:SQH0]ZSAVNOLIN-1)) From W1SQH2
 
 Call C_NBLIG     From W1SQH2
 Call APRES_NBLIG From W1SQH2
+
+# 06.322.933.ini
+  Raz [M:SQH2]QUONOT,QUOATI,PFMTOT
+  Raz [M:SQH0]DSPTOTQTY,DSPTOTWEI,DSPTOTVOL
+  Local Integer P
+  For P=0 To [M:SQH2]NBLIG-1
+    Call ADD_TOT(P) From SUBSQHB
+    Affzo [M:SQH2]QUONOT,QUOATI,PFMTOT
+    Affzo [M:SQH0]DSPTOTQTY,DSPTOTWEI,DSPTOTVOL
+  Next
+# 06.322.933.fin
 
 If [L]D_VLYDAT <> "00000000" Then
   If [L]D_VLYDAT < [M:SQH0]QUODAT Then

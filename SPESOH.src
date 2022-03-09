@@ -14,6 +14,7 @@
 # 06.311.528 - JC.09022022.Validació Agència Entregas -- Pedidos
 # 06.314.525 - JC.14022022.Modificación precios pedido abierto
 # 06.320.448 - JC.03032022.Error al recalcular Coste%
+# 06.322.933 - JC.09032022.Cálculo erróneo de los bloques 'Marge/Acumulado' y 'Bloque informativo'
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -754,6 +755,22 @@ If [M:SOH4]ZACTPEDAB([M:SOH0]ZSAVNOLIN-1) <> 2 Then
 
   Call C_NBLIG     From W1SOH4
   Call APRES_NBLIG From W1SOH4
+
+# 06.322.933.ini
+  Raz [M]ORDNOT,ORDATI,DLRNOT,DLRATI,PFMTOT,INRSCHNOT,INRSCHATI,DSPTOTQTY
+  If [M:SOH0]SOHCAT<>2 & !([M:SOH1]BETFCY=2 & [M:SOH1]BETCPY<=1)
+    Raz [M:SOH4]INRNOT,INRATI
+  Endif
+  If [M:SOH4]DLVFLG=2
+    Raz [M:SOH0]DSPTOTWEI,DSPTOTVOL
+  Endif
+  Local Integer P
+  For P=0 To [M:SOH4]NBLIG-1
+    Call ADD_TOT(P) From SUBSOHB
+    Affzo [M:SOH4]ORDNOT,ORDATI,DLRNOT,DLRATI,PFMTOT,INRSCHNOT,INRSCHATI,INRNOT,INRATI
+    Affzo [M:SOH0]DSPTOTQTY,DSPTOTWEI,DSPTOTVOL
+  Next
+# 06.322.933.fin
 
   If [L]D_VLYDAT <> "00000000" Then
     If [L]D_VLYDAT < [M:SOH0]ORDDAT Then
