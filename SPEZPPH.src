@@ -1,5 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.322.340 -JC.08032022 referencia interna en pantalla ofertas proveedores
+# 06.322.341 08/03/2022 ML Añadir campo cambio divisa en ofertas de proveedores
+# 06.319.638 10/03/2022 ML Opción eliminar oferta de proveedor
 #############################################################################################
 
 
@@ -165,7 +167,7 @@ Return
 #======================================================================================================
 ##############################################################
 $SETBOUT
-
+CHAINE += "A" # 06.319.638
 #If GXACT = 2 Then
 #
 #    Gosub RELIT From GOBJSUB
@@ -175,6 +177,7 @@ $SETBOUT
 #  Endif
 If [M:ZPPH0]NUMRESP <> ""
   Diszo [M:ZPPH0]
+  Actzo [M:ZPPH0]PQHREF                                                   # 06.322.340.new
 Endif
 Return
 
@@ -344,14 +347,14 @@ Return
 
 ##############################################################
 $AP_ANNULE
-
-# JC.05102021.COST-004.INI
-Local Integer LCON
-  For LCON = 0 To [M:ZPPH2]NBLIG-1
-    Call CALC_CUCONS([M:ZPPH2]ITMREF(LCON),[M:ZPPH0]PQHFCY) From ZSTKLIB
-  Next
-# JC.05102021.COST-004.FIN
-
+# 06.319.638.ini
+## JC.05102021.COST-004.INI
+#Local Integer LCON
+#  For LCON = 0 To [M:ZPPH2]NBLIG-1
+#    Call CALC_CUCONS([M:ZPPH2]ITMREF(LCON),[M:ZPPH0]PQHFCY) From ZSTKLIB
+#  Next
+## JC.05102021.COST-004.FIN
+# 06.319.638.fin
 Return
 
 ##############################################################
@@ -538,6 +541,18 @@ Affzo [M:ZPPH1]CPRCOE
 #[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
 Read [BPR] BPR0 = VALEUR
 [M:ZPPH1]CUR = [BPR]CUR
+# 06.322.341.ini
+[M:ZPPH1]CHGDIV=1
+If [M:ZPPH1]CUR <> "EUR" and [M:ZPPH1]CUR<> ""
+  Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH1]CUR  Order By CHGSTRDAT Desc
+  Read [TCH]First
+  If !fstat
+    [M:ZPPH1]CHGDIV= [TCH]CHGDIV
+  Endif
+  Filter [TCH]
+Endif
+Affzo [M:ZPPH1]CHGDIV
+# 06.322.341.fin
 [M:ZPPH1]EECICT = [BPS]EECICT
 [M:ZPPH1]MDL    = [BPS]MDL
 [M:ZPPH1]PRIDIV = [BPS]ZUNPRE
@@ -748,6 +763,7 @@ End
 
 Subprog AM_CUR(VALEUR)
 Variable Char    VALEUR()
+# 06.322.341.ini
 [M:ZPPH1]CHGDIV=1
 Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
 Read [TCH]First
@@ -756,6 +772,8 @@ If !fstat
 Endif
 Filter [TCH]
 Affzo [M:ZPPH1]CHGDIV
+# 06.322.341.fin
+
 If [M:ZPPH2]NBLIG > 0
   Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
 
@@ -767,7 +785,7 @@ If [M:ZPPH2]NBLIG > 0
       #Calculamos importe HX
       PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* [M:ZPPH2]LINCPRCOE(Z)
       If [M:ZPPH2]LINCUR(Z) <> "EUR"
-          PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+          PRECIO = PRECIO / [M:ZPPH1]CHGDIV # 06.322.341
       Endif
       [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
       [M:ZPPH2]UPDFLG(Z) = 2
@@ -848,13 +866,14 @@ If [M:ZPPH2]NBLIG > 0
       #Calculamos importe HX
       PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* VALEUR
       If [M:ZPPH2]LINCUR(Z) <> "EUR"
-        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
-        Read [TCH]First
-        If !fstat
-        #Infbox num$([TCH]CHGDIV)
-        PRECIO = PRECIO / [TCH]CHGDIV
-        Endif
-      Filter [TCH]
+      # 06.322.341.ini
+#        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+#        Read [TCH]First
+#        If !fstat
+        PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#        Endif
+#      Filter [TCH]
+      # 06.322.341.fin
       Endif
       [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
       [M:ZPPH2]UPDFLG(Z) = 2
@@ -897,13 +916,14 @@ If [M:ZPPH2]NBLIG > 0
         PRECIO = [M:ZPPH2]PRI(Z) * (1-VALEUR/100)
       Endif
       If [M:ZPPH2]LINCUR(Z) <> "EUR"
-        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
-        Read [TCH]First
-        If !fstat
-        #Infbox num$([TCH]CHGDIV)
-          PRECIO = PRECIO / [TCH]CHGDIV
-        Endif
-        Filter [TCH]
+      # 06.322.341.ini
+#        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+#        Read [TCH]First
+#        If !fstat
+          PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#        Endif
+#        Filter [TCH]
+      # 06.322.341.fin
       Endif
       [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
       [M:ZPPH2]UPDFLG(Z) = 2
@@ -1034,47 +1054,7 @@ End
 Subprog AM_PRI(VALEUR)
 Variable Decimal VALEUR
 
-
-
 End
-
-####################################################################################
-
-#Subprog AM_DISCRGVAL1(VALEUR)
-#Variable Decimal VALEUR
-#
-#Local Decimal PRECIO
-#Local Decimal CANTIDAD
-#
-#PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100)
-#
-#If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
-#   CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
-#Else
-#   CANTIDAD = [M:ZPPH2]OFERQTY(nolign-1)
-#Endif
-#
-#[M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
-#Affzo [M:ZPPH2]AMT(nolign-1)
-#
-##Calculamos importe HX
-#PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100) + [M:ZPPH2]LINCPRCOE(nolign-1)
-#If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
-#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
-#   Read [TCH]First
-#   If !fstat
-#     #Infbox num$([TCH]CHGDIV)
-#     PRECIO = PRECIO * [TCH]CHGDIV
-#   Endif
-#   Filter [TCH]
-#Endif
-#[M:ZPPH2]HXCOST(nolign-1) = PRECIO * 100
-#Affzo [M:ZPPH2]HXCOST(nolign-1)
-#
-#End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 17:12:49 (ADMIN)
@@ -1085,13 +1065,14 @@ Local Decimal PRECIO
 #Calculamos importe HX
 PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* VALEUR
 If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
-   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
-   Read [TCH]First
-   If !fstat
-     #Infbox num$([TCH]CHGDIV)
-     PRECIO = PRECIO / [TCH]CHGDIV
-   Endif
-   Filter [TCH]
+# 06.322.341.ini
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+     PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#   Endif
+#   Filter [TCH]
+# 06.322.341.fin
 Endif
 [M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
 Affzo [M:ZPPH2]HXCOST(nolign-1)
@@ -1109,20 +1090,22 @@ End
 ######################################################################################
 Subprog AM_LINCUR(VALEUR)
 Variable Char    VALEUR()
-Local Decimal PRECIO
-#Calculamos importe HX
-PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
-If VALEUR <> "EUR"
-   Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
-   Read [TCH]First
-   If !fstat
-     #Infbox num$([TCH]CHGDIV)
-     PRECIO = PRECIO / [TCH]CHGDIV
-   Endif
-   Filter [TCH]
-Endif
-[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
-Affzo [M:ZPPH2]HXCOST(nolign-1)
+# 06.322.341.ini Esto ya no se ejecuta, se hizo el mostrado
+#Local Decimal PRECIO
+##Calculamos importe HX
+#PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
+#If VALEUR <> "EUR"
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = VALEUR  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+#     #Infbox num$([TCH]CHGDIV)
+#     PRECIO = PRECIO / [TCH]CHGDIV
+#   Endif
+#   Filter [TCH]
+#Endif
+#[M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
+#Affzo [M:ZPPH2]HXCOST(nolign-1)
+# 06.322.341.fin
 End
 
 
@@ -1262,8 +1245,6 @@ UNITARIO = VALEUR / DIVISOR
 
 PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
 
-#Infbox num$(PRECIO)
-
 If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
    CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
 Else
@@ -1276,18 +1257,17 @@ Affzo [M:ZPPH2]AMT(nolign-1)
 #Calculamos importe HX
 PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
 If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
-   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
-   Read [TCH]First
-   If !fstat
-     #Infbox num$([TCH]CHGDIV)
-     PRECIO = PRECIO / [TCH]CHGDIV
-   Endif
-   Filter [TCH]
+# 06.322.341.ini
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+     PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#   Endif
+#   Filter [TCH]
+# 06.322.341.fin
 Endif
 
-#Infbox num$(arr(PRECIO * 100,0.001))+"/"+num$(PRECIO * 100)
 [M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
-#Infbox num$([M:ZPPH2]HXCOST(nolign-1))
 [M:ZPPH2]PRI(nolign -1) = UNITARIO
 Affzo [M:ZPPH2]PRI(nolign -1)
 Affzo [M:ZPPH2]HXCOST(nolign-1)
@@ -1320,84 +1300,19 @@ Affzo [M:ZPPH2]AMT(nolign-1)
 
 PRECIO = [M:ZPPH2]PRI(nolign-1) * (1-VALEUR/100)* [M:ZPPH2]LINCPRCOE(nolign-1)
 If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
-   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
-   Read [TCH]First
-   If !fstat
-     #Infbox num$([TCH]CHGDIV)
-     PRECIO = PRECIO / [TCH]CHGDIV
-   Endif
-   Filter [TCH]
+# 06.322.341.ini
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+     PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#   Endif
+#   Filter [TCH]
+# 06.322.341.fin
 Endif
 [M:ZPPH2]HXCOST(nolign-1) = arr(PRECIO * 100,0.001)
 Affzo [M:ZPPH2]HXCOST(nolign-1)
 
 End
-
-
-######################################################################################
-######################################################################################
-## Etiqueta añadida por el supervisor (pantalla ZPPH1) 15/10/2021 03:54:43 (ADMIN)
-######################################################################################
-#Subprog AM_DTOPREC(VALEUR)
-#Variable Decimal VALEUR
-#If [M:ZPPH2]NBLIG > 0
-#  Call OUINON("Repercutir el valor al detalle (SI/NO)",GBIDI2) From GESECRAN
-#
-#  If GBIDI2  = 2 Then
-#    [M:ZPPH1]NEWDISCOUNT = 0
-#    Affzo [M:ZPPH1]NEWDISCOUNT
-#    For Z = 0 To NBLIG-1
-#      If [M:ZPPH2]INIPRI(Z) = 0
-#        [M:ZPPH2]INIPRI(Z) = [M:ZPPH2]PRI(Z)
-#        Affzo [M:ZPPH2]INIPRI(Z)
-#      Endif
-#      If VALEUR = 0 :[M:ZPPH2]PRI(Z) = [M:ZPPH2]INIPRI(Z) Endif
-#      #calculamos importe
-#      Local Decimal PRECIO
-#      Local Decimal CANTIDAD
-#      PRECIO = [M:ZPPH2]PRI(Z)*(1-VALEUR/100)
-#      [M:ZPPH2]PRI(Z) = PRECIO
-#      Affzo [M:ZPPH2]PRI(Z)
-#      #Precio prov
-#      Case  [M:ZPPH2]LINPRIDIV(Z)
-#        When "UN": [M:ZPPH2]BPSPRI(Z) = PRECIO
-#        When "CEN": [M:ZPPH2]BPSPRI(Z) = PRECIO*100
-#        When "MIL": [M:ZPPH2]BPSPRI(Z) = PRECIO*1000
-#      Endcase
-#      Affzo [M:ZPPH2]BPSPRI(Z)
-#      If [M:ZPPH2]MINQTY(Z) > [M:ZPPH2]OFERQTY(Z)
-#          CANTIDAD = [M:ZPPH2]MINQTY(Z)
-#      Else
-#          CANTIDAD = [M:ZPPH2]OFERQTY(Z)
-#      Endif
-#      [M:ZPPH2]AMT(Z) = PRECIO * CANTIDAD
-#      Affzo [M:ZPPH2]AMT(Z)
-#
-#      #pongo a 0 el descuento
-#      [M:ZPPH2]LDISCRGVAL1(Z) = 0
-#      Affzo [M:ZPPH2]LDISCRGVAL1(Z)
-#
-#      #Calculamos importe HX
-#      If [M:ZPPH2]LINCPRCOE(Z) <> 0
-#        PRECIO = PRECIO* [M:ZPPH2]LINCPRCOE(Z)
-#      Endif
-#      If [M:ZPPH2]LINCUR(Z) <> "EUR"
-#        Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
-#        Read [TCH]First
-#        If !fstat
-#          PRECIO = PRECIO / [TCH]CHGDIV
-#        Endif
-#        Filter [TCH]
-#      Endif
-#      [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
-#      [M:ZPPH2]UPDFLG(Z) = 2
-#      Affzo [M:ZPPH2]HXCOST(Z)
-#    Next
-#  Endif
-#Endif
-#
-#End
-#
 
 ######################################################################################
 ######################################################################################
@@ -1421,8 +1336,6 @@ UNITARIO = [M:ZPPH2]BPSPRI(nolign-1) / DIVISOR
 
 PRECIO = UNITARIO * (1-[M:ZPPH2]LDISCRGVAL1(nolign-1)/100)
 
-#Infbox num$(PRECIO)
-
 If [M:ZPPH2]MINQTY(nolign-1) > [M:ZPPH2]OFERQTY(nolign-1)
    CANTIDAD = [M:ZPPH2]MINQTY(nolign-1)
 Else
@@ -1435,12 +1348,14 @@ Affzo [M:ZPPH2]AMT(nolign-1)
 #Calculamos importe HX
 PRECIO = PRECIO* [M:ZPPH2]LINCPRCOE(nolign-1)
 If [M:ZPPH2]LINCUR(nolign-1) <> "EUR"
-   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
-   Read [TCH]First
-   If !fstat
-     PRECIO = PRECIO / [TCH]CHGDIV
-   Endif
-   Filter [TCH]
+# 06.322.341.ini
+#   Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(nolign-1)  Order By CHGSTRDAT Desc
+#   Read [TCH]First
+#   If !fstat
+     PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#   Endif
+#   Filter [TCH]
+# 06.322.341.fin
 Endif
 
 
@@ -1497,12 +1412,14 @@ If [M:ZPPH2]NBLIG > 0
           PRECIO = [M:ZPPH2]PRI(Z)* [M:ZPPH2]LINCPRCOE(Z)
         Endif
         If [M:ZPPH2]LINCUR(Z) <> "EUR"
-          Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
-          Read [TCH]First
-          If !fstat
-            PRECIO = PRECIO / [TCH]CHGDIV
-          Endif
-          Filter [TCH]
+        # 06.322.341.ini
+#          Filter [TCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH2]LINCUR(Z)  Order By CHGSTRDAT Desc
+#          Read [TCH]First
+#          If !fstat
+            PRECIO = PRECIO / [M:ZPPH1]CHGDIV
+#          Endif
+#          Filter [TCH]
+        # 06.322.341.fin
         Endif
         [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
         [M:ZPPH2]UPDFLG(Z) = 2
@@ -1529,3 +1446,35 @@ Local Integer LCON
     Affzo [M:ZPPH2]LINPQHREF(LCON)
   Next
 End
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZPPH1) 08/03/2022 16:53:15 (ADMIN)
+######################################################################################
+
+Subprog AM_CHGDIV(VALEUR)
+Variable Decimal VALEUR
+# 06.322.341.ini
+Local Decimal PRECIO
+If VALEUR<=0
+  mkstat=2
+  Errbox "Valor no permitido"
+  End
+Endif
+
+If [M:ZPPH2]NBLIG > 0
+  For Z = 0 To NBLIG-1
+    [M:ZPPH2]LINCUR(Z) = [M:ZPPH1]CUR
+    Affzo [M:ZPPH2]LINCUR(Z)
+
+    #Calculamos importe HX
+    PRECIO = [M:ZPPH2]PRI(Z) * (1-[M:ZPPH2]LDISCRGVAL1(Z)/100)* [M:ZPPH2]LINCPRCOE(Z)
+    PRECIO = PRECIO / VALEUR
+    [M:ZPPH2]HXCOST(Z) = arr(PRECIO * 100,0.001)
+    [M:ZPPH2]UPDFLG(Z) = 2
+    Affzo [M:ZPPH2]HXCOST(Z)
+  Next
+Endif
+# 06.322.341.fin
+End
+
+
+######################################################################################
