@@ -1,5 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-######################################
+# 06.323.196 - JC.10032022.Error importación pedido por carácter '_' en nombre de fichero
+###########################################################################
+
+
 $ACTION
 #Infbox ACTION
 Case ACTION
@@ -42,6 +45,15 @@ $EXEC
    Call ERREUR(mess(12,139,1)) From GESECRAN : # Copie non réalisée
    End
   Endif
+# 06.323.196.ini
+  Local Integer I
+  Local Char    LPREFIJO(250),LSUFIJO(250)
+  I=instr(1,FICCLI,"_order")
+  LPREFIJO = left$(FICCLI,I-1)
+  LSUFIJO  = mid$(FICCLI,I,len(FICCLI))
+  LPREFIJO = ctrans(LPREFIJO,"_"," ")
+  FICCLI = LPREFIJO+LSUFIJO
+# 06.323.196.fin
   I = func F_SPLIT(FICCLI,"_",TMPBPS)
   Read [F:ZBPS]BPS2 = TMPBPS(0)
   If fstat
