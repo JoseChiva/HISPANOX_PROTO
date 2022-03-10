@@ -7,6 +7,7 @@
 # Issue X3-149906 - 2019-07-31 by UB : Add Cost type field to GESBIS invoice lines
 # Issue X3-99385 - 2018-07-12 by CBO : Import large number of Supplier BP invoices failed on 2018 R4 cloud site
 # Issue X3-99385 : all AFNC.PARAM() with activity code are replaced by SUBBIS2.FIN_PARAM()
+# 06.316.515 - JC.10032022.ACREEDORES/PROVEEDORES/CAMPO TIPO
 
 Call OBJET("BIS",GBIDC1,GBIDC2) From GOBJET
 End
@@ -1121,11 +1122,21 @@ If GPORTVA : # Tva portugaise
    [M]PURTYP(nolign-1) = 3 : # Purchase goods
   Endcase
 Else       : # A la française
- If [F:GAC]VATIPT=4
-  [M]PURTYP(nolign-1) = 2
- Else
-  [M]PURTYP(nolign-1) = 1
- Endif
+# 06.316.515.ini
+# If [F:GAC]VATIPT=4
+#  [M]PURTYP(nolign-1) = 2
+# Else
+#  [M]PURTYP(nolign-1) = 1
+# Endif
+ Case [F:GAC]VATIPT
+  When 4
+   [M]PURTYP(nolign-1) = 2 : # Purchase services
+  When 3
+   [M]PURTYP(nolign-1) = 1 : # Purchase fixed assets
+  When 5
+   [M]PURTYP(nolign-1) = 3 : # Purchase goods
+  Endcase
+# 06.316.515.fin
 Endif
 Gosub SETNOL
 Call INIT_FLGDEP(GPLAN(1),VALEUR,NOL+1,[M]FLGDEP(NOL)) From INVDEPLIB
