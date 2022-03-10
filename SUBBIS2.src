@@ -1,0 +1,2680 @@
+#<AdxTL>@(#)2.0.0.0 $Revision$
+# Issue X3-238470 - 2021-03-10 by MDJ : To fixed the error variable non-existent "BPR"
+# Issue X3-217797 - 2020-10-20 by RCU : Account structure only applied if site/company is in scope.
+# Issue X3-205959 by MRDAB/MAPON - BPRPAY to be disabled for posted invoices
+# Issue X3-202895 - 2020-07-21 by JGO : DEFBONPAY value set at company level is ignored in Supplier BP invoice
+# Issue X3-195162 - 2020-06-22 by MRDAB/MAPON : Defualt bank account at the invoice level - on open item
+# Issue X3-149906 - 2019-07-31 by UB : Add Cost type field to GESBIS invoice lines
+# Issue X3-99385 - 2018-07-12 by CBO : Import large number of Supplier BP invoices failed on 2018 R4 cloud site
+# Issue X3-99385 : all AFNC.PARAM() with activity code are replaced by SUBBIS2.FIN_PARAM()
+
+Call OBJET("BIS",GBIDC1,GBIDC2) From GOBJET
+End
+
+$ACTION
+Return
+
+# Issue X3-99385
+#**
+#* load in global integers the needed activity codes
+$OUVRE_ACT_CODE
+
+  # optimize : not re-read
+  If dim(GAC_FEE) > 0
+    Return
+  Endif
+
+  Global Integer GAC_KAG, GAC_WTHMG, GAC_INTCO, GAC_FEE, GAC_KSP, GAC_KPO
+  Global Integer GAC_SDD, GAC_KDE, GAC_DAS, GAC_KBE, GAC_PJM, GAC_SVC
+
+  If clalev([F:ACV])=0 : Local File ACTIV [ACV] : Endif
+  Raz GAC_KAG, GAC_WTHMG, GAC_INTCO, GAC_FEE, GAC_KSP, GAC_KPO
+  Raz GAC_SDD, GAC_KDE, GAC_DAS, GAC_KBE, GAC_PJM, GAC_SVC
+
+  If func AFNC.ACTIV("PJM")  : # X3-99385 MWA
+    GAC_PJM = 1
+  Endif
+  If func AFNC.ACTIV("KAG")
+    GAC_KAG = 1
+  Endif
+  If func AFNC.ACTIV("WTHMG")
+    GAC_WTHMG = 1
+  Endif
+  If func AFNC.ACTIV("SVC")
+    GAC_SVC = 1
+  Endif
+  If func AFNC.ACTIV("INTCO")
+    GAC_INTCO = 1
+  Endif
+  If func AFNC.ACTIV("FEE")
+    GAC_FEE = 1
+  Endif
+  If func AFNC.ACTIV("KSP")
+    GAC_KSP = 1
+  Endif
+
+  If func AFNC.ACTIV("KPO")
+    GAC_KPO = 1
+  Endif
+
+  If func AFNC.ACTIV("SDD")
+    GAC_SDD = 1
+  Endif
+
+  If func AFNC.ACTIV("KDE")
+    GAC_KDE = 1
+  Endif
+  If func AFNC.ACTIV("DAS")
+    GAC_DAS = 1
+  Endif
+  If func AFNC.ACTIV("KBE")
+    GAC_KBE = 1
+  Endif
+Return
+
+#**
+#* Verify if activity code is ok
+#* before calling func AFNC.PARAM()
+#*
+#* @param PACTIVITY_CODE
+#* @param PARAM
+#* @param SITE
+#*!
+Funprog FIN_PARAM(PACTIVITY_CODE, PARAM, SITE)
+Value Integer PACTIVITY_CODE
+Value Char PARAM
+Value Char SITE
+
+  If PACTIVITY_CODE <> 1
+    End ""
+  Endif
+
+End func AFNC.PARAM(PARAM, SITE)
+
+# End Issue X3-99385
+
+########################################
+## Ecran BIS1                         ##
+########################################
+Subprog D_BPRDAT(VALEUR)
+Variable Date    VALEUR
+VALEUR = [M]ACCDAT
+End
+
+Subprog AS_BPRDAT(VALEUR)
+Variable Date    VALEUR
+If [M]STA=3 : mkstat = 2 : End : Endif
+End
+
+Subprog AM_BPRDAT(VALEUR)
+Variable Date    VALEUR
+Local Date SVG_RATDAT
+Call AM_BPRDAT(VALEUR) From SUBBICS
+#--- Initialisation des cours devise (Suggestion V140)
+If [M]CUR<>'' & SVG_RATDAT<>[M]RATDAT
+ Call INI_COURS("BIS1",[M]CPY,[M]CUR,[M]RATDAT,[M]CURTYP) From SUBBICS
+Endif
+End
+
+Subprog C_BPRDAT(VALEUR)
+Variable Date    VALEUR
+Local Char CHAINE(10)
+Call PARAM([M]FCY,"SUPINVDAT",CHAINE) From ADOVAL
+If val(CHAINE)=2 & (VALEUR > [M]ACCDAT)
+ # Date incorrecte par rapport à date de saisie
+ GMESSAGE = mess(99,121,1)
+ mkstat = 2 : End
+Endif
+End
+
+Subprog AS_STA(VALEUR)
+Variable Integer VALEUR
+If VALEUR=3
+ mkstat = 2
+Else
+ GMENLOC(3) = 1
+Endif
+End
+
+Subprog C_STA(VALEUR)
+Variable Integer VALEUR
+If VALEUR=3 : mkstat = 1 : Endif
+End
+
+Subprog AP_BPRVCR(VALEUR)
+Variable Char    VALEUR()
+Local Integer OK
+If !GIMPORT & VALEUR<>"" & (VALEUR<>[M]BPRVCR or GREP="D")
+ Filter [PIH] Where NUM<>[M]NUM
+ Read [PIH]PIH1 = [M]BPR;VALEUR
+ Filter [PIH]
+ If !fstat
+  # Référence saisie sur facture
+  OK = 2 : Call AVERTIR(mess(6,119,1)-[F:PIH]NUM,OK) From GESECRAN
+  If OK<>2 : mkstat = 2 : End : Endif
+ Endif
+Endif
+End
+
+Subprog AV_CUR(VALEUR)
+Variable Char    VALEUR()
+# Devise : toujours accessible pour atteindre la fenêtre des cours => Gestion Grizo/Actzo
+If [M:BIS0]AMTMIN<>0 | [M]STA=3
+ Diszo [M]CUR
+Else
+ Actzo [M]CUR
+Endif
+End
+
+Subprog D_CUR(VALEUR)
+Variable Char    VALEUR()
+Call LECTURE("BPS",[M]BPR,"") From CONTOBJ
+VALEUR = [F:BPS]CUR
+End
+
+Subprog C_CUR(VALEUR)
+Variable Char VALEUR
+Local Date SVG_RATDAT
+If [F:GAC]ACCSHO<>[M]BPRSAC
+ Read [GAC]GAC1 = [M]BPRSAC
+Endif
+If [F:GAC]CUR<>"" & [F:GAC]CUR<>VALEUR
+ # Devise du compte
+ GMESSAGE = [F:GAC]ACC-mess(13,106,1)-[F:GAC]CUR
+ mkstat = 2 : End
+Endif
+SVG_RATDAT = [M]RATDAT
+Call LEC_GTE_LEG(GCURLEG,[M:BIS0]GTE) From CPTLEC
+If [F:GTE]RATDAT=2 & [M]BPRDAT<>[0/0/0]
+ [M]RATDAT = [M]BPRDAT
+Else
+ [M]RATDAT = [M]ACCDAT
+Endif
+Call CONTDEV(VALEUR,[M]RATDAT) From TRTDEV
+If mkstat : End : Endif
+If SVG_RATDAT<>[M]RATDAT
+ Call INI_COURS("BIS1",[M]CPY,[M]CUR,[M]RATDAT,[M]CURTYP) From SUBBICS
+Endif
+End
+
+Subprog AM_CUR(VALEUR)
+Variable Char VALEUR()
+Local Integer STAT
+If !GIMPORT
+ [M]CUR=VALEUR
+ Call INI_COURS("BIS1",[M]CPY,[M]CUR,[M]RATDAT,[M]CURTYP) From SUBBICS
+Endif
+If GS1099 = 1  & !GIMPORT #1099.sn
+ Gosub CURR_CHECK From TEN99LIB
+ If CURDIF=1 & [M]STA < 3
+  Actzo [M:BIS1]AMTSUBJ1099
+  Raz [M:BIS1]AMTSUBJ1099
+  Affzo [M:BIS1]AMTSUBJ1099
+  Call MESSAGE(mess(83,122,1)) From GESECRAN
+ Else
+  Gosub CALC_AMTSUBJ1099 From TEN99LIB # re-calc if going back to company currency
+ Endif
+Endif  #1099.en
+End
+
+Subprog AS_RAT1(VALEUR)
+Variable Decimal VALEUR
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+Subprog AS_RAT2(VALEUR)
+Variable Decimal VALEUR
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+Subprog AM_RAT1(VALEUR)
+Variable Decimal VALEUR
+Local Char ZONE(10) : # Nom de zone dans la masque SAICURLED
+ZONE = "RATDIV" : Goto AM_RAT
+
+Subprog AM_RAT2(VALEUR)
+Variable Decimal VALEUR
+Local Char ZONE(10) : # Nom de zone dans la masque SAICURLED
+ZONE = "RATMLT" : Goto AM_RAT
+
+$AM_RAT
+# Mise à jour du masque SAICURLED [M:SCL]
+Local Integer INDLED
+INDLED = find(GTYPGEN,[M:SCL]LEDTYP(0..[M:SCL]NBRC-1))
+Assign "[M]"+ZONE+"("+num$(INDLED-1)+")" With VALEUR
+## Bug 58181
+If [M]CURLED(INDLED-1)<>[M]CUR
+ Gosub INI_AUTLED
+Endif
+## Fin Bug 58181
+End
+
+$INI_AUTLED
+# Mise à jour du masque HAEF
+Local Char CODLED(GLONLED), DEVLED(GLONCUR)
+Call LECTURE("CPY",[M]CPY,"") From CONTOBJ
+Call LECTURE("GCM",[F:CPY]ACM,"") From CONTOBJ
+For J=1 To len(mess(0,2644,1))
+ If J<>INDLED
+  If func FINACM_SYRA.GET_LEDCUR(GACTX, [M]CPY, J, CODLED, DEVLED, GMESSAGE)<>[V]CST_AOK
+   mkstat = 2 : Break
+  Endif
+  If DEVLED = [M]CURLED(INDLED-1) & [F:GCM]FLGVCRRAT(J-1)=2
+   Assign "[M]"+ZONE+"("+num$(J-1)+")" With VALEUR
+  Endif
+ Endif
+Next
+Return
+
+Subprog AS_AMTNOT(VALEUR)
+Variable Decimal VALEUR
+If (GREP<>"C" & GREP<>"D") | [M]STA=3 : mkstat = 2 : End : Endif
+End
+
+Subprog C_AMTNOT(VALEUR)
+Variable Decimal VALEUR
+If VALEUR = 0
+ Local Integer LEVEL_CTL
+ LEVEL_CTL = fmet GACTX.APARAM.AGETVALNUM([V]CST_ALEVCPY,[M:BIS0]CPY,"HEAAMTBPS")
+ If  LEVEL_CTL = 2
+  # Amt-tax and Amt+tax must be entered
+  GERR=1 :  GMESSAGE = mess(108,119,1)
+  mkstat=2 : End
+  Endif
+Endif
+End
+
+Subprog AS_AMTATI(VALEUR)
+Variable Decimal VALEUR
+If (GREP<>"C" & GREP<>"D") | [M]STA=3 : mkstat = 2 : End : Endif
+End
+
+Subprog C_AMTATI(VALEUR)
+Variable Decimal VALEUR
+If VALEUR=0 : VALEUR = [M]AMTNOT : Endif
+End
+
+Subprog AM_AMTATI(VALEUR)
+Variable Decimal VALEUR
+If VALEUR<[M]AMTNOT
+ Local Integer OK
+ OK = 2
+ If !GIMPORT : Call AVERTIR(mess(43,119,1),OK) From GESECRAN : Endif
+ If OK<>2 : mkstat = 2 : End : Endif
+Endif
+Raz [M]DUDDAT : # GH 20/12/99 pour recalculer DUDDAT par C_PTE
+End
+
+Subprog AS_VAC(VALEUR)
+Variable Char    VALEUR()
+#JOJAC - 2018-08-30 - X3-96384 - START
+If [M]NBLIG<>0  : mkstat = 2 : Endif
+#If [M]NBLIG<>0 & GREP<>"D" : mkstat = 2 : Endif
+#JOJAC - 2018-08-30 - X3-96384 - END
+End
+
+Subprog AS_CEEFLG(VALEUR)
+Variable Integer VALEUR
+If [M]STA=3 : mkstat=2 : Endif
+End
+
+Subprog D_CEEFLG(VALEUR)
+Variable Integer VALEUR
+## Init flag CEE si régime CEE et non renseigné
+Call LEC_TVB(GCURLEG,[M]VAC) From CPTLEC
+If !fstat & [F:TVB]ENAFLG=2 & [F:TVB]REGVAC=4
+ VALEUR = 2
+Else
+ VALEUR = 1
+Endif
+End
+
+Subprog D_BPRPAY(VALEUR)
+Variable Char VALEUR()
+Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+If dim([F:BPS]BPRPAY)>0 & [F:BPS]BPRPAY<>""
+ VALEUR = [F:BPS]BPRPAY
+Else
+ VALEUR = [M]BPR
+Endif
+End
+
+Subprog AS_BPRPAY(VALEUR)
+Variable Char VALEUR()
+If [M]AMTMIN<>0 or [M]STA = 3 : mkstat = 2 : Endif # Issue X3-205959 by MRDAB/MAPON
+End
+
+Subprog D_STRDUDDAT(VALEUR)
+Variable Date    VALEUR
+VALEUR = [M]BPRDAT
+End
+
+Subprog AS_STRDUDDAT(VALEUR)
+Variable Date     VALEUR
+If [M]STA=3 | [M]AMTMIN<>0
+ mkstat = 2
+Endif
+End
+
+Subprog AM_STRDUDDAT(VALEUR)
+Variable Date     VALEUR
+Raz [M:BIS1]DUDDAT
+End
+
+Subprog D_PTE(VALEUR)
+Variable Char    VALEUR()
+If dim([F:BPS]PTE)>0
+ #----- Chargement des conditions de paiement du fournisseur -----#
+ Call INIPTE ([M:BIS1]BPRPAY,[M:BIS0]BPR,"F",VALEUR) From TRTX3
+Endif
+End
+
+Subprog AS_PTE(VALEUR)
+Variable Char     VALEUR
+If [M]STA=3 | [M]AMTMIN<>0
+ mkstat = 2 : End
+Endif
+GBOUT2 = mess(6,115,1) : # Simulation
+If VALEUR="" & (GREP="C" | GREP="D") & [M:BIS0]INVTYP=2 & [M]INVNUM<>""
+ Read [PIH2]PIH0 = [M]INVNUM
+ VALEUR = [F:PIH2]PTE
+Endif
+End
+
+Subprog C_PTE(VALEUR)
+Variable Char    VALEUR()
+If (GREP="C" or GREP="D") and (VALEUR<>[M]PTE or [M]DUDDAT=[0/0/0])
+ Local Integer MAXECH
+ MAXECH = 150
+ Local Shortint NBECH
+ Local Decimal  ECHMNT(1..MAXECH) , ECHLOC(1..MAXECH) , ECHRPT(1..MAXECH)
+ Local Date     ECHDAT(1..MAXECH)
+ Local Integer  ECHSOI(1..MAXECH)
+ Local Char     ECHPAM(3)(1..MAXECH)
+ Local Integer  ECHTYP(1..MAXECH)
+ Local Decimal  MONTANT , MONTHT
+ Local Char     OLOCALDEV(GLONCUR), CODTPT(20)
+ Local Decimal  CURRND
+ If func CDACUR_SYRA.GET_CURRND(GACTX,[M]CUR,CURRND,GMESSAGE)<>[V]CST_AOK
+  mkstat = 2 : End
+ Endif
+ Call LECTURE("CPY",[M]CPY,"") From CONTOBJ
+ OLOCALDEV = GLOCALDEV : GLOCALDEV = [F:CPY]ACCCUR
+ MONTANT = [M]AMTATI : If MONTANT = 0 : MONTANT=1000 : Endif : # GH 20/12/99 bug 3854
+ MONTHT  = [M]AMTNOT
+ CODTPT = VALEUR : # On ne change pas VALEUR, si conditions de remplacement appliquées
+ #MAE, bg 73547, ajout du paramétre date du cours
+ Call DATECHE_TVA(CODTPT,[M]STRDUDDAT,MONTHT,MONTANT-MONTHT,CURRND
+& ,ECHPAM,ECHTYP,ECHMNT,ECHDAT,ECHSOI,NBECH,[M]FCY,[M]RATDAT) From SUBTPT
+ GLOCALDEV = OLOCALDEV
+ [M]DUDDAT = ECHDAT(1)
+Endif
+
+# SAM 101378: Localization Switzerland, 2016-01-19 Bader
+If func AFNC.ACTIV("KSW")>0
+  Gosub C_PTE_BIS From SWIBVRLIB4
+# X3-107116 2018-09-25 Bader commented until final release of QR support for Switzerland
+  Call C_PTE(VALEUR) From SWIQRCLIB2   # X3-90417 CH QR bill - Suppl inv - Implement QR bill payment method 2018-06-06 Bader
+Endif
+# SAM 101378 END
+End
+
+
+Subprog D_DEP(VALEUR)
+Variable Char    VALEUR()
+#----- Chargement Escomptes et agios du fournisseur -----#
+# Issue X3-238470   Call INIT_ESCOMPTE([M]BPR,GSOCIETE,"F",VALEUR) From CPTSUB
+Call INIT_ESCOMPTE([M:BIS0]BPR,GSOCIETE,"F",VALEUR) From CPTSUB
+End
+
+Subprog AS_DEP(VALEUR)
+Variable Char    VALEUR()
+If (GREP<>"C" & GREP<>"D") | [M]STA=3 | [M]AMTMIN<>0
+ mkstat = 2
+Endif
+End
+
+Subprog AM_DEP(VALEUR)
+Variable Char    VALEUR()
+If GDEPMGTMOD = 5
+ [M:BIS1]DEP = VALEUR
+ Actzo [M:BIS1]PURPRITYP
+ Gosub INI_PURPRITYP From SUBBIS4
+Endif
+Call AM_DEP(VALEUR) From INVDEPLIB
+End
+
+#Subprog B2_PTE(VALEUR)## sous-pro SIMUL n'existe plus TB 29/09/04
+#Variable Char    VALEUR()
+#Local Decimal MONTANT
+#Local Char    OLOCALDEV(GLONCUR)
+#MONTANT = [M]AMTATI : If MONTANT=0 : MONTANT = 1000 : Endif
+#Call LECTURE("CPY",[M]CPY,"") From CONTOBJ
+#OLOCALDEV = GLOCALDEV
+#GLOCALDEV = [F:CPY]ACCCUR
+#Call SIMUL(VALEUR,[M]CUR,MONTANT,[M]STRDUDDAT) From SUBTPT
+#GLOCALDEV = OLOCALDEV
+#End
+
+Subprog AS_INVNUM(VALEUR)
+Variable Char    VALEUR()
+If [M:BIS0]INVTYP=1 : mkstat = 1 : End : Endif
+If [M]STA=3    : mkstat = 2 : End : Endif
+End
+
+Subprog C_INVNUM(VALEUR)
+Variable Char VALEUR()
+If clalev([F:PYH])=0 : Local File PAYMENTH [PYH] : Endif
+If clalev([F:PYD])=0 : Local File PAYMENTD [PYD] : Endif
+Local Integer OK
+If VALEUR<>""
+ Read [PIH2]PIH0 = VALEUR
+ If fstat
+  # Facture inexistante
+  GMESSAGE = mess(7,119,1)
+  mkstat = 2 : End
+ Elsif [F:PIH2]INVTYP<>1 & [F:PIH2]INVTYP<>3
+  # Numéro d'avoir
+  GMESSAGE = mess(8,119,1)
+  mkstat = 2 : End
+ Elsif [F:PIH2]STA<>3
+  # Facture non validée
+  GMESSAGE = mess(36,119,1)
+  mkstat = 2 : End
+ Elsif [F:PIH2]BPR<>[M]BPR
+  # Facture du fournisseur
+  GMESSAGE = mess(32,119,1)-[F:PIH2]BPR
+  mkstat = 2 : End
+ Elsif [F:PIH2]BPRSAC<>[M]BPRSAC
+  # Facture sur le collectif
+  GMESSAGE = mess(33,119,1)-[F:PIH2]BPRSAC
+  mkstat = 2 : End
+# Elsif [F:PIH2]CUR<>[M]CUR
+#  GMESSAGE = mess(34,119,1)-[F:PIH2]CUR : # Facture en devise
+#  mkstat = 2 : End
+ Elsif [F:PIH2]FCY<>[M]FCY
+  # Facture sur le site
+  GMESSAGE = mess(35,119,1)-[F:PIH2]FCY
+  mkstat = 2 : End
+ Elsif [F:PIH2]ORIMOD<>3
+  # Facture Achat
+  GMESSAGE = mess(46,109,1)
+  mkstat = 2 : End
+ Endif
+ For [DUD]DUD1 Where ACCNUM=[F:PIH2]ACCNUM
+  For [PYD]PYD1 Where DUDNUM=[F:DUD]ACCNUM & DUDLIG=[F:DUD]DUDLIG
+   If [F:PYH]NUM<>[F:PYD]NUM
+    Read [PYH]PYH0 = [F:PYD]NUM
+    If !fstat & [F:PYH]STA<3
+     # Règlement en attente sur cette facture
+     GMESSAGE = mess(74,119,1)
+     mkstat=2 : Break 2
+    Endif
+   Endif
+  Next
+ Next
+ For [PIH2]PIH0 Where INVNUM=VALEUR
+  # Cette facture a déjà fait l'objet d'un avoir !
+  OK=2 : Call AVERTIR(VALEUR-mess(80,119,1)-[F:PIH2]NUM,OK) From GESECRAN
+  If OK=1  mkstat=1 : Endif
+  Break
+ Next
+ If mkstat : End : Endif
+ If [F:PIH2]ACCDAT>[M:BIS0]ACCDAT
+  # La date comptable du document doit être supérieure ou égale à la date de la facture
+  GMESSAGE = mess(82,119,1)-VALEUR-format$("D:"+GFMDAT4,[F:PIH2]ACCDAT)
+  mkstat =2 : End
+ Endif
+Endif
+End
+
+Subprog AP_INVNUM(VALEUR)
+Variable Char VALEUR()
+If [M:BIS0]INVTYP=2 & VALEUR=""
+ Local Char CHAINE(10)
+ Call PARAM([M]FCY,"WRNINVOICE",CHAINE) From ADOVAL
+ If val(CHAINE)=2
+  Local Integer OK
+  OK = 2
+  If !GIMPORT : Call AVERTIR(mess(9,119,1),OK) From GESECRAN : Endif
+# Avoir sans numéro de facture
+  If OK<>2 : mkstat = 2 : End : Endif
+ Endif
+Endif
+End
+
+Subprog AS_PJTH(VALEUR)
+Variable Char    VALEUR()
+# Pour ne pas bloquer avec "Code affaire inexistant" si ma société ne gère pas les affaires...
+#If fmet GACTX.APARAM.AGETVALNUM([V]CST_ALEVCPY,[M:BIS0]CPY,"PJTMGT")<>2 : mkstat = 1 : End : Endif  X3-99385 MWA
+If func FIN_PARAM(GAC_PJM, "PJTMGT",[M:BIS0]CPY) <> "2" : mkstat = 1 : End : Endif
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+Subprog D_DAS2(VALEUR)
+Variable Integer VALEUR
+# Exigence 82615 : Législation belge --str
+# => traité en AM_BPR
+#If dim([F:BPS]DADFLG)>0
+# Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+# If [F:BPS]DADFLG<>2
+#  VALEUR = 1
+# Else
+#  VALEUR = 2
+# Endif
+#Endif
+# Exigence 82615 : Législation belge --end
+End
+
+Subprog AS_DAS2(VALEUR)
+Variable Integer VALEUR
+## si la facture est validé en compta, on n'accède plus à la zone
+If [M:BIS1]STA = 3
+ mkstat = 2 : End
+Endif
+# Exigence 82615 : Législation belge --str
+# => init traité en AM_BPR
+#If dim([F:BPS]DADFLG)>0
+ Call LECTURE("BPS",[M]BPR,"") From CONTOBJ
+# If [F:BPS]DADFLG<>2 : VALEUR = 1 : mkstat = 2 : End : Endif
+# If VALEUR = 0 : VALEUR = 2 : Endif
+#Endif
+If [F:BPS]DADFLG<>2 and [F:BPS]FLG281<>2
+  mkstat=2
+Else
+  Raz mkstat
+Endif
+# FQ122815  Ajout d'un suffixe aux variables globales GDCLFEES, GACVDAS, GACVBE281
+Case GDCLFEES_BIS
+  When "2" : # DAS2
+    If GACVDAS_BIS and [F:BPS]DADFLG=2
+      Raz mkstat
+    Else
+      mkstat=2
+    Endif
+  When "4" : # 281.5
+    If GACVBE281_BIS and [F:BPS]FLG281=2
+      Raz mkstat
+    Else
+      mkstat=2
+    Endif
+Endcase
+# Exigence 82615 : Législation belge --end
+End
+
+Subprog AS_XSOI(VALEUR)
+Variable Integer VALEUR
+If GREP<>"C" & GREP<>"D" : mkstat = 2 : End : Endif
+End
+
+Subprog D_XSOI(VALEUR)
+Variable Integer VALEUR
+If VALEUR = 0 : VALEUR = 1 : Endif
+End
+
+Subprog AS_XFLGPAZ(VALEUR)
+Variable Integer VALEUR
+If (GREP<>"C" & GREP<>"D") : mkstat = 2 : End : Endif
+If [M:BIS0]INVTYP=2
+ VALEUR=len(mess(0,510,1)) : mkstat=2 : End
+Endif
+Local Char CHAINE(10)
+Call PARAM([M]FCY,"FLGPAZ",CHAINE) From ADOVAL
+If val(CHAINE)<>2
+ VALEUR = len(mess(0,510,1))
+ mkstat = 2 : End
+Endif
+End
+
+Subprog D_XFLGPAZ(VALEUR)
+Variable Integer VALEUR
+If [M:BIS0]INVTYP<>2
+ Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+ Call LECTURE("AUS",GUSER,"") From CONTOBJ
+ # X3-71518 Don't consider Payment hold flag of the supplier
+ # If dim([F:BPS]PAYLOKFLG)>0 & [F:BPS]PAYLOKFLG=2
+ #  VALEUR = 1
+ # Else
+ Local Char LLEVPAZ(3)
+ #Issue X3-202895 JGO Start
+ #Call PARAMUTIL("DEFBONPAY",LLEVPAZ,"","") From SUBAUS
+ Call PARAMUTIL("DEFBONPAY",LLEVPAZ,"",[M:BIS0]FCY) From SUBAUS
+ #Issue X3-202895 JGO End
+ VALEUR = val(LLEVPAZ)
+ #Endif
+Else
+ VALEUR=len(mess(0,510,1))
+Endif
+End
+
+Subprog C_XFLGPAZ(VALEUR)
+Variable Integer VALEUR
+Call LECTURE("AUS",GUSER,"") From CONTOBJ
+Local Char LLEVPAZ(3)
+Call PARAMUTIL("NIVBONPAYE",LLEVPAZ,"","") From SUBAUS
+If VALEUR>val(LLEVPAZ)
+ GMESSAGE = mess(29,119,1)
+ mkstat = 2 : End
+# Niveau de bon à payer non autorisé
+Endif
+End
+
+Subprog AS_NBRCCE
+If [M]STA=3 : mkstat=2 : End : Endif
+If [M]NBRCCE=0
+ Call D_NBRCCE
+Endif
+Local Integer AXE
+For AXE=1 To GNBAXE
+ If [M]SAIAXE(AXE-1)<>2
+  Diszo [M:BIS1]CCE(AXE-1)
+  Grizo [M:BIS1]CCE(AXE-1)
+ Else
+  Actzo [M:BIS1]CCE(AXE-1)
+ Endif
+Next
+End
+
+Subprog D_NBRCCE
+Call D_NBRCCE("BPSINVH") From SUBBICS
+If !GIMPORT : Affzo NUMLIG2, DIE, CCE : Endif
+End
+
+Subprog C_NBRCCE
+Call C_NBRCCE From SUBBICS
+End
+
+Subprog AS_CCE(VALEUR)
+Variable Char    VALEUR()
+If [M]STA=3
+ mkstat = 1 : End
+Endif
+End
+
+Subprog C_CCE(VALEUR)
+Variable Char    VALEUR()
+Call C_CCEH(VALEUR) From SUBBICS
+End
+
+#---- Gestion des adresses ----
+
+Subprog D_BPAPAY(VALEUR)
+Variable Char    VALEUR()
+Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+#si le fournisseur est de type Divers l'adresse payeur est tjs celle de l'adresse facture modifiée ou pas
+If [F:BPS]BPSTYP= 3 & [M:BIS1]BPRPAY = [M:BIS0]BPR
+  VALEUR = [M:BIS0]BPAINV
+Else
+ VALEUR = [F:BPS]BPAPAY
+ If VALEUR<>""
+  Gosub LECADR : End
+ Else
+   #Recherche de l'adresse par défaut mais tjs définie dans la fiche fournisseur
+  Read [BPA]BPA0 = 1;[M]BPRPAY;[F:BPS]BPAADD
+  If !fstat : VALEUR = [F:BPS]BPAADD : Gosub LECADR : End : Endif
+ Endif
+Endif
+End
+
+Subprog C_BPAPAY(VALEUR)
+Variable Char    VALEUR()
+If VALEUR<>""
+ Read [BPA]BPA0 = 1;[M]BPRPAY;VALEUR
+ If fstat
+  # Adresse inexistante
+  GMESSAGE = mess(10,119,1)
+  mkstat = 2 : End
+ Endif
+Endif
+Gosub LECADR
+End
+
+$LECADR
+Call LECTURE("BPS",[M]BPRPAY,"") From CONTOBJ
+If ([M]BPRPAY=[M]BPR & [F:BPS]BPSTYP = 3)
+ For I=0 To min(dim([M]BPYADDLIG),dim([M]BPAADDLIG))-1
+  [M]BPYADDLIG(I) = [M]BPAADDLIG(I)
+ Next I
+ [M]BPYPOSCOD = [F:PIH]POSCOD
+ [M]BPYCTY    = [F:PIH]CTY
+ [M]BPYCRY    = [F:PIH]CRY
+ [M]BPYSAT    = [F:PIH]SAT
+ If [F:PIH]CRYNAM<>"" : [M]BPYCRYNAM = [F:PIH]CRYNAM
+ Else [M]BPYCRYNAM="" : Call INIPAYS([F:PIH]CRY,[M]BPYCRYNAM) From TRTDIV
+ Endif
+ For I=0 To min(dim([M]BPYNAM),dim([F:PIH]BPYNAM))-1
+  [M]BPYNAM(I) = [F:PIH]BPYNAM(I)
+ Next I
+Else
+ Raz [M]BPYNAM, [M]BPYADDLIG
+ Read [BPA]BPA0 = 1;[M]BPRPAY;VALEUR
+ If !fstat
+  For I=0 To min(dim([M]BPYADDLIG),dim([F:BPA]BPAADDLIG))-1
+   [M]BPYADDLIG(I) = [F:BPA]BPAADDLIG(I)
+  Next I
+  [M]BPYPOSCOD = [F:BPA]POSCOD
+  [M]BPYCTY    = [F:BPA]CTY
+  [M]BPYCRY    = [F:BPA]CRY
+  [M]BPYSAT    = [F:BPA]SAT
+  If [F:BPA]CRYNAM<>"" : [M]BPYCRYNAM = [F:BPA]CRYNAM
+  Else [M]BPYCRYNAM="" : Call INIPAYS([F:BPA]CRY,[M]BPYCRYNAM) From TRTDIV
+  Endif
+ Endif
+ Call LECTURE("BPR",[M]BPRPAY,"") From CONTOBJ
+ For I=0 To min(dim([M]BPYNAM),dim([F:BPR]BPRNAM))-1
+  [M]BPYNAM(I) = [F:BPR]BPRNAM(I)
+ Next I
+Endif
+Return
+
+Subprog AM_BPRPAY(VALEUR)
+Variable Char    VALEUR()
+
+Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+If (VALEUR<>"" & (GREP="D" | GREP="C"))
+ If [F:BPS]BPSTYP=3 & VALEUR=[M:BIS0]BPR
+  [M:BIS1]BPAPAY = [M:BIS0]BPAINV
+ Elsif VALEUR=[F:BPS]BPRPAY
+  [M:BIS1]BPAPAY = [F:BPS]BPAPAY
+  If  [M:BIS1]BPAPAY<>""
+   Gosub LECADR
+  Else
+   #Recherche de l'adresse par défaut mais tjs définie dans la fiche fournisseur
+   Call LECTURE("BPS",VALEUR,"") From CONTOBJ
+   Read [BPA]BPA0 = 1;VALEUR;[F:BPS]BPAADD
+   If !fstat : [M:BIS1]BPAPAY = [F:BPS]BPAADD : Gosub LECADR : Endif
+  Endif
+ Else
+  #Recherche de l'adresse par défaut mais tjs définie dans la fiche fournisseur
+  Call LECTURE("BPS",VALEUR,"") From CONTOBJ
+  Read [BPA]BPA0 = 1;VALEUR;[F:BPS]BPAADD
+  If !fstat : [M:BIS1]BPAPAY = [F:BPS]BPAADD : Gosub LECADR : Endif
+ Endif
+Endif
+
+# Issue X3-195162 by MRDAB/MAPON
+Gosub PROMPT_BP_BID From SUBBIH
+# Issue X3-195162 end
+
+End
+
+########################################
+## Ecran BIS3                         ##
+########################################
+Subprog D_FCYLIN(VALEUR)
+Variable Char    VALEUR()
+VALEUR = [M]FCY
+[M]CPYLIN(nolign-1) = [M]CPY # BESPR 87307 05/28/2013
+End
+
+Subprog AS_FCYLIN(VALEUR)
+Variable Char     VALEUR
+If (GNBAUZ=1 & GUSRFCY(1)<>"\") | [M]STA=3 : mkstat = 2 : End : Endif
+End
+
+#--If PJT is managed and if the code is blank on a line, one of the header is copied on the line
+Subprog AM_FCYLIN(VALEUR)
+Variable Char     VALEUR
+If func AFNC.ACTIV("PJM")
+   If [M:BIS1]PJTH <> "" and  [M:BIS3]PJTLIN(nolign-1) = ""
+      [M:BIS3]PJTLIN(nolign-1) =  [M:BIS1]PJTH
+      Affzo  [M:BIS3]PJTLIN(nolign-1)
+   Endif
+Endif
+End
+
+Subprog C_FCYLIN(VALEUR)
+Variable Char     VALEUR
+
+Local Integer EXERCICE, PERIODE, ASTATUS
+
+If VALEUR="" : mkstat=2 : End : Endif
+Call LECTURE("FCY",VALEUR,"") From CONTOBJ
+##### BESPR 87307 05/02/2013 # Intercompany enhancement
+Local Integer INTCPYOK  : INTCPYOK = 0
+[M]CPYLIN(nolign-1) = [F:FCY]LEGCPY
+If GFONC1 = "GESBISI"
+  ##### BESPR 87307 06/25/2013 - Check the Intercompany invoice parameter for the Target company also
+  If func FIN_PARAM(GAC_INTCO,"INTCPYINV",[F:FCY]LEGCPY)<>"2" : GMESSAGE = func AFNC.MES1(mess(160,104,1),[F:FCY]LEGCPY) : mkstat = 2 : End : Endif
+  INTCPYOK = 1
+  Call INTCPY_FCYLIN ([F:FCY]LEGCPY) From INTCPYLIB
+  If mkstat : INTCPYOK = 0 : GMESSAGE = mess(159,104,1) : End  : Endif
+  Call RESET_INTCPYCOA([F:FCY]LEGCPY,VALEUR) From INTCPYLIB
+  #### CATUA 87307
+  If [M]CPYLIN(nolign-1)<>"" & [M]CPYLIN(nolign-1)<>[M]CPY
+    ##Check fiscal year/period for the target company
+    If [M]ACCDAT<>[0/0/0]
+      [L]ASTATUS = func FINPER_SYRA.GET_PER(GACTX, [M]CPYLIN(nolign-1), GTYPGEN, [M]ACCDAT, EXERCICE, PERIODE, GMESSAGE)
+      Read [FIY]FIY0 = [M]CPYLIN(nolign-1);GTYPGEN;EXERCICE
+      If fstat | [F:FIY]FIYSTA<>2
+        ##The fiscal year for company XX is not open
+        GMESSAGE = func AFNC.MES1(mess(71,101,1),[M]CPYLIN(nolign-1))
+        mkstat = 2 : End
+      Endif
+      If [F:PER]PERSTA<>2
+        ##The period for company XX is not open
+        GMESSAGE = func AFNC.MES1(mess(72,101,1),[M]CPYLIN(nolign-1))
+        mkstat = 2 : End
+      Endif
+    Endif
+  Endif
+Endif
+##### Intercompany enhancement End
+
+If [F:FCY]LEGCPY<>[M]CPY and INTCPYOK=0 # BESPR 87307 05/02/2013
+ # Ce site est dans la société
+ GMESSAGE = mess(30,106,1)-[F:FCY]LEGCPY
+ mkstat = 2 : End
+Endif
+End
+
+Subprog AS_SAC(VALEUR)
+Variable Char    VALEUR()
+If [M]STA=3 : mkstat = 2 : End : Endif
+##### BESPR 87307 05/15/2013 # Intercompany enhancement
+Gosub SETNOL
+If GFONC1 = "GESBISI" and (([M]CPY <> [M]CPYLIN(NOL)) or (GCURINTCPY <> "" and GCURINTCPY <> [M]CPYLIN(NOL)))
+  Call CONT_INTCPYCOA ([M]CPYLIN(NOL)) From INTCPYLIB
+Endif
+#####
+End
+
+Subprog C_SAC(VALEUR)
+Variable Char     VALEUR
+Call C_SAC(VALEUR) From SUBBICS
+End
+
+Subprog AS_ACC1(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 1 : Goto SAIACC
+
+Subprog AS_ACC2(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 2 : Goto SAIACC
+
+Subprog AS_ACC3(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 3 : Goto SAIACC
+
+Subprog AS_ACC4(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 4 : Goto SAIACC
+
+Subprog AS_ACC5(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 5 : Goto SAIACC
+
+Subprog AS_ACC6(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 6 : Goto SAIACC
+
+Subprog AS_ACC7(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 7 : Goto SAIACC
+
+Subprog AS_ACC8(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 8 : Goto SAIACC
+
+Subprog AS_ACC9(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 9 : Goto SAIACC
+
+Subprog AS_ACC10(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 10 : Goto SAIACC
+
+$SAIACC
+Gosub SETNOL
+Local Integer TLED, SVG_MKSTAT
+GBOUT1 = mess(45,102,1)  : # Comptes
+GBOUT2 = mess(46,102,1)  : # Codes d'appel
+If [M:BIS3]JOUCPT<>""
+ GBOUT3 = mess(50,106,1) : # Comptes fréquents
+Else
+ GBOUT3=""
+Endif
+If [M]STA=3 : mkstat=2 : End : Endif
+##### BESPR 87307 05/15/2013 # Intercompany enhancement
+If GFONC1 = "GESBISI" and (([M]CPY <> [M]CPYLIN(NOL)) or (GCURINTCPY <> "" and GCURINTCPY <> [M]CPYLIN(NOL)))
+    Call CONT_INTCPYCOA ([M]CPYLIN(NOL)) From INTCPYLIB
+Endif
+#####
+## L'unique collectif et tiers se 'raccroche' au référentiel principal général
+[L]TLED = GTYPLED(NLED)
+If GTYPLED(NLED) = GTYPGEN
+ Local Char COMPTE(GLONGAC)
+ Local Char CODCPT(GLONCAC)
+ If ([M]SAC(NOL)<>"" & !find(status,5,31,75)) : End : Endif
+ If NOL=0 & VALEUR=""
+  Call LECTURE("BPS",[M]BPR,"") From CONTOBJ
+  [L]CODCPT = func FINCAC_SYRA.GET_ACCCOD_BPR(GACTX, GSOCIETE, [M]BPR, "F")
+  Read [CAC]CAC0 = 3;[L]CODCPT;GPLAN(NLED)
+  If !fstat & [F:CAC]ACC(16)<>""
+   COMPTE = vireblc(ctrans([F:CAC]ACC(16),"xX","00"),2)
+   Read [GAC]GAC0 = GPLAN(NLED);COMPTE
+   If !fstat
+    VALEUR = COMPTE
+   Endif
+  Endif
+ Endif
+Else
+ If [M]ACC1(NOL)="" : mkstat=2 : End : Endif #F58929
+Endif
+If NLED>1
+ Gosub INI_OTHACC From SUBBICS
+ # Si un compte est initialisé les contrôle inter-référentiel doivent être lancés. (F58929)
+ # + si le compte est renseigné, X3 passe à un autre référentiel (INI_OTHACC positionne mkstat)
+ If  VALEUR<>""
+  SVG_MKSTAT = mkstat
+  Raz mkstat # inhibe le mkstat de INI_OTHACC
+  Call CONTACC(NLED,VALEUR) From SUBBICS
+  If mkstat : Raz mkstat : End : Endif
+  mkstat = SVG_MKSTAT # repositionne le mkstat de INI_OTHACC
+ Endif
+Endif
+Gosub AFF_ACC
+End
+
+$AFF_ACC
+If !mkstat & !GIMPORT & VALEUR<>"" & dim([M]AFFICHE)>0
+ Local Char INTIT(GLONAX3)
+ Call LECTURE("GAC",VALEUR,GPLAN(NLED)) From CONTOBJ
+ Call LECTEXTRA([L]INTIT,"GACCOUNT","DESTRA",[F:GAC]COA,[F:GAC]ACC) From ATEXTRA
+ [M]AFFICHE = VALEUR-":"-[L]INTIT : Affzo AFFICHE
+Endif
+Return
+
+
+Subprog C_ACC1(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 1 : Goto CONTACC
+
+Subprog C_ACC2(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 2 : Goto CONTACC
+
+Subprog C_ACC3(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 3 : Goto CONTACC
+
+Subprog C_ACC4(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 4 : Goto CONTACC
+
+Subprog C_ACC5(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 5 : Goto CONTACC
+
+Subprog C_ACC6(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 6 : Goto CONTACC
+
+Subprog C_ACC7(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 7 : Goto CONTACC
+
+Subprog C_ACC8(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 8 : Goto CONTACC
+
+Subprog C_ACC9(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 9 : Goto CONTACC
+
+Subprog C_ACC10(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 10 : Goto CONTACC
+
+$CONTACC
+Call CONTACC(NLED,VALEUR) From SUBBICS
+Gosub AFF_ACC
+End
+
+Subprog AP_ACC1(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 1 : Goto APRACC
+
+Subprog AP_ACC2(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 2 : Goto APRACC
+
+Subprog AP_ACC3(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 3 : Goto APRACC
+
+Subprog AP_ACC4(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 4 : Goto APRACC
+
+Subprog AP_ACC5(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 5 : Goto APRACC
+
+Subprog AP_ACC6(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 6 : Goto APRACC
+
+Subprog AP_ACC7(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 7 : Goto APRACC
+
+Subprog AP_ACC8(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 8 : Goto APRACC
+
+Subprog AP_ACC9(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 9 : Goto APRACC
+
+Subprog AP_ACC10(VALEUR)
+Variable Char    VALEUR()
+Local Integer NLED
+NLED = 10 : Goto APRACC
+
+$APRACC
+Gosub SETNOL
+## L'unique collectif et tiers se 'raccroche' au type de référentiel principal général (soit le premier
+## type de référentiel saisissable)
+If !GIMPORT & NLED=GTYPGEN : Affzo SAC(NOL) : Endif
+End
+
+Subprog AM_ACC1(VALEUR)
+Variable Char    VALEUR()
+Call LECTURE("GAC",VALEUR,GPLAN(1)) From CONTOBJ
+If GPORTVA : # Tva portugaise
+ Case [F:GAC]VATIPT
+  When 4
+   [M]PURTYP(nolign-1) = 2 : # Purchase services
+  When 3
+   [M]PURTYP(nolign-1) = 1 : # Purchase fixed assets
+  When 5
+   [M]PURTYP(nolign-1) = 3 : # Purchase goods
+  Endcase
+Else       : # A la française
+ If [F:GAC]VATIPT=4
+  [M]PURTYP(nolign-1) = 2
+ Else
+  [M]PURTYP(nolign-1) = 1
+ Endif
+Endif
+Gosub SETNOL
+Call INIT_FLGDEP(GPLAN(1),VALEUR,NOL+1,[M]FLGDEP(NOL)) From INVDEPLIB
+End
+
+Subprog AS_BPRLIN(VALEUR)
+Variable Char     VALEUR
+Gosub SETNOL
+#Gosub RECH_ACCGEN From SUBBICS
+# Ce n'est pas le 1er compte de référentiel général mais bien le référentiel générale principal
+Local Char    PLAN(GLONCOA), COMPTE(GLONGAC)
+Local Integer INDLED
+INDLED = find(GTYPGEN,GTYPLED(1..GNBTYPLED))
+If INDLED
+ COMPTE = evalue("[M]ACC"+num$(INDLED)+"("+num$(NOL)+")")
+ PLAN  = evalue("GPLAN("+num$(INDLED)+")")
+Endif
+#
+If COMPTE<>""
+ Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+ If [F:GAC]SAC<>2 : mkstat = 1 : End : Endif
+Endif
+Gosub AFF_BPR
+If [M]STA=3 : mkstat=2 : Endif
+End
+
+$AFF_BPR
+If !mkstat & !GIMPORT & VALEUR<>"" & dim([M]AFFICHE)>0
+ Call LECTURE("BPR",VALEUR,"") From CONTOBJ
+ [M]AFFICHE = VALEUR-":"-[F:BPR]BPRNAM : Affzo AFFICHE
+Endif
+Return
+
+Subprog C_BPRLIN(VALEUR)
+Variable Char     VALEUR
+Call CONTBPR(VALEUR) From SUBBICS
+Gosub AFF_BPR
+End
+
+Subprog AS_AMTNOTLIN(VALEUR)
+Variable Decimal VALEUR
+If [M]STA=3 : mkstat=2 : End : Endif
+GBOUT2 = mess(1,106,1) : # Solde
+
+#---------------------------------------------------------
+#IRMUE 15.05.12 81574:AR/AP management
+#when amount type ="Ex tax", then skips cursor this field
+#---------------------------------------------------------
+Gosub AS_AMTNOTLIN From SUBBIS4
+#IRMUE 15.05.12 81574:AR/AP management
+End
+
+Subprog AM_AMTNOTLIN(VALEUR)
+Variable Decimal VALEUR
+If [M]TAX1(nolign-1)<>"" | [M]TAX2(nolign-1)<>"" | [M]VAT(nolign-1)<>""
+ [M]AMTNOTLIN(nolign-1) = VALEUR
+ Gosub CALTVA
+ #---------------------------------------------------------
+ #IRMUE 03.06.12 81574:AP/AR management
+ #recalculating total amounts
+ #---------------------------------------------------------
+ Gosub RECALTOTAMT From SUBBIS4
+ #IRMUE 03.06.12 81574:AP/AR management <end>
+Endif
+End
+
+Subprog B2_AMTNOTLIN(VALEUR)
+Variable Decimal VALEUR
+Gosub SETNOL
+VALEUR = [M]AMTNOT-sum([M]AMTNOTLIN(0..NOL-1))-sum([M]AMTNOTLIN(NOL+1..[M]NBLIG-1))
+End
+
+Subprog AS_VAT(VALEUR)
+Variable Char    VALEUR()
+If [M]STA=3 : mkstat=2 : Endif
+##### BESPR 87307 07/08/2013 # Intercompany enhancement
+Gosub SETNOL
+If GFONC1 = "GESBISI" and (([M]CPY <> [M]CPYLIN(NOL)) or (GCURINTCPY <> "" and GCURINTCPY <> [M]CPYLIN(NOL)))
+  Call CONT_INTCPYCOA ([M]CPYLIN(NOL)) From INTCPYLIB
+Endif
+#####
+If GCPTVAT=2
+ Gosub RECH_ACCGEN From SUBBICS
+ Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+ If [F:GAC]FLGVAT<2
+  If VALEUR<>""
+   Raz [M]VAT(NOL)
+   Gosub CALTVA
+  Endif
+  mkstat = 1 : End
+ Endif
+Endif
+GBOUT2 = mess(1,119,1) : # Saisie taxes
+End
+
+Subprog D_VAT(VALEUR)
+Variable Char    VALEUR()
+Local Char CODTAX(GLONVAT)
+##### BESPR 87307 07/08/2013 # Intercompany enhancement
+Gosub SETNOL
+If GFONC1 = "GESBISI" and (([M]CPY <> [M]CPYLIN(NOL)) or (GCURINTCPY <> "" and GCURINTCPY <> [M]CPYLIN(NOL)))
+  Call CONT_INTCPYCOA ([M]CPYLIN(NOL)) From INTCPYLIB
+Endif
+#####
+Gosub RECH_ACCGEN From SUBBICS
+Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+If [F:GAC]FLGVAT=1 : End : Endif
+# Paramètre EXETAX (Tronc commun)
+VALEUR = GEXETAX
+# Code taxe renseigné au niveau du compte général
+If [F:GAC]VAT(0)<>""
+ VALEUR = [F:GAC]VAT(0)
+ If dim([F:GAC]VAT)>1 : [M]TAX1(nolign-1) = [F:GAC]VAT(1) : Endif
+ If dim([F:GAC]VAT)>2 : [M]TAX2(nolign-1) = [F:GAC]VAT(2) : Endif
+Endif
+# Code taxe n'est pas obligatoire au niveau du compte
+# On va chercher le code taxe associé au régime tiers
+If GSAITAX=1 & [F:GAC]VAT(0)=""
+ Call LEC_TVB(GCURLEG,[M:BIS1]VAC) From CPTLEC
+ If !fstat & [F:TVB]ENAFLG=2
+  CODTAX = [F:TVB]VAT
+  If CODTAX<>""
+   Look [TVT]TVT0 = CODTAX;GCURLEG
+   If !fstat
+    VALEUR = CODTAX
+   Else
+    Look [TVT]TVT0 = CODTAX;""
+    If !fstat
+     VALEUR = CODTAX
+    Endif
+   Endif
+  Endif
+ Endif
+Endif
+[M]VAT(nolign-1) = VALEUR
+Gosub CALTVA
+End
+
+Subprog C_VAT(VALEUR)
+Variable Char VALEUR()
+If VALEUR="" & [F:GAC]FLGVAT>1 & [F:GAC]FLGVAT<5
+ [M]VAT(nolign-1) = VALEUR : Affzo [M]VAT(nolign-1)
+ GMESSAGE = mess(10,123,1)
+ mkstat = 2 : End
+Endif
+If VALEUR<>""
+ Call LEC_TVT_LEG(GCURLEG,VALEUR) From CPTLEC
+ If [F:TVT]VATTYP<>1
+  GMESSAGE = mess(11,119,1) : mkstat = 2 : End
+  # Cette taxe n'est pas de type TVA
+ Endif
+ If !GIMPORT
+  Local Integer OK
+  Call LEC_TVB(GCURLEG,[F:TVT]VATVAC) From CPTLEC
+  If !fstat
+   If [F:TVB]REGVAC=4 & [M]CEEFLG<>2
+    OK = 1 : Call AVERTIR(VALEUR-":"-mess(51,119,1),OK) From GESECRAN : # régime CEE
+    If OK<>2 : mkstat = 2 : End : Endif
+   Elsif [F:TVB]REGVAC<>4 & [M]CEEFLG=2
+    OK = 1 : Call AVERTIR(VALEUR-":"-mess(52,119,1),OK) From GESECRAN : # pas régime CEE
+    If OK<>2 : mkstat = 2 : End : Endif
+   Endif
+  Endif
+ Endif
+Endif
+End
+
+Subprog AM_VAT(VALEUR)
+Variable Char VALEUR()
+Local Integer PURPRITYPCUR
+If GIMPORT | VALEUR<>[M]VAT(nolign-1)
+ [M]VAT(nolign-1) = VALEUR
+ #-------------------------------------------------------------------------------------------------------
+ #IRMUE 03.06.12 81574:AP/AR management
+ #if amount type= "Tax inc" and "Auto tax balance" is ticked, tax amount wil be calculated from AMTNOTLIN,
+ #therefore amount typ is set to "Ex tax" and thereafter is set to "Tax inc" again
+ #total amounts are recalculated
+ #-------------------------------------------------------------------------------------------------------
+ [L]PURPRITYPCUR = [M:BIS1]PURPRITYP
+ If [M:BIS1]PURPRITYP =2 & [M]CEEFLG =2
+  [M:BIS1]PURPRITYP = 1
+ Endif
+ # IRMUE 03.06.12 81574:AP/AR MANAGEMENT <End>
+ Gosub CALTVA
+ [M:BIS1]PURPRITYP = [L]PURPRITYPCUR  # IRMUE 03.06.12 81574:AP/AR management
+ If STAT
+  Call ERR_CALTAXE(STAT,MESSA) From SUBTVT
+  GMESSAGE = MESSA : mkstat = 2 : End
+ Endif
+Endif
+Gosub RECALTOTAMT From SUBBIS4   # IRMUE 03.06.12 81574:AP/AR management
+End
+
+$CALTVA
+Local Char    TAXES(GLONVAT)(1..3), MESSA(80)
+Local Decimal MONTVAT(1..3) , MONTDED(1..3)
+Local Integer TYPREG , STAT
+Local Integer NOL
+Local Date    DATREF
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+If dim([L]PURPRITYPCUR)<=0
+   Local Integer PURPRITYPCUR
+Endif
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+NOL=nolign-1
+
+$CALTVA2
+Local Decimal DSCRAT
+If GIMPORT & dim(GAMTVAT_PIL)>0 & GAMTVAT_PIL
+   Return
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+Elsif GIMPORT : # Importation and the taxes have to be recalculated
+ [L]PURPRITYPCUR = [M:BIS1]PURPRITYP
+ [M:BIS1]PURPRITYP = 1
+Endif
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+
+Gosub RECH_ACCGEN From SUBBICS
+Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+If [F:GAC]FLGVAT>2 & [F:GAC]FLGVAT<5
+ Raz MONTVAT, MONTDED
+Else
+ TAXES(1) = [M]TAX1(NOL)
+ TAXES(2) = [M]TAX2(NOL)
+ TAXES(3) = [M]VAT(NOL)
+ DATREF = [M]ACCDAT
+ If [M]INVNUM<>""
+  If clalev([F:PIH2])=0 : Local File PINVOICE [PIH2] : Endif
+  Read [PIH2]PIH0 = [M]INVNUM
+  If !fstat : DATREF = [F:PIH2]ACCDAT : Endif
+ Endif
+#----------------------------------------------------------------------------------------------------
+ #IRMUE 03.06.12 81574:AP/AR management
+ #if amount type is "Ex tax" tax amount have to calculated from AMTNOTLIN, by "Tax inc" from AMTATILIN
+ #----------------------------------------------------------------------------------------------------
+ #Call CALTAXE([M]CPY,DATREF,"",[M]CUR
+ #& ,3,TAXES,1,[M]AMTNOTLIN(NOL),MONTVAT,MONTDED,TYPREG,STAT) From SUBTVT  ##IRMUE commented
+
+ If dim([M:BIS1]PURPRITYP)>0 & [M:BIS1]PURPRITYP =2
+  Call CALTAXE([M]CPY,DATREF,"",[M]CUR,3,TAXES,2,[M]AMTATILIN(NOL),MONTVAT,MONTDED,TYPREG,STAT) From SUBTVT
+
+ Else
+  Call CALTAXE([M]CPY,DATREF,"",[M]CUR,3,TAXES,1,[M]AMTNOTLIN(NOL),MONTVAT,MONTDED,TYPREG,STAT) From SUBTVT
+ Endif
+ #IRMUE 03.06.12 81574:AP/AR management end
+
+ ## If "Rebate on VAT" and if the line is subjeted to discount, the discount rate has to be applied on the VAT (only VAT, not the
+ ## others taxes)
+ If [M]FLGDEP(nolign-1)=2 & find([M]INVTYP,1,3) & (GDEPMGTMOD = 1 | (GDEPMGTMOD = 5 & func INVDEPLIB.DSCSFI([M:BIS1]DEP)))
+  Call DSCRAT([M:BIS1]DEP,DSCRAT) From INVDEPLIB
+  Local Decimal  CURRND
+  If func CDACUR_SYRA.GET_CURRND(GACTX,[M]CUR,CURRND,GMESSAGE)<>[V]CST_AOK
+   mkstat = 2 : Return
+  Endif
+  If DSCRAT<>0
+   MONTVAT(3) = arr(MONTVAT(3)*(1-(DSCRAT/100)),CURRND)
+   MONTDED(3) = arr(MONTDED(3)*(1-(DSCRAT/100)),CURRND)
+  Endif
+ Endif
+
+ If TYPREG<>1 & (TYPREG<>4 | [M]CEEFLG<>2)
+  Raz MONTVAT, MONTDED
+ Endif
+Endif
+
+[M]AMTTAX1(NOL) = MONTVAT(1)
+[M]AMTTAX2(NOL) = MONTVAT(2)
+[M]AMTVAT(NOL)  = MONTVAT(3)
+If dim([M]DEDTAX1)>0 : [M]DEDTAX1(NOL) = MONTDED(1) : Endif
+If dim([M]DEDTAX2)>0 : [M]DEDTAX2(NOL) = MONTDED(2) : Endif
+If dim([M]DEDVAT)>0  : [M]DEDVAT(NOL)  = MONTDED(3) : Endif
+
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+If GIMPORT
+ [M:BIS1]PURPRITYP = [L]PURPRITYPCUR
+Endif
+#----------------------------------------------------------------------------------------------------
+#28.06.12 81574:AP/AR management
+
+Return
+
+# Evolution Request 75887 - Control  with a message  & Recalculate
+Subprog AM_CEEFLG(VALEUR)
+Variable Integer VALEUR
+If [M]NBLIG=0 : End : Endif
+Local Char    TAXES(GLONVAT)(1..3), MESSA(80)
+Local Decimal MONTVAT(1..3) , MONTDED(1..3)
+Local Integer TYPREG , STAT , NOL, OK
+Local Date    DATREF
+Local Integer PURPRITYPCUR  #IRMUE 25.06.12 81574:AR/AP management
+[M]CEEFLG = VALEUR
+
+If !GIMPORT
+ For NOL=0 To [M]NBLIG-1
+  Call LEC_TVT_LEG(GCURLEG,[M]VAT(NOL)) From CPTLEC
+  Call LEC_TVB(GCURLEG,[F:TVT]VATVAC) From CPTLEC
+  If !fstat
+   If [F:TVB]REGVAC=4 & [M]CEEFLG<>2
+    # Taxe de Régime CEE - Ligne
+    OK = 1 : Call AVERTIR([M]VAT(NOL)-":"-mess(51,119,1)-"("+mess(1,114,1)-num$(NOL+1)+")",OK) From GESECRAN
+    If OK<>2 : mkstat = 2 : Endif
+    Break
+   Elsif [F:TVB]REGVAC<>4 & [M]CEEFLG=2
+    # Cette taxe n'est pas du régime CEE - Ligne
+    OK = 1 : Call AVERTIR([M]VAT(NOL)-":"-mess(52,119,1)-"("+mess(1,114,1)-num$(NOL+1)+")",OK) From GESECRAN
+    If OK<>2 : mkstat = 2 : Endif
+    Break
+   Endif
+  Endif
+ Next
+Endif
+If mkstat=2 : End : Endif
+
+# Utilisation de nolign (CALTVA2 => RECH_ACCGEN qui appelle SETNOL)
+#-------------------------------------------------------------------------------------------------------
+#IRMUE 03.06.12 81574:AP/AR management
+#if amount type= "Tax inc" and "Auto tax balance" is ticked, tax amount wil be calculated from AMTNOTLIN,
+#therefore amount typ is set to "Ex tax" and thereafter is set to "Tax inc" again
+#total amounts are recalculated
+#-------------------------------------------------------------------------------------------------------
+[L]PURPRITYPCUR = [M:BIS1]PURPRITYP
+[M:BIS1]PURPRITYP = 1
+For nolign=1 To [M]NBLIG
+ Gosub CALTVA2
+ If [M]CEEFLG<>2
+  [M]AMTATILIN(nolign-1) = [M]AMTNOTLIN(nolign-1)+[M]AMTTAX1(nolign-1)+[M]AMTTAX2(nolign-1)+[M]AMTVAT(nolign-1)
+ Else
+  [M]AMTATILIN(nolign-1) = [M]AMTNOTLIN(nolign-1)
+ Endif
+Next
+[M:BIS1]PURPRITYP = [L]PURPRITYPCUR  #IRMUE 25.06.12 81574:AR/AP management
+[M]TOTNOT = sum([M]AMTNOTLIN(0..[M]NBLIG-1))
+[M]TOTATI = sum([M]AMTATILIN(0..[M]NBLIG-1))
+Affzo [M:BIS3]
+End
+
+#IRMUE 20.06.12 81574:AR/AP management. AS_AMTATILIN commented and new created
+
+#Subprog AS_AMTATILIN(VALEUR)
+#Variable Decimal VALEUR
+#Gosub SETNOL
+#If [M]CEEFLG<>2
+ #VALEUR = [M]AMTNOTLIN(NOL)+[M]AMTTAX1(NOL)+[M]AMTTAX2(NOL)+[M]AMTVAT(NOL)
+ ### <PP ARG>
+ #If func AFNC.PARAM("ARGTAX",[M:BIS0]CPY)="2"
+  #VALEUR += [M]AMTTAXRCP(NOL)+[M]AMTTAXISS(NOL)+[M]AMTTAXOTH1(NOL)+[M]AMTTAXOTH2(NOL)
+ #Endif
+ ### <Fin PP ARG>
+#Else
+ #VALEUR = [M]AMTNOTLIN(NOL)
+#Endif
+#mkstat=2
+#End
+#IRMUE 20.06.12 81574:AR/AP management end
+
+###################################################################
+Subprog AS_AMTATILIN(VALEUR)
+Variable Decimal VALEUR
+#--------------------------------------------------------------
+#IRMUE 20.06.12 81574:AR/AP management
+#--------------------------------------------------------------
+
+If [M]STA>=3 : mkstat=2  : End  : Endif
+Gosub SETNOL
+
+If [M:BIS1]PURPRITYP <> 2 | GIMPORT
+ If [M]CEEFLG<>2
+  VALEUR = [M]AMTNOTLIN(NOL)+[M]AMTTAX1(NOL)+[M]AMTTAX2(NOL)+[M]AMTVAT(NOL)
+  If func FIN_PARAM(GAC_KAG, "ARGTAX",[M:BIS0]CPY)="2"
+   VALEUR += [M]AMTTAXRCP(NOL)+[M]AMTTAXISS(NOL)+[M]AMTTAXOTH1(NOL)+[M]AMTTAXOTH2(NOL)
+  Endif
+ Else
+  VALEUR = [M]AMTNOTLIN(NOL)
+ Endif
+ [M:BIS3]AMTATILIN(NOL) = VALEUR
+ Gosub RECALTOTAMT From SUBBIS4  #IRMUE 20.06.12 81574:AR/AP management
+ Call CAL_BASDEPLIN([M:BIS1]DEP,[M]FLGDEP(nolign-1),nolign) From INVDEPLIB
+ [M]BASDEP = sum([M]BASDEPLIN(0..max(nolign,[M]NBLIG)-1))
+ If !GIMPORT
+  Affzo BASDEP
+ Endif
+ mkstat=2 : End
+Else
+ If [M]CEEFLG<>2
+    If VALEUR <> 0  #IRMUE 16.11.12 81574:AR/AP management
+       [M]AMTNOTLIN(NOL) = VALEUR-[M]AMTTAX1(NOL)-[M]AMTTAX2(NOL)-[M]AMTVAT(NOL)
+    Endif
+ Else
+  [M]AMTNOTLIN(NOL) = VALEUR
+ Endif
+ Gosub RECALTOTAMT From SUBBIS4
+ [M]AMTATILIN(nolign-1) = VALEUR
+ Call CAL_BASDEPLIN([M:BIS1]DEP,[M]FLGDEP(nolign-1),nolign) From INVDEPLIB
+ [M]BASDEP = sum([M]BASDEPLIN(0..max(nolign,[M]NBLIG)-1))
+ If !GIMPORT
+  Affzo BASDEP
+ Endif
+ Affzo [M]AMTNOTLIN(NOL)
+ Affzo [M]AMTVAT(NOL)
+GBOUT2 = mess(1,106,1) : # Solde
+Endif
+End
+
+Subprog AV_FLGDEP(VALEUR)
+Variable Integer VALEUR
+Call DISPLAY_DSCFLD([M:BIS1]DEP,"FLGDEP") From INVDEPLIB
+End
+
+Subprog D_FLGDEP(VALEUR)
+Variable Integer VALEUR
+Gosub SETNOL
+Call INIT_FLGDEP(GPLAN(1),[M:BIS3]ACC1(NOL),NOL+1,VALEUR) From INVDEPLIB
+End
+
+Subprog AP_FLGDEP(VALEUR)
+Variable Integer VALEUR
+Gosub SETNOL
+If GDEPMGTMOD = 1 | (GDEPMGTMOD = 5 & func INVDEPLIB.DSCSFI([M:BIS1]DEP))
+ [M]FLGDEP(NOL) = VALEUR
+ Gosub CALTVA
+ [M]AMTATILIN(NOL) = [M]AMTNOTLIN(NOL)+[M]AMTTAX1(NOL)+[M]AMTTAX2(NOL)+[M]AMTVAT(NOL)
+ [M]TOTATI = sum([M]AMTATILIN(0..max(nolign,[M]NBLIG)-1))
+ If !GIMPORT
+  Affzo AMTATILIN, TOTATI
+ Endif
+Endif
+Call CAL_BASDEPLIN([M:BIS1]DEP,VALEUR,NOL+1) From INVDEPLIB
+[M]BASDEP = sum([M]BASDEPLIN(0..max(nolign,[M]NBLIG)-1))
+If !GIMPORT
+ Affzo BASDEP
+Endif
+End
+
+Subprog AM_DES(VALEUR)
+Variable Char    VALEUR()
+Gosub SETNOL
+Gosub RECH_ACCGEN From SUBBICS
+Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+If VALEUR="//"
+ VALEUR = [M:BIS1]DES(0)
+Elsif VALEUR="/" | (VALEUR="=" & NOL=0)
+ If [M]SAC(NOL)=""
+  Call LECTEXTRA(VALEUR,"GACCOUNT","DESTRA",[F:GAC]COA,[F:GAC]ACC) From ATEXTRA
+ Else
+  If clalev([F:BPR])=0 : Local File BPARTNER [BPR] : Endif
+  Call LECTURE("BPR",[M]BPRLIN(NOL),"") From CONTOBJ
+  VALEUR = [F:BPR]BPRNAM
+ Endif
+Elsif VALEUR="="
+ VALEUR = [M]DES(NOL-1)
+Endif
+End
+
+Subprog D_PURTYP(VALEUR)
+Variable Integer VALEUR
+Gosub RECH_ACCGEN From SUBBICS
+Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+If GPORTVA : # Tva portugaise
+
+# Menu local portugais
+# 1.Collectée ventes
+# 2.Collectée achats
+# 3.Déductible achats
+# 4.Déductible immos
+# 5.Déductible Biens & services
+# 6.Régul. en faveur de l'état
+# 7.Régul. en faveur de l'entreprise.
+ Case [F:GAC]VATIPT
+  When 4
+   VALEUR = 2 : # Purchase services
+  When 3
+   VALEUR = 1 : # Purchase fixed assets
+  When 5
+   VALEUR = 3 : # Purchase goods
+  Endcase
+Else       : # A la française
+ If [F:GAC]VATIPT=4
+  VALEUR = 2
+ Else
+  VALEUR = 1
+ Endif
+Endif
+End
+
+Subprog AS_PURTYP(VALEUR)
+Variable Integer VALEUR
+If [M]STA=3 : mkstat=2 : Endif
+End
+
+Subprog D_QTY(VALEUR)
+Variable Decimal  VALEUR
+Call D_QTY(VALEUR) From SUBBICS
+End
+
+Subprog AS_QTY(VALEUR)
+Variable Decimal  VALEUR
+Call AS_QTY(VALEUR) From SUBBICS
+If mkstat : End : Endif
+End
+
+Subprog AS_PJTLIN(VALEUR)
+Variable Char    VALEUR()
+# Pour ne pas bloquer avec "Code affaire inexistant" si ma société ne gère pas les affaires...
+#If fmet GACTX.APARAM.AGETVALNUM([V]CST_ALEVCPY,[M:BIS0]CPY,"PJTMGT")<>2 : mkstat = 1 : End : Endif  X3-99385
+If func FIN_PARAM(GAC_PJM, "PJTMGT",[M:BIS0]CPY) <> "2" : mkstat = 1 : End : Endif
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+# Issue X3-149906 : Action created
+Subprog AM_PJTLIN(VALEUR)
+Variable Char    VALEUR()
+  If VALEUR <> [M:BIS3]PJTLIN(nolign-1) : Raz [M:BIS3]PCCCOD(nolign-1) :  Endif
+End
+
+# Issue X3-149906 : Same control as PJTLIN when dealing with activity code and posted documents
+Subprog AS_PCCCOD(VALEUR)
+Variable Char    VALEUR()
+  If func FIN_PARAM(GAC_PJM, "PJTMGT",[M:BIS0]CPY) <> "2" : mkstat = 1 : End : Endif
+  If [M]STA=3 or [M:BIS3]PJTLIN(nolign-1) = "": mkstat=2 : End : Endif
+End
+
+Subprog AS_DSP(VALEUR)
+Variable Char     VALEUR
+Call AS_DSP(VALEUR) From SUBBICS
+If mkstat : End : Endif
+Gosub AFF_DSP
+End
+
+Subprog D_DSP(VALEUR)
+Variable Char    VALEUR()
+Call D_DSP(VALEUR) From SUBBICS
+If mkstat : End : Endif
+End
+
+Subprog C_DSP(VALEUR)
+Variable Char     VALEUR
+Call C_DSP(VALEUR) From SUBBICS
+If mkstat : End : Endif
+Gosub AFF_DSP
+End
+
+$AFF_DSP
+If !mkstat & !GIMPORT & VALEUR<>"" & dim([M]AFFICHE)>0
+ Call LECTURE("DSP",VALEUR,"") From CONTOBJ
+ If !fstat
+  [M]AFFICHE = VALEUR-":"-[F:DSP]DES : Affzo AFFICHE
+ Endif
+Endif
+Return
+
+Subprog D_CCE1(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 1 : Goto DEFCCE
+
+Subprog D_CCE2(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 2 : Goto DEFCCE
+
+Subprog D_CCE3(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 3 : Goto DEFCCE
+
+Subprog D_CCE4(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 4 : Goto DEFCCE
+
+Subprog D_CCE5(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 5 : Goto DEFCCE
+
+Subprog D_CCE6(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 6 : Goto DEFCCE
+
+Subprog D_CCE7(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 7 : Goto DEFCCE
+
+Subprog D_CCE8(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 8 : Goto DEFCCE
+
+Subprog D_CCE9(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 9 : Goto DEFCCE
+
+Subprog D_CCE10(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 10 : Goto DEFCCE
+
+Subprog D_CCE11(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 11 : Goto DEFCCE
+
+Subprog D_CCE12(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 12 : Goto DEFCCE
+
+Subprog D_CCE13(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 13 : Goto DEFCCE
+
+Subprog D_CCE14(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 14 : Goto DEFCCE
+
+Subprog D_CCE15(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 15 : Goto DEFCCE
+
+Subprog D_CCE16(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 16 : Goto DEFCCE
+
+Subprog D_CCE17(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 17 : Goto DEFCCE
+
+Subprog D_CCE18(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 18 : Goto DEFCCE
+
+Subprog D_CCE19(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 19 : Goto DEFCCE
+
+Subprog D_CCE20(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 20 : Goto DEFCCE
+
+$DEFCCE
+Call D_CCE(AXE,"BPSINVD",VALEUR) From SUBBICS
+End
+
+Subprog AS_CCE1(VALEUR)
+Variable Char    VALEUR()
+AXE = 1 : Goto SAICCE
+
+Subprog AS_CCE2(VALEUR)
+Variable Char    VALEUR()
+AXE = 2 : Goto SAICCE
+
+Subprog AS_CCE3(VALEUR)
+Variable Char    VALEUR()
+AXE = 3 : Goto SAICCE
+
+Subprog AS_CCE4(VALEUR)
+Variable Char    VALEUR()
+AXE = 4 : Goto SAICCE
+
+Subprog AS_CCE5(VALEUR)
+Variable Char    VALEUR()
+AXE = 5 : Goto SAICCE
+
+Subprog AS_CCE6(VALEUR)
+Variable Char    VALEUR()
+AXE = 6 : Goto SAICCE
+
+Subprog AS_CCE7(VALEUR)
+Variable Char    VALEUR()
+AXE = 7 : Goto SAICCE
+
+Subprog AS_CCE8(VALEUR)
+Variable Char    VALEUR()
+AXE = 8 : Goto SAICCE
+
+Subprog AS_CCE9(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 9 : Goto SAICCE
+
+Subprog AS_CCE10(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 10 : Goto SAICCE
+
+Subprog AS_CCE11(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 11 : Goto SAICCE
+
+Subprog AS_CCE12(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 12 : Goto SAICCE
+
+Subprog AS_CCE13(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 13 : Goto SAICCE
+
+Subprog AS_CCE14(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 14 : Goto SAICCE
+
+Subprog AS_CCE15(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 15 : Goto SAICCE
+
+Subprog AS_CCE16(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 16 : Goto SAICCE
+
+Subprog AS_CCE17(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 17 : Goto SAICCE
+
+Subprog AS_CCE18(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 18 : Goto SAICCE
+
+Subprog AS_CCE19(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 19 : Goto SAICCE
+
+Subprog AS_CCE20(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE = 20 : Goto SAICCE
+
+$SAICCE
+Call AS_CCE(AXE,VALEUR) From SUBBICS
+If mkstat : End : Endif
+##### BESPR 87307 05/29/2013 # Intercompany enhancement-if the Dimensions are not the same then cannot enter them here
+Local Integer CCEDISFLG : CCEDISFLG = 0
+If GFONC1 = "GESBISI" : Call CHECK_FOR_CCE(CCEDISFLG) From INTCPYLIB : Endif : If CCEDISFLG : mkstat=2 : End : Endif
+#####
+Gosub AFF_CCE
+End
+
+
+Subprog C_CCE1(VALEUR)
+Variable Char    VALEUR()
+AXE=1 : Goto CONTCCE
+
+Subprog C_CCE2(VALEUR)
+Variable Char    VALEUR()
+AXE=2 : Goto CONTCCE
+
+Subprog C_CCE3(VALEUR)
+Variable Char    VALEUR()
+AXE=3 : Goto CONTCCE
+
+Subprog C_CCE4(VALEUR)
+Variable Char    VALEUR()
+AXE=4 : Goto CONTCCE
+
+Subprog C_CCE5(VALEUR)
+Variable Char    VALEUR()
+AXE=5 : Goto CONTCCE
+
+Subprog C_CCE6(VALEUR)
+Variable Char    VALEUR()
+AXE=6 : Goto CONTCCE
+
+Subprog C_CCE7(VALEUR)
+Variable Char    VALEUR()
+AXE=7 : Goto CONTCCE
+
+Subprog C_CCE8(VALEUR)
+Variable Char    VALEUR()
+AXE=8 : Goto CONTCCE
+
+Subprog C_CCE9(VALEUR)
+Variable Char    VALEUR()
+AXE=9 : Goto CONTCCE
+
+Subprog C_CCE10(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=10 : Goto CONTCCE
+
+Subprog C_CCE11(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=11 : Goto CONTCCE
+
+Subprog C_CCE12(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=12 : Goto CONTCCE
+
+Subprog C_CCE13(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=13 : Goto CONTCCE
+
+Subprog C_CCE14(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=14 : Goto CONTCCE
+
+Subprog C_CCE15(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=15 : Goto CONTCCE
+
+Subprog C_CCE16(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=16 : Goto CONTCCE
+
+Subprog C_CCE17(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=17 : Goto CONTCCE
+
+Subprog C_CCE18(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=18 : Goto CONTCCE
+
+Subprog C_CCE19(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=19 : Goto CONTCCE
+
+Subprog C_CCE20(VALEUR)
+Variable Char    VALEUR()
+Local Integer AXE
+AXE=20 : Goto CONTCCE
+
+$CONTCCE
+Call C_CCE(AXE,VALEUR) From SUBBICS
+If mkstat : End : Endif
+Gosub AFF_CCE
+End
+
+$AFF_CCE
+If !mkstat & !GIMPORT & VALEUR<>"" & dim([M]AFFICHE)>0
+ Call LECTURE("CCE",VALEUR,GAXE(AXE)) From CONTOBJ
+ If !fstat
+  [M]AFFICHE = VALEUR-":"-[F:CCE]DES : Affzo AFFICHE
+ Endif
+Endif
+Return
+
+Subprog APRES_NBLIG
+Local Integer MAXLIG
+MAXLIG = max(nolign,[M]NBLIG)-1
+[M]TOTNOT = sum([M]AMTNOTLIN(0..MAXLIG))
+[M]TOTATI = sum([M]AMTATILIN(0..MAXLIG))
+[M]BASDEP = sum([M]BASDEPLIN(0..MAXLIG))
+If status<>7
+ If !GIMPORT
+  Affzo TOTNOT, TOTATI
+  Affzo BASDEP
+
+ Endif
+Endif
+If GS1099 : : Gosub CURR_CHECK From TEN99LIB : Gosub CALC_AMTSUBJ1099 From TEN99LIB : Endif     #1099.n
+##### BESPR 87307 05/15/2013 # Intercompany enhancement
+Gosub SETNOL
+If GFONC1 = "GESBISI" and (([M]CPY <> [M]CPYLIN(NOL)) or (GCURINTCPY <> "" and GCURINTCPY<>[M]CPYLIN(NOL)))
+  Call INTCPY_APRES_NBLIG (2, [M]CPYLIN(NOL), [M]FCYLIN(NOL)) From INTCPYLIB
+Endif
+#####
+End
+
+Subprog AV_NBLIG
+GDEV1(1) = [M]CUR
+#-S5-US93-71253--Displaying DCLEECNUM zone
+If GAC_KPO & dim([M:BIS3]DCLEECNUM)>0 # ISSUE X3-99385
+ Call LEC_CPY([M:BIS0]CPY) From CPTLEC
+ If !fstat
+  If func FIN_PARAM(GAC_KPO, "PORVAT",[F:CPY]CPY)<>"2"
+   Chgfmt [M:BIS3]DCLEECNUM With "-K:20X"
+  Else
+   Chgfmt [M:BIS3]DCLEECNUM With "+K:20X"
+  Endif
+ Endif
+Endif
+#-------------------------------------------
+#If func AFNC.ACTIV("KIT") # ISSUE X3-99385
+ If func FIN_PARAM(GAC_WTHMG, "WTMNG",[M:BIS0]CPY)<>"2" and func FIN_PARAM(GAC_KAG, "ARGRTZ",[M:BIS0]CPY)<>"2"
+  Chgfmt [M]RITCODSRC With "-K:10B"
+ Else
+  Chgfmt [M]RITCODSRC With "K:10B"
+ Endif
+#Endif # ISSUE X3-99385
+End
+
+Subprog IB_NBLIG
+
+Raz GBOUT1,GBOUT2,GBOUT3,GBOUT4
+##### BESPR 87307 07/03/2013 # Intercompany enhancement - right click Dimension option / button
+Raz GBOUT6 : If GFONC1="GESBISI" and [M]CPYLIN(nolign-1)<>[M]CPY and [M]CPYLIN(nolign-1)<>"" : Call INTCPY_IB_NBLIG ([M]CPYLIN(nolign-1),[M]FCYLIN(nolign-1),2) From INTCPYLIB : Endif
+#####
+If [M]STA<3 : # GH 28/02/01 bug 8177
+ Call TITOBJ("GDA","",GBOUT4) From CONTOBJ : # Schémas de comptes
+Endif
+If nolign-1<[M]NBLIG
+ Call TITOBJ("GAC","",GBOUT1) From CONTOBJ : # Comptes généraux
+ GBOUT2 = mess(29,106,1) : # Codes statistiques
+ If GFONC1<>"GESBISI" : GBOUT3 = mess(112,119,1) : Endif # Périodes de prestation #####BESPR 87307 05/31/2013 # Intercompany
+Endif
+# Issue X3-199974 - 2020-06-29 by VAVIL : Analytical apportionment disconnected from legislation
+#If func SUBBIS2.FIN_PARAM(GAC_SVC, "SVCFLG",[M]CPY)<>"2" : Raz GBOUT3 : Endif
+If !func AFNC.ACTIV("SVC") #Issue X3-229448 - 2020-12-20 by VAVIL : GESBIS - SVC active + SVCFLG = No : Periodic accruals not enterable
+  Raz GBOUT3
+Endif
+# End issue X3-199974
+Call IB_NOTECHECK([M:BIS3]BPRLIN(nolign-1),"BPSNUM",5)  From TRTNTSCTL # supplier notes
+
+End
+
+##### BESPR 87307 08/13/2013 # Intercompany enhancement - right click Dimension option / button - re-display dimensions incase they changed
+Subprog B6_NBLIG
+Affzo [M:BIS3]CCE1(nolign-1),CCE2(nolign-1),CCE3(nolign-1),CCE4(nolign-1),CCE5(nolign-1),CCE6(nolign-1),CCE7(nolign-1),CCE8(nolign-1),CCE9(nolign-1),CCE10(nolign-1)
+Affzo [M:BIS3]CCE11(nolign-1),CCE12(nolign-1),CCE13(nolign-1),CCE14(nolign-1),CCE15(nolign-1),CCE16(nolign-1),CCE17(nolign-1),CCE18(nolign-1),CCE19(nolign-1),CCE20(nolign-1)
+# Must reset mkstat to 4 here to enable the SAVE button because the Affzo clears it from INTCPYCCE
+mkstat = 4
+End
+#####
+
+Subprog AS_NBLIG
+If (nolign=1 and [M]NBLIG=0) or (GREP="D")
+ Local Integer LEVEL_CTL
+ LEVEL_CTL = fmet GACTX.APARAM.AGETVALNUM([V]CST_ALEVCPY,[M:BIS0]CPY,"HEAAMTBPS")
+ Case LEVEL_CTL
+ When 1     #
+ When 2     # Amt-tax and Amt+tax must be entered
+  If [M]AMTNOT = 0 or  [M]AMTATI = 0
+    GERR=1 :  GMESSAGE = mess(108,119,1)
+    mkstat=2 : End
+  Endif
+ When Default
+ Endcase
+Endif
+
+If [M]STA<3
+ If [M:BIS3]JOUCPT="" : Gosub INI_JOU : Endif
+Endif
+If nolign-1<[M]NBLIG
+ If nolign>0 & [M]ACC1(nolign-1)<>""
+  Local Integer EXERCICE , PERIODE, ASTATUS
+  [L]ASTATUS = func FINPER_SYRA.GET_PER(GACTX, [M]CPY, GTYPGEN, [M]ACCDAT, EXERCICE, PERIODE, GMESSAGE)
+  Read [FIY]FIY0 = [M]CPY;GTYPGEN;EXERCICE
+ Endif
+Endif
+Gosub AFF_NBLIG
+End
+
+$AFF_NBLIG
+Local Char    VALEUR(10)
+Local Integer NLED
+If nolign>0
+ NLED = 1
+ While evalue("[M]ACC"+num$(NLED)+"("+num$(nolign-1)+")")="" & NLED<=GNBTYPLED
+  NLED += 1
+ Wend
+ If evalue("[M]ACC"+num$(NLED)+"("+num$(nolign-1)+")")<>""
+  VALEUR = evalue("[M]ACC"+num$(NLED)+"("+num$(nolign-1)+")")
+  Gosub AFF_ACC
+ Endif
+Endif
+Return
+
+$INI_JOU
+Local Char TRANSAC(GLONGAU), JOU(GLONJOU)
+Local Integer STAT
+[L]JOU = [M:BIS0]JOU
+If [L]JOU = ""
+ If [M:BIS0]PIVTYP = "" : Return : Endif
+  Call LEC_TPV_LEG(GCURLEG,[M:BIS0]PIVTYP) From CPTLEC
+ If fstat | [F:TPV]COD2="" : Return : Endif
+ If [F:TPV]JOU<>""
+  [L]JOU = [F:TPV]JOU
+ Else
+  TRANSAC = [F:TPV]COD2
+  Call LECTURE("GAU",TRANSAC,"") From CONTOBJ
+  If fstat | [F:GAU]TBL<>"PINVOICE" : Return : Endif
+  Onerrgo ERREUR
+  Local File =[F:GAU]TBL [TB0]
+  Onerrgo
+  If STAT : Return : Endif
+  [F:TB0] = [M:BIS0]
+  [F:TB0] = [M:BIS1]
+  Call EVALAUTO(TRANSAC,"JOU",[L]JOU) From SUBBIS
+  If [L]JOU="" : Return : Endif
+ Endif
+Endif
+If !clalev([F:JCO]) : Local File GJOUCOA [JCO] : Endif
+Call LEC_JCO_LEG(GCURLEG,GPLAN(1),[L]JOU) From CPTLEC
+If fstat | [F:JCO]FRQNBR=0 : Return : Endif
+[M:BIS3]JOUCPT=[L]JOU
+Return
+
+
+$ERREUR
+STAT=1
+Resume
+
+
+Subprog C_NBLIG
+If find(status,65,68,83,73,82,67) & [M]STA>=3
+ mkstat = 2
+Endif
+
+#IRMUE 14.05.12 81574:AP/AR management begin
+Call SETCOLOR([M:BIS1]PURPRITYP) From SUBBIS4
+If [M:BIS3]NBLIG <> 0
+   Diszo [M:BIS1]PURPRITYP
+Else
+ If GDEPMGTMOD=1 or (GDEPMGTMOD = 5 & func INVDEPLIB.DSCSFI([M:BIS1]DEP))
+   Diszo [M:BIS1]PURPRITYP
+ Else
+   Actzo [M:BIS1]PURPRITYP
+ Endif
+Endif
+#IRMUE 06.11.12 81574:AP/AR management end
+If GFONC1 = "GESBISI" : Call INTCPY_C_NBLIG (2) From INTCPYLIB  :  Endif : ##### BESPR 87307 06/13/2013 # Intercompany
+End
+
+Subprog AVANT_NBLIG
+Gosub AFF_NBLIG
+End
+
+########################################
+$SETNOL
+Local Integer NOL
+NOL = nolign-1
+Return
+
+
+#-------------------------------------------------------------#
+# Ritenzione (KIB) - Controles sur RITCODSRC - NG 03/2000     #
+#-------------------------------------------------------------#
+
+Subprog D_RITCODSRC(VALEUR)
+Variable Char    VALEUR()
+If [M]RTZDEF<>""
+ If clalev([F:RTZ])=0 : Local File RITENZIONE [RTZ] : Endif # Codes retenues
+ Call LECTURE ("RTZ",[M]RTZDEF,"") From CONTOBJ
+ Gosub RECH_ACCGEN From SUBBICS
+ Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+ If [F:GAC]RITTYP<>0 & [F:RTZ]BAS([F:GAC]RITTYP-1)=2
+  VALEUR=[M]RTZDEF
+ Endif
+Endif
+End
+
+Subprog AS_RITCODSRC(VALEUR)
+Variable Char    VALEUR()
+If [M]STA=3     : mkstat=2 : End : Endif
+If [M]RTZDEF="" : mkstat=1 : End : Endif
+End
+
+Subprog C_RITCODSRC(VALEUR)
+Variable Char    VALEUR()
+
+ Local Integer TYPCHARGE,OK
+
+ If VALEUR="" Then End : Endif # Pas de code saisi, on arrete le controle
+
+ If clalev([F:RTZ])=0 : Local File RITENZIONE [RTZ] : Endif # Codes retenues
+ If clalev([F:GAC])=0 : Local File GACCOUNT   [GAC] : Endif # Comptes generaux
+
+ Call LECTURE ("RTZ",VALEUR,"") From CONTOBJ           # Lecture fiche retenue
+
+ Gosub RECH_ACCGEN From SUBBICS
+ Call LECTURE("GAC",COMPTE,PLAN) From CONTOBJ
+
+ [L]TYPCHARGE=[F:GAC]RITTYP # Type de charge associe au compte
+
+ If !([F:RTZ]TYP=1 & [F:RTZ]CAT=1) Then # Pas une retenue a la source sur reglement
+  GMESSAGE=mess(8,131,1) # Code retenue incorrect
+  mkstat=2
+ Elsif [L]TYPCHARGE=0 | [F:RTZ]BAS([L]TYPCHARGE-1)<>2 Then
+  GMESSAGE=mess(9,131,1) # Type de charge non inclus dans la base de la retenue
+  mkstat=2
+ Else
+  Call APPLICABLE (VALEUR,[M]ACCDAT,OK) From RTZCALCOM
+  If !OK Then
+   GMESSAGE=mess(13,104,1) # Hors des limites de validite
+   mkstat=2
+  Endif
+ Endif
+
+End
+
+#Subprog S_RITCODSRC(VALEUR)
+#Variable Char    VALEUR()
+#If clalev([F:RTZ])=0 : Local File RITENZIONE [RTZ] : Endif # Codes retenues
+#Filter [RTZ] Where CAT=1 : # Retenue à la source
+#Call SELECT("RTZ","",VALEUR,"") From SELOBJ
+#Filter [RTZ]
+#End
+
+Subprog AS_RATCUR(VALEUR)
+Variable Decimal VALEUR
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+Subprog AS_RATRPT(VALEUR)
+Variable Decimal VALEUR
+If [M]STA=3 : mkstat=2 : End : Endif
+End
+
+Subprog AM_RATCUR(VALEUR)
+Variable Decimal VALEUR
+Local Integer STAT
+If VALEUR=0 : VALEUR=[M]RATCUR0 : Endif
+If !GIMPORT
+    If GCPYFLG=2 & GRPTFLG=2       # Si Dev.Sté & Dev.Rpt = IN
+        If VALEUR=[M]RATCUR0 : [M]RATRPT=[M]RATRPT0 : End : Endif
+        [M]RATRPT = 0
+        Call CONVERT([M]CPYCUR,[M]RPTCUR,[F:CPY]ACCCUR,[M]CURTYP,[M]RATDAT,10^GDECRCU,[M]RATRPT,STAT) From TRTDEV
+        If STAT=0 : [M]RATRPT = arr([M]RATRPT/10^GDECRCU*VALEUR,10^-GDECRCU) : Endif
+    Elsif [M]CPYCUR=[M]RPTCUR     # Cas de figure : Dev.Sté & Dev.Rpt = OUT
+          [M]RATRPT=VALEUR
+    Endif
+Endif
+End
+
+Subprog AM_RATRPT(VALEUR)
+Variable Decimal VALEUR
+Local Integer STAT
+If VALEUR=0 : VALEUR=[M]RATRPT0 : Endif
+If !GIMPORT
+    If GCPYFLG=2 & GRPTFLG=2    # Si Dev.Sté & Dev.Rpt = IN
+        If VALEUR=[M]RATRPT0 : [M]RATCUR=[M]RATCUR0 : Affzo [M]RATCUR : End : Endif
+        [M]RATCUR = 0
+        Call CONVERT([M]RPTCUR,[M]CPYCUR,[F:CPY]ACCCUR,[M]CURTYP,[M]RATDAT,10^GDECRCU,[M]RATCUR,STAT) From TRTDEV
+        If STAT=0 : [M]RATCUR = arr([M]RATCUR/10^GDECRCU*VALEUR,10^-GDECRCU) : Endif
+     Elsif [M]CPYCUR=[M]RPTCUR  # Cas de figure : Dev.Sté & Dev.Rpt = OUT
+           [M]RATCUR=VALEUR
+    Endif
+Endif
+If !GIMPORT
+ Affzo [M]RATCUR
+Endif
+End
+
+Subprog AS_BPRVCR(VALEUR)
+Variable Char    VALEUR()
+If dim([M:BIS1]SCUVCR)>0 & func FIN_PARAM(GAC_KAG, "ARGNUM",[M:BIS0]CPY)="2"
+ If [M:BIS1]TYPVCR<>"" | [M:BIS1]CLSVCR<>"" | [M:BIS1]SCUVCR<>"" | [M:BIS1]SEQVCR<>""
+  VALEUR = [M:BIS1]TYPVCR+[M:BIS1]CLSVCR+[M:BIS1]SCUVCR+[M:BIS1]SEQVCR
+  Grizo VALEUR
+ Endif
+Endif
+End
+
+Subprog AP_SCUVCR(VALEUR)
+Variable Char    VALEUR()
+If VALEUR<>""
+ ## On rajoute les zéros à gauche...
+ If clalev([F:ATZ2])=0 : Local File ATABZON [ATZ2] : Endif
+ Local Integer LONSCU
+ Read [ATZ2]CODZONE = "SUCURSAL";"SCU"
+ LONSCU = [F:ATZ2]LONG
+ Local Char CHAINE(LONSCU)
+ CHAINE = "0"
+ While len(VALEUR)<LONSCU
+  VALEUR = CHAINE+VALEUR
+ Wend
+Endif
+End
+
+
+Subprog AP_SEQVCR(VALEUR)
+Variable Char    VALEUR()
+If VALEUR<>""
+ ## On rajoute les zéros à gauche...
+ ## On contrôle que la référence n'a pas déjà été saisie
+ If clalev([F:ATZ2])=0 : Local File ATABZON  [ATZ2] : Endif
+ If clalev([F:PIH2])=0 : Local File PINVOICE [PIH2] : Endif
+ Local Integer LONSEQ, OK
+ Read [ATZ2]CODZONE = "NUMCAI";"RANSTR"
+ LONSEQ = [F:ATZ2]LONG
+ Local Char CHAINE(LONSEQ)
+ CHAINE = "0"
+ While len(num$(VALEUR))<LONSEQ
+  VALEUR = CHAINE+VALEUR
+ Wend
+ [M:BIS1]BPRVCR = [M:BIS1]TYPVCR+[M:BIS1]CLSVCR+[M:BIS1]SCUVCR+VALEUR
+ Filter [PIH2] Where BPR = [M:BIS0]BPR & BPRVCR = [M:BIS1]BPRVCR & NUM<>[M:BIS0]NUM
+ Read [PIH2]PIH1 First
+ If !fstat
+  # Référence saisie sur facture
+  OK = 2 : Call AVERTIR(mess(6,119,1)-[F:PIH2]NUM,OK) From GESECRAN
+  If OK<>2 : mkstat = 2 : End : Endif
+ Endif
+ Affzo [M:BIS1]BPRVCR : Grizo [M:BIS1]BPRVCR
+Elsif [M:BIS1]TYPVCR="" & [M:BIS1]CLSVCR = "" & [M:BIS1]SCUVCR = "" & VALEUR = ""
+ Actzo [M:BIS1]BPRVCR
+Endif
+End
+
+
+######################################################################################
+## Etiquette ajoutée par le superviseur (écran BIS1) 14/04/2005 11:56:26 (PP)
+######################################################################################
+Subprog AV_DAS2(VALEUR)
+Variable Integer VALEUR
+End
+
+
+######################################################################################
+## Etiquette ajoutée par le superviseur (écran BIS3I) 16-04-2006 10:06:43 (MB)
+######################################################################################
+Subprog D_CNA(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog AS_CNA(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog C_CNA(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog AS_ACC(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog C_ACC(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog AP_ACC(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog AP_BPRLIN(VALEUR)
+Variable Char    VALEUR()
+End
+
+
+######################################################################################
+
+######################################################################################
+## Etiquette ajoutée par le superviseur (écran BIS3I) 17-06-2006 14:03:41 (MB)
+######################################################################################
+Subprog D_ACCIAS(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog AS_ACCIAS(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog C_ACCIAS(VALEUR)
+Variable Char    VALEUR()
+End
+
+Subprog B1_ACCIAS(VALEUR)
+Variable Char    VALEUR()
+End
+
+######################################################################################
+
+# bug 55710 - 16/06/2009 - JFL
+Subprog AP_AMTNOT(VALEUR)
+Variable Decimal VALEUR
+Local Integer OK
+Local Char INTERV(250)
+
+# on regarde s'il y a un schéma de comptes par défaut paramétré pour le client saisi
+# si oui, on demande s'il faut l'appliquer
+If clalev([F:BPS])=0 : Local File BPSUPPLIER [BPS] : Endif
+If clalev([F:GDA])=0 : Local File GDIAACC    [GDA] : Endif # X3-217797.
+If clalev([F:FGR])=0 : Local File FACGROUP   [FGR] : Endif # X3-217797.
+
+If [M:BIS0]BPR<>""
+ If !GIMPORT & (GREP="C" or GREP="D") and [M:BIS3]NBLIG=0
+  Call LECTURE("BPS",[M:BIS0]BPR,"") From CONTOBJ
+  If [F:BPS]DIA<>""
+    # X3-217797 Start.
+    # Search for related account structure.
+    Filter [F:GDA] Where [F:GDA]DIA = [F:BPS]DIA
+    Read [F:GDA] First
+    If !fstat
+      # If account structure is limited for a group of companies/sites.
+      If [F:GDA]GFY <> ""
+        # Check that selected site is inside the group.
+        Filter [F:FGR] Where [F:FGR]CPY = [F:GDA]GFY and [F:FGR]FCY = [M:BIS0]FCY
+        Look [F:FGR] First
+        # If site not in the group, don't ask for account structure application.
+        If fstat : End : Endif
+      Endif
+    Endif
+    Filter [F:GDA]
+    Filter [F:FGR]
+    # X3-217797 End.
+
+    # Voulez-vous appliquer le schéma de comptes ?
+    Call OUINON([F:BPS]DIA-mess(218,117,1),OK) From GESECRAN
+    If OK=2
+      SCHEMA = [F:BPS]DIA
+      [M]AMTNOT = VALEUR # affectation indispensable
+      INTERV = dbgstr(1)
+      Default Mask [BIS3]
+      Gosub SCHEMA From SUBBIS3
+      Default Mask INTERV
+    Endif
+  Endif
+ Endif
+Endif
+End
+
+#1099.sn
+Subprog AM_FRM1099(VALEUR)
+#--------------------------------------------------------------------#
+# When Form Value (other than None) allow entry of Box, and
+# For Transactions we disable DAS2 if 1099, you can only have one
+#--------------------------------------------------------------------#
+Variable Integer VALEUR
+
+Call AM_FRM1099(VALEUR, "BIS1") From TEN99LIB  # with screen
+End
+
+Subprog AV_AMTSUBJ1099(VALEUR)
+#-----------------------------------------------------------------#
+# AMTSUBJ1099 is disabled
+# but since we need to display/hide it by
+# Chgfmt [M:BIS1]AMT1099  With "-K:10X"
+# The disabled MD1 field ends up allowing entry when
+#  it is re-displayed so it needs an additional
+#  screen definition option of "$" (param format=GFMT)
+# and the following code to set GFMT = "Nz3:"+GDEVFMT
+# and we also need to re-Grizo it.
+#-----------------------------------------------------------------#
+Variable Decimal VALEUR
+Local Char CPYDCLFEES
+
+CPYDCLFEES = func FIN_PARAM(GAC_FEE, "DCLFEES", GSOCIETE)
+
+# One can have not have both DAS and 1099
+Case CPYDCLFEES
+
+    When "3":                  # 1GDEVFMT099        -Show
+        GFMT = "Nz3:"+GDEVFMT
+    When Default:              # None or DAS - Hide
+        GFMT = "-Nz3:"+GDEVFMT
+Endcase
+
+#Always disabled   1099.sn
+If GS1099=1 & !GIMPORT
+ Grizo [M:BIS1]AMTSUBJ1099
+ Gosub CURR_CHECK From TEN99LIB
+ If CURDIF=1 & [M]STA<3 : Actzo [M:BIS1]AMTSUBJ1099 : Endif   #1099.en
+Endif
+End
+
+Subprog D_FLG1099(VALEUR)
+#-----------------------------------------------------------------#
+# On a new line
+# Default "Yes" only if this is a 1099 invoice
+#-----------------------------------------------------------------#
+Variable Integer VALEUR
+
+If [M:BIS1]FRM1099 > 1
+  VALEUR = 2
+Else
+  VALEUR = 1
+Endif
+End
+
+#1099.en
+
+#S5-US93-71253-TVA POR
+Subprog D_DCLEECNUM(VALEUR)
+Variable Char    VALEUR()
+If nolign=1
+ Call LEC_BPR([M:BIS0]BPR) From CPTLEC
+ If !fstat : VALEUR = [F:BPR]EECNUM : Endif
+Else
+ If [M]DCLEECNUM(nolign-2)<>""
+  VALEUR = [M]DCLEECNUM(nolign-2)
+ Else
+  Call LEC_BPR([M:BIS0]BPR) From CPTLEC
+  If !fstat : VALEUR = [F:BPR]EECNUM :Endif
+ Endif
+Endif
+End
+
+Subprog AS_DCLEECNUM(VALEUR)
+Variable Char    VALEUR()
+If [M]STA=3 : mkstat = 2 : End : Endif
+End
+
+Subprog AV_BASDEP(VALEUR)
+Variable Decimal VALEUR
+Call DISPLAY_DSCFLD([M]DEP,"BASDEP") From INVDEPLIB
+End
+
+######################################################################################
+## Section automatically added (screen BIS3) 11/19/2012 13:52:21 (IRMUE)
+#IRMUE 20.05.12 81574:AP/AR management
+######################################################################################
+Subprog AM_AMTATILIN(VALEUR)
+Variable Decimal VALEUR
+Gosub AM_AMTATILIN From SUBBIS4
+End
+######################################################################################
+#IRMUE 20.05.12 81574:AP/AR management
+Subprog AM_PURPRITYP(VALEUR)
+Variable Integer VALEUR
+Gosub AM_PURPRITYP From SUBBIS4
+End
+######################################################################################
+#IRMUE 20.05.12 81574:AP/AR management
+Subprog B2_AMTATILIN(VALEUR)
+Variable Decimal VALEUR
+Call B2_AMTATILIN(VALEUR) From SUBBIS4
+End
+######################################################################################
+######################################################################################
+## Section automatically added (screen BIS1) 25-02-2014 16:35:06 (RMA)
+######################################################################################
+Subprog C_FLD40REN(VALEUR)
+Variable Char    VALEUR()
+
+If func FIN_PARAM(GAC_KPO,"PORVATREG", [M:BIS0]FCY) <> "2" : End : Endif
+
+If func PORLEGLIB.SHWHID4041(GCURLEG,[M:BIS1]VAC,2,[M:BIS0]PIVTYP,40) = "" & VALEUR = ""
+  GMESSAGE = mess(10,123,1)
+  mkstat = 2
+Endif
+
+End
+######################################################################################
+######################################################################################
+Subprog C_FLD41REN(VALEUR)
+Variable Char    VALEUR()
+
+If func FIN_PARAM(GAC_KPO, "PORVATREG", [M:BIS0]FCY) <> "2" : End : Endif
+
+If func PORLEGLIB.SHWHID4041(GCURLEG,[M:BIS1]VAC,2,[M:BIS0]PIVTYP,41) = "" & VALEUR = ""
+  GMESSAGE = mess(10,123,1)
+  mkstat = 2
+Endif
+
+End
+######################################################################################
+######################################################################################
+Subprog AM_VAC(VALEUR)
+Variable Char    VALEUR()
+
+#If func AFNC.ACTIV("KPO") # Issue X3-99385
+If GAC_KPO # Issue X3-99385
+  Raz [M:BIS1]FLD40REN
+  Raz [M:BIS1]FLD41REN
+Endif
+
+Call FLD4041DIS(VALEUR) From SUBBIS
+
+End
+######################################################################################
+######################################################################################
+Subprog AS_FLD40REN(VALEUR)
+Variable Char    VALEUR()
+
+If [M:BIS1]STA = 3 : mkstat = 2 : Endif
+
+End
+######################################################################################
+######################################################################################
+Subprog AS_FLD41REN(VALEUR)
+Variable Char    VALEUR()
+
+If [M:BIS1]STA = 3 : mkstat = 2 : Endif
+
+End
+######################################################################################
+######################################################################################
+######################################################################################
+## Section automatically added (screen BIS1) 11/25/2014 15:56:54 (RICAR)
+######################################################################################
+Subprog C_ORIDOCNUM(VALEUR)
+Variable Char    VALEUR()
+
+# BRBAN 23/10/2014 - 85785
+If func PORLEGLIB.PORIDOCNUM_IS_MANDATORY([M:BIS0]FCY,[M:BIS0]PIVTYP)
+  If VALEUR = ""
+    mkstat   = 2
+    GMESSAGE = mess(10,123,1)
+  Else
+    If [M:BIS1]STA=3
+      mkstat = 2
+      GMESSAGE = mess(9,123,1)
+    Else
+      Local Integer CTRL      :[L]CTRL       = 1
+      Call CTRL_STRUCT(VALEUR,[L]CTRL) From PORLEGLIB
+      If [L]CTRL = 0
+        Call ERREUR(mess(135,7711,1)) From GESECRAN
+        mkstat = 2
+        End
+      Endif
+    Endif
+  Endif
+Endif
+
+End
+
+# Issue X3-149906 - 2019-08-06 by UB : Added action
+Subprog C_PCCCOD(VALEUR)
+Variable Char    VALEUR()
+
+  If VALEUR <> ""
+    If not func SELPCC.ISLINKED(VALEUR, [M]PJTLIN(nolign-1))
+      [V]GMESSAGE = mess(135,2260,1) - ':' - VALEUR - mess(23,100,1)
+      mkstat = 2
+    Else
+      VALEUR = toupper(VALEUR)
+    Endif
+  Endif
+End
+######################################################################################
+# Issue X3-195162 by MRDAB/MAPON
+Subprog AM_BPAPAY(VALEUR)
+Variable Char    VALEUR()
+
+  Gosub PROMPT_BP_BID From SUBBIH
+
+End
+# Issue X3-195162 end
+######################################################################################
