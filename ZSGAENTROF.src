@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
+# 06.314.024 - JC.10032022.Adapación importación ROF para subcontratación
 ##########################################################################################################################
 
 #If GUSER="ADEV" Then
@@ -35,6 +36,8 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZSHH]) : Local File SHIPMENT    [ZSHH] : Endif
   If !clalev([F:ZSHD]) : Local File SHIPMENTD   [ZSHD] : Endif
   If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
+  If !clalev([F:ZPTH]) : Local File PRECEIPT    [ZPTH] : Endif            # 06.314.024.new
+  If !clalev([F:ZPTD]) : Local File PRECEIPTD   [ZPTD] : Endif            # 06.314.024.new
 
   WFICHEROIMP='ROF0*'
 #  WFICHEROIMP='ABCROF022020092313471700D'
@@ -107,6 +110,31 @@ Local Clbfile XDATA (10)
           If !fstat
             WDEVOLUCION=2
             Gosub RESU_SRH
+# 06.314.024.ini
+          Else
+            Read [F:ZPTH]PTH0=WRORCODE
+            If !fstat
+              Filter [F:ZPTD] Where PTHNUM = WRORCODE
+              For [F:ZPTD]
+                If [F:ZPTD]LINTYP = 3
+                  Call ECR_TRACE ("***Recepción pedido subcontratación***",0) From GESECRAN
+                  [F:ZPTH]ZRECCOD   = WRECCODE
+                  [F:ZPTH]ZNUMCONT  = num$(WRECDATCONTAINERS)
+                  [F:ZPTH]ZDATREC   = gdat$(val(mid$(WRECDATDATE,9,2)),val(mid$(WRECDATDATE,6,2)),val(mid$(WRECDATDATE,1,4)))
+                  Trbegin [F:ZPTH]
+                  Rewrite [F:ZPTH]
+                  If !fstat Then
+                    Commit
+                  Else
+                    Rollback
+                  Endif
+                  Goto END_ACTPTH
+                Endif
+              Next
+              $END_ACTPTH
+              Filter [F:ZPTD]
+            Endif
+# 06.314.024.fin
           Endif
         Else
           Gosub RESU_SHH
