@@ -3,6 +3,7 @@
 # 06.288.868 - JC.05012022.Arrastre del arancel desde expedición a recepción
 # 06.302.893 - JC.21012022.Problema no contemplat amb recepcions
 # 06.308.334 - JC.01022022.Mensaje error REF pero no vemos el error
+# 06.314.024 - JC.10032022.Adapación importación REF para subcontratación
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -34,6 +35,7 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZSRD]) : Local File SRETURND    [ZSRD] : Endif
   If !clalev([F:ZPTH]) : Local File PRECEIPT    [ZPTH] : Endif
   If !clalev([F:ZPOH]) : Local File PORDER      [ZPOH] : Endif
+  If !clalev([F:ZPTD]) : Local File PRECEIPTD   [ZPTD] : Endif            # 06.314.024.new
 
   WFICHEROIMP='REF0*'
 #  WFICHEROIMP='REF0120220122132222000'      # larga
@@ -98,6 +100,22 @@ Local Clbfile XDATA (10)
      WM=I
      WNLIN=0
 
+# 06.314.024.ini
+    Read [ZPTH]PTH0=WRECEIPTCODE
+    If !fstat Then
+      Filter [F:ZPTD] Where PTHNUM = [F:ZPTH]PTHNUM
+      For [F:ZPTD]
+        If [F:ZPTD]LINTYP = 3
+          Call ECR_TRACE ("***Recepción pedido subcontratación***",0) From GESECRAN
+          Openi Using [ZZZ]
+          Filter [F:ZPTD]
+          Goto END_ESPTHSC
+        Endif
+      Next
+      Filter [F:ZPTD]
+    Endif
+# 06.314.024.fin
+
      While 1=1
       WLNENUMBER =""
       WLNENUMBER        =func GET_PROPXML(XDATA,"LneNumber",I)
@@ -130,9 +148,6 @@ Local Clbfile XDATA (10)
       Read [ZSRH]SRH0=WLNERECORDERCODE
       If !fstat
         WDEVOLUCION=2
-      Else
-        Read [ZPTH]PTH0=WLNERECORDERCODE
-        WRECEPCION=2
       Endif
     Endif
 # JC.25112021-EXP.FIN
@@ -174,6 +189,8 @@ Local Clbfile XDATA (10)
       Endif
       System "ae_rm " + filpath(WSGATMP,WFICINP1,"","")
     Endif
+
+    $END_ESPTHSC                                                          # 06.314.024.new
 
     # JC.01122021.INI
     If LERROR <> 0 Then
