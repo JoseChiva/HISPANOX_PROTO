@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # JC.24112021-1. Añadir líneas de detalle de lote
 # 06.304.683 - JC.27012022.Versión kit en el ROR para artículos con estructura KIT
+# 06.315.798 - JC.15032022.Devoluciones, 2 lotes internos en un solo artículo
 ##############################################################
 
 #FILTRO EXTERNO
@@ -621,17 +622,24 @@ $LINEASSRH
     LEXTQTY = [F:ZSRD2]EXTQTY
     LQTYSDD = [F:ZSDD]QTY
     LCANT   = LEXTQTY
-    For [F:ZSTJ]
-      If LEXTQTY - abs([F:ZSTJ]QTYPCU) > 0 Then
-#        WLNECSTATT05  -= num$(abs([F:ZSTJ]QTYSTU)) + " unidades lote " + [F:ZSTJ]LOT
-        WLNECSTATT05  -= [F:ZSTJ]LOT
-        LEXTQTY       -= abs([F:ZSTJ]QTYPCU)
-      Else
-#        WLNECSTATT05  -= num$(LEXTQTY) + " unidades lote " + [F:ZSTJ]LOT
-        WLNECSTATT05  -= [F:ZSTJ]LOT
-      Endif
-    Next
-    Filter [ZSTJ]
+# 06.315.798.ini
+#    For [F:ZSTJ]
+#      If LEXTQTY - abs([F:ZSTJ]QTYPCU) > 0 Then
+##        WLNECSTATT05  -= num$(abs([F:ZSTJ]QTYSTU)) + " unidades lote " + [F:ZSTJ]LOT
+#        WLNECSTATT05  -= [F:ZSTJ]LOT
+#        LEXTQTY       -= abs([F:ZSTJ]QTYPCU)
+#      Else
+##        WLNECSTATT05  -= num$(LEXTQTY) + " unidades lote " + [F:ZSTJ]LOT
+#        WLNECSTATT05  -= [F:ZSTJ]LOT
+#      Endif
+#    Next
+#    Filter [ZSTJ]
+    Local Integer LNUMREG
+    LNUMREG = rowcount([F:ZSTJ])
+    If LNUMREG = 1 Then
+      WLNECSTATT05  = [F:ZSTJ]LOT
+    Endif
+# 06.315.798.fin
     AA=func PUT_PROPXML('LneCstAtt05',vireblc(WLNECSTATT05,2),5,2)
 # JC.22092021.FIN
     AA=func PUT_PROPXML('/LneCustomAttributes','',4,1)

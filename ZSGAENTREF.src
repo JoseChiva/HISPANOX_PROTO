@@ -4,6 +4,7 @@
 # 06.302.893 - JC.21012022.Problema no contemplat amb recepcions
 # 06.308.334 - JC.01022022.Mensaje error REF pero no vemos el error
 # 06.314.024 - JC.10032022.Adapación importación REF para subcontratación
+# 06.315.798 - JC.15032022.Devoluciones, 2 lotes internos en un solo artículo
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -1593,23 +1594,58 @@ Local   Integer LCONTROL
 
   # cuerpo del mensaje
   If !clalev([F:ZREF1]) Then : Local File ZEXPOREFDEV [F:ZREF1] : Endif
+  If !clalev([F:ZSRD1]) Then : Local File SRETURND    [F:ZSRD1] : Endif   # 06.315.798.new
+  If !clalev([F:ZSTJ1]) Then : Local File STOJOU      [F:ZSTJ1] : Endif   # 06.315.798.new
   GMENSAJE1 = "Fichero recibido:" - LNOMFICHERO
   Filter [F:ZREF1] Where NOMFICH = LNOMFICHERO and INDICADOR = "L"
   For [F:ZREF1]
+# 06.315.798.ini
+    Read [F:ZSRD1]SRD0 = [F:ZREF1]SRHNUM;[F:ZREF1]SRDLIN
+    Filter [F:ZSTJ1] Where STOFCY = 'PHISP'and VCRTYP = 4 and VCRNUM = [F:ZSRD1]SDHNUM and VCRLIN = [F:ZSRD1]SDDLIN
+    Local Integer LNUMREG : LNUMREG = rowcount([F:ZSTJ1])
+    Local Char    LLOTSDH(250)
+# 06.315.798.fin
     If LCONTROL = 0 Then
-      GMENSAJE2 = " **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
-&                 "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
-      LCONTROL = 1
+# 06.315.798.ini
+#      GMENSAJE2 = " **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
+#&                 "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
+#
+#      LCONTROL = 1
+#    Else
+#      GMENSAJE2 += chr$(13)+chr$(10)+" **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
+#&                  "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
+#    Endif
+      If LNUMREG = 1 Then
+        GMENSAJE2 = " **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
+&                   "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
+        LCONTROL = 1
+      Else
+        For [ZSTJ1]
+          LLOTSDH += [F:ZSTJ1]LOT+" - "
+        Next
+        GMENSAJE2 = " **** ATENCIÓN: La línea de devolución proviene de una línea de entrega con más de un lote. Se requiere ajustar stock / Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-
+&                   num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-"/ Estado:"-[F:ZREF1]STA-"/ Lote SGA:"-[F:ZREF1]LOT-"/ Lotes Entrega:"-LLOTSDH
+        LCONTROL = 1
+      Endif
     Else
-      GMENSAJE2 += chr$(13)+chr$(10)+" **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
-&                  "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
+      If LNUMREG = 1 Then
+        GMENSAJE2 += chr$(13)+chr$(10)+" **** Nº devolución:"-[F:ZREF1]SRHNUM-"/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-
+&                    "/ Estado:"-[F:ZREF1]STA-"/ Lote:"-[F:ZREF1]LOT
+      Else
+        For [ZSTJ1]
+          LLOTSDH += [F:ZSTJ1]LOT+" - "
+        Next
+        GMENSAJE2 += chr$(13)+chr$(10)+" **** ATENCIÓN: La línea de devolución proviene de una línea de entrega con más de un lote. Se requiere ajustar stock / Nº devolución:"-[F:ZREF1]SRHNUM-
+&                    "/ Nº línea:"-num$([F:ZREF1]SRDLIN/1000)-"/ Artículo:"-[F:ZREF1]ITMREF-"/ Cantidad:"-num$([F:ZREF1]QTY)-"/ Estado:"-[F:ZREF1]STA-"/ Lote SGA:"-[F:ZREF1]LOT-
+&                    "/ Lotes Entrega:"-LLOTSDH
+      Endif
     Endif
+# 06.315.798.fin
   Next
   Filter [F:ZREF1]
   GMENSAJE3 = "La devolución" - [F:ZREF1]SRHNUM - "ha sido recepcionada en almacén."
   GMENSAJE4 = "IMPORTANTE: hay que proceder a la confirmación de las cantidades devueltas en cada línea de la devolución en Sage y a la creación del abono (si corresponde)."
-  Close Local File [ZREF1]
-
+  Close Local File [ZREF1],[ZSRD1],[ZSTJ1]
   # lanza un workflow para avisar de que la importación ha fallado
   Call WORKFLOW (1,"ZRF","",GUSER) From AWRK
   If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
