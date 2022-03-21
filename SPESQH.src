@@ -14,6 +14,7 @@
 # 06.311.333 - JC.09022022.Error al importar un precio del grid presupuestos
 # 06.320.448 - JC.03032022.Error al recalcular Coste%
 # 06.322.933 - JC.09032022.Cálculo erróneo de los bloques 'Marge/Acumulado' y 'Bloque informativo'
+# 06.325.878 - JC.21032022.Campo Transportista no carga información del cliente destinatario al modificar dirección de entrega
 ######################################################################################
 
 ######################################################################################
@@ -1020,6 +1021,22 @@ If [M:ZSQH1]ZSQHNUM(nolign-1) <> "" Then
 
 Endif
 
+End
+
+######################################################################################
+## Después de modificar el campo 'Dirección entrega' (pantalla SQH1) 21/03/2022 11:24:27 (ADEV)
+######################################################################################
+Subprog AM_BPAADD(VALEUR)
+Variable Char    VALEUR()
+# 06.325.878.ini
+  If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+  Read [F:ZBPD]BPD0 = [M:SQH0]BPCORD;VALEUR
+  If !fstat Then
+    [M:SQH1]BPTNUM = [F:ZBPD]BPTNUM
+    Affzo [M:SQH1]BPTNUM
+  Endif
+  Close Local File [ZBPD]
+# 06.325.878.fin
 End
 
 ######################################################################################
