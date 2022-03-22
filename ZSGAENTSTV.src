@@ -9,6 +9,7 @@
 # 06.315.530 - JC.22022022.Mail error STV sin errores y con información no coherente. Renombrar los fichero que llegan con .0
 # 06.319.073 - AMG.28022022.tarea ZSGAENTSTV está fallando (relacionado con 06.315.530 - No renombraba el fichero .0 xq ya existía otro con ese nombre)
 # 06.326.681 - JC.21032022.Ajustes stock STV con estado QK
+# 06.324.834 - JC.22032022.No lee correctamente ciertos ficheros STV de actualización porque la estructura del fichero cambia
 #############################################################
 
 #If GUSER="ADEV"
@@ -37,7 +38,8 @@ Local Clbfile XDATA (10)
 #  If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
 
   WFICHEROIMP='STV0*'
-#  WFICHEROIMP='aaaSTV02_2138_2'
+  WFICHEROIMP='STV0120220311133851000'
+#  WFICHEROIMP='STV0120211130080032007'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -384,6 +386,27 @@ Local Clbfile XDATA (10)
         WQUANTITYVAR    = func GET_PROPXML(XDATA,"CstAtt16",I)
       Endif
       # JC.06102021.FIN
+
+# 06.324.834.ini
+      If WOPERATIONACT='U'
+        Local Integer R1,R2,R3,R4
+        R1=1 : R2=1 : R3=1 : R4=1
+        RESULT = func GET_PROPXML(XDATA,"FilterCustomAttributes",R1)
+        If R1=1 Then
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+          WCSTATT05FCA  = ''
+          WCSTATT05CA   = RESULT
+        Else
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05FCA  = RESULT
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05CA   = RESULT
+        Endif
+      Endif
+# 06.324.834.fin
 
       If WOPERATIONACT = "D" or WOPERATIONACT = "U" Then
         Local Char LITMSTA(10)
