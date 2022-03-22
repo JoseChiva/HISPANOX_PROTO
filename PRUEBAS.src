@@ -1,18 +1,106 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-######
+Local Char    WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
+Local Char    WFICINP1(250), FICH2(250), WREFSMR(10), WREFSMO(10)
+Local Integer NFICHEROS, WNESTADO, NFICH2, I
+Local Char    FICHEROS(250)(1..1000)
+Local Char    FICHEROIMP(250), FICHEROEXP(250)
+Local Integer A, LFSTATFICHERO, NFICHEROS, LCONTADOR
+Local Clbfile XDATA (10)
+Local Char RESULT(250)
 
-If !clalev([F:ZSTJ]) Then : Local File ZSTOJOU [F:ZSTJ] : Endif
-[F:ZSTJ]ITMREF = '23061'
-[F:ZSTJ]STOFCY = 'PHISP'
-[F:ZSTJ]QTYSTU = 1
-[F:ZSTJ]VARORD = 7.8272730
-Trbegin [F:ZSTJ]
-Write [F:ZSTJ]
-If !fstat Then
-  Commit
-Else
-  Rollback
-Endif
-Close Local File [ZSTJ]
+#  WFICHEROIMP='STV0*'
+  WFICHEROIMP='STV0120220311133851000'
+  WFICHEROIMP='STV0120211130080032007'
+  Raz NFICHEROS
+
+  WSGATMP       = "ZSGA\SGA\IMPORTX3"
+  WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
+  WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\STV"
+  WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"
+
+  CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+  LFSTATFICHERO=0
+
+  For A=1 To NFICHEROS
+
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+
+    #Abrimos y leemos el fichero
+    Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
+    Iomode adxifs  ""                 Using [ZZZ]
+    Iomode adxirs  ""                 Using [ZZZ]
+    Iomode adxium  50                 Using [ZZZ]
+
+    Rdseq XDATA Using [ZZZ]
+    Local Char    WSITE(250), WSTATUS(250)
+    Local Char    WITEMCODE(250),WOWNERCODE(250),WLOCATIONCODE(250),WSTAUSRCODE(250),WQUANTITYVAR(250),WUOMCODE(250)
+    Local Char    WREASONCODE(250),WCOMMENT(250),WCSTATT01FCA(250),WCSTATT02FCA(250),WCSTATT03FCA(250),WCSTATT04FCA(250),WCSTATT05FCA(250),WCSTATT06FCA(250)
+    Local Char    WCSTATT01CA(250),WCSTATT02CA(250),WCSTATT03CA(250),WCSTATT04CA(250),WCSTATT05CA(250),WCSTATT06CA(250)
+    Local Char    WREFSMR(250),WREFSMO(250),RESULT(250)
+    Local Integer WNLIN,IANT,CONTROL1,CONTROL2,WLONG
+
+# 06.315.255.ini
+    Local Integer J,K,L,M
+    Local Char    C1(250),C2(250)
+
+    I=1
+    J=1
+    K=1
+    L=1
+    M=1
+    WNLIN=0
+    WOPERATIONACT=''
+      WOPERATION = ""
+      WOPERATION = func GET_PROPXML(XDATA,"Operation",I)
+      If WOPERATION = 'U' Then
+        RESULT = func GET_PROPXML(XDATA,"FilterCustomAttributes",J)
+        If J=1 Then
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",K)
+Infbox "Lote salida = ''"
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",L)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",M)
+Infbox "Lote entrada = '"+RESULT+"'"
+        Else
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",K)
+Infbox "Lote salida = '"+RESULT+"'"
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",K)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",K)
+Infbox "Lote entrada = '"+RESULT+"'"
+        Endif
+      Endif
+
+    Openi Using [ZZZ]
+
+  Next
 
 End
+
+##############################################################
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+Local Integer J, OLDI
+
+  OLDI=I
+#  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          CRETORNO=seg$(XMLSTRING,I+1,J-1)
+          I+=len("\"+VARNAME)
+          End CRETORNO
+        Endif
+    Endif
+  Else
+    I=OLDI
+  Endif
+End ""
