@@ -1,0 +1,2437 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.319.759 - JC.02032022.Facturas Canarias. Añadir Incoterm al generar la entrega
+#####################################################################################
+
+#######################################################################
+# IMPSDHS : Import Spécifique des Livraisons en V140
+#----------------------------------------------------------------------
+#
+#######################################################################
+# Issue 110491 - 20151130 by LD : Import livraison de BP avec kits commerciaux
+# Issue 114349 - 20160408 by LD : Bill-to customer in shipments import
+# Issue 106154 - 20190104 by LD : Delivery import without delivery date
+
+$ACTION
+
+Case ACTION
+ When "IMP_OUVRE"       : Gosub IMP_OUVRE :#--CPO 71937 TVT et multi-lèg
+ When "IMP_COMPILE"     : Gosub IMP_COMPILE
+ When "IMP_TRTSUP"      : Gosub IMP_TRTSUP
+ When "IMP_AVANT_OUVRE" : Gosub IMP_AVANT_OUVRE
+ When "AP_IMPORT"       : Gosub AP_IMPORT
+ When "IMP_FERME"       : Gosub IMP_FERME
+ When "IMP_ZONE"        : Gosub IMP_ZONE
+ When "IMP_TAB"         : Gosub IMP_TAB
+
+ When "EXP_OUVRE"       : Gosub EXP_OUVRE From IMPSDH
+ When "EXPORT"          : Gosub EXPORT    From IMPSDH
+ When "EXP_ZONE"        : Gosub EXP_ZONE  From IMPSDH
+
+ When Default
+Endcase
+
+Return
+
+#######################################################################
+#                        IMPORT
+#######################################################################
+# Debut de la generation du traitement WWIxxxxxx, appele par SUBIMPOBJ
+#----------------------------------------------------------------------
+$IMP_COMPILE
+Return
+
+#######################################################################
+# Fin de generation du traitement WWIxxxxxx, appele par SUBIMPOBJ
+#----------------------------------------------------------------------
+$IMP_TRTSUP
+Return
+
+#######################################################################
+# Fin de generation du traitement WWIxxxxxx, appele par SUBIMPOBJ
+#----------------------------------------------------------------------
+$IMP_AVANT_OUVRE
+Return
+
+$IMP_OUVRE
+Local Integer WRET :#--CPO 71937
+Return
+#######################################################################
+$AP_IMPORT
+Return
+#######################################################################
+
+$IMP_FERME
+GREP=""
+GSTK_ACT="FERME" : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="FERME"       : Gosub ACTION From GOBJSUB : Gosub DEFAUT From WOSDH
+GSTK_ACTION="IMP_FERME" : Gosub ACTION From STKIMP
+Kill GSTK_ACTION, GSTK_BASTAB, GSTK_TRSTYP, GSTK_VCRTYP, GSTK_TRACE
+
+If dim(G_LINTYP)>0 : Kill G_LINTYP : Endif
+If dim(G_FOCFLG)>0 : Kill G_FOCFLG : Endif : # Bug 68619
+If dim(GW_MDL)>0     : Kill GW_MDL     : Endif :#--CPO 83646
+If dim(GW_HSOHNUM)>0 : Kill GW_HSOHNUM : Endif :#--CPO 83646
+
+Return
+
+
+#######################################################################
+# Appel depuis SUBIMPOBJ (import spécifique IMPORTYP=2)
+# ---------------------------------------------------------------------
+# Garni
+# GABREV = "SDH"         WINPROG= "WGOSDH"
+# PROGOBJ="WOSDH"        PROGSUB="SUBSDH"      PROGSPE="SPESDH"
+# PROGIMP="IMPSDHS"      PROGIMS=""
+#######################################################################
+
+$OUVRE
+
+Local    Integer IJ0
+Global   Char    GW_ABRMSK        : # type d' adresse (2=livraison / 3=facture)
+Global   Integer GW_ADB2          : # au moins un champ adresse livraison paramétré
+Global   Integer GW_ADB3          : # au moins un champ adresse facture   paramétré
+Global   Integer GW_SCEE          : # au moins un champ Info CEE
+Global   Integer GW_SREN          : # au moins un champ Motifs (ligne détail)
+Global   Integer GW_SCCE          : # au moins un champ sections analytiques stock
+Global   Integer GW_MDL           : #--CPO 83646
+Global   Integer GW_HSOHNUM       : #--CPO 83646
+
+Global   Char    GSTK_ACTION (20)                              : # Nom action de STKIMP
+Global   Char    GSTK_BASTAB (20) : GSTK_BASTAB="[M:SDH1]NBLIG": # Nom variable bas tableau
+Global   Libelle GSTK_TRSTYP      : GSTK_TRSTYP=4              : # Type mouvement (M.704)
+Global   Libelle GSTK_VCRTYP      : GSTK_VCRTYP=4              : # Type pièce (M.701)
+Global   Libelle GSTK_TRACE       : GSTK_TRACE =1              : # Trace détaillée si =2
+
+Global   Integer G_LINTYP
+Global   Integer G_FOCFLG           : # Bug 68619
+Local    Char    WNEWPJT (GLONPJT)  : # 71065 : PJT
+
+If GSTOTRACE>2  GSTK_TRACE=2 : Endif
+#If GUSER="JL" : GSTK_TRACE=1 : Endif
+
+Local  Char     WGRPDEB(GLONVCR) : #VPO 15/02/11 71600
+Local  Integer  WNOL, WNBLIG     : # Bug 71051
+Local  Integer  WSVGNBLIG        : # Bug 75756
+
+# Issue X3-235555 - 2021-02-12 by SR : Control Credit taking into account the sales order status
+Local Integer CDTSTA, WUNL
+Local Decimal WOST, WOSTAUZ
+Local Char    WNUMPIE(GLONVCR)
+# End issue X3-235555
+
+# Bug 67504
+If clalev([M:SDH0])=0 : Local Mask SDH0 [SDH0] : Endif
+If clalev([M:SDH1])=0 : Local Mask SDH1 [SDH1] : Endif
+If clalev([M:SDH2])=0 : Local Mask SDH2 [SDH2] : Endif
+If clalev([M:SDH3])=0 : Local Mask SDH3 [SDH3] : Endif
+Default Mask [SDH0] : Default Mask [SDH1] : Default Mask [SDH2] : Default Mask [SDH3]
+# Bug 67504
+
+
+#-- X3Suivi 81538 Import en mode test --#
+#----- Sélection de la transaction de livraison -----#
+If !clalev ([F:SLT]) : Local File SALTRS  [SLT] : Endif
+GFLAG=""
+Call PARAML("","TRSLIV",GBIDC3) From ADOVAL : GFLAG=GBIDC3      # FGR 28/07/2015 : X3SUIVI108078 : Plus Call PARAM (performances)
+Read [SLT] SLT0=4;GFLAG
+If fstat | [F:SLT]DLVTYP<>4
+  Filter [SLT] Where STRTYP=4 & ENAFLG=2 & DLVTYP=4
+  Read [SLT] SLT0 First
+  Filter [SLT]
+  If fstat
+    If GTRACE<>""
+      Call ECR_TRACE(mess(367,192,1),1) From GESECRAN
+    Else
+      Infbox mess(367,192,1) : #-- Aucune transaction de livraison 'Tous types' et active n'a été trouvée
+    Endif
+    OK=0 : FIN=1 : Return
+  Endif
+  GFLAG=[F:SLT]STRNUM
+Endif
+
+# 40127 : Return status management
+Local Integer WRET
+Call TST_CHAMP ("SDH","RTNSTA", WRET)        From SUBIMPOBJ
+If WRET
+    # Le champ RTNSTA paramétré dans le modèle d'import ne sera pas pris en compte
+    Call ECR_TRACE(func AFNC.MES1(mess(266,191, 1), "RTNSTA"),0) From GESECRAN
+Endif
+# 40127
+
+[F:SLT]STKFLG   =2 : # On force la détermination du stock à sortir à "Oui"
+[F:SLT]PRNCOD1  =1 : # On force l'impression d'étiquettes à "Non"
+[F:SLT]PRNNBFLG1=1 : # On force le nbre d'impression à "Non"
+#-----
+
+#--- ouverture des tables de l'objet
+
+[L]ACTION="OUVRE" : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+# Dem 39147
+GSLTSTKFLG = [F:SLT]STKFLG
+
+GSLTENTCOD=[F:SLT]ENTCOD     : # 90020 : Init pièce auto stock avec la txn de saisie
+WSLTTRSCOD=[F:SLT]TRSCOD     : # 90020 : Init code mouvement avec la txn de saisie
+WSLTTRSFAM=[F:SLT]TRSFAM     : # 90020 : Init famille mouvement avec la txn de saisie
+
+#--- ouverture autres tables et masques necessaires
+
+If clalev([M:STW])=0  : Local Mask STOWORK    [STW]  : Endif
+If clalev([M:SREN])=0 : Local Mask SALREN     [SREN] : Endif
+If clalev([M:SCEE])=0 : Local Mask SCEE       [SCEE] : Endif
+If clalev([M:ADB2])=0 : Local Mask ADRBPC     [ADB2] : Endif
+If clalev([M:ADB3])=0 : Local Mask ADRBPC     [ADB3] : Endif
+
+[L]ACTION="IMP_OUVRE" : Gosub OUVRE_TEXTE From IMPSDH
+
+If clalev([M:SDH0])>0 : Default Mask [SDH0] : Endif
+If clalev([M:SDH1])>0 : Default Mask [SDH1] : Endif
+If clalev([M:SDH2])>0 : Default Mask [SDH2] : Endif
+If clalev([M:SDH3])>0 : Default Mask [SDH3] : Endif
+
+Gosub FLD_MODELE From TRTX3IMP
+
+Global Char M_ADB  (15) (0..10) : # champs masque adresse standard
+Global Char T_ADB2 (15) (0..10) : # zones SDELIVERY de adresse livraison
+Global Char T_ADB3 (15) (0..10) : # zones SDELIVERY de adresse facture
+Global Char M_SCEE (15) (0..8)  : # champs masque info CEE
+Global Char T_SCEE (15) (0..8)  : # zones SDELIVERY des info CEE
+Global Char M_SREN (15) (0..20) : # champs masque motifs ligne detail
+Global Char T_SREN (15) (0..20) : # zones SDELIVERYD
+Global Char M_SDH1 (15) (0..20) : # champs masque ligne SDH1
+Global Char T_SDD  (15) (0..20) : # zones SDELIVERYD
+
+M_ADB(0)="BPRNAM"      : T_ADB2(0)="BPDNAM"      : T_ADB3(0)="BPINAM"
+M_ADB(1)="BPAADDLIG"   : T_ADB2(1)="BPDADDLIG"   : T_ADB3(1)="BPIADDLIG"
+M_ADB(2)="POSCOD"      : T_ADB2(2)="BPDPOSCOD"   : T_ADB3(2)="BPIPOSCOD"
+M_ADB(3)="CTY"         : T_ADB2(3)="BPDCTY"      : T_ADB3(3)="BPICTY"
+M_ADB(4)="SAT"         : T_ADB2(4)="BPDSAT"      : T_ADB3(4)="BPISAT"
+M_ADB(5)="CRY"         : T_ADB2(5)="BPDCRY"      : T_ADB3(5)="BPICRY"
+M_ADB(6)="CRYNAM"      : T_ADB2(6)="BPDCRYNAM"   : T_ADB3(6)="BPICRYNAM"
+M_ADB(7)="CNTNAM"      : T_ADB2(7)="CNDNAM"      : T_ADB3(7)="CNINAM"
+M_ADB(8)="BPAADD"      :                         : T_ADB3(8)="BPAINV"
+
+#M_ADB(8)="EECNAM"      :
+#T_ADB3(8)="BPIEECNUM"
+
+M_SCEE(0)="XEECNAT"    : T_SCEE(0)="EECNAT"
+M_SCEE(1)="XEECSCH"    : T_SCEE(1)="EECSCH"
+M_SCEE(2)="XEECLOC"    : T_SCEE(2)="EECLOC"
+M_SCEE(3)="XEECTRN"    : T_SCEE(3)="EECTRN"
+M_SCEE(4)="XEECICT"    : T_SCEE(4)="EECICT"
+M_SCEE(5)="XICTCTY"    : T_SCEE(5)="ICTCTY"
+M_SCEE(6)="XFFWNUM"    : T_SCEE(6)="FFWNUM"
+M_SCEE(7)="XFFWADD"    : T_SCEE(7)="FFWADD"
+M_SCEE(8)="XEECNUM"    : T_SCEE(8)="BPIEECNUM"
+
+M_SREN(0)="GROPRICOD"  : T_SREN(0)="PRIREN"
+M_SREN(1)="DISCRGCOD1" : T_SREN(1)="DISCRGREN1"
+M_SREN(2)="DISCRGCOD2" : T_SREN(2)="DISCRGREN2"
+M_SREN(3)="DISCRGCOD3" : T_SREN(3)="DISCRGREN3"
+M_SREN(4)="DISCRGCOD4" : T_SREN(4)="DISCRGREN4"
+M_SREN(5)="DISCRGCOD5" : T_SREN(5)="DISCRGREN5"
+M_SREN(6)="DISCRGCOD6" : T_SREN(6)="DISCRGREN6"
+M_SREN(7)="DISCRGCOD7" : T_SREN(7)="DISCRGREN7"
+M_SREN(8)="DISCRGCOD8" : T_SREN(8)="DISCRGREN8"
+M_SREN(9)="DISCRGCOD9" : T_SREN(9)="DISCRGREN9"
+
+M_SDH1(0) ="VACITM1"   : T_SDD(0) ="VACITM(0)"
+M_SDH1(1) ="VACITM2"   : T_SDD(1) ="VACITM(1)"
+M_SDH1(2) ="VACITM3"   : T_SDD(2) ="VACITM(2)"
+M_SDH1(3) ="VAT1"      : T_SDD(3) ="VAT(0)"
+M_SDH1(4) ="VAT2"      : T_SDD(4) ="VAT(1)"
+M_SDH1(5) ="VAT3"      : T_SDD(5) ="VAT(2)"
+M_SDH1(6) ="TSCCOD1"   : T_SDD(6) ="TSICOD(0)"
+M_SDH1(7) ="TSICOD2"   : T_SDD(7) ="TSICOD(1)"
+M_SDH1(8) ="TSICOD3"   : T_SDD(8) ="TSICOD(2)"
+M_SDH1(9) ="TSICOD4"   : T_SDD(9) ="TSICOD(3)"
+M_SDH1(10)="TSICOD5"   : T_SDD(10)="TSICOD(4)"
+M_SDH1(11)="DPJT"      : T_SDD(11)="PJT(0)"     : # 71065 : PJT
+# Recherche si champ type de ligne paramétré
+For IJ1=0 To dim([M:AOE2]ZONMSK1)-1
+    If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDD]LINTYP")
+        G_LINTYP=1
+    Endif
+    If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDD]FOCFLG") : # Bug 68619
+        G_FOCFLG=1                                   : # Bug 68619
+    Endif                                            : # Bug 68619
+    If G_LINTYP=1 & G_FOCFLG=1 : Break : Endif       : # Bug 68619
+Next IJ1
+
+# Recherche si champ adresse livraison paramétré
+For IJ0=0 To dim(T_ADB2)-1
+    If T_ADB2(IJ0)="" : Break : Endif
+    For IJ1=0 To dim([M:AOE2]ZONMSK1)-1
+         If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDH]"+T_ADB2(IJ0))
+           GW_ADB2=1 : Break 2
+        Endif
+    Next IJ1
+Next IJ0
+
+# Recherche si champ adresse facture paramétré
+For IJ0=0 To dim(T_ADB3)-1
+    If T_ADB3(IJ0)="" : Break : Endif
+    For IJ1=0 To dim([M:AOE2]ZONMSK1)-1
+        If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDH]"+T_ADB3(IJ0))
+           GW_ADB3=1 : Break 2
+        Endif
+    Next IJ1
+Next IJ0
+
+# Recherche si champ info CEE paramétré
+# 06.319.759.ini (eliminamos control para comprobar que se pasan todos los campos CEE)
+#For IJ0=0 To dim(T_SCEE)-1
+#    If T_SCEE(IJ0)="" : Break : Endif
+#    For IJ1=0 To dim([M:AOE2]ZONMSK1)-1
+#        If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDH]"+T_SCEE(IJ0))
+#           GW_SCEE=1 : Break 2
+#        Endif
+#    Next IJ1
+#Next IJ0
+# 06.319.759.fin
+
+# Recherche si champ motifs ligne detail paramétré
+For IJ0=0 To dim(T_SREN)-1
+    If T_SREN(IJ0)="" : Break : Endif
+    For IJ1=0 To dim([M:AOE2]ZONMSK1)-1
+        If instr(1,[M:AOE2]ZONMSK1(IJ1),"[F:SDD]"+T_SREN(IJ0))
+           GW_SREN=1 : Break 2
+        Endif
+    Next IJ1
+Next IJ0
+
+#--CPO 83646 Recherche si champ MDL paramétré
+Call TST_CHAMP ("SDH","MDL",GW_MDL)        From SUBIMPOBJ
+Call TST_CHAMP ("SDH","SOHNUM",GW_HSOHNUM) From SUBIMPOBJ
+#-----
+
+#-----
+If GSTK_TRACE=2
+  Call ECR_TRACE(mess(27,115,1)-"OUVRE"+space$(17)+"From ZIMPSDHS",0) From GESECRAN
+Endif
+#-----
+GSTK_ACTION="OUVRE" : Gosub ACTION From STKIMP
+[L]WSTK_ABRTTR="SLT" : # Abréviation table transaction de saisie
+Return
+
+
+#######################################################################
+# Appel depuis WWIxxxxx (traitement genere)
+#######################################################################
+
+$RAZCRE
+
+Raz GCLE : # Bug 68615
+If GSTK_TRACE=2
+  GSTK_ACT="RAZCRE" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_DETAILLEE From STKIMP
+Endif
+
+GREP="C"
+Raz [M:SDH0], [M:SDH1], [M:SDH2], [M:SDH3], [M:ADB2], [M:ADB3], [M:SCEE], [M:SREN]
+#-- JDE X3Suivi 79034 : reinit du nombre de ligne pour SDH1
+WNBLIG=0
+
+GSTK_ACT="SETBOUT"   : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="SETBOUT"  : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+
+GSTK_ACT="RAZCRE"    : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="RAZCRE"   : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+
+GSTK_ACT="RAZCRE"    : GSTK_PGM="STKIMP"  : Gosub TRACE_ACTION
+GSTK_ACTION="RAZCRE" : Gosub ACTION From STKIMP
+
+Return
+
+#######################################################################
+$SAIMSK_IMPFIC_SDH
+  # FGR 08/04/2015 : X3SUIVI107395
+  # ------------------------------------
+  If IMPFIC <> "SDH" and IMPFIC <> "SDD" Then
+    Return
+  Endif
+  # ------------------------------------
+  # Issue 114349
+#  If IMPFIC = "SDD" Then
+#    If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+#      If [M:SDH1]NBLIG = 0 Then  # On test 0 : c'est incrémenté un peu plus loin
+#        [F:SDH]SOHNUM = [F:SDD]SOHNUM
+#      Endif
+#    Endif
+#  Endif
+  If IMPFIC = "SDH" Then
+    If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+      If [M:SDH1]NBLIG = 0 Then  # On test 0 : c'est incrémenté un peu plus loin
+        [F:SDH]SOHNUM = [F:SDD]SOHNUM
+      Endif
+    Endif
+  Endif
+# End issue 114349
+
+# ------------------------------------
+  Default File [SDH]
+
+  # --- Test rupture sur ligne document ---
+  If [M:SDH1]NBLIG>0
+     Gosub RUPT_LIGDOC
+  Endif
+
+# Issue X3-106154
+If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>"" |
+&  find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+# End issue X3-106154
+  # --------------------------------------
+  # FGR 21/07/2015 : X3SUIVI109578 (début)
+  # S'il est vide on est obligé de les forcer ici parce que ce sont des zones obligatoires
+  If [F:SDH]SHIDAT = [0/0/0] Then
+    Local Integer IFRCSHIDAT
+
+    IFRCSHIDAT = 1
+    [F:SDH]SHIDAT = date$
+  Endif
+  If [F:SDH]DLVDAT = [0/0/0] Then
+    Local Integer IFRCDLVDAT
+
+    IFRCDLVDAT = 1
+    [F:SDH]DLVDAT = date$
+  Endif
+  # FGR 21/07/2015 : X3SUIVI109578 (fin)
+  # --------------------------------------
+# Issue X3-106154
+Endif
+# End issue X3-106154
+
+  GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH0" : Gosub TRACE_ACTION
+  GW_ABRMSK="SDH0": Default Mask [SDH0]
+  Gosub SETMODE_ON  From TRTX3IMP
+  Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH0
+  Gosub SETMODE_OFF From TRTX3IMP
+  If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+  If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+  INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+
+  # Issue 114349
+  # (Going back and cancelation correction 83646/107395)
+  # Initialization from the order is done after SAIMSK SDH0 and before SAIMSK of the other mask
+  # We need to keep values coming from the order for fields not present in the imported file
+  # We need to keep values coming from the imported file for fields present in the imported file
+  # As it works in interactive mode
+If IMPFIC = "SDH" Then
+    If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>"" |
+&      find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+       GSTK_ACT="INIT_FROM_SOH/SDH" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+       Gosub INIT_FROM_SOH
+       If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+    Endif
+  Elsif IMPFIC = "SDD" Then
+    If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+      If [M:SDH1]NBLIG = 0 Then  # On teste 0 : c'est incrémenté un peu plus loin
+        GSTK_ACT="INIT_FROM_SOH/SDD" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+        Gosub INIT_FROM_SOH
+        If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+      Endif
+    Endif
+  Endif
+  # End issue 114349
+
+ #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où le type livraison pas importé mais Catégorie importé --#
+  If find("[F:SDH]SDHCAT(0)",[M:AOE2]ZONMSK1) & [F:SDH]SDHTYP=""
+     GDLVTYP_SAVE   = GDLVTYP
+     GDLVTYP        = [F:SDH]SDHCAT
+     [M:SDH0]SDHTYP = [F:SDH]SDHTYP
+
+     Gosub SDHTYP_FROM From TRTVENLIV
+     GDLVTYP        = GDLVTYP_SAVE
+  Endif
+
+  #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où No Commande importé et type livraison importé --#
+  # Bug 58445 : Import livraison de commande
+  If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+     #--CPO 83646 Déplacé après l'appel à SAIMSK des SDHx
+     #--afin de ne pas écraser les infos reprises de la cde par des AM_ suite appels
+     #Gosub INIT_FROM_SOH
+     #If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+     #--/CPO
+
+     #-- X3Suivi 75115-217 : Type livraison dans import de livraison --#
+     If find("[F:SDH]SDHTYP(0)",[M:AOE2]ZONMSK1) & [F:SDH]SDHTYP<>""
+       [M:SDH0]SDHTYP = [F:SDH]SDHTYP
+     Endif
+  Endif
+
+  #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où le type livraison importé et la catégorie --#
+  If find("[F:SDH]SDHTYP(0)",[M:AOE2]ZONMSK1) & find("[F:SDH]SDHCAT(0)",[M:AOE2]ZONMSK1) & [M:SDH0]SDHTYP<>""
+    #--Lecture de TABSDHTYP si cette dernière n'EST pas en ligne
+     If [F:TSD]SDHTYP <>[M:SDH0]SDHTYP
+       Local Integer WERR
+       Call LEC_TSD_LEG(GCURLEG,[M:SDH0]SDHTYP,WERR) From TRTLECLEG
+     Endif
+     [M:SDH0]SDHCAT = [F:TSD]SDHCAT
+     [F:SDH]SDHCAT  = [F:TSD]SDHCAT
+  Endif
+
+# X3-81396 (LCC 12/03/18) Counter increased despite an import failure.
+#  #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Recup code compteur  pour le type livraison --#
+#  If [M:SDH0]SDHTYP <> ''
+#    [F:SDH]SDHTYP=[M:SDH0]SDHTYP
+#    Gosub REC_CPT_LIV From TRTVENLIV
+#    GCPT= LCPT
+#    # ----------------------------
+#    [M:SDH0]SDHNUM = [F:SDH]SDHNUM       # FGR 09/03/2015 : X3SUIVI106842 : récupérer le numéro dans la classe [M] depuis la classe [F]
+#  Endif
+# End X3-81396 (LCC 12/03/18)
+
+  GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+  GW_ABRMSK="SDH1": Default Mask [SDH1]
+  Gosub SETMODE_ON  From TRTX3IMP
+  Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH1
+  Gosub SETMODE_OFF From TRTX3IMP
+  If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+  If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+  INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+
+  GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH2" : Gosub TRACE_ACTION
+  GW_ABRMSK="SDH2": Default Mask [SDH2]
+  Gosub SETMODE_ON  From TRTX3IMP
+  Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH2
+  Gosub SETMODE_OFF From TRTX3IMP
+  If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+  If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+  INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+
+  GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH3" : Gosub TRACE_ACTION
+  GW_ABRMSK="SDH3": Default Mask [SDH3]
+  Gosub SETMODE_ON  From TRTX3IMP
+  Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH3
+  Gosub SETMODE_OFF From TRTX3IMP
+  If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+  If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+  INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+
+  If GW_ADB2
+     GSTK_ACT="SAIMSK(ADB2)" : GSTK_PGM="W0ADRBPC" : Gosub TRACE_ACTION
+     GW_ABRMSK="ADB2": Default Mask [ADB2]
+     Gosub SETMODE_ON  From TRTX3IMP
+     Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0ADRBPC
+     Gosub SETMODE_OFF From TRTX3IMP
+     If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+     If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+     INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+  Endif
+
+  If GW_ADB3
+     GSTK_ACT="SAIMSK(ADB3)" : GSTK_PGM="W0ADRBPC" : Gosub TRACE_ACTION
+     GW_ABRMSK="ADB3": Default Mask [ADB3]
+     Gosub SETMODE_ON  From TRTX3IMP
+     Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0ADRBPC
+     Gosub SETMODE_OFF From TRTX3IMP
+     If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+     If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+     INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+  Endif
+
+  If GW_SCEE
+     Gosub AVANT_SCEE From IMPSDH
+     GSTK_ACT="SAIMSK" : GSTK_PGM="W0SCEE" : Gosub TRACE_ACTION
+     GW_ABRMSK="SCEE": Default Mask [SCEE]
+     Gosub SETMODE_ON  From TRTX3IMP
+     Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SCEE
+     Gosub SETMODE_OFF From TRTX3IMP
+     If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+     If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+     INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+     Gosub APRES_SCEE From IMPSDH
+  Endif
+
+  # Issue 114349
+  # (Going back and cancelation correction 83646/107395)
+  # Initialization from the order is done after SAIMSK SDH0 and before SAIMSK of the other mask
+  # We need to keep values coming from the order for fields not present in the imported file
+  # We need to keep values coming from the imported file for fields present in the imported file
+  # As it works in interactive mode
+#  #--------------------------------------
+#  # FGR 08/04/2015 : X3SUIVI107395 (début)
+#  If IMPFIC = "SDH" Then
+#    #--CPO 83646 Déplacé après l'appel à SAIMSK des SDHx
+#    #--afin de ne pas écraser les infos reprises de la cde par des AM_
+#    If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+#       Gosub INIT_FROM_SOH
+#       If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#    Endif
+#    #--/CPO
+#  Elsif IMPFIC = "SDD" Then
+#    If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM <> "" Then
+#      If [M:SDH1]NBLIG = 0 Then  # On teste 0 : c'est incrémenté un peu plus loin
+#        Gosub INIT_FROM_SOH
+#        If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#      Endif
+#    Endif
+#  Endif
+#  # FGR 08/04/2015 : X3SUIVI107395 (fin)
+#  #--------------------------------------
+    # End issue 114349
+
+  # FGR 20/01/2014 : X3SUIVI89379 (début)
+  For NI89379 = 1 To INBTBABRMSK
+    GW_ABRMSK = STBABRMSK(NI89379)
+    Gosub ZONE_INVISIBLE
+  Next NI89379
+  # FGR 20/01/2014 : X3SUIVI89379 (fin)
+  GSTK_TRSCOD=[M:SDH0]TRSCOD
+  GSTK_ENTCOD=[M:SDH0]ENTCOD
+  #---         Texte entete et pied BL
+  If G_ENT | G_PIE
+     Gosub IMPORT_TEXTE   From IMPSDH
+     Gosub IMP_ZONE_TEXTE From IMPSDH
+  Endif
+
+  # --------------------------------------
+  # FGR 21/07/2015 : X3SUIVI109578 (début)
+  If dim(IFRCSHIDAT) >= 0 Then
+    If IFRCSHIDAT = 1 Then
+      Raz [M:SDH1]SHIDAT
+      Kill IFRCSHIDAT
+    Endif
+  Endif
+  If dim(IFRCDLVDAT) >= 0 Then
+    If IFRCDLVDAT = 1 Then
+      Raz [M:SDH1]DLVDAT
+      Kill IFRCDLVDAT
+    Endif
+  Endif
+  # FGR 21/07/2015 : X3SUIVI109578 (fin)
+  # --------------------------------------
+Return
+
+#######################################################################
+# Appel depuis WWIxxxxx (traitement genere)
+# ---------------------------------------------------------------------
+# Après lecture 1 enregistrement sequentiel (mis dans les classes [F])
+#######################################################################
+# FGR 08/04/2015 : X3SUIVI107395 (début)
+$SAIMSK
+# FGR 06/11/2014 : X3SUIVI103256 (début)
+  If GOK < 1 Then
+    # Si une erreur est détectée précédemment, on ne continue rien ici le coup d'après.
+    # Sinon ça RAZ l'erreur, et du coup, ça va pas bien. Le fichier .err n'est pas créé.
+    Return
+  Endif
+# FGR 06/11/2014 : X3SUIVI103256 (fin)
+
+Local Char STBABRMSK(type(GW_ABRMSK)-10)(1..)    # FGR 20/01/2014 : X3SUIVI89379
+Local Integer INBTBABRMSK                        # FGR 20/01/2014 : X3SUIVI89379
+Local Integer NI89379                            # FGR 20/01/2014 : X3SUIVI89379
+
+Raz STBABRMSK                                    # FGR 20/01/2014 : X3SUIVI89379
+INBTBABRMSK = 0                                  # FGR 20/01/2014 : X3SUIVI89379
+GSTK_ACT="SAIMSK"    : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+
+Case IMPFIC
+     When "SDH"
+          # ------------------------------------
+          # FGR 08/04/2015 : X3SUIVI107395 (début) : Si le numéro de commande n'est pas importé à la ligne : on importe l'entête au moment de l'entête
+          If not find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) Then
+            Gosub SAIMSK_IMPFIC_SDH
+            # Issue 114349
+            # If there is an error we need to stop
+            If GREP="" Return : Endif
+            # End issue 114349
+          Endif
+          # FGR 08/04/2015 : X3SUIVI107395 (début)
+          # ------------------------------------
+     When "SDD"
+          # ------------------------------------
+          # FGR 08/04/2015 : X3SUIVI107395 (début) : Si le numéro de commande est importé à la ligne : on importe l'entête au moment de la PREMIERE LIGNE
+          If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) Then
+            If [M:SDH1]NBLIG = 0 Then  # On teste 0 : c'est incrémenté un peu plus loin
+              IMPFIC = "SDH"           # FGR 05/04/2015 : X3SUIVI108057 : l'import des livraisons validées ne fonctionne pas dans ce cas (on fait semblant d'être sur l'entête)
+              Gosub SAIMSK_IMPFIC_SDH
+              IMPFIC = "SDD"           # FGR 05/04/2015 : X3SUIVI108057 : l'import des livraisons validées ne fonctionne pas dans ce cas (on fait semblant d'être sur l'entête)
+              # Issue 114349
+              # If there is an error we need to stop
+              If GREP="" Return : Endif
+              # End issue 114349
+            Endif
+          Endif
+          # FGR 08/04/2015 : X3SUIVI107395 (fin)
+          # ------------------------------------
+          Default File [SDD]
+          GW_ABRMSK=""
+          # --- Test rupture sur ligne document ---
+          If [M:SDH1]NBLIG>0
+             Gosub RUPT_LIGDOC
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif  : # Bug 71051
+          Endif
+          #--- Dem 69786
+          Raz [M:ALP] : # 95847 : Déplacement Raz
+
+          If find("[F:SDD]PRHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]PRHNUM<>""
+             Gosub CTL_PRE_LIG
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+          Elsif find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>"" |
+&            find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+          # Bug 57133 : Import livraison de commande : Vérification cohérence de la ligne / entête
+          #If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>"" |
+#&            find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+          #---
+             Gosub CTL_CDE_LIG
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+          # Issue X3-235555 - 2021-02-12 by SR : Direct delivery
+          Else
+            Raz WNUMPIE
+            Gosub CTL_OST
+            # Client bloqué --> saisie refusée
+            If CDTSTA = 2
+              GMESSAGE=mess(151,199,1) : GREP="" : REP="" : mkstat = 0 : GOK = 0 : Return
+            Endif
+            # End issue X3-235555
+          Endif
+
+          [M:SDH1]NBLIG +=1 : nolign=[M:SDH1]NBLIG : indice=nolign-1
+          Raz WNOL
+          WNOL=[M:SDH1]NBLIG-1
+
+          #--- Dem 69786
+          #---         Champs invisible préparation
+          If find("[F:SDD]PRHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]PRHNUM<>""
+             Gosub INIT_FROM_PRE
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+          #---         Champs invisible commande
+          Elsif find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+          #If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+          #---
+             # Issue 114349
+             # (Going back and cancelation correction 83646/107395)
+             # Initialization from the order is done after SAIMSK SDH0 and before SAIMSK of the other mask
+             # We need to keep values coming from the order for fields not present in the imported file
+             # We need to keep values coming from the imported file for fields present in the imported file
+             # As it works in interactive mode
+#             # ------------------------------------------------------------------------
+#             # FGR 13/03/2014 : X3SUIVI97421 (début)
+#             If [M:SDH1]NBLIG = 1 Then
+#               # Seulement pour la première ligne
+#               [F:SDH]SOHNUM = [F:SDD]SOHNUM # Il faut simuler avoir reçu le numéro de commande dans l'entête
+#               Gosub INIT_FROM_SOH
+#             Endif
+#             # FGR 13/03/2014 : X3SUIVI97421 (fin)
+#             # ------------------------------------------------------------------------
+             GSTK_ACT="INIT_FROM_CDE" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+             # End Issue 114349
+             Gosub INIT_FROM_CDE
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+             # (Ne pas importer la ligne) Bug 71051
+             If GERR=1 :
+                 [M:SDH1]NBLIG -=1 : nolign=[M:SDH1]NBLIG : indice=nolign-1
+                 Raz WNOL : WNOL=[M:SDH1]NBLIG-1
+                 GERR=0 : Return
+             Endif
+             # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+             # Ne pas importer la ligne car générée automatiquement depuis le composé
+             # (nolign est alimenté avec l'indice de la ligne composant dans INIT_FROM_CDE)
+             If GERR=9
+                 [M:SDH1]NBLIG -=1 : indice=nolign-1
+                 Raz WNOL : WNOL=nolign-1
+                 GERR=0 : Return
+             Endif
+             # Bug 75756
+          Endif
+
+          nolign=[M:SDH1]NBLIG : indice=nolign-1
+          Raz WNOL
+          WNOL=[M:SDH1]NBLIG-1
+
+          status=73
+          GSTK_ACT="SAI_NBLIG" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+          GW_ABRMSK="SDH1"   : Default Mask [SDH1]
+          Gosub SETMODE_ON  From TRTX3IMP
+          Call SAI_NBLIG("SDD","IMP_TAB","SUBIMPOBJ") From W0SDH1
+          Gosub SETMODE_OFF From TRTX3IMP
+          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+          Gosub ZONE_INVISIBLE
+
+          If GW_SREN
+             GSTK_ACT="SAIMSK(SREN)" : GSTK_PGM="W0SALREN" : Gosub TRACE_ACTION
+             GW_ABRMSK="SREN": Default Mask [SREN]
+             Gosub SETMODE_ON  From TRTX3IMP
+             Call SAIMSK("SDD","IMP_TAB","SUBIMPOBJ") From W0SALREN
+             Gosub SETMODE_OFF From TRTX3IMP
+             If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+             Gosub ZONE_INVISIBLE
+          Endif
+
+          #VPO 28/08/09 56503 import de REP1 ou REP2
+          If (find("[F:SDD]REP1(0)",[M:AOE2]ZONMSK1) | find("[F:SDD]REP2(0)",[M:AOE2]ZONMSK1)) & [M:SDH1]NBLIG=1
+              GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH2" : Gosub TRACE_ACTION
+              GW_ABRMSK="SDH2": Default Mask [SDH2]
+              Gosub SETMODE_ON  From TRTX3IMP
+              Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH2
+              Gosub SETMODE_OFF From TRTX3IMP
+              If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+              If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+              Gosub ZONE_INVISIBLE
+              nolign=[M:SDH1]NBLIG : indice=nolign-1
+              Raz WNOL
+              WNOL=[M:SDH1]NBLIG-1
+          Endif
+
+          # -------------------------------------
+          # FGR 17/02/2014 : X3SUIVI96149 (début)
+          # Si on importe les poids on les restaure, ce sont les valeurs importées qui priment
+          If find("[F:SDH]NETWEI(0)",[M:AOE2]ZONMSK1)
+            [M:SDH2]NETWEI = [F:SDH]NETWEI
+          Endif
+          If find("[F:SDH]GROWEI(0)",[M:AOE2]ZONMSK1)
+            [M:SDH2]GROWEI = [F:SDH]GROWEI
+          Endif
+          # FGR 17/02/2014 : X3SUIVI96149 (fin)
+          # -------------------------------------
+
+          If [F:ITM]ITMREF<>[M:SDH1]ITMREF([M:SDH1]NBLIG-1)
+             Read [ITM] ITM0=[M:SDH1]ITMREF([M:SDH1]NBLIG-1)
+             If fstat  Raz [F:ITM] : Endif
+          Endif
+
+          #---         Texte detail BL
+          If G_DET
+             Gosub IMPORT_TEXTE From IMPSDH
+             Gosub IMP_TAB_TEXTE From IMPSDH
+          Endif
+
+     When "CAL"
+          #---------------------------------------------------------------------#
+          # Traitement des comptes et sections analytiques des lignes livraisons#
+          #            left$([M:AOE1]FLGLNK(SEPNUM-1),5)='"SDD"'                #
+          #---------------------------------------------------------------------#
+          [F:CAL]ABRFIC="SDD"
+          [F:CAL]VCRTYP=0
+          Call IMPORT_ACCCCE(WNOL,"","","[M:SDH1]CCE") From TRTX3CPT
+          nolign=WNOL+1 : status=75 : # Modif élément
+
+          GSTK_ACT="SAI_NBLIG" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+          GW_ABRMSK="SDH1" : Default Mask [SDH1]
+          indice=nolign-1 : mkstat=0
+          Gosub SETMODE_ON  From TRTX3IMP
+          Call SAI_NBLIG("CAL","IMP_ZONE","SUBIMPOBJ") From W0SDH1
+          Gosub SETMODE_OFF From TRTX3IMP
+          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+          If mkstat  GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+     When "STJ"
+          # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+          # Si STOJOU importé, c'est lui qui fait foi : Sup. sorties déterminées à la génération de la ligne du composant
+          # Sauvegarde NBLIG puis Alim. avec l'indice de la ligne
+          # car STKIMP utilise NBLIG pour récupérer l'indice de la ligne
+          If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+              If find([F:SOP]LINTYP,3,4,5,11,12,13)
+                  If GSTK_NBLIG=0
+                      # Suppression des sorties stockées dans écran de travail STOSORW
+                      Local Integer WRET
+                      Call DELSTOSORW(nolign-1,nolign-1,"SDH1",[M:SDH0]STOFCY,WRET) From STKSOR
+                  Endif
+                  WSVGNBLIG=[M:SDH1]NBLIG : [M:SDH1]NBLIG=nolign
+              Endif
+          Endif
+          # Bug 75756
+          Default File [STJ]
+          GSTK_ACTION="SAIMSK" : Gosub ACTION From STKIMP
+          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+          Gosub ZONE_INVISIBLE
+          # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+          # Restitution NBLIG
+          If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+              If find([F:SOP]LINTYP,3,4,5,11,12,13)
+                  [M:SDH1]NBLIG=WSVGNBLIG
+              Endif
+          Endif
+          # Bug 75756
+     When "SVV" :
+          # -------------------------------------------------------------------#
+          #     Taxes                                                          #
+          # -------------------------------------------------------------------#
+          If [F:SVV]VAT<>"" & dim([M:SIHV]XVTAX)>0
+            #--CPO 71937 TVT et multi-lèg
+            Call LEC_TVT_LEG(GCURLEG,[F:SVV]VAT,WRET) From TRTLECLEG
+            If WRET : Raz [F:TVT] : Endif
+              #Read [F:TVT]TVT0=[F:SVV]VAT
+              #If fstat : Raz [F:TVT] : Endif
+              #--/CPO
+              [M:SIHV]XVTYP([M:SIHV]NBVAT) = [F:TVT]VATTYP
+              [M:SIHV]XVBAS([M:SIHV]NBVAT) = [F:TVT]VATBAS
+              [M:SIHV]XVCHA([M:SIHV]NBVAT) = [F:TVT]VATCHA
+              Call GET_ATEXTRA("TABVAT","SHOAXX",GLANGUE,[M:SIHV]XVSHO([M:SIHV]NBVAT)) From TRTX3TEX
+              [M:SIHV]XVTAX([M:SIHV]NBVAT) = [F:SVV]VAT
+              [M:SIHV]XVNOT([M:SIHV]NBVAT) = [F:SVV]VATGRO
+              [M:SIHV]XVSMI([M:SIHV]NBVAT) = [F:SVV]VATNET
+              [M:SIHV]XVRAT([M:SIHV]NBVAT) = [F:SVV]VATRAT
+              [M:SIHV]XVAMT([M:SIHV]NBVAT) = [F:SVV]VATAMT
+              [M:SIHV]XVSUP([M:SIHV]NBVAT) = [F:SVV]VATSUPAMT
+              [M:SIHV]NBVAT +=1
+          Endif
+    When "SVF" :
+          # -------------------------------------------------------------------#
+          #     Pieds                                                          #
+          # -------------------------------------------------------------------#
+          #--      le tableau des pieds de facture
+          If [F:SVF]DTA<>0 & dim([M:SIHV]XFNUM)>0
+              [M:SIHV]XFNUM([M:SIHV]NBFOOT)    = [F:SVF]DTA
+              [M:SIHV]XFNOT([M:SIHV]NBFOOT)    = [F:SVF]DTANOT
+              [M:SIHV]XFSMI([M:SIHV]NBFOOT)    = [F:SVF]DTANOT
+
+              Raz [M:SIHV]XFVATAMT([M:SIHV]NBFOOT)
+              For I=0 To dim([F:SVF]DTANET)-1
+                  If [F:SVF]DTAVAT(I)="" Break Endif
+                  Assign "[M:SIHV]DTANOT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATNOT(I)
+                  Assign "[M:SIHV]DTANET"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTANET(I)
+                  Assign "[M:SIHV]DTAVAT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVAT(I)
+                  Assign "[M:SIHV]DTAVATRT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATRAT(I)
+                  Assign "[M:SIHV]DTAVATMT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATAMT(I)
+                  [M:SIHV]XFVATAMT([M:SIHV]NBFOOT)+=[F:SVF]DTAVATAMT(I)
+              Next
+              If I=1
+                  [M:SIHV]XFSMI([M:SIHV]NBFOOT)    = [F:SVF]DTANET(I-1)
+                  [M:SIHV]XFTAX([M:SIHV]NBFOOT)    = [F:SVF]DTAVAT(I-1)
+                  [M:SIHV]XFRAT([M:SIHV]NBFOOT)    = [F:SVF]DTAVATRAT(I-1)
+              Endif
+
+              [M:SIHV]XFDTAAMT([M:SIHV]NBFOOT) = [F:SVF]DTAAMT
+              [M:SIHV]XFATI([M:SIHV]NBFOOT)    = [F:SVF]DTANOT+[M:SIHV]XFVATAMT([M:SIHV]NBFOOT)
+
+              [M:SIHV]NBFOOT +=1
+          Endif
+Endcase
+
+Return
+
+#$SAIMSK
+## FGR 06/11/2014 : X3SUIVI103256 (début)
+#  If GOK < 1 Then
+#    # Si une erreur est détectée précédemment, on ne continue rien ici le coup d'après.
+#    # Sinon ça RAZ l'erreur, et du coup, ça va pas bien. Le fichier .err n'est pas créé.
+#    Return
+#  Endif
+## FGR 06/11/2014 : X3SUIVI103256 (fin)
+#
+#Local Char STBABRMSK(type(GW_ABRMSK)-10)(1..)    # FGR 20/01/2014 : X3SUIVI89379
+#Local Integer INBTBABRMSK                        # FGR 20/01/2014 : X3SUIVI89379
+#Local Integer NI89379                            # FGR 20/01/2014 : X3SUIVI89379
+#
+#Raz STBABRMSK                                    # FGR 20/01/2014 : X3SUIVI89379
+#INBTBABRMSK = 0                                  # FGR 20/01/2014 : X3SUIVI89379
+#GSTK_ACT="SAIMSK"    : GSTK_PGM="IMPSDHS" : Gosub TRACE_ACTION
+#
+#Case IMPFIC
+#     When "SDH"
+#          Default File [SDH]
+#
+#          # --- Test rupture sur ligne document ---
+#          If [M:SDH1]NBLIG>0
+#             Gosub RUPT_LIGDOC
+#          Endif
+#
+#          GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH0" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH0": Default Mask [SDH0]
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH0
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#
+#         #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où le type livraison pas importé mais Catégorie importé --#
+#          If find("[F:SDH]SDHCAT(0)",[M:AOE2]ZONMSK1) & [F:SDH]SDHTYP=""
+#             GDLVTYP_SAVE   = GDLVTYP
+#             GDLVTYP        = [F:SDH]SDHCAT
+#             [M:SDH0]SDHTYP = [F:SDH]SDHTYP
+#
+#             Gosub SDHTYP_FROM From TRTVENLIV
+#             GDLVTYP        = GDLVTYP_SAVE
+#          Endif
+#
+#          #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où No Commande importé et type livraison importé --#
+#          # Bug 58445 : Import livraison de commande
+#          If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+#             #--CPO 83646 Déplacé après l'appel à SAIMSK des SDHx
+#             #--afin de ne pas écraser les infos reprises de la cde par des AM_ suite appels
+#             #Gosub INIT_FROM_SOH
+#             #If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             #--/CPO
+#
+#             #-- X3Suivi 75115-217 : Type livraison dans import de livraison --#
+#             If find("[F:SDH]SDHTYP(0)",[M:AOE2]ZONMSK1) & [F:SDH]SDHTYP<>""
+#               [M:SDH0]SDHTYP = [F:SDH]SDHTYP
+#             Endif
+#          Endif
+#
+#          #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Cas où le type livraison importé et la catégorie --#
+#          If find("[F:SDH]SDHTYP(0)",[M:AOE2]ZONMSK1) & find("[F:SDH]SDHCAT(0)",[M:AOE2]ZONMSK1) & [M:SDH0]SDHTYP<>""
+#            #--Lecture de TABSDHTYP si cette dernière n'EST pas en ligne
+#             If [F:TSD]SDHTYP <>[M:SDH0]SDHTYP
+#               Local Integer WERR
+#               Call LEC_TSD_LEG(GCURLEG,[M:SDH0]SDHTYP,WERR) From TRTLECLEG
+#             Endif
+#             [M:SDH0]SDHCAT = [F:TSD]SDHCAT
+#             [F:SDH]SDHCAT  = [F:TSD]SDHCAT
+#          Endif
+#
+#          #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Recup code compteur  pour le type livraison --#
+#          If [M:SDH0]SDHTYP <> ''
+#            [F:SDH]SDHTYP=[M:SDH0]SDHTYP
+#            Gosub REC_CPT_LIV From TRTVENLIV
+#            GCPT= LCPT
+#            # ----------------------------
+#            [M:SDH0]SDHNUM = [F:SDH]SDHNUM       # FGR 09/03/2015 : X3SUIVI106842 : récupérer le numéro dans la classe [M] depuis la classe [F]
+#          Endif
+#
+#          GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH1": Default Mask [SDH1]
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH1
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#
+#          GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH2" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH2": Default Mask [SDH2]
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH2
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#
+#          GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH3" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH3": Default Mask [SDH3]
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH3
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#
+#          If GW_ADB2
+#             GSTK_ACT="SAIMSK(ADB2)" : GSTK_PGM="W0ADRBPC" : Gosub TRACE_ACTION
+#             GW_ABRMSK="ADB2": Default Mask [ADB2]
+#             Gosub SETMODE_ON  From TRTX3IMP
+#             Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0ADRBPC
+#             Gosub SETMODE_OFF From TRTX3IMP
+#             If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#          Endif
+#
+#          If GW_ADB3
+#             GSTK_ACT="SAIMSK(ADB3)" : GSTK_PGM="W0ADRBPC" : Gosub TRACE_ACTION
+#             GW_ABRMSK="ADB3": Default Mask [ADB3]
+#             Gosub SETMODE_ON  From TRTX3IMP
+#             Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0ADRBPC
+#             Gosub SETMODE_OFF From TRTX3IMP
+#             If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#          Endif
+#
+#          If GW_SCEE
+#             Gosub AVANT_SCEE From IMPSDH
+#             GSTK_ACT="SAIMSK" : GSTK_PGM="W0SCEE" : Gosub TRACE_ACTION
+#             GW_ABRMSK="SCEE": Default Mask [SCEE]
+#             Gosub SETMODE_ON  From TRTX3IMP
+#             Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SCEE
+#             Gosub SETMODE_OFF From TRTX3IMP
+#             If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             INBTBABRMSK += 1 : STBABRMSK(INBTBABRMSK) = GW_ABRMSK : #Gosub ZONE_INVISIBLE   # FGR 20/01/2014 : X3SUIVI89379
+#             Gosub APRES_SCEE From IMPSDH
+#          Endif
+#
+#          #--CPO 83646 Déplacé après l'appel à SAIMSK des SDHx
+#          #--afin de ne pas écraser les infos reprises de la cde par des AM_ suite appels
+#          If find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+#             Gosub INIT_FROM_SOH
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          Endif
+#          #--/CPO
+#          # FGR 20/01/2014 : X3SUIVI89379 (début)
+#          For NI89379 = 1 To INBTBABRMSK
+#            GW_ABRMSK = STBABRMSK(NI89379)
+#            Gosub ZONE_INVISIBLE
+#          Next NI89379
+#          # FGR 20/01/2014 : X3SUIVI89379 (fin)
+#
+#          GSTK_TRSCOD=[M:SDH0]TRSCOD
+#          GSTK_ENTCOD=[M:SDH0]ENTCOD
+#
+#          #---         Texte entete et pied BL
+#          If G_ENT | G_PIE
+#             Gosub IMPORT_TEXTE   From IMPSDH
+#             Gosub IMP_ZONE_TEXTE From IMPSDH
+#          Endif
+#
+#     When "SDD"
+#
+#          Default File [SDD]
+#          GW_ABRMSK=""
+#          # --- Test rupture sur ligne document ---
+#          If [M:SDH1]NBLIG>0
+#             Gosub RUPT_LIGDOC
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif  : # Bug 71051
+#          Endif
+#          #--- Dem 69786
+#          Raz [M:ALP] : # 95847 : Déplacement Raz
+#
+#          If find("[F:SDD]PRHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]PRHNUM<>""
+#             Gosub CTL_PRE_LIG
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          Elsif find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>"" |
+#&            find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+#          # Bug 57133 : Import livraison de commande : Vérification cohérence de la ligne / entête
+#          #If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>"" |
+##&            find("[F:SDH]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDH]SOHNUM<>""
+#          #---
+#             Gosub CTL_CDE_LIG
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          Endif
+#
+#          [M:SDH1]NBLIG +=1 : nolign=[M:SDH1]NBLIG : indice=nolign-1
+#          Raz WNOL
+#          WNOL=[M:SDH1]NBLIG-1
+#
+#          #--- Dem 69786
+#          #---         Champs invisible préparation
+#          If find("[F:SDD]PRHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]PRHNUM<>""
+#             Gosub INIT_FROM_PRE
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          #---         Champs invisible commande
+#          Elsif find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+#          #If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+#          #---
+#             # ------------------------------------------------------------------------
+#             # FGR 13/03/2014 : X3SUIVI97421 (début)
+#             If [M:SDH1]NBLIG = 1 Then
+#               # Seulement pour la première ligne
+#               [F:SDH]SOHNUM = [F:SDD]SOHNUM # Il faut simuler avoir reçu le numéro de commande dans l'entête
+#               Gosub INIT_FROM_SOH
+#             Endif
+#             # FGR 13/03/2014 : X3SUIVI97421 (fin)
+#             # ------------------------------------------------------------------------
+#             Gosub INIT_FROM_CDE
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             # (Ne pas importer la ligne) Bug 71051
+#             If GERR=1 :
+#                 [M:SDH1]NBLIG -=1 : nolign=[M:SDH1]NBLIG : indice=nolign-1
+#                 Raz WNOL : WNOL=[M:SDH1]NBLIG-1
+#                 GERR=0 : Return
+#             Endif
+#             # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+#             # Ne pas importer la ligne car générée automatiquement depuis le composé
+#             # (nolign est alimenté avec l'indice de la ligne composant dans INIT_FROM_CDE)
+#             If GERR=9
+#                 [M:SDH1]NBLIG -=1 : indice=nolign-1
+#                 Raz WNOL : WNOL=nolign-1
+#                 GERR=0 : Return
+#             Endif
+#             # Bug 75756
+#          Endif
+#
+#          nolign=[M:SDH1]NBLIG : indice=nolign-1
+#          Raz WNOL
+#          WNOL=[M:SDH1]NBLIG-1
+#
+#          status=73
+#          GSTK_ACT="SAI_NBLIG" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH1"   : Default Mask [SDH1]
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAI_NBLIG("SDD","IMP_TAB","SUBIMPOBJ") From W0SDH1
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          Gosub ZONE_INVISIBLE
+#
+#          If GW_SREN
+#             GSTK_ACT="SAIMSK(SREN)" : GSTK_PGM="W0SALREN" : Gosub TRACE_ACTION
+#             GW_ABRMSK="SREN": Default Mask [SREN]
+#             Gosub SETMODE_ON  From TRTX3IMP
+#             Call SAIMSK("SDD","IMP_TAB","SUBIMPOBJ") From W0SALREN
+#             Gosub SETMODE_OFF From TRTX3IMP
+#             If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#             If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#             Gosub ZONE_INVISIBLE
+#          Endif
+#
+#          #VPO 28/08/09 56503 import de REP1 ou REP2
+#          If (find("[F:SDD]REP1(0)",[M:AOE2]ZONMSK1) | find("[F:SDD]REP2(0)",[M:AOE2]ZONMSK1)) & [M:SDH1]NBLIG=1
+#              GSTK_ACT="SAIMSK" : GSTK_PGM="W0SDH2" : Gosub TRACE_ACTION
+#              GW_ABRMSK="SDH2": Default Mask [SDH2]
+#              Gosub SETMODE_ON  From TRTX3IMP
+#              Call SAIMSK("SDH","IMP_ZONE","SUBIMPOBJ") From W0SDH2
+#              Gosub SETMODE_OFF From TRTX3IMP
+#              If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#              If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#              Gosub ZONE_INVISIBLE
+#              nolign=[M:SDH1]NBLIG : indice=nolign-1
+#              Raz WNOL
+#              WNOL=[M:SDH1]NBLIG-1
+#          Endif
+#
+#          # -------------------------------------
+#          # FGR 17/02/2014 : X3SUIVI96149 (début)
+#          # Si on importe les poids on les restaure, ce sont les valeurs importées qui priment
+#          If find("[F:SDH]NETWEI(0)",[M:AOE2]ZONMSK1)
+#            [M:SDH2]NETWEI = [F:SDH]NETWEI
+#          Endif
+#          If find("[F:SDH]GROWEI(0)",[M:AOE2]ZONMSK1)
+#            [M:SDH2]GROWEI = [F:SDH]GROWEI
+#          Endif
+#          # FGR 17/02/2014 : X3SUIVI96149 (fin)
+#          # -------------------------------------
+#
+#          If [F:ITM]ITMREF<>[M:SDH1]ITMREF([M:SDH1]NBLIG-1)
+#             Read [ITM] ITM0=[M:SDH1]ITMREF([M:SDH1]NBLIG-1)
+#             If fstat  Raz [F:ITM] : Endif
+#          Endif
+#
+#          #---         Texte detail BL
+#          If G_DET
+#             Gosub IMPORT_TEXTE From IMPSDH
+#             Gosub IMP_TAB_TEXTE From IMPSDH
+#          Endif
+#
+#     When "CAL"
+#          #---------------------------------------------------------------------#
+#          # Traitement des comptes et sections analytiques des lignes livraisons#
+#          #            left$([M:AOE1]FLGLNK(SEPNUM-1),5)='"SDD"'                #
+#          #---------------------------------------------------------------------#
+#          [F:CAL]ABRFIC="SDD"
+#          [F:CAL]VCRTYP=0
+#          Call IMPORT_ACCCCE(WNOL,"","","[M:SDH1]CCE") From TRTX3CPT
+#          nolign=WNOL+1 : status=75 : # Modif élément
+#
+#          GSTK_ACT="SAI_NBLIG" : GSTK_PGM="W0SDH1" : Gosub TRACE_ACTION
+#          GW_ABRMSK="SDH1" : Default Mask [SDH1]
+#          indice=nolign-1 : mkstat=0
+#          Gosub SETMODE_ON  From TRTX3IMP
+#          Call SAI_NBLIG("CAL","IMP_ZONE","SUBIMPOBJ") From W0SDH1
+#          Gosub SETMODE_OFF From TRTX3IMP
+#          If mkstat  NBERR+=1 : Call TRACE2(2,GMESSIMP,-10) From SUBIMPOBJ : Endif
+#          If mkstat  GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#     When "STJ"
+#          # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+#          # Si STOJOU importé, c'est lui qui fait foi : Sup. sorties déterminées à la génération de la ligne du composant
+#          # Sauvegarde NBLIG puis Alim. avec l'indice de la ligne
+#          # car STKIMP utilise NBLIG pour récupérer l'indice de la ligne
+#          If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+#              If find([F:SOP]LINTYP,3,4,5,11,12,13)
+#                  If GSTK_NBLIG=0
+#                      # Suppression des sorties stockées dans écran de travail STOSORW
+#                      Local Integer WRET
+#                      Call DELSTOSORW(nolign-1,nolign-1,"SDH1",[M:SDH0]STOFCY,WRET) From STKSOR
+#                  Endif
+#                  WSVGNBLIG=[M:SDH1]NBLIG : [M:SDH1]NBLIG=nolign
+#              Endif
+#          Endif
+#          # Bug 75756
+#          Default File [STJ]
+#          GSTK_ACTION="SAIMSK" : Gosub ACTION From STKIMP
+#          If mkstat : GREP="" : REP="" : mkstat=0 : GOK=0 : Return : Endif
+#          Gosub ZONE_INVISIBLE
+#          # Bug 75756 : Pour import ligne de composant kit issue d'une commande
+#          # Restitution NBLIG
+#          If find("[F:SDD]SOHNUM(0)",[M:AOE2]ZONMSK1) & [F:SDD]SOHNUM<>""
+#              If find([F:SOP]LINTYP,3,4,5,11,12,13)
+#                  [M:SDH1]NBLIG=WSVGNBLIG
+#              Endif
+#          Endif
+#          # Bug 75756
+#     When "SVV" :
+#          # -------------------------------------------------------------------#
+#          #     Taxes                                                          #
+#          # -------------------------------------------------------------------#
+#          If [F:SVV]VAT<>"" & dim([M:SIHV]XVTAX)>0
+#            #--CPO 71937 TVT et multi-lèg
+#            Call LEC_TVT_LEG(GCURLEG,[F:SVV]VAT,WRET) From TRTLECLEG
+#            If WRET : Raz [F:TVT] : Endif
+#              #Read [F:TVT]TVT0=[F:SVV]VAT
+#              #If fstat : Raz [F:TVT] : Endif
+#              #--/CPO
+#              [M:SIHV]XVTYP([M:SIHV]NBVAT) = [F:TVT]VATTYP
+#              [M:SIHV]XVBAS([M:SIHV]NBVAT) = [F:TVT]VATBAS
+#              [M:SIHV]XVCHA([M:SIHV]NBVAT) = [F:TVT]VATCHA
+#              Call GET_ATEXTRA("TABVAT","SHOAXX",GLANGUE,[M:SIHV]XVSHO([M:SIHV]NBVAT)) From TRTX3TEX
+#              [M:SIHV]XVTAX([M:SIHV]NBVAT) = [F:SVV]VAT
+#              [M:SIHV]XVNOT([M:SIHV]NBVAT) = [F:SVV]VATGRO
+#              [M:SIHV]XVSMI([M:SIHV]NBVAT) = [F:SVV]VATNET
+#              [M:SIHV]XVRAT([M:SIHV]NBVAT) = [F:SVV]VATRAT
+#              [M:SIHV]XVAMT([M:SIHV]NBVAT) = [F:SVV]VATAMT
+#              [M:SIHV]XVSUP([M:SIHV]NBVAT) = [F:SVV]VATSUPAMT
+#              [M:SIHV]NBVAT +=1
+#          Endif
+#    When "SVF" :
+#          # -------------------------------------------------------------------#
+#          #     Pieds                                                          #
+#          # -------------------------------------------------------------------#
+#          #--      le tableau des pieds de facture
+#          If [F:SVF]DTA<>0 & dim([M:SIHV]XFNUM)>0
+#              [M:SIHV]XFNUM([M:SIHV]NBFOOT)    = [F:SVF]DTA
+#              [M:SIHV]XFNOT([M:SIHV]NBFOOT)    = [F:SVF]DTANOT
+#              [M:SIHV]XFSMI([M:SIHV]NBFOOT)    = [F:SVF]DTANOT
+#
+#              Raz [M:SIHV]XFVATAMT([M:SIHV]NBFOOT)
+#              For I=0 To dim([F:SVF]DTANET)-1
+#                  If [F:SVF]DTAVAT(I)="" Break Endif
+#                  Assign "[M:SIHV]DTANOT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATNOT(I)
+#                  Assign "[M:SIHV]DTANET"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTANET(I)
+#                  Assign "[M:SIHV]DTAVAT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVAT(I)
+#                  Assign "[M:SIHV]DTAVATRT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATRAT(I)
+#                  Assign "[M:SIHV]DTAVATMT"+format$("N0:2",I+1)+"("+num$([M:SIHV]NBFOOT)+")" With [F:SVF]DTAVATAMT(I)
+#                  [M:SIHV]XFVATAMT([M:SIHV]NBFOOT)+=[F:SVF]DTAVATAMT(I)
+#              Next
+#              If I=1
+#                  [M:SIHV]XFSMI([M:SIHV]NBFOOT)    = [F:SVF]DTANET(I-1)
+#                  [M:SIHV]XFTAX([M:SIHV]NBFOOT)    = [F:SVF]DTAVAT(I-1)
+#                  [M:SIHV]XFRAT([M:SIHV]NBFOOT)    = [F:SVF]DTAVATRAT(I-1)
+#              Endif
+#
+#              [M:SIHV]XFDTAAMT([M:SIHV]NBFOOT) = [F:SVF]DTAAMT
+#              [M:SIHV]XFATI([M:SIHV]NBFOOT)    = [F:SVF]DTANOT+[M:SIHV]XFVATAMT([M:SIHV]NBFOOT)
+#
+#              [M:SIHV]NBFOOT +=1
+#          Endif
+#Endcase
+#
+#Return
+# FGR 08/04/2015 : X3SUIVI107395 (fin)
+
+# ---------------------------------------------------------------------
+# import des champs invisibles ou affiches des masques
+$ZONE_INVISIBLE
+Case IMPFIC
+     When "SDH"
+          Case GW_ABRMSK
+              When "SDH0"
+                    If find("[F:SDH]PACFLG(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH0]PACFLG=[F:SDH]PACFLG
+                       If !find([M:SDH0]PACFLG,1,2) : [M:SDH0]PACFLG=1 : Endif
+                    Endif
+                    #--CPO 71065 Code affaire en-tête / lignes
+                    #--Le code affaire en-tête est déplacé dans le [M:SDH2] et est saisissable
+                    #If find("[F:SDH]PJT(0)",[M:AOE2]ZONMSK1)
+                    #   [M:SDH0]PJT=[F:SDH]PJT
+                    #Endif
+                    #--/CPO
+                    If find("[F:SDH]TRSCOD(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH0]TRSCOD=[F:SDH]TRSCOD
+                    Endif
+                    If find("[F:SDH]ENTCOD(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH0]ENTCOD=[F:SDH]ENTCOD
+                    Endif
+
+              When "SDH1"
+                    If find("[F:SDH]PRNNPR(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]PRNNPR=[F:SDH]PRNNPR
+                       If !find([M:SDH1]PRNNPR,1,2) : [M:SDH1]PRNNPR=1 : Endif
+                    Endif
+                    If find("[F:SDH]PRNNDE(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]PRNNDE=[F:SDH]PRNNDE
+                       If !find([M:SDH1]PRNNDE,1,2) : [M:SDH1]PRNNDE=1 : Endif
+                    Endif
+                    If find("[F:SDH]CFMFLG(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]CFMFLG=[F:SDH]CFMFLG
+                       If !find([M:SDH1]CFMFLG,1,2) : [M:SDH1]CFMFLG=1 : Endif
+                    Endif
+                    If find("[F:SDH]INVFLG(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]INVFLG=[F:SDH]INVFLG
+                       If !find([M:SDH1]INVFLG,1,2) : [M:SDH1]INVFLG=1 : Endif
+                    Endif
+
+              When "SDH2"
+              When "SDH3"
+              When "ADB2"
+              When "ADB3"
+              When "SCEE"
+
+          Endcase
+     When "SDD"
+          Case GW_ABRMSK
+               When "SDH1"
+                    If find("[F:SDD]LINTYP(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]LINTYP(nolign-1)=[F:SDD]LINTYP
+                       If [M:SDH1]LINTYP(nolign-1)<1 | [M:SDH1]LINTYP(nolign-1)>13 : [M:SDH1]LINTYP(nolign-1)=1 : Endif
+                    Endif
+                    #VPO 28/08/09 56503 import de REP1 ou REP2
+                    If find("[F:SDD]REP1(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]REP1(nolign-1)=[F:SDD]REP1
+                       If dim([M:SDH2]REP(0))>0 & nolign=1
+                           [M:SDH2]REP(0)=[F:SDD]REP1
+                       Endif
+                    Endif
+                    If find("[F:SDD]REP2(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]REP2(nolign-1)=[F:SDD]REP2
+                       If dim([M:SDH2]REP(1))>0 & nolign=1
+                           [M:SDH2]REP(1)=[F:SDD]REP2
+                       Endif
+                    Endif
+
+                    # Bug 62585 import de REPRAT1 ou REPRAT2
+                    If find("[F:SDD]REPRAT1(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]REPRAT1(nolign-1)=[F:SDD]REPRAT1
+                    Endif
+                    If find("[F:SDD]REPRAT2(0)",[M:AOE2]ZONMSK1)
+                       [M:SDH1]REPRAT2(nolign-1)=[F:SDD]REPRAT2
+                    Endif
+
+                    # ajout no commande
+               When "SREN"
+          Endcase
+     When "STJ"
+Endcase
+
+Gosub PE_IMPZONINV From TRTX3IMP
+
+Return
+
+# Bug 58445 : Import livraison de commande
+# ---------------------------------------------------------------------
+# initialisation à partir de l'entête commande avant import champs entête
+$INIT_FROM_SOH
+
+Raz [F:SOH],[F:SOC],[F:SOP],[F:SOQ]
+
+#--- Lecture des tables [SOH]
+Read [SOH]SOH0=[F:SDH]SOHNUM
+If fstat Raz [F:SOH] : Return Endif
+
+# --- si site de vente importé different du site de vente de la commande importee --> erreur
+If [F:SDH]SALFCY<>""
+   If [F:SDH]SALFCY<>[F:SOH]SALFCY
+       GMESSAGE  =mess(1,181,1)-":"-mess(760,197,1)-mess(129,197,1)-[F:SDH]SALFCY-"  /  "
+       GMESSAGE +=mess(760,197,1)-mess(98,197,1)-":"-[F:SOH]SOHNUM-[F:SOH]SALFCY
+       mkstat=1 : GERR=1 : Return
+   Endif
+Endif
+# --- si clt cde importé different du clt cde de la commande importee --> erreur
+If [F:SDH]BPCORD<>""
+   If [F:SDH]BPCORD<>[F:SOH]BPCORD
+       GMESSAGE  =mess(1,181,1)-":"-mess(99,197,1)-mess(129,197,1)-[F:SDH]BPCORD-"  /  "
+       GMESSAGE +=mess(99,197,1)-mess(98,197,1)-":"-[F:SOH]SOHNUM-[F:SOH]BPCORD
+       mkstat=1 : GERR=1 : Return
+   Endif
+Endif
+# ---
+
+# Issue 114349
+# Si MDL non paramétré dans le modèle import, on prend MDL de la commande
+# Si MDL paramétré dans le modèle import, on prend MDL du modèle (cf commentaire CH sur la fiche 83646)
+# Comme cela fonctionne en interactif
+##--CPO 83646 Si MDL non paramétré dans le modèle import ou si non renseigné dans le fichier importé
+##--on reprend celui de la commande
+#If (GW_MDL=0 | GW_MDL=1 and [F:SDH]MDL="")
+#  [M:SDH2]MDL = [F:SOH]MDL
+#Else
+#  #--si renseigné => contrôle cohérence
+#  [M:SDH2]MDL = [F:SDH]MDL  :#--On reprend le MDL renseigné dans le fichier d'import
+#  If [F:SDH]MDL<>[F:SOH]MDL
+#    GMESSAGE  =mess(1,181,1)-":"-mess(241,183,1)-[F:SDH]MDL-mess(129,197,1)-"  /  "
+#    GMESSAGE +=mess(241,183,1)-[F:SOH]MDL-mess(98,197,1)-":"-[F:SOH]SOHNUM
+#    mkstat = 1 : GERR=1 : Return
+#  Endif
+#Endif
+##--/CPO
+If GW_MDL=0
+    [M:SDH2]MDL = [F:SOH]MDL
+Else
+    #--si renseigné => contrôle cohérence
+    [M:SDH2]MDL = [F:SDH]MDL:#--On reprend le MDL renseigné dans le fichier d'import
+    If [F:SDH]MDL<>[F:SOH]MDL
+        GMESSAGE  =mess(1,181,1)-":"-mess(241,183,1)-[F:SDH]MDL-mess(129,197,1)-"  /  "
+        GMESSAGE +=mess(241,183,1)-[F:SOH]MDL-mess(98,197,1)-":"-[F:SOH]SOHNUM
+        # Issue number 117634 - 2016-07-28 by CPO : Import livraison - mode le livraison (message de warning)
+        #mkstat = 1 : GERR=1 : Return
+        Call ECR_TRACE(GMESSAGE,-1) From GESECRAN : Raz GMESSAGE
+        # End issue 117634
+    Endif
+Endif
+# End issue 114349
+
+# Alimentation des masques (entête)
+Call ALISOHSDH([F:SOH]SOHCAT) From TRTVENLIV
+
+Return
+
+#--- Dem 69786
+$CTL_PRE_LIG
+
+Raz [F:SOH],[F:SOC],[F:SOP],[F:SOQ]
+
+If [F:SDD]SOQSEQ=0 : [F:SDD]SOQSEQ=[F:SDD]SOPLIN : Endif
+
+Read [PRH]PRH0=[F:SDD]PRHNUM
+If fstat : Raz [F:PRH] : Return : Endif
+
+# Le bon prépa doit être livrable
+If [F:PRH]DLVFLG<>2 Endif
+Read [SOQ]SOQ0=[F:SDD]SOHNUM;[F:SDD]SOPLIN;[F:SDD]SOQSEQ
+If fstat : Raz [F:SOQ] : Return : Endif
+
+# Le site d'expédition de la préparation doit être identique au site d'expé de l'entête livraison
+If [F:PRH]STOFCY<>[M:SDH0]STOFCY
+    GMESSAGE  =mess(1,181,1)-":"-mess(81,197,1)-mess(129,197,1)-[M:SDH0]STOFCY-"  /  "
+    GMESSAGE +=mess(81,197,1)-mess(133,198,1)-":"-[F:PRH]PRHNUM-[F:PRH]STOFCY
+    mkstat=1 : GERR=1 : Return
+Endif
+
+# L'adresse de livraison de la préparation doit être identique à celle de l'entête livraison
+If [F:PRH]BPAADD<>[M:SDH0]BPAADD
+    GMESSAGE  =mess(1,181,1)-":"-mess(639,197,1)-mess(129,197,1)-[M:SDH0]BPAADD-"  /  "
+    GMESSAGE +=mess(639,197,1)-mess(133,198,1)-":"-[F:PRH]PRHNUM-[F:PRH]BPAADD
+    mkstat=1 : GERR=1 : Return
+Endif
+
+# Issue X3-235555 - 2021-02-12 by SR : Control credit taking into account Sales order status
+WNUMPIE = [F:SOQ]SOHNUM
+Gosub CTL_OST
+If CDTSTA = 2
+  GMESSAGE=mess(133,198,1)-":"-[F:PRH]PRHNUM - mess(151,199,1)
+  mkstat = 1
+  GERR=1
+  Return
+Endif
+# End issue X3-235555
+
+Return
+#---
+
+# Bug 57133 : Import livraison de commande
+# ---------------------------------------------------------------------
+# Vérification cohérence de la ligne / entête
+$CTL_CDE_LIG
+
+Raz [F:SOH],[F:SOC],[F:SOP],[F:SOQ]
+
+If [F:SDD]SOQSEQ=0 : [F:SDD]SOQSEQ=[F:SDD]SOPLIN : Endif
+
+Read [SOQ]SOQ0=[F:SDD]SOHNUM;[F:SDD]SOPLIN;[F:SDD]SOQSEQ
+If fstat : Raz [F:SOQ] : Return : Endif
+
+# 107888 : Scheduled invoices : (LD:23/05/16)
+# L'article doit être livrable
+If [F:SOQ]DLVFLG<>2
+    GMESSAGE  =mess(1,181,1)-":"-mess(501,192,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)-[F:SOQ]ITMREF
+    mkstat=1 : GERR=1 : Return
+Endif
+# 107888 : Scheduled invoices : (LD:23/05/16)
+
+# La ligne de commande ne soit pas être déjà soldée (sf si reprise de données auquel la livraison est facturée)
+If [F:SOQ]SOQSTA=3 & [M:SDH1]INVFLG<>2
+    GMESSAGE  =mess(1,181,1)-":"-mess(282,197,1)-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)
+    mkstat=1 : GERR=1 : Return
+Endif
+
+# Le site d'expédition de la ligne commande doit être identique au site d'expé de l'entête livraison
+If [F:SOQ]STOFCY<>[M:SDH0]STOFCY
+    GMESSAGE  =mess(1,181,1)-":"-mess(81,197,1)-mess(129,197,1)-[M:SDH0]STOFCY-"  /  "
+    GMESSAGE +=mess(81,197,1)-mess(98,197,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)-[F:SOQ]STOFCY
+    mkstat=1 : GERR=1 : Return
+Endif
+
+# L'adresse de livraison de la ligne commande doit être identique à celle de l'entête livraison
+If [F:SOQ]BPAADD<>[M:SDH0]BPAADD
+    GMESSAGE  =mess(1,181,1)-":"-mess(639,197,1)-mess(129,197,1)-[M:SDH0]BPAADD-"  /  "
+    GMESSAGE +=mess(639,197,1)-mess(98,197,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)-[F:SOQ]BPAADD
+    mkstat=1 : GERR=1 : Return
+Endif
+
+#--CPO 83646 Si la première ligne importée a comme origine une commande => on reprend le MDL de la ligne
+#--si le MDL pas renseigné dans l'en-tête
+If [M:SDH2]MDL=""
+[M:SDH2]MDL=[F:SOQ]MDL
+Elsif [F:SOQ]MDL<>"" and [F:SDH]SOHNUM="" and [F:SDH]MDL="" and [M:SDH1]NBLIG=0
+  [M:SDH2]MDL = [F:SOQ]MDL
+Elsif [M:SDH2]MDL<>[F:SOQ]MDL and [F:SOQ]MDL<>""
+#--Contrôle cohérence
+#--idem picking : avertissement
+GMESSAGE  =mess(1,181,1)-":"-mess(241,183,1)-[M:SDH2]MDL-mess(129,197,1)-"  /  "
+GMESSAGE +=mess(241,183,1)-[F:SOQ]MDL-mess(98,197,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)
+Call ECR_TRACE(GMESSAGE,-1) From GESECRAN : Raz GMESSAGE
+#mkstat=1 : GERR=1 : Return
+Endif
+#--/CPO
+
+# Issue X3-235555 - 2021-02-12 by SR : Control credit hold taking into account Sales order status
+WNUMPIE = [F:SOQ]SOHNUM
+Gosub CTL_OST
+If CDTSTA = 2
+  GMESSAGE=mess(98,197,1)-":"-[F:SOQ]SOHNUM - mess(151,199,1)
+  mkstat = 1
+  GERR=1
+  Return
+Endif
+# End issue X3-235555
+
+Return
+
+# Issue X3-235555 - 2021-02-12 by SR : control credit hold
+#--------------------------------------------------------------
+$CTL_OST
+If [F:BPC]BPCNUM <> [M:SDH0]BPCINV
+  Read [BPC]BPC0=[M:SDH0]BPCINV
+  If fstat : Raz [F:BPC] : Endif
+Endif
+If [F:BPR]BPRNUM <> [F:BPC]BPCINV
+  Read [BPR]BPR0=[F:BPC]BPCINV
+  If fstat : Raz [F:BPR] : Endif
+Endif
+Raz WUNL
+If WNUMPIE <> ""
+  If [F:SOH]SOHNUM <> WNUMPIE
+    Read [F:SOH]SOH0 = WNUMPIE
+    If fstat : Raz [F:SOH] : Endif
+  Endif
+  WUNL = [F:SOH]UNL
+Endif
+Call SDCDTSTA(WNUMPIE,[F:BPC]BPCNUM,[F:BPC]CHGTYP,0,[F:BPC]CUR,[M:SDH1]SHIDAT,WUNL,0,CDTSTA,WOST,WOSTAUZ) From TRTVENCDT
+Return
+# End issue X3-235555
+
+
+# ---------------------------------------------------------------------
+# initialisation à partir de la ligne commande avant import champs ligne
+$INIT_FROM_CDE
+[M:SDH1]XSOHNUM(nolign-1)=[F:SDD]SOHNUM
+[M:SDH1]SOPLIN(nolign-1) =[F:SDD]SOPLIN
+#[M:SDH1]SOQSEQ(nolign-1) =[F:SDD]SOPLIN : # 96417
+[M:SDH1]SOQSEQ(nolign-1) =[F:SDD]SOQSEQ  : # 96417
+
+If [F:SDD]SOQSEQ=0 : [F:SDD]SOQSEQ=[F:SDD]SOPLIN : Endif
+[M:SDH1]SOQSEQ(nolign-1)=[F:SDD]SOQSEQ
+
+Raz [F:SOH],[F:SOC],[F:SOP],[F:SOQ]
+
+Read [SOQ]SOQ0=[F:SDD]SOHNUM;[F:SDD]SOPLIN;[F:SDD]SOQSEQ
+If fstat : Raz [F:SOQ] : Return : Endif
+
+Read [SOH]SOH0=[F:SDD]SOHNUM
+If fstat : Raz [F:SOH],[F:SOQ] : Return : Endif
+[M:SDH1]SOHCAT(nolign-1) =[F:SOH]SOHCAT
+
+If find([F:SOH]SOHCAT,1,2,3)    : # 1=normale, 2=pret, 3=fact. directe
+   Raz [F:SOC]
+   Read [SOP]SOP0=[F:SDD]SOHNUM;[F:SDD]SOPLIN;[F:SDD]SOPLIN
+   If fstat : Raz [F:SOP],[F:SOH],[F:SOQ] : Return : Endif
+Endif
+
+# Bug 75756 : Pour import ligne de composant kit issue d'une commande
+# --- Lecture des tables articles
+If [F:ITM]ITMREF <> [F:SOQ]ITMREF
+   Read [ITM]ITM0=[F:SOQ]ITMREF
+   If fstat Raz [F:ITM] Endif
+Endif
+If [F:ITS]ITMREF <> [F:SOQ]ITMREF
+   Read [ITS]ITS0 = [F:SOQ]ITMREF
+   If fstat Raz [F:ITS] Endif
+Endif
+If ([F:ITU]ITMREF <> [F:SOQ]ITMREF) | ([F:ITU]BPCNUM <> [F:SOH]BPCORD)
+   Read [F:ITU]ITU0 = [F:SOQ]ITMREF;[F:SOH]BPCORD
+   If fstat Raz [F:ITU] Endif
+Endif
+# ---
+# Bug 75756
+
+# Bug 71051 : Les lignes de composants kit sont générées à partir du composé
+# On positionne GERR à 1 pour ne pas importer la ligne
+#If find([F:SOP]LINTYP,3,4,5,11,12,13) GERR=1 : Return Endif
+# Bug 75756 : Pour import ligne de composant kit issue d'une commande
+If find([F:SOP]LINTYP,3,4,5,11,12,13)
+    # On essaie de retrouver l'indice de la ligne dans le tableau
+    GERR=9
+    Local Integer WI
+    WI=sigma(0,[M:SDH1]NBLIG-2,(sum([F:SDD]SOHNUM,num$([F:SDD]SOPLIN),num$([F:SDD]SOQSEQ))=sum([M:SDH1]XSOHNUM(indcum),num$([M:SDH1]SOPLIN(indcum)),num$([M:SDH1]SOQSEQ(indcum))))*indcum)
+    nolign=WI+1
+    Return
+Endif
+# Bug 75756
+
+If [F:SOH]SOHCAT=4              : # 4=cde ouverte
+   Read [SOC]SOC0=[F:SOQ]SOHNUM;[F:SOQ]SOPLIN
+   If fstat : Raz [F:SOC],[F:SOH],[F:SOQ] : Return : Endif
+   If [F:SOC]PLI=""             : # pas de code tarif  --> recherche enregistrement prix
+      Filter [SOP] Where SOHNUM=[F:SOQ]SOHNUM & SOPLIN=[F:SOQ]SOPLIN &
+&                        STRDAT<=[F:SOQ]SHIDAT & ENDDAT>=[F:SOQ]SHIDAT
+      Read [SOP]SOP0 First
+      If fstat : Raz [F:SOP] : Endif
+      Filter [SOP]
+   Endif
+Endif
+
+# --- si ref importee differente de ref de la ligne commande importee --> erreur
+If [F:SDD]ITMREF<>"" & [F:SDD]SOPLIN<>0 & [F:SOP]SOPLIN<>0
+   If [F:SDD]ITMREF<>[F:SOP]ITMREF
+   mkstat=1 : GERR=1
+   GMESSAGE  =mess(1,181,1)-":"-mess(18,7,1)-[F:SDD]ITMREF-"  /  "
+   GMESSAGE +=mess(367,197,1)-":"-[F:SOP]SOHNUM-num$([F:SOP]SOPLIN)-" ("-[F:SOP]ITMREF-")"
+   Endif
+Endif
+# ---
+
+Local Decimal WOALQTYSTU, WQTALIV, WQTALIVSTU
+
+If [F:SOQ]STOMGTCOD=1 :                               WQTALIV=[F:SOQ]TDLQTY : WQTALIVSTU = [F:SOQ]TDLQTYSTU :Endif
+If [F:SOQ]STOMGTCOD=2
+    # Bug 68391 : Si allocation globale, on passe la qté déjà alloée en global
+    If dim([M:ALP]ALLQTY)>0
+        If [F:SOQ]ALLTYP=1 [M:ALP]ALLQTY=[F:SOQ]ALLQTYSTU Endif
+    Endif
+    #Gbn-87097-On ajoute aussi la qté en rupture
+    WOALQTYSTU=[F:SOQ]ALLQTYSTU+[F:SOQ]SHTQTYSTU : WQTALIV=[F:SOQ]ALLQTY+[F:SOQ]SHTQTY : WQTALIVSTU = [F:SOQ]ALLQTYSTU+[F:SOQ]SHTQTYSTU :
+Endif
+
+# On vérifie tout d'abord s'il y a quelquechose à livrer : Si tte ligne est livrée, on refuse l'import
+If WQTALIV=0 & [F:SOQ]QTYSTU<=[F:SOQ]ODLQTYSTU+[F:SOQ]DLVQTYSTU
+   GMESSAGE  =mess(1,181,1)-":"-mess(18,7,1)-[F:SDD]ITMREF-"  /  "
+   GMESSAGE +=mess(367,197,1)-":"-[F:SOP]SOHNUM-num$([F:SOP]SOPLIN)-":"
+   GMESSAGE +=mess(754,197,1)
+   mkstat=1: GERR=1 : Return
+Endif
+
+# 96417 : Si ligne de cde en rupture : On vérifie si elle est livrable
+If [F:SOQ]ALLQTY=0 & [F:SOQ]SHTQTY<>0
+   If GSHTDLV < 2
+      # SHTDLV=1 : Livraison des ruptures = Non : Livraison interdite
+      GMESSAGE=mess(367,197,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)-":"-mess(18,7,1)-":"-[F:SOQ]ITMREF
+      If !find([F:SOP]LINTYP,0,1,2,6,10) GMESSAGE -=":"-mess([F:SOP]LINTYP, 423,1) Endif
+      GMESSAGE-="\"-mess(183,192,1)
+      mkstat=1 : GERR=1 : Return
+   Else
+      # SHTDLV=2 : Livraison des ruptures = Oui
+      # NEGSTO=1 : Stock négatif interdit       : Livraison interdite
+      If GSHTDLV=2 & [F:ITM]NEGSTO<>2
+         GMESSAGE=mess(367,197,1)-":"-[F:SOQ]SOHNUM-num$([F:SOQ]SOPLIN)-":"-mess(18,7,1)-":"-[F:SOQ]ITMREF
+         If !find([F:SOP]LINTYP,0,1,2,6,10) GMESSAGE -=":"-mess([F:SOP]LINTYP, 423,1) Endif
+         GMESSAGE-="\"-mess(184,192,1)
+         mkstat=1 : GERR=1 : Return
+      Endif
+   Endif
+Endif
+# 96417
+
+Gosub SOH_SDH_PLUS From SUBSFIT # Issue 112465 - 2015-11-30 by CPO : Invoicing elements on imported sales documents
+
+GSTK_ACT="ALISOQSDH" : GSTK_PGM="TRTVENLIV" : Gosub TRACE_ACTION
+Call ALISOQSDH (nolign-1,WOALQTYSTU,WQTALIV,WQTALIVSTU) From TRTVENLIV
+
+Return
+
+#--- Dem 69786
+$INIT_FROM_PRE
+
+[M:SDH1]PRHNUM(nolign-1)=[F:SDD]PRHNUM
+[M:SDH1]PRELIN(nolign-1)=[F:SDD]PRELIN
+
+Read [PRE]PRE0=[F:SDD]PRHNUM;[F:SDD]PRELIN
+If fstat : Raz [F:PRE] : Return : Endif
+
+Read [PRH]PRH0=[F:SDD]PRHNUM
+If fstat : Raz [F:PRH],[F:PRE] : Return : Endif
+
+If find([F:PRE]ORITYP,1,2)
+  [M:SDH1]XSOHNUM(nolign-1)=[F:PRE]ORINUM
+  [M:SDH1]SOPLIN(nolign-1) =[F:PRE]ORILIN
+  [M:SDH1]SOQSEQ(nolign-1) =[F:PRE]ORISEQ
+
+  Raz [F:SOH],[F:SOC],[F:SOP],[F:SOQ]
+
+  Read [SOQ]SOQ0=[F:PRE]ORINUM;[F:PRE]ORILIN;[F:PRE]ORISEQ
+  If fstat : Raz [F:SOQ] : Return : Endif
+
+  Read [SOH]SOH0=[F:PRE]ORINUM
+  If fstat : Raz [F:SOH],[F:SOQ] : Return : Endif
+  [M:SDH1]SOHCAT(nolign-1) =[F:SOH]SOHCAT
+
+  If find([F:SOH]SOHCAT,1,2,3)    : # 1=normale, 2=pret, 3=fact. directe
+    Raz [F:SOC]
+    Read [SOP]SOP0=[F:PRE]ORINUM;[F:PRE]ORILIN;[F:PRE]ORISEQ
+    If fstat : Raz [F:SOP],[F:SOH],[F:SOQ] : Return : Endif
+  Endif
+
+  If [F:SOH]SOHCAT=4              : # 4=cde ouverte
+    Read [SOC]SOC0=[F:SOQ]SOHNUM;[F:SOQ]SOPLIN
+    If fstat : Raz [F:SOC],[F:SOH],[F:SOQ] : Return : Endif
+    If [F:SOC]PLI=""             : # pas de code tarif  --> recherche enregistrement prix
+      Filter [SOP] Where SOHNUM=[F:SOQ]SOHNUM & SOPLIN=[F:SOQ]SOPLIN &
+&                        STRDAT<=[F:SOQ]SHIDAT & ENDDAT>=[F:SOQ]SHIDAT
+      Read [SOP]SOP0 First
+      If fstat : Raz [F:SOP] : Endif
+      Filter [SOP]
+    Endif
+  Endif
+
+  # --- si ref importee differente de ref de la ligne commande importee --> erreur
+  If [F:SDD]ITMREF<>"" & [F:SDD]SOPLIN<>0 & [F:SOP]SOPLIN<>0
+    If [F:SDD]ITMREF<>[F:SOP]ITMREF
+      mkstat=1 : GERR=1
+      GMESSAGE  =mess(1,181,1)-":"-mess(18,7,1)-[F:SDD]ITMREF-"  /  "
+      GMESSAGE +=mess(367,197,1)-":"-[F:SOP]SOHNUM-num$([F:SOP]SOPLIN)-" ("-[F:SOP]ITMREF-")"
+    Endif
+  Endif
+  # ---
+
+  # --- Lecture des tables articles
+  If [F:ITM]ITMREF <> [F:SOQ]ITMREF
+    Read [ITM]ITM0=[F:SOQ]ITMREF
+    If fstat Raz [F:ITM] Endif
+  Endif
+  If [F:ITS]ITMREF <> [F:SOQ]ITMREF
+    Read [ITS]ITS0 = [F:SOQ]ITMREF
+    If fstat Raz [F:ITS] Endif
+  Endif
+  If ([F:ITU]ITMREF <> [F:SOQ]ITMREF) | ([F:ITU]BPCNUM <> [F:SOH]BPCORD)
+    Read [F:ITU]ITU0 = [F:SOQ]ITMREF;[F:SOH]BPCORD
+    If fstat Raz [F:ITU] Endif
+  Endif
+  # ---
+
+  Local Decimal WOALQTYSTU, WQTALIV, WQTALIVSTU
+  Local Integer WRET
+
+  # Qté livrée = qté préparée
+  WQTALIVSTU = [F:PRE]QTYSTU
+  WQTALIV    = WQTALIVSTU*(1/[F:PRE]PCUSTUCOE)
+  Call QTEARR(WQTALIV,[F:PRE]PCU) From TRTDIV
+
+  If [F:PRE]STOMGTCOD>1
+    # Chargement STOSORW à partir des allocations
+    [M:ALP]TRSTYP    = [M:SDH0]TRSTYP
+    [M:ALP]TRSCOD    = [M:SDH0]TRSCOD
+    [M:ALP]VCRTYP    = 3
+    [M:ALP]VCRNUM    = [F:PRE]PRHNUM
+    [M:ALP]VCRLIN    = [F:PRE]PRELIN
+    [M:ALP]VCRSEQ    = 0
+    [M:ALP]STOFCY    = [M:SDH0]STOFCY
+    [M:ALP]ITMREF    = [F:PRE]ITMREF
+    # --------------------------------------
+    # FGR 21/04/2015 : X3SUIVI105605 (début)
+    If func AFNC.ACTIV("ECC") Then
+      [M:ALP]ECCVALMAJ    = [F:SOQ]ECCVALMAJ
+    Endif
+    # FGR 21/04/2015 : X3SUIVI105605 (fin)
+    # --------------------------------------
+    [M:ALP]QTY       = WQTALIVSTU
+    [M:ALP]TYPQTY    = 2
+    [M:ALP]STA       = "*"
+    [M:ALP]PECSCOLOC = 1
+    [M:ALP]BESDAT    = [F:PRH]SHIDAT
+    [M:ALP]DLVDAT    = [F:PRH]DLVDAT
+    WRET=0
+    If dim(GWRHOBY)>0 & GWRHOBY=2 & dim([M:SDH1]WRHE)>0
+       [M:ALP]WRH = [M:SDH1]WRHE
+    Else
+       Raz [M:ALP]WRH
+    Endif
+
+    Call ALLSTOSORW("SDH1",[M:SDH1]NBLIG-1,[M:SDH1]NBLIG-1,1,1,1,WRET) From STKSOR
+    If WRET<>0 | [M:ALP]ALLQTY+[M:ALP]ALLQTYSHT=0
+      Raz WQTALIVSTU,WQTALIV
+      mkstat=2 : Return
+    Elsif [M:ALP]ALLQTY+[M:ALP]ALLQTYSHT<>WQTALIVSTU
+      WQTALIVSTU = [M:ALP]ALLQTY+[M:ALP]ALLQTYSHT
+      WQTALIV    = WQTALIVSTU*(1/[F:PRE]PCUSTUCOE)
+      Call QTEARR(WQTALIV,[F:PRE]PCU) From TRTDIV
+    Endif
+  Endif
+
+  WOALQTYSTU=0
+
+  Gosub SOH_SDH_PLUS From SUBSFIT # Issue 117831 - 2016-07-28 by CPO : Invoice element for picking ticket delivery import
+
+  GSTK_ACT="ALISOQSDH" : GSTK_PGM="TRTVENLIV" : Gosub TRACE_ACTION
+  Call ALISOQSDH (nolign-1,WOALQTYSTU,WQTALIV,WQTALIVSTU) From TRTVENLIV
+Endif
+
+Return
+#---
+
+#-------------------------------#
+# Rupture sur ligne de document #
+#-------------------------------#
+$RUPT_LIGDOC
+
+# Bug 75756 : Pour import ligne de composant kit issue d'une commande
+# Bug 71051 : Ne rien faire si la ligne d'import qui vient d'être lue n'a pas été traitée (cas des composants kit pour une liv de cde)
+#If [M:SDH1]NBLIG=WNBLIG Return Endif
+If [M:SDH1]NBLIG=WNBLIG Raz GSTK_NBLIG : Return Endif
+# Bug 75756
+
+GSTK_ACT="RUPT_LIGDOC(STJ="+vireblc(mess((GSTK_NBLIG>0)+1,1,1),2)+")"
+GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+If [F:ITM]ITMREF<>[M:SDH1]ITMREF([M:SDH1]NBLIG-1)
+   Read [ITM] ITM0=[M:SDH1]ITMREF([M:SDH1]NBLIG-1) : If fstat  Raz [F:ITM] : Endif
+Endif
+# Bug 59587 : Import livraison validée facturée : Pas de maj des stocks (Import à des fins statistiques)
+If [F:ITM]STOMGTCOD>1 & [M:SDH1]INVFLG=1
+    If [F:ITF]ITMREF<>[M:SDH1]ITMREF([M:SDH1]NBLIG-1) | [F:ITF]STOFCY<>[M:SDH0]STOFCY
+       Read [ITF] ITF0=[M:SDH1]ITMREF([M:SDH1]NBLIG-1);[M:SDH0]STOFCY : If fstat  Raz [F:ITF] : Endif
+    Endif
+    If [F:ITF]STOMGTCOD>1
+       GSTK_ACTION="RUPT_LIGDOC" : Gosub ACTION From STKIMP
+    Endif
+Endif
+Raz GSTK_NBLIG
+
+# Bug 71051
+If [M:SDH1]XSOHNUM([M:SDH1]NBLIG-1)=""
+  # Livraison directe     : Déclinaison de la nomenclature
+  # Bug 50089 : Traitement de création d'une nomenclature
+  GMODIF=2
+  Call IMPCRENOM([M:SDH1]ITMREF([M:SDH1]NBLIG-1),[M:SDH1]NBLIG-1,[M:SDH1]SHIDAT,3,GBIDI1,0,GBIDC1,GBIDI1,GBIDI1) From TRTVENBOM
+# Issue 110491
+# Livraison de BP : Pas de génération des composants à partir des lignes de la cde
+# Les composants sont générées à partir du fichier d'import (comme les lignes normales et les lignes de kit)
+#Else
+Elsif [M:SDH1]PRHNUM([M:SDH1]NBLIG-1)="" & [M:SDH1]PRELIN([M:SDH1]NBLIG-1)=0
+# End issue 110491
+  # Livraison de commande : Pas de déclinaison de la nomenclature
+  # Génération des composants à partir des lignes de la cde (simulation picking)
+  Gosub GENSOQCPS
+Endif
+# Bug 71051
+
+# Bug 68619 : Traitement des gratuits
+# Ssi le flag FOCFLG n'est pas paramétré dans le modèle
+If GFOCITMREF<>"" & (dim(G_FOCFLG)>0 & G_FOCFLG=0) | (dim(G_FOCFLG)<=0)
+    # Recherche de l'article origine si on est positionné sur un composant
+    Local Integer  ORI        : ORI=[M:SDH1]NBLIG-1
+    Local Integer  NL         : NL=[M:SDH1]NBLIG
+    Local Integer  FUNCTION   : FUNCTION=3
+    Local Integer  RET
+
+    If !find([M]LINTYP(ORI),1,2,6)
+        While !find([M]LINTYP(ORI),1,2,6) & ORI >= 0
+            ORI-=1
+        Wend
+    Endif
+    If ORI = [M]NBLIG [M]NBLIG +=1 Endif
+    Call CREGRA("G",1, ORI, [M:SDH1]SHIDAT, FUNCTION, NL, RET) From TRTVENBOM
+    If ORI = NL-1 & ORI = [M]NBLIG-1 [M]NBLIG -=1 Endif
+Endif
+
+WNBLIG=[M:SDH1]NBLIG : # Bug 71051
+
+Return
+
+#######################################################################
+# Bug 71051
+#------------------------------------------------------------#
+# Génération des composants à partir des lignes de commande  #
+#------------------------------------------------------------#
+$GENSOQCPS
+Local Decimal WQTY, WQTYSTU, WQTYCPE, WALLQTYCPE, WQTYDLVCPE, WOALQTYCPE, WOALQTYSTU
+Local Integer NOL : NOL=[M:SDH1]NBLIG-1
+Local Integer WRET
+Local Integer WSTOSEQ
+Local Integer WNEGSTO
+
+Local Integer WRUP # Issue 110677 - 2015-09-17 by CPO : Import livraisons de kits commerciaux
+
+WNEGSTO = [F:ITM]NEGSTO
+
+# Sauvegarde qté cde et qté à livrer du composé
+WQTYCPE    = [F:SOQ]QTY
+WALLQTYCPE = [M:SDH1]QTY(NOL)
+WQTYSTUCPE = [M:SDH1]QTYSTU(NOL)
+WQTYDLVCPE = [M:SDH1]QTY(NOL)+[F:SOQ]ODLQTY+[F:SOQ]DLVQTY
+WOALQTYCPE = [M:SDH1]OALQTYSTU(NOL)
+# Si composé de kit/sous-traité
+If find([M:SDH1]LINTYP(NOL),2,10)
+   If !clalev([F:SOP1]) Local File SORDERP [SOP1] Endif
+   Filter [SOP1] Where SOHNUM = [F:SOP]SOHNUM & SOPSEQ > [F:SOP]SOPSEQ
+   For [SOP1]
+      If find([F:SOP1]LINTYP,3,4,5,11,12,13)
+         Read [SOQ]SOQ0=[F:SOP1]SOHNUM;[F:SOP1]SOPLIN;[F:SOP1]SOPSEQ
+         If fstat
+            Call RSTA ("SOQ",[F:SOP1]SOHNUM+num$([F:SOP1]SOPLIN)) From GLOCK
+            Goto SEL_SUI
+         Endif
+         [F:SOP] = [F:SOP1]
+         # Lecture des tables articles
+         If [F:ITM]ITMREF <> [F:SOQ]ITMREF
+          Read [ITM]ITM0=[F:SOQ]ITMREF
+          If fstat Raz [F:ITM] Endif
+         Endif
+         If [F:ITS]ITMREF <> [F:SOQ]ITMREF
+            Read [ITS]ITS0 = [F:SOQ]ITMREF
+            If fstat Raz [F:ITS] Endif
+         Endif
+         If ([F:ITU]ITMREF <> [F:SOQ]ITMREF) | ([F:ITU]BPCNUM <> [F:SOH]BPCORD)
+            Read [F:ITU]ITU0 = [F:SOQ]ITMREF;[F:SOH]BPCORD
+            If fstat Raz [F:ITU] Endif
+         Endif
+
+         # Contrôle de l'insertion
+         If [M:SDH1]NBLIG+1 >= dim([M:SDH1]ITMREF)-1
+            mkstat=1 : GERR=1 : GMESSAGE=mess(122,199,1)
+            Break
+         Endif
+         # Sauvegarde du lien entre ligne document et écran travail
+         [L]WSTOSEQ = [M:SDH1]WSTOSEQ([M:SDH1]NBLIG)
+         # Ouverture de la ligne
+         Insa nolign,1,[M:SDH1]NBLIG [M:SDH1]NBLIG
+         [M:SDH1]NBLIG += 1
+         nolign = [M:SDH1]NBLIG
+         NOL = nolign-1
+         status = 0
+         # Calcul de la quantité livrée du composant
+         WQTY = (WALLQTYCPE * [F:SOQ]QTY) / WQTYCPE
+         Call QTEARR(WQTY,[F:SOP1]SAU) From TRTDIV
+         # Cas d'une livraison d'une nomenclature de sous-traitance avec un service forfaitaire
+         # Si livraison partielle, le service forfaitaire est également livré partiellement
+         # Sur la dernière livraison, il faut vérifier que le service est complètement livré (pb d'arrondi)
+         If [F:SOP1]LINTYP=13 & WQTYDLVCPE=WQTYCPE
+             If  WQTY+[F:SOQ]ODLQTY+[F:SOQ]DLVQTY<>[F:SOQ]QTY
+                 WQTY=[F:SOQ]QTY-[F:SOQ]ODLQTY-[F:SOQ]DLVQTY
+             Endif
+         Endif
+         WQTYSTU = WQTY*[F:SOQ]QTYSTU/[F:SOQ]QTY
+         Call QTEARR(WQTYSTU,[F:SOP1]STU) From TRTDIV
+         # Si composant géré en stock et qté allouée origine sur composé
+         # calcul de la qté allouée origine du composant
+         If WOALQTYCPE<>0
+            WOALQTYSTU = (WOALQTYCPE * [F:SOQ]QTYSTU) / WQTYSTUCPE
+         Else
+            # Issue 110677 - 2015-09-17 by CPO : Import livraisons de kits commerciaux
+            #--On peut avoir un composé non géré et le(s) composant(s) géré en stock
+            #--On prend donc, le min entre la quantité allouée sur la cde et la qté à livrer
+            #WOALQTYSTU = 0
+            WOALQTYSTU = min([F:SOQ]ALLQTYSTU,WQTYSTU)
+            # End issue 110677
+         Endif
+
+         # Alimentation de la classe [M:SDH1] de la ligne
+         Call ALISOQSDH(NOL,WOALQTYSTU,WQTY,WQTYSTU) From TRTVENLIV
+
+         # Récupération du lien entre ligne document et écran travail
+         [M:SDH1]WSTOSEQ(NOL) = [L]WSTOSEQ
+
+         Call LINNUM("SDDLIN") From TABLEAUX
+         # Calculs prix net, marge et maj montants livrés et poids
+         GNETMAR=0
+         Call ALICLCAMT([M:SDH1]ITMREF(NOL),[M]QTY(NOL),NOL,"SDH1",
+&                       [M:SDH1]CLCAMT1(NOL),[M:SDH1]CLCAMT2(NOL)) From TRTX3
+         # Bug 59754:Calcul prix net ssi il y a eu une recherche tarif sinon il faut garder le prix net de la cde
+         # (Si frais/remise dépendant de la qté (par ligne) et plusieurs liv.,le prix net doit être le même sur chaque liv.)
+         If [F:SOH]SOHCAT=4 & ([F:SOH]BETFCY=2 | [F:SOC]PLI<>"")
+             Call CLCNETPRI([M:SDH1]QTY(NOL),[M:SDH1]CUR,NOL) From TRTVENPRI
+         Endif
+         Call CLCPFM([M:SDH0]STOFCY,[M:SDH1]PRITYP,[M:SDH0]CHGTYP,
+&                    [M:SDH1]SHIDAT,[M:SDH1]CUR,NOL,1) From TRTVENPRI
+         Call APRES_LIGNE(NOL,0) From SUBSDHB
+         GNETMAR=1
+
+         Raz GOUVSOR
+         #--- Bug 23899 : TS le 23.08.04
+         # La ligne de livraison est-elle complète du point de vue stock
+         If [M]STOMGTCOD(NOL)<>1
+            # Issue 110677 - 2015-09-17 by CPO : Import livraisons de kits commerciaux
+            #--Cas de allocations détaillées
+            #--Il faut initialiser et aller chercher les allocations
+            #--Modif idem picking d'une commande
+            #--C'est la même dynamique que lorsque l'on créé une nouvelle ligne par pick
+            #--ATTENTION : pour l'appel à ALLSTOSORW, les données passées dans [M:ALP] peuvent être différentes
+            #--------------------------------------------------------
+            # Si allocation détaillée et qté allouée<>0 ou qté rupture livrable
+            If [F:SOQ]ALLTYP=2 &
+&       ([F:SOQ]ALLQTY<>0 | ([F:SOQ]SHTQTY<>0 & (([F:ITM]NEGSTO=2 & GSHTDLV=2) | GSHTDLV=3)))
+               # Chargement STOSORW à partir des allocations
+               [M:ALP]TRSTYP    = [M:SDH0]TRSTYP
+               [M:ALP]TRSCOD    = [M:SDH0]TRSCOD
+               [M:ALP]VCRTYP    = 2
+               [M:ALP]VCRNUM    = [F:SOQ]SOHNUM
+               [M:ALP]VCRLIN    = [F:SOQ]SOPLIN
+               [M:ALP]VCRSEQ    = [F:SOQ]SOQSEQ
+               [M:ALP]STOFCY    = [M:SDH0]STOFCY
+               [M:ALP]ITMREF    = [F:SOQ]ITMREF
+               [M:ALP]QTY       = WQTYSTU
+               [M:ALP]TYPQTY    = 2
+               [M:ALP]STA       = [F:SOQ]STA
+               [M:ALP]PECSCOLOC = 1
+               [M:ALP]PECQLYCTL = 1              : #--- Bug 73267
+               [M:ALP]BESDAT    = [M:SDH1]SHIDAT
+               [M:ALP]DLVDAT    = [M:SDH1]DLVDAT
+               Raz WRET
+               If dim(GWRHOBY)>0 & GWRHOBY=2 & dim([M:SDH1]WRHE)>0
+                  [M:ALP]WRH = [M:SDH1]WRHE
+               Else
+                  Raz [M:ALP]WRH
+               Endif
+               Raz [M:ALP]LOT : # 101581
+               #--!!!! 3rd paramater has to be the nolign-1
+               Call ALLSTOSORW("SDH1",[M:SDH1]NBLIG-1,[M:SDH1]NBLIG,WRUP,1,1,WRET)
+&                        From STKSOR
+               If WRET<>0
+                  Raz WQTYSTU,WQTY
+                  mkstat=1 : GERR=1 : Break
+               Elsif [M:ALP]ALLQTY+[M:ALP]ALLQTYSHT=0
+                  Raz WQTYSTU,WQTY
+                  mkstat=1 : GERR=1 :
+                  GMESSAGE=[F:SOH]SOHNUM-mess(27,159,1)-[F:SOQ]ITMREF-
+&                    format$(GFMD,[F:SOQ]SHIDAT)+"\"+mess(156,191,1)
+                  Break
+               Else
+                  WQTYSTU = [M:ALP]ALLQTY+[M:ALP]ALLQTYSHT
+                  If [F:SOP]SAUSTUCOE=0 [F:SOP]SAUSTUCOE=1 Endif
+                  WQTY    = WQTYSTU/[F:SOP]SAUSTUCOE
+                  Call QTEARR(WQTY,[F:SOP]SAU) From TRTDIV
+               Endif
+               # Qté allouée origine = qté allouée (+ qté rupture)
+               WOALQTYSTU = WQTYSTU
+            Endif
+            #--------------------------------------------------------
+            # End issue 110677
+            # Alimentation de [M:ALP]
+            Gosub ALI_ALP From SUBSDH
+            # Détermination du stock à sortir (automatisme, saisie)
+            # Issue 110677 - 2015-09-17 by CPO : Import livraisons de kits commerciaux
+            #--3rd paramter has to be the nolign-1
+            #Call OUVSOR("SDH1",NOL,[M:SDH1]NBLIG,[M:SDH1]WSTOSEQ(NOL),GSLTSTKFLG,WRET) From STKSOR
+            Call OUVSOR("SDH1",NOL,[M:SDH1]NBLIG-1,[M:SDH1]WSTOSEQ(NOL),GSLTSTKFLG,WRET) From STKSOR
+            # End issue 110677
+            If WRET=1 Endif
+         Endif
+         Raz GOUVSOR
+         #---
+
+         nolign = NOL+1
+      Else
+         Break
+      Endif
+   $SEL_SUI
+   Next
+   Filter [SOP1]
+   Close Local File [SOP1]
+Endif
+
+Return
+# Bug 71051
+
+#######################################################################
+# Appel depuis SUBIMPOBJ
+# ---------------------------------------------------------------------
+# Pour chargement chaque champ saisissable des masques
+# (Attention a l'environnement on est appelé depuis un call)
+# IMPFIC : Abréviation du fichier    IMPMSK : Nom de l'écran en cours
+# IMPZON : Nom du champ en cours     IMPMOD : Déclenche l'Après_modif
+# OK     : Conditionne IMP_ZONE standard (OK=0 évite le traitement std)
+#######################################################################
+
+$IMP_ZONE
+Local Integer IJ0
+Local Char ZON_MSK (25), ZON_TAB (25)
+Local Char MA_TRACE
+
+Case IMPFIC
+     When "SDH"
+          ZON_TAB ="[F:SDH]"+IMPZON+"("+num$(indice)+")"
+
+          Case GW_ABRMSK
+
+               When "SDH0", "SDH1", "SDH2", "SDH3"
+#                   ------ Entête ------
+                    ZON_MSK ="[M:"+GW_ABRMSK+"]"+IMPZON+"("+num$(indice)+")"
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_ZONE("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                    Endif
+
+               When "ADB2"
+#                   ------ Entête : Adresse livraison ADB2 ------
+                    [M:ADB2]ADBBPR=[M:SDH0]BPCORD : [M:ADB2]ADBFLG=2
+                    ZON_MSK ="[M:ADB2]"+IMPZON+"("+num$(indice)+")"
+                    Raz ZON_TAB
+                    IJ0=find(IMPZON,M_ADB)
+                    If IJ0 : ZON_TAB="[F:SDH]"+T_ADB2(IJ0-1)+"("+num$(indice)+")" : Endif
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_ZONE("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                   Endif
+
+               When "ADB3"
+#                   ------ Entête : Adresse facture ADB3 ------
+                    [M:ADB3]ADBBPR=[M:SDH0]BPCINV : [M:ADB3]ADBFLG=2 #Gbn-Fq76243-BPCINV à la place de BPCORD
+                    ZON_MSK ="[M:ADB3]"+IMPZON+"("+num$(indice)+")"
+                    Raz ZON_TAB
+                    IJ0=find(IMPZON,M_ADB)
+                    If IJ0 : ZON_TAB="[F:SDH]"+T_ADB3(IJ0-1)+"("+num$(indice)+")" : Endif
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_ZONE("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                    Endif
+
+               When "SCEE"
+#                   ------ Entête : Info CEE ------
+                    ZON_MSK ="[M:SCEE]"+IMPZON+"("+num$(indice)+")"
+                    Raz ZON_TAB
+                    IJ0=find(IMPZON,M_SCEE)
+                    If IJ0 : ZON_TAB="[F:SDH]"+T_SCEE(IJ0-1)+"("+num$(indice)+")" : Endif
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_ZONE("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                    Endif
+
+          Endcase
+     When "CAL"
+
+       #----- La zone présente dans le modèle a déjà été chargée par IMPORT_ACCCCE du $SAIMSK
+       If find("[F:CAL]"+IMPZON+"(0)",[M:AOE2]ZONMSK1)
+         GSTK_ACT="IMP_ZONE("+IMPZON+")" : GSTK_PGM="IMPSTHS" : Gosub TRACE_ACTION
+         IMPMOD=1
+       Endif
+       OK=0
+       #-----
+
+     When "STJ"
+
+           GSTK_ACTION="IMP_ZONE" : Gosub ACTION From STKIMP
+
+     When Default
+
+Endcase
+
+Return
+
+#######################################################################
+
+$IMP_TAB
+Local Integer IJ0
+Local Char ZON_MSK (25), ZON_TAB (25)
+
+If IMPFIC<>"SDD" : Return : Endif
+
+Case GW_ABRMSK
+
+     When "SDH1"
+
+          Case IMPZON
+
+               When "LOT", "STA", "LOC"
+#                   les champs tables doivent être mis dans [M:SDH1] LOTFIL STAFIL LOCFIL
+#                    hcb 42090 deb
+                    If  dim([M:SDH1]LOT(indice))>0
+                        Raz [M:SDH1]LOT(indice)
+                    Endif
+                    If  dim([M:SDH1]LOC(indice))>0
+                        Raz [M:SDH1]LOC(indice)
+                    Endif
+                    Raz  [M:SDH1]STA(indice)
+#                    hcb 42090 fin
+
+                    ZON_TAB="[F:SDD]"+IMPZON+"(0)"
+                    ZON_MSK ="[M:SDH1]"+IMPZON+"FIL("+num$(indice)+")"
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_TAB("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                    Endif
+               #--CPO 85987
+               When "CCE1", "CCE2", "CCE3", "CCE4", "CCE5", "CCE6", "CCE7", "CCE8", "CCE9", "CCE10",
+&                   "CCE11","CCE12","CCE13","CCE14","CCE15","CCE16","CCE17","CCE18","CCE19","CCE20"
+                #----- Pas de contrôle si les comptes et sections sont importés avec "CAL" -----#
+                If find("CPTANALIN",[M:AOE1]FLGFIL(0..[M:AOE1]NBRFLG))
+                  OK=0 : mkstat=1 : # Zones non concernées par SDELIVERYD
+                Endif
+                # Import des champs affichés, invisibles
+                #-----
+               #--/CPO
+               When Default
+                    IJ0=find(IMPZON,M_SDH1)
+                    If IJ0
+                       ZON_TAB="[F:SDD]"+T_SDD(IJ0-1)
+                     Else
+                       ZON_TAB ="[F:SDD]"+IMPZON+"(0)"
+                    Endif
+                    ZON_MSK ="[M:SDH1]"+IMPZON+"("+num$(indice)+")"
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_TAB("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                    Endif
+
+                    #--- X3Suivi 71065 : Gestion code affaire dans les ventes ---#
+                    If IMPZON = "DPJT"
+                     GPJTSNGDOC = func TRTPJT.GET_PARAM_PJTSNGDOC([F:SDH]SALFCY)
+                     WNEWPJT = [F:SDH]PJT
+                     If  GPJTSNGDOC = G_OUI
+                      If WNEWPJT <> evalue(ZON_MSK)
+                       #-- Affaire ligne $1$ <> entête $2$. Maj de l'affaire ligne à partir de l'entête  (Société Mono-Affaire)--#
+                       Call ECR_TRACE(func AFNC.MES2(mess(1050,196, 1), evalue(ZON_MSK), WNEWPJT ),0) From GESECRAN
+                       Assign ZON_MSK With WNEWPJT
+                      Endif
+                     Endif
+                    Endif
+
+          Endcase
+
+     When "SREN"
+#         ------ Ligne detail : Motifs prix et frais/remise ------
+#                (utiliser nolign-1 qui contient l'indice de la ligne de livraison)
+                    ZON_MSK ="[M:SREN]"+IMPZON+"(0)"
+                    Raz ZON_TAB
+                    IJ0=find(IMPZON,M_SREN)
+                    If IJ0 : ZON_TAB="[F:SDD]"+T_SREN(IJ0-1)+"(0)" : Endif
+                    If find(ZON_TAB,[M:AOE2]ZONMSK1)
+                       GSTK_ACT="IMP_TAB("+IMPZON+")" : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+                       OK=0 : IMPMOD=1
+                       Assign ZON_MSK With evalue (ZON_TAB)
+                       Assign "[M:SDH1]"+T_SREN(IJ0-1)+"("+num$(nolign-1)+")" With evalue (ZON_TAB)
+                    Endif
+
+     When Default
+Endcase
+Return
+
+
+#######################################################################
+# Appel depuis SUBIMPOBJ
+# ---------------------------------------------------------------------
+#
+#
+#######################################################################
+
+$VALID
+
+GSTK_ACT='VALID(GREP="'+GREP+'")' : GSTK_PGM="ZIMPSDHS" : Gosub TRACE_ACTION
+
+If GREP=""  Raz GSTK_NBLIG : OK=0 : Return : Endif
+If [M:SDH1]NBLIG=0 : OK=0 : Return : Endif    : # pas de lignes sur la livraison
+
+OK=1 : Raz GERREUR
+
+Gosub RUPT_LIGDOC
+If ![L]OK
+   If GMESSAGE<>"" : Call ECR_TRACE(GMESSAGE,1) From GESECRAN : Raz GMESSAGE : Endif
+   GOK=0 : Goto ABA_GENSDH
+Endif
+
+GSTK_ACT="VERIF_CRE" : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="VERIF_CRE"  : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+
+#--- Bug 71029
+If ![L]OK  GOK=0 : Goto ABA_GENSDH : Endif
+#If ![L]OK  GOK=0 : Gosub TRACE_CTL From SUBIMPOBJ : Goto ABA_GENSDH : Endif  # hcb 87116
+#---
+Call DEBTRANS From GLOCK
+
+$TR_GENSDH
+GOK=1
+Raz WGRPDEB : #VPO 15/02/11 71600
+GSTK_ACT="Trbegin" : GSTK_PGM="" : Gosub TRACE_ACTION
+Trbegin [SDH]
+  Raz [F:SDH], [F:SDD]
+  nolign = 1   # FGR 06/02/2014 : X3SUIVI96550
+  [F:SDH]=[M:SDH0] : [F:SDH]=[M:SDH1] : [F:SDH]=[M:SDH2] : [F:SDH]=[M:SDH3]
+  [F:SDH]CREUSR=GUSER
+  [F:SDH]CREDAT=date$
+
+# X3-81396 (LCC 12/03/18) Counter increased despite an import failure.
+  #-- X3Suivi 75115-217 : Type livraison dans import livraison --> Recup code compteur  pour le type livraison --#
+  If [M:SDH0]SDHTYP <> ''
+    [F:SDH]SDHTYP=[M:SDH0]SDHTYP
+    Gosub REC_CPT_LIV From TRTVENLIV
+    GCPT= LCPT
+    # ----------------------------
+    [M:SDH0]SDHNUM = [F:SDH]SDHNUM       # FGR 09/03/2015 : X3SUIVI106842 : récupérer le numéro dans la classe [M] depuis la classe [F]
+  Endif
+# End X3-81396 (LCC 12/03/18)
+
+  GSTK_ACT="INICRE" : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+  [L]ACTION="INICRE"  : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+  If GOK<0  Goto ROLL_GENSDH  Elsif !GOK  Goto AB_GENSDH  Endif
+  GCLE=[M:SDH0]SDHNUM
+
+# --- ecriture entete livraison
+  GSTK_ACT="Write [SDH]" : GSTK_PGM="" : Gosub TRACE_ACTION
+
+  If dim([F:SDH]CPY)>0 : [F:SDH]CPY=GSOCIETE : Endif
+
+  Write [SDH]
+  If fstat GOK=0 : Call FSTA("SDH") From GLOCK : Goto AB_GENSDH : Endif
+
+# --- ecriture des lignes
+  GSTK_ACT="CREATION"  : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+  [L]ACTION="CREATION" : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+  If GOK<0  Goto ROLL_GENSDH  Elsif  !GOK  Goto AB_GENSDH  Endif
+
+  #----- Mise à jour du suivi workflow -----#
+  #VPO 15/02/11 71600
+  If GOK=1
+      Call WRKGLOB(170,[F:SDH]SDHNUM,"SDELIVERY","") From GOBJACT
+      Call WORKPLUS(2,"SDH","C",[F:SDH]SDHNUM,"",0,1,0,WGRPDEB) From AWRK
+      If GOK<0  Goto ROLL_GENSDH  Elsif  !GOK  Goto AB_GENSDH  Endif
+  Endif
+
+  GSTK_ACT="Commit"    : GSTK_PGM=""        : Gosub TRACE_ACTION
+Commit
+
+Case GREP
+  When "C"  : Call TRACE( 0,mess(129,197,1)-[F:SDH]SDHNUM)  From SUBIMPOBJ : NBCRE+=1
+  When "M"  : Call TRACE( 1,mess(129,197,1)-[M:SDH0]SDHNUM) From SUBIMPOBJ : # Pas activé !
+  When "C"  : Call TRACE(-1,mess(129,197,1)-[M:SDH0]SDHNUM) From SUBIMPOBJ : # Pas activé !
+Endcase
+
+GSTK_ACT="APRES_CRE"   : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="APRES_CRE"  : Gosub ACTION From GOBJSUB : Gosub DEFAUT From =PROGOBJ
+
+#----- Envoi des messages groupe workflow -----#
+#VPO 15/02/11 71600
+If WGRPDEB<>""  Call ENVOI_GROUPE(WGRPDEB) From AWRK : WGRPDEB="" : Endif
+#-----
+
+Goto FIN_GENSDH
+
+#-----------
+$ROLL_GENSDH
+GSTK_ACT="Rollback" : GSTK_PGM="" : Gosub TRACE_ACTION
+Rollback
+Call ROLL From GLOCK
+If GROLL
+   GSTK_ACT="AB_CREATION"  : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+   [L]ACTION="AB_CREATION" : Gosub ACTION From GOBJSUB : Goto ABA_GENSDH
+Else
+   Goto TR_GENSDH
+Endif
+
+#-----------
+$AB_GENSDH
+GSTK_ACT="Rollback" : GSTK_PGM="" : Gosub TRACE_ACTION
+Rollback
+GSTK_ACT="AB_CREATION"  : GSTK_PGM="GOBJSUB" : Gosub TRACE_ACTION
+[L]ACTION="AB_CREATION" : Gosub ACTION From GOBJSUB
+#----- Suppression des message groupe workflow -----#
+#VPO 15/02/11 71600
+If WGRPDEB<>""  Call VIRE_GROUPE(WGRPDEB)  From AWRK : WGRPDEB="" : Endif
+#-----
+Goto ABA_GENSDH
+
+$ABA_GENSDH
+  # Suppression des sorties stockées dans écran de travail STOSORW
+  Call DELSTOSORW(-1,0,"SDH1",[M:SDH0]STOFCY,GBIDI1) From STKSOR
+  GOK = 0  # FGR 19/01/2014 : X3SUIVI105505 Si on sort en erreur GOK=0. DELSTOSORW peut en changer la valeur
+
+#-----------
+$FIN_GENSDH
+Return
+
+#######################################################################
+#######################################################################
+
+$TRACE_ACTION
+If GSTK_TRACE=2 : Gosub TRACE_DETAILLEE From STKIMP : Endif
+Return
+#######################################################################
+
+# $MATRACE
+
+# Local Char MA_TRACE (250)
+# MA_TRACE="IMPMSK="+IMPMSK+"   "+ZON_TAB+" --> "+ZON_MSK+"="+num$(evalue(ZON_MSK))
+# Call ECR_TRACE(MA_TRACE,0) From GESECRAN
+# Return
