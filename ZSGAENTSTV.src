@@ -8,6 +8,7 @@
 # 06.315.255 - JC.16022022.Error ajuste de stock STV por FusionLote antes de recibir un REF
 # 06.315.530 - JC.22022022.Mail error STV sin errores y con información no coherente. Renombrar los fichero que llegan con .0
 # 06.319.073 - AMG.28022022.tarea ZSGAENTSTV está fallando (relacionado con 06.315.530 - No renombraba el fichero .0 xq ya existía otro con ese nombre)
+# 06.326.681 - JC.21032022.Ajustes stock STV con estado QK
 #############################################################
 
 #If GUSER="ADEV"
@@ -176,6 +177,7 @@ Local Clbfile XDATA (10)
       WOWNERCODE        = func GET_PROPXML(XDATA,"OwnerCode",I)
       WLOCATIONCODE     = func GET_PROPXML(XDATA,"LocationCode",I)
       WSTAUSRCODE       = func GET_PROPXML(XDATA,"StaUsrCode",I)
+      If WSTAUSRCODE = 'QK' Then : WSTAUSRCODE = 'A' : Endif              # 06.326.681.new
 # 06.309.971.ini
 #      WCSTATT01FCA      = func GET_PROPXML(XDATA,"CstAtt01",I)
 #      WCSTATT02FCA      = func GET_PROPXML(XDATA,"CstAtt02",I)
