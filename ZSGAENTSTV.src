@@ -7,6 +7,7 @@
 # 06.309.971 - JC.07022022.Error en la importación STV del fichero
 # 06.315.255 - JC.16022022.Error ajuste de stock STV por FusionLote antes de recibir un REF
 # 06.315.530 - JC.22022022.Mail error STV sin errores y con información no coherente. Renombrar los fichero que llegan con .0
+# 06.319.073 - AMG.28022022.tarea ZSGAENTSTV está fallando (relacionado con 06.315.530 - No renombraba el fichero .0 xq ya existía otro con ese nombre)
 #############################################################
 
 #If GUSER="ADEV"
@@ -62,13 +63,15 @@ Local Clbfile XDATA (10)
       Local Integer LSTA
       Local Char    LSTR(250) : LSTR = mid$(WFICINP1,1,len(WFICINP1)-2)
       Local Char    PATHORI(250),PATHDES(250)
+# 06.319.073.ini(añadimos R)
       PATHORI = filpath(WSGARECIBIDOS,"","")+"\"+WFICINP1+".xml"
-      PATHDES = filpath(WSGARECIBIDOS,"","")+"\"+LSTR+".xml"
+      PATHDES = filpath(WSGARECIBIDOS,"","")+"\"+LSTR+"R.xml"
       LSTA = renameFile(PATHORI,PATHDES)
       If LSTA = 0 Then
-        WFICINP1    = LSTR
-        LNOMFICHERO = LSTR
+        WFICINP1    = LSTR+"R"
+        LNOMFICHERO = LSTR+"R"
       Endif
+# 06.319.073.fin
     Endif
 # 06.315.530.fin
 
