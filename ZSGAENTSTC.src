@@ -41,7 +41,8 @@ Local Clbfile XDATA (10)
   For A=1 To NFICHEROS
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
-    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
 
     If instr(1,FICHEROS(1),'xml')=0
       #Call ECR_TRACE('No existe STC0*',0) From GESECRAN

@@ -48,7 +48,8 @@ Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
 For A=1 To NFICHEROS
   LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
   WFICINP1=LNOMFICHERO
-  LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+#  LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+  LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
   Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
 
   #Abrimos y leemos el fichero
@@ -137,4 +138,3 @@ Local Integer J
     Endif
   Endif
 End ""
-

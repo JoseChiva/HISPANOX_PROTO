@@ -63,7 +63,8 @@ Local Clbfile XDATA (10)
   For A=1 To NFICHEROS
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
-    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
     Local Integer LERROR                                                    # 06.299.138.new
 
 # 06.299.138.ini

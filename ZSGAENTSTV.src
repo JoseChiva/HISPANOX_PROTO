@@ -38,7 +38,7 @@ Local Clbfile XDATA (10)
 #  If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
 
   WFICHEROIMP='STV0*'
-  WFICHEROIMP='STV0120220311133851000'
+#  WFICHEROIMP='STV0120220311133851000'
 #  WFICHEROIMP='STV0120211130080032007'
   Raz NFICHEROS
 
@@ -59,7 +59,8 @@ Local Clbfile XDATA (10)
 #    WTRAZA=1
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
-    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
 
 # 06.315.530.ini
     If WFICINP1 <> LNOMFICHERO Then
@@ -124,6 +125,7 @@ Local Clbfile XDATA (10)
       Read [F:ZSTO0] First
       # no existe stock para ese artículo/lote -> No procesa este fichero, se queda en cola de nuevo
       If fstat <> 0 Then
+Infbox "sin stock"
         Openi Using [ZZZ]
         Goto ENDFOR
       # existe stock para ese artículo/lote

@@ -60,7 +60,8 @@ Local Clbfile XDATA (10)
 
     WFICHMOVE=LNOMFICHERO
     WFICINP1=LNOMFICHERO
-    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
     WDEVOLUCION=1
     WEXPEDICION=1                                                                             # JC.25112021-EXP.NEW
     WRECEPCION=1                                                                              # JC.25112021-EXP.NEW
