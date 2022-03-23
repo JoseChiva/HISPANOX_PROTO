@@ -4,6 +4,7 @@
 # 06.303.784 - JC.24012022.Error aplicación VP envio SGA
 # 06.310.959 - JC.08022022.Texto documento entrega en DlvAddComment
 # 06.314.023 - JC.04032022.Adaptación generación SOR desde VP para subcontratación
+# 06.326.685 - JC.22032022.Añadir código pedido cliente para cada línea del SOR
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -41,6 +42,7 @@ Raz I
   If !clalev([F:ZITF]) : Local File ITMFACILIT  [ZITF] : Endif  # JC.18052021
   If !clalev([F:ZSTA]) : Local File STOALL      [ZSTA] : Endif  # JC.18052021
   If !clalev([F:ZSTO]) : Local File STOCK       [ZSTO] : Endif  # JC.18052021
+  If !clalev([F:ZSOP]) : Local File SORDERP     [ZSOP] : Endif  # 06.326.685.new
 
   #Compruebo si hay registros pendientes y no viene de Plan de Preparacion
 #  If GFONCTION<>'FUNPREP2'                                                # JC.13122021
@@ -131,7 +133,7 @@ End
 ##############################################################
 ##############################################################
 $RESU_PRH
-Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
+Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250),WLNECSTATT04(250)
 
   WNDENTRO=1
   WFILTERPRH='1=1 & [ZPRH]ZSGAENVIADO<>2'
@@ -630,6 +632,18 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250)
            WLNECSTATT20=[F:ZPRE]ZUSRFLD1
           Endif
 # JC.31122021.INI
+# 06.326.685.ini
+         #LneCstAtt04
+          Read [ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+          If !fstat Then
+            If [F:ZSOP]ZNUMLINCLI <> '' Then
+              WLNECSTATT04 = [F:ZSOP]ZCUSORDREF+"-"+[F:ZSOP]ZNUMLINCLI
+            Else
+              WLNECSTATT04 = [F:ZSOP]ZCUSORDREF
+            Endif
+          Endif
+          AA=func PUT_PROPXML('LneCstAtt04',WLNECSTATT04,5,2)
+# 06.326.685.fin
           If WLNECSTATT20<>''
             AA=func PUT_PROPXML('LneCstAtt20',WLNECSTATT20,5,2)
           Endif
