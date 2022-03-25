@@ -120,12 +120,40 @@ Local Clbfile XDATA (10)
       WITEMCODE     = func GET_PROPXML(XDATA,"ItemCode",J)
       WCSTATT05FCA  = func GET_PROPXML(XDATA,"CstAtt05",J)
       WCSTATT16     = func GET_PROPXML(XDATA,"CstAtt16",J)
+# 06.324.834.ini
+      Local Integer R1,R2,R3,R4
+      R1=1 : R2=1 : R3=1 : R4=1
+      RESULT = func GET_PROPXML(XDATA,"FilterCustomAttributes",R1)
+      If R1=1 Then
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+        RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+        WCSTATT05FCA  = ''
+        WCSTATT05CA   = RESULT
+      Else
+        Local Integer S1, S2 : S1 = R1 : S2 = R1
+        RESULT = func GET_PROPXML(XDATA,"CustomAttributes",S1)
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",S2)
+        If S2 > S1 Then
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+          WCSTATT05FCA  = ''
+          WCSTATT05CA   = RESULT
+        Else
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05FCA  = RESULT
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05CA   = RESULT
+        Endif
+      Endif
+# 06.324.834.fin
       If !clalev([F:ZSTO0]) Then : Local File STOCK [F:ZSTO0] : Endif
       Filter [F:ZSTO0] Where STOFCY = 'PHISP' and ITMREF = WITEMCODE and LOT = WCSTATT05FCA and STA = 'A' and  LOC = 'SGA'
       Read [F:ZSTO0] First
       # no existe stock para ese artículo/lote -> No procesa este fichero, se queda en cola de nuevo
       If fstat <> 0 Then
-Infbox "sin stock"
         Openi Using [ZZZ]
         Goto ENDFOR
       # existe stock para ese artículo/lote
@@ -401,11 +429,22 @@ Infbox "sin stock"
           WCSTATT05FCA  = ''
           WCSTATT05CA   = RESULT
         Else
-          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
-          WCSTATT05FCA  = RESULT
-          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
-          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
-          WCSTATT05CA   = RESULT
+          Local Integer S1, S2 : S1 = R1 : S2 = R1
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",S1)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",S2)
+          If S2 > S1 Then
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+            WCSTATT05FCA  = ''
+            WCSTATT05CA   = RESULT
+          Else
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            WCSTATT05FCA  = RESULT
+            RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            WCSTATT05CA   = RESULT
+          Endif
         Endif
       Endif
 # 06.324.834.fin
