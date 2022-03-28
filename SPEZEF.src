@@ -45,6 +45,7 @@ Return
 ######################################################################################
 $OUVRE
 Global Char GZNOMFIC(250)
+Global Integer GFILEOK
 Return
 
 ######################################################################################
@@ -77,16 +78,34 @@ $BOUTON
          Call OUINON("¿Deseas enviar esta factura por correo electrónico?",YN) From GESECRAN
        Endif
        If YN = 2 Then
+           Local Integer NLT,NLTMP
+           Local Decimal NLACT
+           Raz NLT,NLTMP,NLACT
+           For NL=0 To [M:ZEF]NBLIG - 1
+            If [M:ZEF]ZSEL(NL) = 2 and [M:ZEF]ZSALINV(NL) <> ""
+              NLT+=1
+            Endif
+           Next
+           GFILEOK=1
+           Call OUVRE_VLC("Enviando "+num$(NLT) +" documentos","","") From GESECRAN
            For I= 0 To [M:ZEF]NBLIG - 1
              GZNOMFIC = filpath("tmp",[M:ZEF]ZNUM(I)+"_"+[M:ZEF]ZBPCINV(I),"pdf")
              If [M:ZEF]ZSEL(I) = 2 and [M:ZEF]ZSALINV(I) <> ""
+                NLTMP+=1
+                NLACT=arr(NLTMP*100/NLT,0.1)
+                Call AFF_VLC("Documento: "+[M:ZEF]ZNUM(I)+"_"+[M:ZEF]ZBPCINV(I)+".pdf",num$(NLACT)-"%") From GESECRAN
                 Call SENDMAIL([M:ZEF]ZNUM(I),ZENVIO,[M:ZEF]ZSALINV(I),[M:ZEF]ZSALINVNBE(I),[M:ZEF]ZKCNTWEB(I))
+                If GFILEOK=0
+                  Errbox "Documento con error "+[M:ZEF]ZNUM(I)+"_"+[M:ZEF]ZBPCINV(I)+".pdf " + "El proceso se detendrá"
+                  Break
+                Endif
              Endif
            Next
+           Call FERME_VLC From GESECRAN
        Endif
       Endif
   Endcase
-  ACTION=""
+
 Return
 ######################################################################################
 
@@ -300,11 +319,15 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
       #4 - 0 or 1 it shows or not the info message 'print executed'
       #5 - TBPAR_BP
       #6 - TBVAL_BP
-
+      Local Decimal T1,T2 : Raz T1,T2
       If ZDESTINO = "FILE"
         Call ETAT(ZINFORME,ZDESTINO,"",0,"",TBPAR,TBVAL) From AIMP3
-        While filinfo(GZNOMFIC,7) < 0 Wend
-        Sleep 10
+        T1 = val(timestamp$)
+        While filinfo(GZNOMFIC,7) < 90000
+          T2=(val(timestamp$) - T1)/1000
+          If T2 > 30 GFILEOK=0 : End Endif
+        Wend
+        Sleep 5
         Gosub LANZA_WORKFLOW
         Call MRK_FAC(P_NUM,1)
       Else
@@ -388,8 +411,7 @@ Else
   GLINEA5 = "HISPANOX S.A"
 Endif
 adxsca = "....**$_"
-#Call WORKFLOW (1,"ZEF","",GUSER) From AWRK
-Call WORKFLOW (1,"ZEF","","") From AWRK
+Call WORKFLOW (1,"ZEF","",GUSER) From AWRK
 Return
 ########################################################################################################
 #Túnel factura
