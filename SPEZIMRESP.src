@@ -1,5 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-######################################
+# 06.324.090 - JC.04032022.Moneda en Importació d'Ofertes de Proveïdors
+##############################################################################
+
 $ACTION
 #Infbox ACTION
 Case ACTION
@@ -92,6 +94,9 @@ $CABECERA
  Wrseq format$("YYYYMMDD",date$+30);    Using [ORX]
  Wrseq "60";         Using [ORX] #PLazo
  #Wrseq "EUR";               Using [ORX] #DIVISA (no obligatorio, se informa en lineas)
+# 06.324.090.ini
+ Wrseq [F:ZBPS]CUR;    Using [ORX]
+# 06.324.090.fin
  If [F:ZBPS]ZUNPRE = ""
   Wrseq "CEN"; Using [ORX]
  Else
@@ -125,6 +130,9 @@ $LINEAS
   Wrseq [F:ZBPS]ZUNPRE;        Using [ORX] #DIVISOR PRECIO de el proveedor?
  Endif
  #Wrseq DATOS(10);           Using [ORX] #DIVISA ¿se trae del proveedor o fichero?
+# 06.324.090.ini
+ Wrseq [F:ZBPS]CUR;    Using [ORX]
+# 06.324.090.fin
  Wrseq 60;            Using [ORX] #PLAZO
  Wrseq format$("YYYYMMDD",date$);       Using [ORX] #FECHA RESPUESTA ¿introducida por proveedor?  o fecha de importación?
  Wrseq format$("YYYYMMDD",date$+30);    Using [ORX]
