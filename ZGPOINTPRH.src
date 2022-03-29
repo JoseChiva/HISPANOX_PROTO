@@ -1,9 +1,13 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.329.867 - JC.29032022.Cuando se crea un VP desde pedido no se rellenan los campos Z de la pantalla de detalle
+#####################################################################################################################
+
 $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
   When "CHG_ALLTYP"    : Gosub CHG_ALLTYP
+  When "BEFWRIPRE"     : Gosub BEFWRIPRE                                  # 06.329.867.new
   When Default
 Endcase
 
@@ -15,6 +19,23 @@ Return
 ##############################################################
 $CHG_ALLTYP
   If [F:SOQ]ALLTYP = 1 Then : WALLTYPFLG = 1 : Endif
+Return
+
+##############################################################
+$BEFWRIPRE
+# 06.329.867.ini
+  [F:PRE]ZBPAADD      = [F:SOH]BPAADD
+  [F:PRE]ZBPDNAM0     = [F:SOH]BPDNAM(0)
+  [F:PRE]ZBPDNAM1     = [F:SOH]BPDNAM(1)
+  [F:PRE]ZBPDADDLIG0  = [F:SOH]BPDADDLIG(0)
+  [F:PRE]ZBPDADDLIG1  = [F:SOH]BPDADDLIG(1)
+  [F:PRE]ZBPDADDLIG2  = [F:SOH]BPDADDLIG(2)
+  [F:PRE]ZBPDPOSCOD   = [F:SOH]BPDPOSCOD
+  [F:PRE]ZBPDCTY      = [F:SOH]BPDCTY
+  [F:PRE]ZBPDSAT      = [F:SOH]BPDSAT
+  [F:PRE]ZBPDCRY      = [F:SOH]BPDCRY
+  [F:PRE]ZBPDCRYNAM   = [F:SOH]BPDCRYNAM
+# 06.329.867.fin
 Return
 
 ##############################################################

@@ -8,7 +8,6 @@
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "APRES_CRE"  : Gosub APRES_MOD
   When "APRES_MOD"  : Gosub APRES_MOD
   When "LIENS"      : Gosub LIENS
   When "EXEBOUT"    : Gosub EXEBOUT
