@@ -1494,12 +1494,20 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
           If LNUMREGS > 0 and val(WLNEQTYRECEIVED) > 0 Then
             Read [F:ZSHI1]SHD0      = [F:ZANR1]SHIPNUM;[F:ZANR1]SHIPLIN
             If !fstat Then
-              Read [F:ZPOQ1]POQ0    = [F:ZSHI1]POHNUM;[F:ZSHI1]POPLIN;1
-              If !fstat Then
+# 06.302.893.ini - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
+#              Read [F:ZPOQ1]POQ0    = [F:ZSHI1]POHNUM;[F:ZSHI1]POPLIN;1
+#              If !fstat Then
+# 06.302.893.fin - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
                 If LNUMREGS > 1 Then
-                  LQTYEXP           = val(WLNEQTYRECEIVED)-[F:ZPOQ1]QTYUOM
+# 06.302.893.ini - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
+#                  LQTYEXP           = val(WLNEQTYRECEIVED)-[F:ZPOQ1]QTYUOM
+                  LQTYEXP           = val(WLNEQTYRECEIVED)-[F:ZSHI1]SHIQTY
+# 06.302.893.fin - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
                   If LQTYEXP > 0 Then
-                    LQTYASIG        = [F:ZPOQ1]QTYUOM
+# 06.302.893.ini - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
+#                    LQTYASIG        = [F:ZPOQ1]QTYUOM
+                    LQTYASIG        = [F:ZSHI1]SHIQTY
+# 06.302.893.fin - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
                   Else
                     LQTYASIG        = val(WLNEQTYRECEIVED)
                   Endif
@@ -1555,7 +1563,7 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
                 Endif
 
                 WLNEQTYRECEIVED = num$(val(WLNEQTYRECEIVED)-LQTYASIG)
-              Endif
+#              Endif
             Endif
             LNUMREGS -= 1
           Endif
