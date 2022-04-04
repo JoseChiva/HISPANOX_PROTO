@@ -3,6 +3,7 @@
 #DEV: RPES 20201217 Tarifas transportistas
 #DEV: JESP 20210121 Tarifas transportistas
 # 06.298.715 - JC.11012022.errores importación SOF
+# 06.331.859 - JC.04042022.Aviso de creación de entrega. Muestra los avisos por separado junto a su pedido
 ######################################################################################
 
 ######################################################################################
@@ -348,7 +349,8 @@ End
 #*!
 Subprog LANZA_WORKFLOW_AVISO()
 
-Global Char GCORREO(250),GENTREGA(250),GPEDIDO(250),GTEXTO(250)
+Global Char GCORREO(250),GENTREGA(250),GTEXTO(250)
+Global Clbfile GPEDIDO(2)                                                 # 06.331.859.new
 
   # lanza un workflow para avisar de que la importación ha fallado
 
@@ -400,29 +402,34 @@ Global Char GCORREO(250),GENTREGA(250),GPEDIDO(250),GTEXTO(250)
   # guarda en la variable global GENTREGA el número de la entrega generada
   GENTREGA = [F:SDH]SDHNUM
 
-  # guarda en la variable global GPEDIDO los distintos pedidos que han generado la entrega
-  Read [F:DEE1] First
-  If !fstat Then
-    GPEDIDO = [F:DEE1]SOHNUM
-    Read [F:DEE1] Next
-    If !fstat Then
-      For [DEE1]
-        GPEDIDO += ", "+[F:DEE1]SOHNUM
-      Next
-    Endif
-  Endif
-
-  # guarda en la variable global GTEXTO los comentarios de cada pedido
-  Read [F:DEE2] First
-  If !fstat Then
-    GTEXTO = [F:DEE2]ZTEXTOAVISO
-    Read [F:DEE2] Next
-    If !fstat Then
-      For [DEE2]
-        GTEXTO += ". "+[F:DEE2]ZTEXTOAVISO
-      Next
-    Endif
-  Endif
+# 06.331.859.ini
+#  # guarda en la variable global GPEDIDO los distintos pedidos que han generado la entrega
+#  Read [F:DEE1] First
+#  If !fstat Then
+#    GPEDIDO = [F:DEE1]SOHNUM
+#    Read [F:DEE1] Next
+#    If !fstat Then
+#      For [DEE1]
+#        GPEDIDO += ", "+[F:DEE1]SOHNUM
+#      Next
+#    Endif
+#  Endif
+#
+#  # guarda en la variable global GTEXTO los comentarios de cada pedido
+#  Read [F:DEE2] First
+#  If !fstat Then
+#    GTEXTO = [F:DEE2]ZTEXTOAVISO
+#    Read [F:DEE2] Next
+#    If !fstat Then
+#      For [DEE2]
+#        GTEXTO += ". "+[F:DEE2]ZTEXTOAVISO
+#      Next
+#    Endif
+#  Endif
+  For [DEE1]
+    GPEDIDO += "Pedido origen: "+[F:DEE1]SOHNUM+chr$(13)+chr$(10)+"Con el siguiente mensaje de aviso: "+[F:DEE1]ZTEXTOAVISO+chr$(13)+chr$(10)+chr$(13)+chr$(10)
+  Next
+# 06.331.859.fin
 
   # lanza el workflow
   Call WORKFLOW (1,"ZAS","",GUSER) From AWRK
