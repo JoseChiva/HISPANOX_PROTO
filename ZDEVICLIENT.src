@@ -1,0 +1,63 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.330.310 - JC.04042022.Impressio pressupostos en blanc per als usuaris US09 i US04
+###################################################################################
+
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "OUVRE"   : Gosub OUVRE
+  When "INIPAR"  : Gosub INIPAR
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$OUVRE
+# 06.330.310.ini
+  Gosub OUVRE2 From DEVICLIENT
+  If GAUSCRMF<>"" & GAUSCRMA=2 & (dim(GAUSCRMROL)<1 | (dim(GAUSCRMROL)>0 & GAUSCRMROL<>1))
+    GBIDI2=find("REP",[M:RPT]PARTYP)
+    If GBIDI2
+      [M:RPT]VALEUR1(GBIDI2-1)=''
+      [M:RPT]VALINT1(GBIDI2-1)=''
+      [M:RPT]VALEUR2(GBIDI2-1)=''
+      [M:RPT]VALINT2(GBIDI2-1)=''
+      Affzo [RPT]VALEUR1(GBIDI2-1), VALEUR2(GBIDI2-1)
+    Endif
+  Endif
+  GPE=1
+# 06.330.310.fin
+Return
+
+##############################################################
+$INIPAR
+# 06.330.310.ini
+  Gosub INIPAR From DEVICLIENT
+  If GAUSCRMF<>"" & GAUSCRMA=2 & [M:RPT]PARTYP(nolign-1)="REP"
+    mkstat=0
+  Endif
+  GPE=1
+# 06.330.310.fin
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################
+##############################################################
+Subprog IMPRIME(NBPAR2,PARAMETRE2)
+Value    Integer NBPAR2
+Variable Char    PARAMETRE2()()
+End
