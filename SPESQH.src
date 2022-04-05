@@ -27,7 +27,7 @@ $ACTION
 #If GUSER = 'ADEV' Then : Infbox ACTION : Endif
 Case ACTION
  When 'OUVRE'       :  Gosub OUVRE
- When 'SETBOUT'     :  #Gosub SETBOUT
+ When 'SETBOUT'     :  Gosub SETBOUT
  When 'AVANTBOUT'   :  Gosub AVANTBOUT
  When 'EXEBOUT'     :  Gosub EXEBOUT
  When 'VERIF_CRE'   :  Gosub VERIF_CRE
@@ -1115,11 +1115,9 @@ Variable Char    VALEUR()
   [M:SQH2]ITMREF(nolign-1) = VALEUR
   Affzo [M:SQH2]ITMREF(nolign-1)
 
-  If func ZAULIB01.GET_COSTEOFERTA(VALEUR,[M:SQH0]SALFCY) <> 0 Then
-    [M:SQH2]ZCOSOFER(nolign-1) = func ZAULIB01.GET_COSTEOFERTA(VALEUR,[M:SQH0]SALFCY)     # JC.14062021.NEW.vtas075
-    If !GIMPORT or GWEBSERV
-      Affzo [M:SQH2]ZCOSOFER(nolign-1)
-    Endif
+  [M:SQH2]ZCOSOFER(nolign-1) = func ZAULIB01.GET_COSTEOFERTA(VALEUR,[M:SQH0]SALFCY)     # JC.14062021.NEW.vtas075
+  If !GIMPORT or GWEBSERV
+    Affzo [M:SQH2]ZCOSOFER(nolign-1)
   Endif
 
 #MRR03 ini
@@ -1142,8 +1140,6 @@ Variable Char    VALEUR()
     Gosub IMPORTES_TOTALES
     Gosub DETALLE_ARTICULOS
   Endif
-
-  Affzo [M:ZSQH1]
 
   # pedidos no saldados en color rojo
   For I = 0 To [M:ZSQH1]NBLIG1-1
