@@ -227,28 +227,6 @@ Subprog AM_NBLIG
   Affzo [M:PRH1]ZEXPORT(nolign-1)
 End
 
-
-#######################################################################################
-### Etiqueta añadida por el supervisor (pantalla PRH0) 30/09/2020 18:46:37 (MLGA)
-#######################################################################################
-#Subprog S_ZVPPADRE(VALEUR)
-#Variable Char    VALEUR()
-#
-#Local Char LCRIT(250)
-#
-#  LCRIT  = "[F:PRH]BPCORD = [M:PRH0]BPCORD"                   # del mismo cliente
-##  LCRIT += " and [F:PRH]DLVFLG <> 2 and [F:PRH]DLVFLG <> 3"   # no entregables ni entregados
-#  LCRIT += " and [F:PRH]DLVFLG = 1"                           # sólo estado = encurso
-#  LCRIT += " and [F:PRH]PRHNUM <> [M:PRH0]PRHNUM"             # no muestra el propio VP
-#  Filter [F:PRH] Where evalue(LCRIT)
-#  Call SELECT("PRH","",[M:PRH0]ZVPPADRE,"") From SELOBJ
-#  Filter [F:PRH]
-#  If status = 7 : VALEUR='': End
-#  Else
-#      VALEUR = [F:PRH]PRHNUM
-#  Endif
-#End
-
 ######################################################################################
 ## Después de modificar el campo 'Enviado SGA' (pantalla PRH0) 03/06/2021 09:18:30 (ADEV)
 ######################################################################################

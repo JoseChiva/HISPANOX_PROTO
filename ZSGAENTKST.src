@@ -47,7 +47,6 @@ Local Clbfile XDATA (10)
     Local Integer LERROR                                                    # 06.299.138.new
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
-#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
 
     If instr(1,FICHEROS(1),'xml')=0
@@ -663,12 +662,6 @@ Local Integer LNUMLIN
     RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
     RESULT=vireblc(RESULT,1)
     Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
-#   #BPSLOT
-#    WLONG=250
-#    RESULT=[F:ZKST1]COMPCSTATT04
-#    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
-#    Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
    #LOT
     WLONG=250
     RESULT=[F:ZKST1]COMPCSTATT05

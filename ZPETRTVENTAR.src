@@ -95,7 +95,6 @@ Local Char    S_SQHTYP(250)
 Return
 
 #############################################################################
-
 $PRECIO_OFERTA
 
 Local Decimal F_NETPRI
@@ -124,7 +123,6 @@ Local Decimal LDTO, POFERTA
       POFERTA = POFERTA/100
       Call CONVERTDIV_DATE("EUR",[M:SQH0]CUR,POFERTA,1,[M:SQH0]QUODAT,POFERTA) From ZAULIB01      # JC.27102021.Cambio de divisas
     Elsif TYPALI = "SOH" Then
-#      POFERTA = func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE)
       Call GET_POFERTA(S_ITMREF,S_STOFCY,S_ZCLAOFER,S_ZCOSOFER,QTY,S_SQHTYP,POFERTA,LDTO) From ZAULIB01
       POFERTA = POFERTA/100
       Call CONVERTDIV_DATE("EUR",[M:SOH0]CUR,POFERTA,1,[M:SOH0]ORDDAT,POFERTA) From ZAULIB01      # JC.27102021.Cambio de divisas
@@ -135,7 +133,6 @@ Local Decimal LDTO, POFERTA
     [L]S_PARAM(3) = num$(F_MONTANT(1))
     [L]S_PARAM(4) = num$(F_MONTANT(2))
     [L]S_PARAM(5) = num$(F_NETPRI)
-#    [L]S_PARAM(6) = num$(func ZPRIOFERLIB.GET_PRI_BAS([L]S_ITMREF, [L]S_BPCNUM, [L]S_STOFCY, QTY * [L]F_SAUSTUCOE, [L]I_ERROR, [L]S_MESSAGE))
     [L]S_PARAM(6) = num$(POFERTA)   # JC.14062021.vtas080.NEW
 
     If [L]S_MESSAGE <> "" Then

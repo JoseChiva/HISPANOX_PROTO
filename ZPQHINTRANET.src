@@ -1,4 +1,10 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+######################################################################
+#
+#06.325.528 AMG.16032022 error peso fichero consultas.csv
+#
+######################################################################
+
 Local Char NUM
 NUM = ""
 Call CONSULTAS(NUM)
@@ -143,7 +149,15 @@ Local Decimal PESO
 Local Char TEXTO(2)
 Read [ITM]ITM0 = [F:ZPPD]ITMREF
 If !fstat Then
-   PESO = [ITM]ITMWEI
+#06.325.528.STR
+  # PESO = [ITM]ITMWEI
+  If [ITM]ITMWEI>0 Then
+    PESO = ([ITM]ITMWEI/1000)*[F:ZPPD]OFERQTY
+  Else
+    PESO=0
+  Endif
+#06.325.528.FIN
+
    If [ITM]TCLCOD = "TEXTO"
       TEXTO = "S"
    Else

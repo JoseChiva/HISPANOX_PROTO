@@ -48,9 +48,6 @@ $IMP_AVANT_MODFIC
 
   If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
 
-#    [M:SOH1]HLDSTA  = [F:SOH]HLDSTA
-#    [M:SOH1]HLDCOD  = [F:SOH]HLDCOD
-
     Case [M:SOH2]ZFREINV
       When 1
         #Facturados, calculo de la tarifa de transporte

@@ -14,6 +14,7 @@ Case ACTION
   When "VERIF_CRE"  :   Gosub VERIF_CRE
   When "CREATION"   :   Gosub CREATION
   When "VERIF_MOD"  :   Gosub VERIF_MOD
+  When "VERF_ANU"   :   Gosub VERF_ANU
   When "MODIF"      :   Gosub MODIF
   When "ANNULE"     :   Gosub ANNULE
   When "APRES_CRE"  :   Gosub APRES_CRE
@@ -129,7 +130,6 @@ For [F:ZZPPD]
          Filter [YPPD] Where BPSNUM = [F:ZPPH]BPSNUM
 &        and PQHNUM = [F:ZPPH]PQHNUM and PQDLIN = [F:ZZPPD]PQDLIN Order By PPDLIN Asc
          Read [YPPD]Last
-         #Infbox "NUEVA LINEA" - num$([YPPD]PPDLIN + 1)-num$([F:ZZPPD]PQDLIN)-[F:ZPPH]PQHNUM
        [F:XPPD]PPDLIN = [YPPD]PPDLIN + 1
        [F:ZZPPD]PPDLINSTAND = [F:XPPD]PPDLIN
        Rewrite [F:ZZPPD]
@@ -137,14 +137,11 @@ For [F:ZZPPD]
        Filter [YPPD]
     Else
 
-      #Infbox "LINEA EXISTE" - num$([F:ZZPPD]PPDLINSTAND)
       Look [F:XPPD]PPD0= [F:ZPPH]BPSNUM;[F:ZPPH]PQHNUM;[F:ZZPPD]PQDLIN;[F:ZZPPD]PPDLINSTAND
       If !fstat
-         #Infbox "ACTUALIZACION"
          Rewrite [F:XPPD]
          ACTUALIZACION = 2
       Else
-         #Infbox "NUEVO"
          Write [F:XPPD]
       Endif
     Endif
@@ -153,7 +150,6 @@ Next
 
 If fstat
    Rollback
-   #Call ERREUR(GMESSAGE) From GESECRAN #mensaje de error
 Else
    Commit
    Call MESSAGE("Actualizacion respuestas realizada")From GESECRAN #informacion
@@ -199,7 +195,6 @@ Return
 $CLE_GAUCHE
 If dim(TMPVCRRESP)>0 and GXACT= 1 and clalev([M:ZRPR1])>0
     GXACT= 2
-    #Filter [F:ZPPH] Where [F:ZPPH]BPSNUM="2000004" and [F:ZPPH]PQHNUM="RQ2100028" and [F:ZPPH]NUMRESP=[M:ZRPR1]NUMRESP(nolign-1)
     Filter [F:ZPPH] Where [F:ZPPH]NUMRESP=TMPVCRRESP#[M:ZRPR1]NUMRESP(nolign-1)
 Endif
 Return
@@ -303,6 +298,59 @@ Gosub MODIF From TABLEAUX
 Return
 
 ##############################################################
+$VERF_ANU
+# 06.319.638.ini
+If clalev([F:PRESP])=0 : Local File PRESP [PRESP]  : Endif
+If clalev([F:PRESPD])=0: Local File PRESPD [PRESPD]: Endif
+If clalev([F:ZPRESP2])=0 : Local File ZPRESP [ZPRESP2]  : Endif
+If clalev([F:ZPRESPD2])=0: Local File ZPRESPD [ZPRESPD2]: Endif
+
+Trbegin [F:PRESP],[F:PRESPD],[F:ZPRESP2],[F:ZPRESPD2]
+Filter [ZPRESP2] Where [ZPRESP2]PQHNUM= [M:ZPPH0]PQHNUM and [ZPRESP2]BPSNUM = [M:ZPPH0]BPSNUM
+If rowcount([ZPRESP2])>1
+  Raz GBIDI2
+  Call OUINON("Existen otras ofertas proveedor con la misma solicitud de oferta y el mismo proveedor, borrar también?",GBIDI2) From GESECRAN
+  If GBIDI2=2
+    Delete [ZPRESP2] Where [ZPRESP2]PQHNUM=[M:ZPPH0]PQHNUM and [ZPRESP2]BPSNUM = [M:ZPPH0]BPSNUM
+    If fstat
+      Rollback
+      Errbox "Error borrando respuestas ZPRESP"
+      GOK=0
+      OK=0
+      Return
+    Endif
+    Delete [F:ZPRESPD2] Where [F:ZPRESPD2]PQHNUM=[M:ZPPH0]PQHNUM and [F:ZPRESPD2]BPSNUM = [M:ZPPH0]BPSNUM
+    If fstat
+      Rollback
+      Errbox "Error borrando respuestas ZPRESPD"
+      GOK=0
+      OK=0
+      Return
+    Endif
+  Endif
+Endif
+Filter [ZPRESP2]
+Delete [F:PRESP] Where [F:PRESP]PQHNUM=[M:ZPPH0]PQHNUM and [F:PRESP]BPSNUM = [M:ZPPH0]BPSNUM
+If fstat
+  Rollback
+  Errbox "Error borrando respuestas PRESP"
+  GOK=0
+  OK=0
+  Return
+Endif
+Delete [F:PRESPD] Where [F:PRESPD]PQHNUM=[M:ZPPH0]PQHNUM and [F:PRESPD]BPSNUM = [M:ZPPH0]BPSNUM
+If fstat
+  Rollback
+  Errbox "Error borrando respuestas PRESPD"
+  GOK=0
+  OK=0
+  Return
+Endif
+Commit
+# 06.319.638.fin
+Return
+
+##############################################################
 $ANNULE
 Gosub ANNULE From TABLEAUX
 Return
@@ -387,7 +435,6 @@ Return
 
 # Gestión de la máscara ZPPH0 (Especifico)
 
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH0) 16/04/2020 16:15:20 (ADMIN)
 ######################################################################################
@@ -397,9 +444,6 @@ If GFCY<>VALEUR
   GFCY=VALEUR : Call GLOBVAR(GFCY) From WWGLOBACH
 Endif
 End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH0) 16/04/2020 16:38:07 (ADMIN)
@@ -419,84 +463,6 @@ End
 
 Subprog C_BPSNUM(VALEUR)
 Variable Char    VALEUR()
-
-#[M:ZPPH0]BPSNUM=VALEUR
-##[M:ZPPH0]PQHNUM = [PQF]PQHNUM
-##----- Valeur obligatoire -----#
-#If VALEUR = "" : mkstat = 1 : End : Endif
-##----- En modification vérification existence d'une réponse -----#
-#If GREP <> "C" & GREP <> "D"
-#  Filter [ZPPH] Where BPSNUM = VALEUR
-#  Look [ZPPH]PPH0 First
-#  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PPH] : End : Endif
-#  Filter [ZPPH]
-##----- En création ou duplication vérification existence d'une demande -----#
-#Else
-#  Filter [PQF] Where PQHFCY = [M:ZPPH0]PQHFCY & BPSNUM = VALEUR
-#  Look [PQF] PQF1 First
-#  If fstat : GMESSAGE = mess(23,100,1) : mkstat = 1 : Filter [PQF] : End : Endif
-#  Filter [PQF]
-#Endif
-##----- Vérification existence du fournisseur et du business partner -----#
-#Read [BPS] BPS0 = VALEUR
-#If fstat Raz [F:BPS] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
-#[M:ZPPH0]BPSNAM = [F:BPS]BPSNAM
-#[M:ZPPH0]BPSSHO = [F:BPS]BPSSHO
-#Read [F:LPQF]PQF0 = [M:ZPPH0]PQHNUM;VALEUR
-#[M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE
-#If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
-#If GIMPORT= 1
-#  If [BPS]ZCPRCOE=0
-#    [M:ZPPH1]CPRCOE = 1
-#  Else
-#    [M:ZPPH1]CPRCOE = [BPS]ZCPRCOE
-#  Endif
-#
-#Endif
-#Affzo [M:ZPPH1]CPRCOE
-##[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
-#Read [BPR] BPR0 = VALEUR
-#
-##
-#Read [AXX]AXX0  = "TABCOUNTRY";"CRYDES";"SPA";[BPR]CRY;""
-#[M:ZPPH0]CRYDES = [AXX]TEXTE
-#Affzo [M:ZPPH0]CRYDES
-#If fstat Raz [F:BPR] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
-#
-#If !GIMPORT Then
-#   Raz [M:ZPPH2]NBLIG
-#   If clalev([F:LPQD])=0: Local File PQUOTATD [LPQD]: Endif
-#
-#   Filter [LPQD] Where PQHNUM=[M:ZPPH0]PQHNUM
-#   For [LPQD]
-#       If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
-#        #  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
-#            [M:ZPPH2]NBLIG += 1
-#            [M:ZPPH2]ITMREF(NBLIG-1) = [LPQD]ITMREF
-#            [M:ZPPH2]LINRSPDAT(NBLIG-1)    = [M:ZPPH1]RSPDAT
-#            [M:ZPPH2]LINPLIENDDAT(NBLIG-1) = [M:ZPPH1]PLIENDDAT
-#            [M:ZPPH2]LINLTI(NBLIG-1)       = [M:ZPPH1]LTI
-#            [M:ZPPH2]LINCPRCOE(NBLIG-1)   = [M:ZPPH1]CPRCOE
-#            [M:ZPPH2]QTYCON(NBLIG-1)       = [LPQD]QTYPUU
-#            [M:ZPPH2]OFERQTY(NBLIG-1)      = [LPQD]QTYPUU
-#            [M:ZPPH2]ZITMDES2(NBLIG-1)     = [LPQD]ITMDES1
-#            [M:ZPPH2]PUU(NBLIG-1)          = [LPQD]PUU
-#            [M:ZPPH2]LINCUR(NBLIG-1)       = [M:ZPPH1]CUR
-#
-#            [M:ZPPH2]LINCPRCOE(NBLIG-1)    = [F:LPQF]ZCPRCOE
-#            [M:ZPPH2]ITMDES(NBLIG-1)       = [LPQD]ITMDES
-#            [M:ZPPH2]PQDLIN(NBLIG-1)       = [LPQD]PQDLIN
-#            [M:ZPPH2]LINPRIDIV(NBLIG-1)    = [M:ZPPH1]PRIDIV
-#            Read [XXXPQH]PQH0 = [LPQD]PQHNUM
-#            If !fstat
-#              [M:ZPPH2]LINPQHREF(NBLIG-1) = [F:XXXPQH]PQHREF
-#            Endif
-#
-#            Affzo [M:ZPPH2]1-99
-#
-#            Filter [LPQD]
-#  Next
-#Endif
 End
 
 ##############################################################
@@ -529,16 +495,7 @@ If fstat Raz [F:BPS] : GMESSAGE = mess(23,100,1) : mkstat = 1 : End : Endif
 Read [F:LPQF]PQF0 = [M:ZPPH0]PQHNUM;VALEUR
 [M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE
 If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
-#If GIMPORT= 1
-#  If [BPS]ZCPRCOE=0
-#    [M:ZPPH1]CPRCOE = 1
-#  Else
-#    [M:ZPPH1]CPRCOE = [BPS]ZCPRCOE
-#  Endif
-#
-#Endif
 Affzo [M:ZPPH1]CPRCOE
-#[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
 Read [BPR] BPR0 = VALEUR
 [M:ZPPH1]CUR = [BPR]CUR
 # 06.322.341.ini
@@ -730,14 +687,6 @@ Endif
 ##########################
 End
 
-
-######################################################################################
-
-
-
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH1) 27/04/2020 09:51:01 (ADMIN)
 ######################################################################################
@@ -797,7 +746,6 @@ Endif
 End
 
 ###################################################################################
-
 Subprog AM_PLIENDDAT(VALEUR)
 Variable Date    VALEUR
 If [M:ZPPH2]NBLIG > 0
@@ -814,7 +762,6 @@ Endif
 End
 
 ################################################################################
-
 Subprog AM_PRIDIV(VALEUR)
 Variable Char VALEUR
 If [M:ZPPH2]NBLIG > 0
@@ -833,7 +780,6 @@ Endif
 End
 
 #################################################################################
-
 Subprog AM_LTI(VALEUR)
 Variable Decimal VALEUR
 If [M:ZPPH2]NBLIG > 0
@@ -941,20 +887,6 @@ End
 ######################################################################################
 Subprog S_ITMREF(VALEUR)
 Variable Char    VALEUR()
-#
-# If clalev([F:PQD])=0: Local File PQUOTATD [PQD]: Endif
-#
-# Choose [PQD] Where PQHNUM=[M:ZPPH0]PQHNUM
-#& Using ITMREF Titled "Artículo",
-#&[PQD]ITMDES1 Titled "Descripción",
-#&[PQD]PQHNUM  Titled "NºSolicitud"
-#
-#            Case status
-#              When 0       : Call MESSAGE(mess(99,100,1)) From GESECRAN
-#              When 7
-#              When Default : VALEUR = [PQD]ITMREF
-#            Endcase
-
 End
 
 
@@ -975,9 +907,7 @@ Variable Char    VALEUR()
 
   If clalev([F:LPQF])=0: Local File PQUOTATF [LPQF]: Endif
   If clalev([XXXPQH])=0: Local File PQUOTAT [XXXPQH]: Endif
-#  If clalev([F:XPQD])=0: Local File PQUOTATD [XPQD]: Endif
 
-  #If GUSER = "ADMIN" : Infbox [PQD]ZITMDES2 Endif
   [M:ZPPH2]ITMREF(nolign-1) = VALEUR
   [M:ZPPH2]LINRSPDAT(nolign-1)    = [M:ZPPH1]RSPDAT
   [M:ZPPH2]LINPLIENDDAT(nolign-1) = [M:ZPPH1]PLIENDDAT
@@ -1000,7 +930,6 @@ Variable Char    VALEUR()
 
   [M:ZPPH2]ZPMP(nolign-1) = arr([F:ITV]AVC*100,0.001)
   Affzo [M:ZPPH2]1-99
- # Filter [XPQD]
   Filter [PQD]
 
 End
@@ -1016,18 +945,12 @@ Variable Decimal VALEUR
 
 End
 
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 13:36:10 (ADMIN)
 ######################################################################################
 Subprog C_QTYCON(VALEUR)
 Variable Decimal VALEUR
 End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 27/04/2020 13:54:23 (ADMIN)
@@ -1050,7 +973,6 @@ Affzo [M:ZPPH2]AMT(nolign-1)
 End
 
 #######################################################################################
-
 Subprog AM_PRI(VALEUR)
 Variable Decimal VALEUR
 
@@ -1079,12 +1001,6 @@ Affzo [M:ZPPH2]HXCOST(nolign-1)
 
 End
 
-
-######################################################################################
-
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 28/04/2020 09:44:48 (ADMIN)
 ######################################################################################
@@ -1108,24 +1024,12 @@ Variable Char    VALEUR()
 # 06.322.341.fin
 End
 
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 28/04/2020 14:10:10 (ADMIN)
 ######################################################################################
 Subprog C_ITMREF(VALEUR)
 Variable Char    VALEUR()
-#  Filter [PQD] Where PQHNUM = [M:ZPPH0]PQHNUM and BPSNUM = [M:ZPPH0]BPSNUM  and ITMREF = VALEUR
-#  Read [PQD] First
-#  If fstat
-#     GERR = 1 : GMESSAGE = "No hay ninguna solicitud de oferta para este artículo" : mkstat = 2
-#  Endif
-#  Filter [PQD]
 End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 29/04/2020 13:52:31 (ADMIN)
@@ -1142,8 +1046,6 @@ If [M:ZPPH2]AMT(nolign-1) <> 0
 Endif
 End
 
-#
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 24/04/2020 09:50:40 (ADMIN)
 ######################################################################################
@@ -1158,8 +1060,8 @@ If [M:ZPPH2]AMT(nolign-1) <> 0
   Affzo [M:ZPPH2]PESOTOT
 Endif
 End
-######################################################################################
 
+######################################################################################
 $CONSULTA
 
   If clalev([F:ZZPPD])=0: Local File ZPRESPD [ZZPPD]: Endif
@@ -1224,8 +1126,8 @@ Local Decimal CANTIDAD
   [M:ZPPH2]AMT(nolign-1) = PRECIO * CANTIDAD
   Affzo [M:ZPPH2]AMT(nolign-1)
 End
-########################################################################################
 
+########################################################################################
 Subprog AM_BPSPRI(VALEUR)
 Variable Decimal VALEUR
 
@@ -1274,9 +1176,6 @@ Affzo [M:ZPPH2]HXCOST(nolign-1)
 
 End
 
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 13/07/2020 09:44:25 (ADMIN)
 ######################################################################################
@@ -1314,7 +1213,6 @@ Affzo [M:ZPPH2]HXCOST(nolign-1)
 
 End
 
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH2) 29/10/2021 02:10:58 (ADMIN)
 ######################################################################################
@@ -1365,8 +1263,6 @@ Affzo [M:ZPPH2]PRI(nolign -1)
 Affzo [M:ZPPH2]HXCOST(nolign-1)
 End
 
-
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZPPH1) 04/11/2021 17:26:35 (ADMIN)
 ######################################################################################

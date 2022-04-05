@@ -3,6 +3,7 @@
 #MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
 #AUR01 04/02/2022 ML - Error al seleccionar una factura desde abono y al duplicar factura,
 #                      flag Mail enviado/impreso papel se marcan solos
+# 06.311.586 - 09/02/2022 - ML PORTES Importados en ABONOS
 ######################################################################################
 $ACTION
 #If GUSER="ADMIN" Then : Infbox ACTION : Endif

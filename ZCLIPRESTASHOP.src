@@ -1,8 +1,8 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 #Local Char NUM
-#NUM = '0100005'
-#
-#
+#NUM = '0103665'
+##
+##
 #Call CLIENTES(NUM)
 #End
 ##################################################################
@@ -223,7 +223,9 @@ Next
 
 ###Límite portes pagados
 #IMP_PORTES
-Filter [F:ZBPD] Where BPCNUM = [F:ZBPC]BPCNUM and BPAADD = [F:ZBPC]BPAADD
+##06.315.536 : campo importe portes pagados en fichero WCLI.txt cambiamos la dirección por defecto a la dirección "cliente destinatario por def"
+##antes tenía la dirección la dirección
+Filter [F:ZBPD] Where BPCNUM = [F:ZBPC]BPCNUM and BPAADD = [F:ZBPC]BPDADD
 Read  [F:ZBPD] First
 
 
@@ -247,7 +249,6 @@ If !fstat Then
       IMP_PORTES=0
     Endif
 Endif
-
 
 
 Filter [F:ZBPR]

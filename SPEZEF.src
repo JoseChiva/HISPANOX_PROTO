@@ -171,12 +171,6 @@ Subprog BUSCAR()
         Endif
        Endif
        Filter [F:ZCNT] Where [F:ZCNT]BPATYP = 1 and [F:ZCNT]BPANUM = [F:ZSIV1]BPCINV and [F:ZCNT]CNTFNC = 15
-#       Read [F:ZCNT] First
-#       If !fstat
-#        [M:ZEF]ZKCNTWEB(I) = [F:ZCNT]WEB
-#       Else
-#        [M:ZEF]ZKCNTWEB(I) = ""
-#       Endif
        [M:ZEF]ZKCNTWEB(I) = ""
        Local Integer NEMAIL: Raz NEMAIL
        For [F:ZCNT]
@@ -300,14 +294,6 @@ Subprog SENDMAIL(P_NUM,P_ENVIO,ZMODEL,ZCOP,ZCORREO)
       TBPAR(NBPAR) = "nadxuid"
       TBVAL(NBPAR) = vireblc(num$(adxuid(1)),4)
 
-#      NBPAR+=1
-#      TBPAR(NBPAR) = "ncopias"
-#      #Esto varia
-#      If ZDESTINO = "FILE"
-#        TBVAL(NBPAR) = "0"
-#      Else
-#        TBVAL(NBPAR) = num$(ZCOP)
-#      Endif
       NBPAR+=1
       TBPAR(NBPAR) = "etat"
       TBVAL(NBPAR) = [F:ARP]RPTCOD
@@ -452,8 +438,6 @@ Endif
 
 End
 
-
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 30/09/2021 01:27:54 (ADMIN)
 ######################################################################################
@@ -465,8 +449,6 @@ If VALEUR = ""
 Endif
 End
 
-
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla ZENVFAC) 30/09/2021 01:31:03 (ADMIN)
 ######################################################################################
@@ -486,7 +468,6 @@ Affzo [M:ZEF]ZDEST
 
 End
 
-
 ######################################################################################
 Subprog MRK_FAC(ZNUM,ZMOD)
 Value Char ZNUM
@@ -504,7 +485,6 @@ Endif
 End
 
 ######################################################################################
-
 Funprog STA_FAC(ZNUM)
 Value Char ZNUM
 If clalev([F:ZSIH2])=0 : Local File SINVOICE  [F:ZSIH2] : Endif
@@ -521,7 +501,6 @@ Endif
 End ZSTA
 
 ######################################################################################
-
 Funprog TYP_EMI_FAC(ZNUM)
 Value Char ZNUM
 If !clalev([F:ZSIV2]) : Local File SINVOICEV [F:ZSIV2] : Endif
@@ -540,7 +519,6 @@ Endif
 End ZEMI
 
 ######################################################################################
-
 #**
 #* Split a string into an array of string
 #* Parameters:
@@ -581,6 +559,3 @@ If ([M:ZEF]ZKCNTWEB(nolign-1) = "" or [M:ZEF]ZSALINV(nolign-1) = "") and [M:ZEF]
   Errbox "Faltan datos"
 Endif
 End
-
-
-######################################################################################

@@ -79,19 +79,7 @@ Return
 ## Etiqueta añadida por el supervisor (pantalla SHIP1) 13/05/2020 17:53:26 (MLGA)
 ######################################################################################
 Subprog APRES_NBLIG
-#  If [M:SHIP1]ZEXPORT(nolign-1)=0
-#    [M:SHIP1]ZEXPORT(nolign-1)=1
-#  Endif
-#  If [M:SHIP1]ZEXPORT(nolign-1)=2
-#    [M:SHIP1]ZEXPORT(nolign-1)=3
-#  Endif
-#  Affzo [M:SHIP1]ZEXPORT(nolign-1)
-#########
-
 End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP0) 26/05/2020 09:20:50 (MLGA)
@@ -101,9 +89,6 @@ Variable Datetime    VALEUR
 [M:SHIP0]ZUPDATE=datetime$
 Affzo [M:SHIP0]ZUPDATE
 End
-
-
-######################################################################################
 
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP2) 05/06/2020 12:16:01 (ADMIN)
@@ -124,9 +109,6 @@ If [M:SHIP1]NBLIG > 0
 Endif
 End
 
-
-######################################################################################
-
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP0) 05/06/2020 12:17:15 (ADMIN)
 ######################################################################################
@@ -138,9 +120,6 @@ If GFONCTION = "GESSHIP"
   Call AM_ZCPRCOE([M:SHIP2]ZCPRCOE)
 Endif
 End
-
-
-######################################################################################
 
 ######################################################################################
 Subprog AVANT_NBLIG
@@ -181,9 +160,7 @@ Affzo [M:SHIP1]15
 
 End
 
-
 ######################################################################################
-
 Subprog C_ZPALETPAUX(VALEUR)
 Variable Char VALEUR
 Local Integer I_DUP
@@ -202,9 +179,7 @@ Endif
 
 End
 
-
 ######################################################################################
-
 Subprog C_ZQTYLINAUX(VALEUR)
 Variable Decimal VALEUR
 Local Integer I_COUNT
@@ -230,9 +205,6 @@ Affzo [M:SHIP1]ZSUMSUP
 End
 
 
-######################################################################################
-
-
 #FIN MODIF AFVI
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP1) 10/11/2021 07:18:18 (ADMIN)
@@ -250,7 +222,6 @@ Affzo [M:SHIP1]20
 End
 
 Subprog APRES_NBLIG2
-#If [M:SHIP1]ZPALETPAUX(nolign-1) <> "" and [M:SHIP1]ZLOTEAUX(nolign-1) <> "" and [M:SHIP1]ZQTYLINAUX(nolign-1)<>0
 If [M:SHIP1]ZPALETPAUX(nolign-1) <> "" and [M:SHIP1]ZQTYLINAUX(nolign-1)<>0
 & and [M:SHIP1]ZITMSUP<> "" and [M:SHIP1]ZVCRLINSUP <> 0
   I = [M:SHIP1]NBLIG3
@@ -266,8 +237,6 @@ If [M:SHIP1]ZPALETPAUX(nolign-1) <> "" and [M:SHIP1]ZQTYLINAUX(nolign-1)<>0
 Endif
 End
 
-
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP1) 12/11/2021 06:42:06 (ADMIN)
 ######################################################################################
@@ -304,8 +273,6 @@ mkstat = 4
 
 End
 
-
-######################################################################################
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla SHIP1) 17/11/2021 08:55:08 (ADMIN)
 ######################################################################################
@@ -334,7 +301,6 @@ Case status
   When Default : VALEUR = [F:ZAXX]IDENT1
 Endcase
 End
-
 
 ######################################################################################
 ## Después de modificar el campo 'Exportada' (pantalla SHIP0) 24/11/2021 06:54:22 (ADEV)

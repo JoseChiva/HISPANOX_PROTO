@@ -11,11 +11,6 @@ Variable Char    VALEUR()
 If VALEUR="": End: Endif
 If !clalev([ADI]): Local File ATABDIV: Endif
 If !clalev([XMBBD]): Local File ZMBBASED[XMBBD]: Endif
-#Raz [F:XMBB]
-#Read [XMBB]ZMBB0=VALEUR;""
-#[M:ZMBB]FRANJA0=[F:XMBB]MB1
-#[M:ZMBB]FRANJA1=[F:XMBB]MB2
-#[M:ZMBB]FRANJA2=[F:XMBB]MB3
 
 Filter [F:ADI] Where NUMTAB=33
 X=0

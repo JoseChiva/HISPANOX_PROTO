@@ -10,26 +10,4 @@ Return
 
 ######################################################################################
 $APRES_CRE
-If !clalev([F:DUD1])   : Local File GACCDUDATE[DUD1]    : Endif
-If !clalev([F:SIH1])   : Local File SINVOICE  [SIH1]    : Endif
-
-Filter [F:DUD1] Where NUM = [F:SIH]NUM
-Read [F:DUD1] First
-If !fstat Then
-  Filter [F:SIH1] Where NUM = [F:SIH]NUM
-  Read [F:SIH1] First
-  If !fstat Then
-    Trbegin [F:SIH1]
-    [F:SIH1]ZDUDINI = [F:DUD1]DUDDAT
-    Rewrite [F:SIH1]
-    If !fstat
-      Commit
-    Else
-      Rollback
-    Endif
-    Affzo [M:BIC1]ZDUDINI
-  Endif
-Endif
-
 Return
-

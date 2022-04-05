@@ -27,9 +27,6 @@ $SEL_ZSELITV
   If !clalev([F:ZVSV]) Then : Local File ZVSELITV [F:ZVSV] : Endif
   Default File [F:ZVSV]
 
-##  ORDRE   = 'ITMREF'
-##  START   = 'ITMREF'
-#
   NBCOL       = 0                                                               # número de la columna
   TIT(NBCOL)  = "Selección Artículo-Venta"                                      # título de la ventana
   NBCOL       += 1

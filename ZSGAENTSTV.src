@@ -33,10 +33,6 @@ Local Clbfile XDATA (10)
 
   If !clalev([F:ZFCY]) : Local File FACILITY    [ZFCY] : Endif
 
-#  If !clalev([F:ZSHH]) : Local File SHIPMENT    [ZSHH] : Endif
-#  If !clalev([F:ZSHD]) : Local File SHIPMENTD   [ZSHD] : Endif
-#  If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
-
   WFICHEROIMP='STV0*'
 #  WFICHEROIMP='STV0120220311133851000'
 #  WFICHEROIMP='STV0120211130080032007'
@@ -56,10 +52,8 @@ Local Clbfile XDATA (10)
     # limpia la tabla donde se guardan los artículos lote que no se pueden hacer salida por falta de stock físico
     Execsql From "5" Sql "Truncate table" - nomap + ".ZSTVSALCERO"
 
-#    WTRAZA=1
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
-#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
 
 # 06.315.530.ini
@@ -859,12 +853,6 @@ Local Char    WLFCY(50),RESULT(250),WLCOMILLAS(10),WLCOMA(10)
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
   RESULT=vireblc(RESULT,1)
   Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
-# #BPSLOT
-#  WLONG=250
-#  RESULT=WCSTATT04FCA
-#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
-#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
  #LOT
   WLONG=250
   RESULT=WCSTATT05FCA
@@ -1117,7 +1105,6 @@ Local     Integer LDES
 
   If PQTYSTV <= LQTYDISPONIBLEX3 Then
     PQTYSAL = PQTYSTV
-#    PQTYSAL = LQTYSTVINI
   Else
     PQTYSAL = LQTYDISPONIBLEX3
   Endif
@@ -1183,14 +1170,6 @@ Local     Integer LDES
     Endif
   Endif
   # JC.03112021-2.FIN
-
-#Infbox "ctd.SGA:"-num$(LQTYSTVINI)
-#Infbox "ctd.física:"-num$(LQTYFISICAX3)
-#Infbox "ctd.PQTYSTV:"-num$(PQTYSTV)
-#Infbox "ctd.asignada:"-num$(LQTYASIGNADAX3)
-#Infbox "ctd.disponible:"-num$(LQTYDISPONIBLEX3)
-#Infbox "ctd.salida:"-num$(PQTYSAL)
-#Infbox "ctd.desasignadaGlobal:"-num$(LQTYDESGLOBALX3)
 
   If PQTYSAL = 0 Then
     If !clalev([F:ZSS0]) Then : Local File ZSTVSALCERO [F:ZSS0] : Endif

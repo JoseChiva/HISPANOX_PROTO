@@ -2,7 +2,6 @@
 $ACTION
 Case ACTION
   When "SEL_TABLE"      : Gosub SEL_TABLE
-  #When "CHX_TABLE"     : Gosub CHX_TABLE
   When Default
 Endcase
 Return

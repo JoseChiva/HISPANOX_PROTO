@@ -49,7 +49,6 @@ Local Clbfile LCRIT(2)
   If [M:ZEW0]ZORDDATFIN <> [00/00/0000] Then : LCRIT += " & ORDDAT<=[M:ZEW0]ZORDDATFIN"                           : Endif
   If [M:ZEW0]ZSOHNUMDEB <> ""           Then : LCRIT += " & SOHNUM>=[M:ZEW0]ZSOHNUMDEB"                           : Endif
   If [M:ZEW0]ZSOHNUMFIN <> ""           Then : LCRIT += " & SOHNUM<=[M:ZEW0]ZSOHNUMFIN"                           : Endif
-#  If [M:ZEW0]ZIMPDIFMIN <> 0            Then : LCRIT += " & abs(PRE_TOT_LIN - PROF_TOT_LIN)>=[M:ZEW0]ZIMPDIFMIN"  : Endif
   If [M:ZEW0]ZROTURAFLG =  2            Then : LCRIT += " & ALLQTY < QTY"                                         : Endif
 
   If !clalev([F:ZVEPW]) Then : Local File ZVERRPRESOHW  [F:ZVEPW] : Endif
@@ -60,7 +59,6 @@ Local Clbfile LCRIT(2)
     Read [F:ZBPC]BPC0 = [F:ZVEPW]BPCORD
     # busca en orden de prioridad de las tarifas T10, T20, T30, T40, T50
     # 1º busca en T10
-#    Read [F:ZSPL]SPL4 = "T10";[F:ZVEPW]BPCORD;[F:ZVEPW]ITMREF;"";"";""
     Filter [F:ZSPL] Where PLI = "T10" and PLICRI1 = [F:ZVEPW]BPCORD and PLICRI2 = [F:ZVEPW]ITMREF and date$ >= PLISTRDAT and date$ <= PLIENDDAT
     Read [F:ZSPL] First
     # si existe precio de tarifa para artículo proveedor (T10)
@@ -69,14 +67,10 @@ Local Clbfile LCRIT(2)
       [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
       [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
       If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                  # JC.23092021.NEW
-#      If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then                 # JC.23092021.NEW
-#        If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                    # JC.23092021.NEW
-          [M:ZEW1]DIF_CON_PROF(LCON)  = 1
-#        Endif                                                                                            # JC.23092021.NEW
+        [M:ZEW1]DIF_CON_PROF(LCON)  = 1
       Else
         If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then             # JC.24092021.NEW
           Goto ENDNEXT
-#          [M:ZEW1]DIF_CON_PROF(LCON)  = 0
         Endif                                                                                                                         # JC.24092021.NEW
       Endif
     Else
@@ -90,14 +84,10 @@ Local Clbfile LCRIT(2)
         [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
         [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
         If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                # JC.23092021.NEW
-#        If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then               # JC.23092021.NEW
-#          If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                  # JC.23092021.NEW
-            [M:ZEW1]DIF_CON_PROF(LCON)  = 1
-#          Endif                                                                                          # JC.23092021.NEW
+          [M:ZEW1]DIF_CON_PROF(LCON)  = 1
         Else
           If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then           # JC.24092021.NEW
             Goto ENDNEXT
-#            [M:ZEW1]DIF_CON_PROF(LCON)  = 0
           Endif                                                                                                                       # JC.24092021.NEW
         Endif
       Else
@@ -111,14 +101,10 @@ Local Clbfile LCRIT(2)
           [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
           [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
           If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                              # JC.23092021.NEW
-#          If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then             # JC.23092021.NEW
-#            If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                                # JC.23092021.NEW
-              [M:ZEW1]DIF_CON_PROF(LCON)  = 1
-#            Endif                                                                                        # JC.23092021.NEW
+            [M:ZEW1]DIF_CON_PROF(LCON)  = 1
           Else
             If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then         # JC.24092021.NEW
               Goto ENDNEXT
-#              [M:ZEW1]DIF_CON_PROF(LCON)  = 0
             Endif                                                                                                                     # JC.24092021.NEW
           Endif
         Else
@@ -132,14 +118,10 @@ Local Clbfile LCRIT(2)
             [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
             [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
             If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                            # JC.23092021.NEW
-#            If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then           # JC.23092021.NEW
-#              If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                              # JC.23092021.NEW
-                [M:ZEW1]DIF_CON_PROF(LCON)  = 1
-#              Endif                                                                                      # JC.23092021.NEW
+              [M:ZEW1]DIF_CON_PROF(LCON)  = 1
             Else
               If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then       # JC.24092021.NEW
                 Goto ENDNEXT
-#                [M:ZEW1]DIF_CON_PROF(LCON)  = 0
               Endif                                                                                                                   # JC.24092021.NEW
             Endif
           Else
@@ -153,29 +135,21 @@ Local Clbfile LCRIT(2)
               [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZSPL]PRI
               [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZSPL]PRI * [F:ZVEPW]QTY
               If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                          # JC.23092021.NEW
-#              If (abs(([F:ZVEPW]NETPRI * [F:ZVEPW]QTY) - ([F:ZSPL]PRI * [F:ZVEPW]QTY))) > 0 Then         # JC.23092021.NEW
-#                If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 2 Then                            # JC.23092021.NEW
-                  [M:ZEW1]DIF_CON_PROF(LCON)  = 1
-#                Endif                                                                                    # JC.23092021.NEW
+                [M:ZEW1]DIF_CON_PROF(LCON)  = 1
               Else
                 If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then     # JC.24092021.NEW
                   Goto ENDNEXT
-#                  [M:ZEW1]DIF_CON_PROF(LCON)  = 0
                 Endif                                                                                                                 # JC.24092021.NEW
               Endif
             # si no existe tarifa para ese artículo
             # compara el precio de la línea con el precio calculado
             Else
-#              If abs([F:ZVEPW]PRE_TOT_LIN - [M:ZEW1]PROF_TOT_LIN(LCON)) > 2 Then                                                     # JC.24092021.NEW
-#              If abs([F:ZVEPW]PRE_TOT_LIN - [F:ZVEPW]PROF_TOT_LIN) > 0 Then                              # JC.23092021.NEW
-                [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZVEPW]ZPREOFERTA
-                [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZVEPW]PROF_TOT_LIN
-                [M:ZEW1]DIF_CON_PROF(LCON)    = [F:ZVEPW]DIF_CON_PROF
-#              Else
-                If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then     # JC.24092021.NEW
-                  Goto ENDNEXT
-                Endif                                                                                                                 # JC.24092021.NEW
-#              Endif                                                                                                                  # JC.24092021.NEW
+              [M:ZEW1]ZPREOFERTA(LCON)      = [F:ZVEPW]ZPREOFERTA
+              [M:ZEW1]PROF_TOT_LIN(LCON)    = [F:ZVEPW]PROF_TOT_LIN
+              [M:ZEW1]DIF_CON_PROF(LCON)    = [F:ZVEPW]DIF_CON_PROF
+              If [M:ZEW0]ZIMPDIFMIN <> 0 and abs([F:ZVEPW]PRE_TOT_LIN - ([M:ZEW1]PROF_TOT_LIN(LCON))) < [M:ZEW0]ZIMPDIFMIN Then     # JC.24092021.NEW
+                Goto ENDNEXT
+              Endif                                                                                                                 # JC.24092021.NEW
             Endif
           Endif
         Endif
@@ -192,8 +166,6 @@ Local Clbfile LCRIT(2)
     [M:ZEW1]ORDDAT(LCON)            = [F:ZVEPW]ORDDAT
     [M:ZEW1]DEMDLVDAT(LCON)         = [F:ZVEPW]DEMDLVDAT
     [M:ZEW1]PRE_TOT_LIN(LCON)       = [F:ZVEPW]PRE_TOT_LIN
-#    [M:ZEW1]ZPREOFERTA(LCON)        = [F:ZVEPW]ZPREOFERTA
-#    [M:ZEW1]PROF_TOT_LIN(LCON)      = [F:ZVEPW]PROF_TOT_LIN
     [M:ZEW1]QTY_NO_ASIG(LCON)       = [F:ZVEPW]QTY_NO_ASIG
     [M:ZEW1]ITMDES(LCON)            = [F:ZVEPW]ITMDES
     [M:ZEW1]ZITMDES2(LCON)          = [F:ZVEPW]ZITMDES2

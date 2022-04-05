@@ -44,7 +44,6 @@ Local Integer LERROR
     Local Decimal F_QTY,LRES,F_COEF,LPHYSTO
     Local Integer I_QTY
     LRES    = func ZAULIB01.NO_MULTIPLO_CAJA([F:ZSQD]ITMREF,[F:ZSQD]QTY,F_COEF)
-#    LPHYSTO = func ZAULIB01.GET_PHYSTO([F:ZSQD]ITMREF,[F:ZSQD]SALFCY)
     If mod([F:ZSQD]QTY,F_COEF) Then
       [F:ZSQD]ZCANTJUSTA = 2
     Endif
