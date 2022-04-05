@@ -13,6 +13,7 @@
 # 06.315.591 - JC.17022022.Error importación entrega cuando el detalle de línea en SOF es igual por detalle de línea Sage pero no suma lo mismo que el total de Sage
 # 06.319.759 - JC.02032022.Facturas Canarias. Añadir Incoterm al generar la entrega
 # 06.314.024 - JC.07032022.Adapación importación SOF para subcontratación
+# 06.332.553 - JC.05042022.Nº bultos incorrecto
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -115,28 +116,19 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
     Gosub GUARDA_SOF_EN_TABLA
     Openi Using [ZZZ]
-    Local Integer LRDO
-    Local Char LMSG(250)
-    Call  COMPRUEBA_VP(LNOMFICHERO)
-    Call  ELIMINA_LINEA_VP(LNOMFICHERO)
-    LRDO = func COMPRUEBA_STOCK(LNOMFICHERO,LMSG)
-    Call  VP_ENTREGABLE(LNOMFICHERO)
-    Call  UNLOCK_OSTCTL(LNOMFICHERO)
-    Call  UNLOCK_BPCSTA(LNOMFICHERO)                                                          # 06.304.506.new
-    Call  GENERA_ENTREGA(LNOMFICHERO,WSGATMP,WFICINP1,WSGARECIBIDOS,WSGATRATADOS,WSGAERROR)
-    Call  LOCK_OSTCTL(LNOMFICHERO)
-    Call  LOCK_BPCSTA(LNOMFICHERO)                                                            # 06.304.506.new
-
-    Gosub TRAZA_ERRORES_LINEAS
-
-#    If WOK <> 0 Then                             # si se producen errores
-#      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
-#      Gosub MUEVE_FILE_ERR
-#    Else
-#      Gosub MUEVE_FILE
-#    Endif
-
-#    Openi Using [ZECO]
+#    Local Integer LRDO
+#    Local Char LMSG(250)
+#    Call  COMPRUEBA_VP(LNOMFICHERO)
+#    Call  ELIMINA_LINEA_VP(LNOMFICHERO)
+#    LRDO = func COMPRUEBA_STOCK(LNOMFICHERO,LMSG)
+#    Call  VP_ENTREGABLE(LNOMFICHERO)
+#    Call  UNLOCK_OSTCTL(LNOMFICHERO)
+#    Call  UNLOCK_BPCSTA(LNOMFICHERO)                                                          # 06.304.506.new
+#    Call  GENERA_ENTREGA(LNOMFICHERO,WSGATMP,WFICINP1,WSGARECIBIDOS,WSGATRATADOS,WSGAERROR)
+#    Call  LOCK_OSTCTL(LNOMFICHERO)
+#    Call  LOCK_BPCSTA(LNOMFICHERO)                                                            # 06.304.506.new
+#
+#    Gosub TRAZA_ERRORES_LINEAS
 
   Next
 
@@ -271,7 +263,10 @@ $GUARDA_SOF_EN_TABLA
       WLONG   = 1
       RESULT  = WPACNBR
       RESULT  = vireblc(RESULT,1)
-      [F:ZESOF]PACNBR = RESULT
+# 06.332.553.ini
+#      [F:ZESOF]PACNBR = RESULT
+      [F:ZESOF]PACNBR = val(RESULT)
+# 06.332.553.fin
 # 06.298.712.ini
 #     #SHIDAT
 #      WLONG=10
@@ -1948,6 +1943,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 # 06.300.273.ini
   If !clalev([F:ZES11]) Then : Local File ZVESOF11    [F:ZES11] : Endif
 # 06.300.273.fin
+  If !clalev([F:ZES12]) Then : Local File ZVESOF12    [F:ZES12] : Endif   # 06.332.553.new
 
   Filter [F:ZESO2] Where NOMFICH = PNOMFICH and ZGENSDHFLG = 2 Order By SDHNUM
   For [F:ZESO2]
@@ -1976,12 +1972,23 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Filter [F:ZPRE1]
 # 06.298.127.fin
 
+# 06.332.553.ini
+      Local Integer LPACNBR
+      Filter [F:ZES12] Where SDHNUM = [F:ZESOF]SDHNUM
+      Read   [F:ZES12] First
+      If !fstat Then
+        LPACNBR = [F:ZES12]PACNBR
+      Endif
+      Filter [F:ZES12]
+# 06.332.553.fin
+
       LSHIDAT = left$(num$([F:ZESOF]SHIDAT),2)+mid$(num$([F:ZESOF]SHIDAT),4,2)+mid$(num$([F:ZESOF]SHIDAT),7,4)
       LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.319.759
+&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.332.553.new
+#&           LDLVDAT + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.319.759
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
