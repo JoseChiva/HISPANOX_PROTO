@@ -14,6 +14,18 @@ $IMP_OUVRE
 Return
 
 $AP_IMPORT
+#  If IMPFIC = "ZMBE" Then
+#    If !clalev([F:XXH]) Then : Local File ZMBEXTRA  [F:XXH] : Endif
+#    Trbegin [F:XXH]
+#    Delete [F:XXH] Where CLI_1 = [F:ZMBE]CLI_1
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#    Close Local File [XXH]
+#  Endif
+
   If IMPFIC = "ZMBED" Then
     If !clalev([XMBED]): Local File ZMBEXTRAD  [F:XMBED]: Endif
     Read [F:XMBED]ZMBED0 = [F:ZMBED]CLI_1;[F:ZMBED]TSCCOD

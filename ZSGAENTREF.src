@@ -68,6 +68,7 @@ Local Clbfile XDATA (10)
 
     WFICHMOVE=LNOMFICHERO
     WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
     WDEVOLUCION=1
     WEXPEDICION=1                                                                             # JC.25112021-EXP.NEW
@@ -152,6 +153,12 @@ Local Clbfile XDATA (10)
       Endif
     Endif
 # JC.25112021-EXP.FIN
+
+
+#    Openi Using [ZECO]
+#    Sleep 1
+
+#    Call IMPORTSIL ("ZPTHFL",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ                        # JC.22092021.NEW
 
     If WDEVOLUCION=2
       Gosub GUARDA_REFDEV_EN_TABLA                                                                # JC.22092021.NEW
@@ -446,6 +453,7 @@ $CREA_EXPORT
        # I=WLIMITE
       Next
       I=WIPREVIA2
+    #  If GUSER="MLGA" : Dbgaff : Endif
      #Agrupo cantidades si coinciden los lotes
       WAGRUPA=1
       WTOTWLNESTOCKQTY=val(WCANT(0,0))
@@ -468,6 +476,7 @@ $CREA_EXPORT
       WCANT2(A)=WCANT(A,2)
 
      Next
+    #  If GUSER="MLGA" : Dbgaff : Endif
 
       Sorta WCANT1, WCANT0, WCANT2
       #Order By WCANT1 Desc
@@ -508,6 +517,17 @@ $CREA_EXPORT
           Endif
           WLNESTOCKUOMCODE=func GET_PROPXML(XDATA,"LneStockUoMCode",I)
           WIANTESBUSCAR=I
+#          WLNESTOCKCSTATT01=''
+#          WLNESTOCKCSTATT01=func GET_PROPXML(XDATA,"LneStockCstAtt01",I)
+#          If I>WLIMITE
+#            I=WIANTESBUSCAR
+#          Endif
+#          WIANTESBUSCAR=I
+#          WLNESTOCKCSTATT05=''
+#          WLNESTOCKCSTATT05=func GET_PROPXML(XDATA,"LneStockCstAtt05",I)
+#          If I>WLIMITE
+#           I=WIANTESBUSCAR
+#          Endif
           If WLNESTOCKUOMCODE<>''
             WLONG=1
             RESULT='S'
@@ -563,7 +583,9 @@ $CREA_EXPORT
         WPOSICIONO=func GET_PROPXML(XDATA,"/Line",I)
         WPOSICIONO=func GET_PROPXML(XDATA,"/Line",I)
         WFINLIN=I
+       # I=WNEXTITEM
       Endif
+  #  WFINSTO=I
   Next
 
 Return
@@ -575,6 +597,7 @@ $CREA_EXPORT_EXP
 
   If !clalev([F:SHH0]) Then : Local File SHIPMENT     [F:SHH0] : Endif
   If !clalev([F:SHD0]) Then : Local File SHIPMENTD    [F:SHD0] : Endif
+#  If !clalev([F:AXX0]) Then : Local File ZEXPOREFEXP  [F:AXX0] : Endif
   If !clalev([F:ZVAE]) Then : Local File ZVREFAGPORE  [F:ZVAE] : Endif
   If !clalev([F:ZVAL]) Then : Local File ZVREFAGPORL  [F:ZVAL] : Endif
   If !clalev([F:ZVAS]) Then : Local File ZVREFAGPORS  [F:ZVAS] : Endif
@@ -713,6 +736,8 @@ $CREA_EXPORT_EXP
       Wrseq RESULT Using [ZECO]
 # 06.288.868 - JC.05012022.fin
 
+#      Filter [F:AXX0] Where SHIPNUM = [F:ZVAL]SHIPNUM and SHIPLIN = [F:ZVAL]SHIPLIN and INDICADOR = 'S'
+#      For [F:AXX0]
       Filter [F:ZVAS] Where SHIPNUM = [F:ZVAL]SHIPNUM and SHIPLIN = [F:ZVAL]SHIPLIN
       For [F:ZVAS]
        #S
@@ -932,6 +957,13 @@ Local Char    WLNESTOCKSTATUS(250),WLNEITEMCODE(250),WLNEQTYRECEIVED(250),WLNECS
       If WNLINDETAIL>999
         Break
       Endif
+#      If WLNENUMBERDETAIL <> "" Then : J = L : K = J : Endif
+#      LTEMP1 =  func GET_PROPXML(XDATA,"LneStockItemCode",J)
+#      LTEMP1 =  func GET_PROPXML(XDATA,"LneNumber",K)
+#      If J > K and K <> 0 Then
+#        L=J
+#        Break
+#      Endif
     Wend
     For M=1 To WNLINDETAIL
       Trbegin [F:ZREF0]
@@ -1032,6 +1064,8 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
       Endif
     Wend
 
+#Infbox "WNCAB:"-num$(WNCAB)
+
   For P=1 To WNCAB
 #CABECERA #######################################################
     WSITE               = func GET_PROPXML(XDATA,"Site",LPOS)
@@ -1087,6 +1121,8 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
           Break
         Endif
       Wend
+
+#Infbox "WNLIN:"-num$(WNLIN)
 
     For N=1 To WNLIN
       WLNENUMBER          = func GET_PROPXML(XDATA,"LneNumber",LPOS)

@@ -6,16 +6,19 @@ $ACTION
 Case ACTION
   When "EXEC": Gosub EXEC
 Endcase
-
+Return
 ########################################################################
 ## Exportación de los ficheros hacia la Intranet. La paeridicidad viene
 ## marcada por la tarea batch que se parametrice
 ########################################################################
 $EXEC
+
 #WPOH="": Call PEDIDOSPROV(WPOH)  From ZPOHINTRANET
 #Return
 #
 #  WBPS="2000001": Call PROVEEDORES(WBPS)  From ZBPSINTRANET
+  #WITM="": Call ARTICULOS(WITM) From ZITMINTRANET
+  WITM="": Call ARTICULOS(WITM) From ZITMINTRANET2
   WBPS="": Call PROVEEDORES(WBPS)  From ZBPSINTRANET
   WPOH="": Call PEDIDOSPROV(WPOH)  From ZPOHINTRANET
   WSQH="": Call LINPRESUPUESTOS(WSQH) From ZSQHINTRANET
@@ -29,12 +32,12 @@ $EXEC
 #  WSDH="ENF2000001": Call ALBARAN(WSDH) From ZSDHINTRANET
 #  WSDH="": Call ALBARAN(WSDH) From ZSDHINTRANET
   WBPC="": Call CLIENTES(WBPC) From ZBPCINTRANET
-  #WITM="": Call ARTICULOS(WITM) From ZITMINTRANET2
-  WITM="": Call ARTICULOS(WITM) From ZITMINTRANET2
+
   WNTS="": Call NOTAS(WNTS) From ZNTSINTRANET
   WKIT="": Call KIT(WKIT) From ZKITINTRANET
 #  WSOH="PN2000034": Call PEDIDOSCLI(WSOH)  From ZSOHINTRANET
   WSOH="": Call PEDIDOSCLI(WSOH)  From ZSOHINTRANET
   WPQH = "" : Call CONSULTAS(WPQH) From ZPQHINTRANET
   WSTK = "" : Call STOCK(WSTK) From ZSTKINTRANET
+
 Return

@@ -32,8 +32,10 @@ Local Integer QTYENVIADA,K
 For K = 0 To [M:SHIP1]NBLIG-1
   Raz QTYENVIADA
   QTYENVIADA = max([M:SHIP1]RCPQTYSTU(K),[M:SHIP1]SHIQTY(K))
+  #Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(K);[M:SHIP1]POPLIN(K);[M:SHIP1]POQSEQ(K)
   Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(K);[M:SHIP1]POPLIN(K);[M:SHIP1]POQSEQ(K)
   If !fstat
+    #If GUSER= "ADMIN" Infbox num$(QTYENVIADA)+"/"+num$([F:ZPOQ]QTYSTU+[M:SHIP1]ZQTYTOL(K)) Endif
     If QTYENVIADA> [F:ZPOQ]QTYSTU+[M:SHIP1]ZQTYTOL(K)
       Chgstl [M:SHIP1]ZQTYTOL(K) With "BACKRED"
     Else
@@ -134,7 +136,9 @@ $LIENS
 Gosub ACTION From SUBSHIP
 GPE=1
 Titcol [M:SHIP1]NBLIG "Arancel" For CPRCOE
-
+#Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+#
+#Grizo [M:SHIP1]NBLIG2
 Local Integer TMPLIG:TMPLIG=nolign
 nolign = 0
 
@@ -200,6 +204,9 @@ Return
 #############################################################################
 
 $MODIF
+#If !(func VERIF_QTY)
+#  GERR = 1 : GOK = 0 :GPE = 1 :Return
+#Endif
 
 Gosub ACTION From SUBSHIP
 GPE = 1
@@ -207,7 +214,11 @@ GPE = 1
 Delete [F:ZOR] Where [F:ZOR]ZVCRNUM = [M:SHIP0]SHIPNUM
 
 Gosub WRT_ZOR
-
+#Raz [M:SHIP1]NBLIG2,[M:SHIP1]ZITMSUP,[M:SHIP1]ZPOHSUP,[M:SHIP1]ZQTYSUP,[M:SHIP1]ZVCRLINSUP
+#
+#Affzo [M:SHIP1]10
+#Affzo [M:SHIP1]15
+#Grizo [M:SHIP1]NBLIG2
 Return
 
 #############################################################################

@@ -13,6 +13,8 @@ Value Decimal PNUMLIN, PNBLIG, PQTY
   If !clalev([F:PRD1]) Then : Local File STOPRED [F:PRD1] : Endif
   If !clalev([F:PRH])  Then : Local File STOPREH [F:PRH]  : Endif
   If !clalev([F:SPD])  Then : Local File SPACKD  [F:SPD]  : Endif
+#  If !clalev([F:SRT])  Then : Local File STKTRS  [F:SRT]  : Endif
+#  Read [SRT]SRT0=12;GFLAG
 
   Local Mask PRH0   [M:PRH0]
   Local Mask PRH1   [M:PRH1]
@@ -23,6 +25,10 @@ Value Decimal PNUMLIN, PNBLIG, PQTY
   Local Integer   WRET
   Local Char      SYMBOLE2(20)
   Local Shortint  W_K
+#  Global Char      ACTION(250)  : ACTION  = "MODIF"
+#  Global Char      ZONLIG(250)  : ZONLIG  = "PRELIN"
+#  Global Char      ABLIG(250)   : ABLIG   = "PRH1"
+#  Global Integer   MAXLIG       : MAXLIG  = PNBLIG
 
   PARAM(1) = "PRH1"       # abreviatura
   PARAM(2) = "0"          # nº línea actual
@@ -32,9 +38,17 @@ Value Decimal PNUMLIN, PNBLIG, PQTY
   PARAM(6) = "3"          # tipo; 3=preparación,20=salida varia
   Local Integer FIN,FOK
 
+Infbox "1"-num$([M:PRH1]ALLTYP(0))
+#  Gosub SETTRANS        From SUBPRHA
+#  Gosub OUVRE           From SUBPRHA
   Gosub LIENS_PRH0
   Gosub LIENS_LIG_PRH1
   Gosub OUVRE           From TRTSTOSOR
+#  Gosub OUVRE_BOITE     From TRTSTOSOR
+#  Gosub FILGAUCHE       From TRTSTOSOR
+#  Gosub CLE_GAUCHE      From TRTSTOSOR
+#  Gosub HINT_KEY        From TRTSTOSOR
+#  Gosub AP_FILGAUCHE    From TRTSTOSOR
   Gosub DEBUT
   Gosub CRE_PICSTO
   Gosub AVANT_ENR
@@ -42,9 +56,12 @@ Value Decimal PNUMLIN, PNBLIG, PQTY
   Gosub APRES_MODIF
   Gosub APRES_STOSOR
   Gosub AVANT_MOD         # para la pantalla de VP
+##  Gosub VERIF_MOD       From SUBPRHA
   Gosub AVANT_MODFIC    From SUBPRHA
   Gosub INIMOD          From SUBPRHA
   Gosub MODIF           From SUBPRHA
+
+Infbox "2"-num$([M:PRH1]ALLTYP(0))
 
   Close Mask        [PRH0],[PRH1],[SOR],[ALP],[SOW]#,[SMO0],[SMO1]
   Close Local File  [PRH0],[PRH1],[PRH],[SPD]#,[STR],[PRD0],[PRD1]

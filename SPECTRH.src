@@ -31,10 +31,14 @@ Endcase
 Return
 ######################################################################################
 $VERIFMOD
+#For I= 0 To [M:CTRH1]NBLIG-1
+#  Infbox [M:CTRH1]LOT(I)
+#Next
 Return
 
 ######################################################################################
 $PICKE
+#Infbox num$([F:POQ]ZPALENT) + "/" +[F:POQ]ITMREF
 
 Gosub ACTION From SUBCTRH
 GPE = 1
@@ -113,6 +117,21 @@ End
 ## Etiqueta añadida por el supervisor (pantalla CTRH1) 09/11/2021 18:08:59 (ADMIN)
 ######################################################################################
 Subprog APRES_NBLIG
+#If [M:CTRH1]LOT(nolign-1) <> "" or [M:CTRH1]ZPALET(nolign-1) <> ""
+#  Raz [M:CTRH1]NBLIG2,[M:CTRH1]ZITMSUP,[M:CTRH1]ZPOHSUP,[M:CTRH1]ZQTYSUP,[M:CTRH1]ZVCRLINSUP
+#  Affzo [M:CTRH1]10
+#  Affzo [M:CTRH1]15
+#  Grizo [M:CTRH1]NBLIG2
+#  For I=0 To [M:CTRH1]NBLIG3-1
+#    If [M:CTRH1]ZVCRLIN(I) = [M:CTRH1]POPLIN(nolign-1) and [M:CTRH1]ZPOHNUM(I) = [M:CTRH1]POHNUM(nolign-1)
+#      Dela I, 1, [M:CTRH1]NBLIG3-1 [M:CTRH1]NBLIG3
+#      [M:CTRH1]NBLIG3 -= 1
+#      I -= 1
+#    Endif
+#  Next
+#  Affzo [M:CTRH1]20
+#Endif
+
 End
 ######################################################################################
 

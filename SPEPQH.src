@@ -36,31 +36,35 @@ $EXEBOUT
       If clalev([F:ZPPD])=0: Local File ZPRESPD [ZPPD]: Endif
       If clalev([F:ZPPH])=0: Local File ZPRESP [ZPPH]: Endif
       Local Char WFICHERO(100),NOMBREFICHERO(50)
+      #For X = 0 To [M:PQH1]NBFOU -1
 
-      NOMBREFICHERO = [M:PQH1]PQHNUM
-      WFICHERO = filpath("SOLICITUDES",NOMBREFICHERO,"csv")
+          NOMBREFICHERO = [M:PQH1]PQHNUM
+          WFICHERO = filpath("SOLICITUDES",NOMBREFICHERO,"csv")
 
-      Openo WFICHERO,0                 Using [ORI]
-      Iomode adxirs chr$(13)+chr$(10) Using [ORI]
-      Iomode adxifs ";"               Using [ORI]
-      Iomode adxium  60               Using [ORI]
-      #Cabecera
-#      Sustituir esto por cabcera de modelo real con campos vacios
-      Wrseq "Artículo" + ";" + "Notas" + ";" + "Num.Sol.Oferta" + ";" + "Linea" + ";" +"Cod.Proveedor"
-&     +";" + "F.Respuesta" + ";" + "Fin Validez" + ";" + "Ctd. min" + ";" + "Ctd. Ofer"+ ";"
-&     + "Plazo" + ";" + "Divisa" + ";" + "Precio" + ";" + "Unidad" + ";"
-&     + "Divisor precio" + ";" +"Arancel"+";"+"Descripción" Using [ORI]
+          Openo WFICHERO,0                 Using [ORI]
+          Iomode adxirs chr$(13)+chr$(10) Using [ORI]
+          Iomode adxifs ";"               Using [ORI]
+          Iomode adxium  60               Using [ORI]
+          #Cabecera
+#          Filter [F:ZPPH] Where PQHNUM = [M:PQH1]PQHNUM(X) and BPSNUM = [M:PQH1]BPSNUM(X)
+#         Sustituir esto por cabcera de modelo real con campos vacios
+          Wrseq "Artículo" + ";" + "Notas" + ";" + "Num.Sol.Oferta" + ";" + "Linea" + ";" +"Cod.Proveedor"
+&         +";" + "F.Respuesta" + ";" + "Fin Validez" + ";" + "Ctd. min" + ";" + "Ctd. Ofer"+ ";"
+&         + "Plazo" + ";" + "Divisa" + ";" + "Precio" + ";" + "Unidad" + ";"
+&         + "Divisor precio" + ";" +"Arancel"+";"+"Descripción" Using [ORI]
 
-      Local Integer CONTADORLIN
-      CONTADORLIN = 1000
-      For Z= 0 To [M:PQH1]NBLIG -1
+#         Filter [F:ZPPD] Where PQHNUM = [M:PQH1]PQHNUM(X) and BPSNUM =[M:PQH1]BPSNUM(X)
+          Local Integer CONTADORLIN
+          CONTADORLIN = 1000
+          For Z= 0 To [M:PQH1]NBLIG -1
 
-          Wrseq [M:PQH1]ITMREF(Z) + ";"+";"+[M:PQH1]PQHNUM+ ";" + num$(CONTADORLIN) + ";" +
-&         ""+ ";" + ";"+ ";"+ ";"+ ";"+ ";"+ ";"+ ";"+";"+";"+ ";" Using [ORI]
-          CONTADORLIN += 1000
-      Next
-      Openo  Using [ORI]
+              Wrseq [M:PQH1]ITMREF(Z) + ";"+";"+[M:PQH1]PQHNUM+ ";" + num$(CONTADORLIN) + ";" +
+&             ""+ ";" + ";"+ ";"+ ";"+ ";"+ ";"+ ";"+ ";"+";"+";"+ ";" Using [ORI]
+              CONTADORLIN += 1000
+          Next
+          Openo  Using [ORI]
 
+     #Next
      Call MESSAGE("Ficheros Generados")From GESECRAN #informacion
   Endif
 Return

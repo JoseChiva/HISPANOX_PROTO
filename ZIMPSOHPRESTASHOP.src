@@ -164,6 +164,20 @@ Local Char    LIMPDESCUP(250),LCOMCLI(250),LEXTRA(250),LNOMBREENVIOCOMPLETO(250)
           [F:ZOPH0]BLOQUEO = 0
         Endif
 
+#        # comprueba si existe la dirección del cliente, sino le pasa la primera dirección que encuentra del cliente, sino 1
+#        [F:ZOPH0]CODADR = "1"
+#        Read [F:ZBPA]BPA0 = 1;LCODCLI;LCODADR
+#        If fstat Then
+#          GBLOCK = 1
+#          Filter [F:ZBPA] Where BPANUM = LCODCLI
+#          Read [F:ZBPA] First
+#          If !fstat Then
+#            [F:ZOPH0]CODADR = [F:ZBPA]BPAADD
+#          Endif
+#          Filter [F:ZBPA]
+#        Else
+#          [F:ZOPH0]CODADR = LCODADR
+#        Endif
         Case len(LBPTNUM)
           When 4 : LBPTNUM  = "T"+LBPTNUM
           When 3 : LBPTNUM  = "T0"+LBPTNUM
@@ -254,6 +268,7 @@ Local Char    LBPCORD(250)
 
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.txt','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.txt','')
     LFILE = filpath(LPSHOPRECIBIDOS,LNOMFICHERO,'txt')
 
@@ -263,7 +278,8 @@ Local Char    LBPCORD(250)
     # Abre fichero original para leer
     Openi   LFILE                     Using [ZIMPD_R]
     Iomode  adxifs ";"                Using [ZIMPD_R]
-    Iomode  adxirs chr$(10)           Using [ZIMPD_R]
+    Iomode  adxirs chr$(10)  Using [ZIMPD_R]
+#    Iomode  adxirs chr$(13)+chr$(10)  Using [ZIMPD_R]
     Iomode  adxium 50                 Using [ZIMPD_R] # 50 = ASCII 0 = UTF8
 
     LECOK = 1
@@ -286,6 +302,9 @@ Local Char    LBPCORD(250)
 
         # rellena la tabla temporal de líneas de pedido
         Trbegin [F:ZOPD0]
+#        [F:ZOPD0]SOHNUM = "PW"+LSOHNUM                  : [F:ZOPD0]ITMREF     = LITMREF                           : [F:ZOPD0]QTY        = val(ctrans(LQTY,",","."))
+#        [F:ZOPD0]GROPRI = val(ctrans(LGROPRI,",","."))  : [F:ZOPD0]DISCRGVAL1 = val(ctrans(LDISCRGVAL1,",","."))  : [F:ZOPD0]IMPORTE    = val(ctrans(LIMPORTE,",","."))
+#        [F:ZOPD0]SOPLIN = LSOPLIN                       : [F:ZOPD0]BPCORD     = LBPCORD                           : [F:ZOPD0]IMPORTFLG  = "N"
         [F:ZOPD0]SOHNUM     = "PW"+LSOHNUM                  : [F:ZOPD0]ITMREF     = LITMREF                           : [F:ZOPD0]QTY        = val(ctrans(num$(LQTYAJ),",","."))
         [F:ZOPD0]GROPRI     = val(ctrans(LGROPRI,",","."))  : [F:ZOPD0]DISCRGVAL1 = val(ctrans(LDISCRGVAL1,",","."))  : [F:ZOPD0]IMPORTE    = val(ctrans(LIMPORTE,",","."))
         [F:ZOPD0]SOPLIN     = LSOPLIN                       : [F:ZOPD0]BPCORD     = LBPCORD                           : [F:ZOPD0]IMPORTFLG  = "N"
@@ -328,6 +347,7 @@ Local Char    LSQHNUM(250)
     LNUMLINSOH = rowcount([F:ZOPD1])
     For [ZOPD1]
       # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
+#      Filter [F:ZSQD] Where BPCORD = [F:ZOPD1]BPCORD and ITMREF = [F:ZOPD1]ITMREF and QTY = [F:ZOPD1]QTY and GROPRI = ([F:ZOPD1]GROPRI/100) and ORDQTY = 0
       Filter [F:ZSQD] Where BPCORD = [F:ZOPD1]BPCORD and ITMREF = [F:ZOPD1]ITMREF and QTY = [F:ZOPD1]QTY and GROPRI = ([F:ZOPD1]GROPRI/100) and ORDQTY = 0
 &                     and QUODAT >= (date$-15) and QUODAT <= date$     # entre los presupuestos de los últimos 15 días
       Read [F:ZSQD] First
@@ -422,6 +442,13 @@ $GENERA_SQH
     Filter [F:ZOPD2] Where IMPORTFLG = "N" and SOHNUM = [F:ZOPH2]SOHNUM
     For [ZOPD2]
       OK_LIN = 1
+#      Local Decimal LQTYLIN
+#      Local Integer LZCANTJUSTA
+#      Local Char    LSAU(10)
+#      Call DATOS_LINEA([F:ZOPD2]ITMREF,"PHISP",[F:ZOPD2]QTY,LZCANTJUSTA,LQTYLIN,LSAU)
+#      If LQTYLIN = 0 Then : LQTYLIN = [F:ZOPD2]QTY : Endif
+#      Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + LSAU + ";" + num$(LQTYLIN) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
+#&           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$(LZCANTJUSTA) Using [ZIMPQ_W]
       Wrseq "L" + ";" + num$([F:ZOPD2]SOPLIN) + ";" + [F:ZOPD2]ITMREF + ";" + [F:ZOPD2]SAU + ";" + num$([F:ZOPD2]QTY) + ";" + num$([F:ZOPD2]GROPRI/100) + ";" +
 &           num$([F:ZOPD2]DISCRGVAL1) + ";" + "4" + ";" + "CEN" + ";" + num$([F:ZOPD2]GROPRI) + ";" + num$([F:ZOPD2]ZCANTJUSTA) + ";" + LCODADR Using [ZIMPQ_W]
       Trbegin [F:ZOPD2]
@@ -803,6 +830,48 @@ $ELEM_FACT
   Close Local File [BPC1]
 Return
 
+########################################################
+Subprog DATOS_LINEA(PITMREF,PFCY,PQTYORI,PZCANTJUSTA,PQTYLIN,PSAU)
+#Value     Char    PITMREF,PFCY
+#Value     Decimal PQTYORI
+#Variable  Integer PZCANTJUSTA
+#Variable  Decimal PQTYLIN
+#Variable  Char    PSAU
+#
+#Local Decimal LCANTCAJA,LSTOCKREAL
+#
+#  If !clalev([F:ZITM2]) Then : Local File ITMMASTER   [F:ZITM2] : Endif
+#  Read [F:ZITM2]ITM0 = PITMREF
+#  PSAU = [F:ZITM2]SAU
+#
+#  LCANTCAJA   = func ZAULIB01.CANTIDAD_CAJA([F:ZITM2]ITMREF)
+#  LSTOCKREAL  = func ZAULIB01.GET_PHYSTO([F:ZITM2]ITMREF,PFCY)
+#  # Si la cantidad NO és multiple de caja (CAJ) y además el artículo tiene el check ZCANTJUSTA activado --> Activar campo ZCANTJUSTA en Sí
+#  If mod(PQTYORI,LCANTCAJA) <> 0 Then
+#    If [F:ZITM2]ZCANTJUSTA = 2 Then
+#      PZCANTJUSTA = 2
+#    # Si la cantidad NO és multiple de caja (CAJ) y además el artículo NO tiene el check ZCANTJUSTA activado
+#    Else
+#      # Si hay un resto de cantidad en stock real suficiente para servir la cantidad indicada --> Activar campo ZCANTJUSTA en Sí
+#      If LSTOCKREAL > 0 and (LSTOCKREAL / LCANTCAJA) <= PQTYORI Then
+#        PZCANTJUSTA = 2
+#      # Si la cantidad stock real es inferior a la caja (CAJ) --> Activar campo ZCANTJUSTA en Sí
+#      Elsif LSTOCKREAL > 0 and LSTOCKREAL < LCANTCAJA
+#        PZCANTJUSTA = 2
+#      # Si no es caso a) ni b) --> Redondear la cantidad línea a una cantidad múltiple de caja (siempre redondeo superior) En este caso el campo ZCANTJUSTA se deja en No
+#      Else
+#        If (PQTYORI / LCANTCAJA) < 0 Then
+#          PQTYLIN = LCANTCAJA
+#        Else
+#          PQTYLIN = (LCANTCAJA * (arr(PQTYORI/LCANTCAJA,1)+1))
+#        Endif
+#        PZCANTJUSTA = 1
+#      Endif
+#    Endif
+#  Endif
+#  Close Local File [ZITM2]
+End
+
 ###############################################################
 $CALCULA_PORTES
 Local Integer LCON
@@ -865,6 +934,27 @@ Local Decimal LORDNOT
 &                       S_CODIGO_POSTAL,[F:ZOPH2]CUR,1,[F:ZOPH2]ORDDAT,LORDNOT,
 &                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
 &                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+#If GUSER="ADEV" Then
+#Infbox num$(S_TRANSPORTISTA)
+#Infbox num$([F:ZOPH2]BPCORD)
+#Infbox num$(GZFREINV)
+#Infbox num$("PHISP")
+#Infbox num$(S_PAIS)
+#Infbox num$(S_CIUDAD)
+#Infbox num$(S_CODIGO_POSTAL)
+#Infbox num$([F:ZOPH2]CUR)
+#Infbox num$(1)
+#Infbox num$([F:ZOPH2]ORDDAT)
+#Infbox num$(LORDNOT)
+#Infbox num$(S_UNIWEI)
+#Infbox num$(F_PESOS)
+#Infbox num$(S_UNIVOL)
+#Infbox num$(F_VOLUMEN)
+#Infbox num$(S_REGION)
+#Infbox num$(F_IMPORTE_TRANSPORTE)
+#Infbox num$(S_EXPLICACION_CALCULO)
+#Infbox num$(I_STAT)
+#Endif
 
           If find(I_STAT,0,4,5) Then
             LPORTES = F_IMPORTE_TRANSPORTE

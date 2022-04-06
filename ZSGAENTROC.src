@@ -62,6 +62,7 @@ Call ECR_TRACE('Import: '+WFICHEROIMP+'.xml',0) From GESECRAN
 For A=1 To NFICHEROS
   LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
   WFICINP1=LNOMFICHERO
+#  LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
   LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
   Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
   Local Integer LERROR                                                      # 06.299.138.new
@@ -91,6 +92,7 @@ For A=1 To NFICHEROS
     [L]WRORCODE         =func GET_PROPXML(XDATA,"RorCode",I)
     [L]WSTATUS          =func GET_PROPXML(XDATA,"Status",I)
     [L]WUPDATEDATE      =func GET_PROPXML(XDATA,"UpdateDate",I)
+
 
     Gosub RESU_WESTADOS
     If WNESTADO <> 0 Then                                                 # 06.299.138.new
@@ -135,6 +137,7 @@ End
 
 $RESU_SHH
    [F:ZSHH]ZSTATUS=WNESTADO
+   #[F:ZSHH]ZUPDATE=format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
    [F:ZSHH]ZUPDATE=WUPDATEDATE
    Rewrite [ZSHH]
 # 06.299.138.ini
@@ -147,6 +150,7 @@ Return
 
 $RESU_SRH
    [F:ZSRH]ZSTATUS=WNESTADO
+   #[F:ZSRH]ZUPDATE=format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
    [F:ZSRH]ZUPDATE=WUPDATEDATE
    Rewrite [ZSRH]
 # 06.299.138.ini

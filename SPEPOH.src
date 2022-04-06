@@ -522,6 +522,8 @@ Endcase
 If [M:POH2]ZINIPRI(nolign-1) = 0 : [M:POH2]ZINIPRI(nolign-1)=VALEUR Endif
 [M:POH2]GROPRI(nolign-1) = VALEUR/DIV
 
+#Affzo [M:POH2]GROPRI(nolign-1)
+
 Call IB_GROPRI() From SUBPOH
 Call AP_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH
 Call AM_GROPRI([M:POH2]GROPRI(nolign-1)) From SUBPOH

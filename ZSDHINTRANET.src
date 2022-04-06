@@ -16,6 +16,7 @@ Variable Char WSDH
   If WSDH <> "" Then
     Filter [F:SDH] Where SDHNUM=WSDH
   Else
+#    Filter [F:SDH] Where (WSDH="" or SDHNUM=WSDH) and DLVDAT >= DIAUNOMESANT and DLVDAT <= date$
     Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT
   Endif
 

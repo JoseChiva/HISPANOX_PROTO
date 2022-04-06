@@ -112,6 +112,8 @@ Local Clbfile XDATA (10)
         Else
           Call ECR_TRACE('Vale de preparacion: '+WSORCODE+' No existe',1) From GESECRAN
           LERROR = 1
+#          Read [ZSRH]SRH0=WRORCODE
+#          Gosub RESU_SDH
         Endif
         M=I
         [L]WCHECKNEXTSITE   =func GET_PROPXML(XDATA,"Site",M)

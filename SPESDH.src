@@ -242,6 +242,36 @@ Local Integer LENTRA
 
   S_TRANSPORTISTA    = [M:SDH2]BPTNUM
 
+#  If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
+#    If [M:SDH1]ZFREINV(LCON) = 1 Then
+#        #Facturados, calculo de la tarifa de transporte
+#        If S_TRANSPORTISTA <> "" Then
+#          For I = 0 To [M:SDH1]NBLIG-1
+#            Raz F_IMPORTE_TRANSPORTE
+#            If left$([M:SDH1]ITMREF(I),4) <> "CERT" Then
+#              #Me sitúo en el artículo
+#              Read [F:ZITM]ITM0 = [M:SDH1]ITMREF(I)
+#              If !fstat Then
+#                S_UNIWEI = [F:ZITM]WEU
+#                S_UNIVOL = [F:ZITM]VOU
+#              Endif
+#              # pesos totales de las líneas. Paso todo a KG
+#              F_PESOS    += func ZAULIB01.CONVERTIR_CANTIDAD("KG", S_UNIWEI, [M:SDH1]DSPLINWEI(I))
+#              # volúmenes totales de las líneas. Paso todo a M3
+#              F_VOLUMEN  += func ZAULIB01.CONVERTIR_CANTIDAD("M3", S_UNIVOL, [M:SDH1]DSPLINVOL(I))
+#            Endif
+#          Next
+#          Raz F_IMPORTE_TRANSPORTE
+#          Call TRANSPORT(S_TRANSPORTISTA,[M:SDH0]BPCORD,[M:SDH0]SALFCY,S_PAIS,S_CIUDAD,
+#&                        S_CODIGO_POSTAL,[M:SDH1]CUR,[M:SDH0]CHGTYP,date$,[M:SDH1]DLVNOT,
+#&                        S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+#&                        F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From TRTPRICE
+#
+#          [M:SDH1]ZIMPTRFACT += F_IMPORTE_TRANSPORTE
+#          Affzo [M:SDH1]ZIMPTRFACT
+#      Endif
+#    Endif
+#  Endif
   If GFRENUM <> 0 and [F:ZSFI]DACDLV <> 0 Then
     #Facturados, calculo de la tarifa de transporte
     If S_TRANSPORTISTA <> "" Then

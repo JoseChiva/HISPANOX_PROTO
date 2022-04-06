@@ -51,6 +51,20 @@ Local Char LFILETMP(250)
   If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP] : Endif
   If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
 
+#  # actualiza el tipo de portes en todas las líneas del pedido
+#  Filter [F:ZSOP] Where SOHNUM = [M:ZPVPADET]PEDIDO
+#  For [F:ZSOP]
+#    [F:ZSOP]ZFREINV = VALEUR
+#    Trbegin [F:ZSOP]
+#    Rewrite [F:ZSOP]
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#  Next
+#  Filter [F:ZSOP]
+
   Read [F:ZSOH]SOH0 = [M:ZPVPADET]PEDIDO(nolign-1)
 
   # datos de cabecera de pedido

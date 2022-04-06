@@ -45,6 +45,10 @@ Local Integer LERRIMPORT
   LPSHOPPROCESADOS  = "ZPSHOP\WEB_to_ERP\SQH\processed"
   LPSHOPERROR       = "ZPSHOP\WEB_to_ERP\SQH\error"
   LPSHOPSQH         = "ZPSHOP\WEB_to_ERP\SQH"
+#  LPSHOPRECIBIDOS   = "ZPSHOP\para_bmitz"
+#  LPSHOPPROCESADOS  = "ZPSHOP\para_bmitz\SQH\processed"
+#  LPSHOPERROR       = "ZPSHOP\para_bmitz\SQH\error"
+#  LPSHOPSQH         = "ZPSHOP\para_bmitz\SQH"
 
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
 
@@ -74,6 +78,8 @@ Local Integer LERRIMPORT
 
   For A=1 To NFICHEROS
 
+#    Raz [F:ZQP0],[F:ZQP1],[F:ZQP2],[F:ZQB0],[F:ZQB1],[F:ZSQH],[F:ZSQD]
+
     Raz LERRIMPORT
 
     # limpia las tablas
@@ -85,6 +91,7 @@ Local Integer LERRIMPORT
 
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.txt','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.txt','')
     LFILE = filpath(LPSHOPRECIBIDOS,LNOMFICHERO,'txt')
 

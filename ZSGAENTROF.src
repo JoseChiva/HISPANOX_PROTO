@@ -11,6 +11,7 @@ End
 
 ##############################################################
 Subprog ZSGAENTROF
+
 #Declaración de variables
 Local Char    WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
 Local Char    WFICINP1(250), FICH2(250)
@@ -62,6 +63,7 @@ Local Clbfile XDATA (10)
   For A=1 To NFICHEROS
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
     Local Integer LERROR                                                    # 06.299.138.new
 
@@ -145,6 +147,7 @@ Local Clbfile XDATA (10)
       WDENTRO = 1                                                         # 06.299.138.new
     Endif                                                                 # 06.299.138.new
 
+
     Openi Using [ZECO]
 
     If LERROR = 1 Then                                                    # 06.299.138.new
@@ -155,11 +158,649 @@ Local Clbfile XDATA (10)
 
   Next
 
+#  Sleep 1
+#
+#  Call IMPORTSIL ("ZPTHFL",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ
+
+
   Call FERME_TRACE From LECFIC
   If !GSERVEUR Then
     Call LEC_TRACE From LECFIC
   Endif
 End
+
+##############################################################
+$GUARDA_ROF_EN_TABLA
+#
+#Local Char    WSITE(50),WRECCODE(50),WRORCODE(50),WSTATUS(50),WRECDATCONTAINERS(5),WRECDATDATE(50),WLNENUMBER(50)
+#Local Integer CONTROL1,CONTROL2,WNLIN
+#Local Char    WLNENUMBER(5),WLNEITEMCODE(50),WLNEOWNERCODE(50),WLNECONTCODE(50),WLNESTOCKSTATUS(50)
+#Local Char    WLNEQTYEXPECTED(50),WLNEQTYRECEIVED(50),WLNEQTYUOMCODE(50),WLNEATTEXPDATE(50),WLNECSTATT01(50),WLNECSTATT02(50),WLNECSTATT03(50),WLNECSTATT04(50),WLNECSTATT05(50)
+#Local Char    WLNESTOCKCONTAINERCODE(50),WLNESTOCKITEMCODE(50),WLNESTOCKQTY(50),WLNESTOCKUOMCODE(50),WLNESTOCKOWNERCODE(50),WLNESTOCKSTOCKSTATUS(50),WLNESTOCKRECDATE(50)
+#Local Char    WLNESTOCKCSTATT01(250),WLNESTOCKCSTATT02(250),WLNESTOCKCSTATT03(250),WLNESTOCKCSTATT04(250),WLNESTOCKCSTATT05(250)
+#Local Char    RESULT(250)
+#
+#  I = 1
+#
+###### CABECERA
+# # site
+#  IANT  = I
+#  WSITE = func GET_PROPXML(XDATA,"Site",I)
+#  If WSITE = "" Then
+#    I = IANT
+#  Endif
+# # reccode
+#  IANT      = I
+#  WRECCODE  = func GET_PROPXML(XDATA,"RecCode",I)
+#  If WRECCODE = "" Then
+#    I = IANT
+#  Endif
+# # rorcode
+#  IANT      = I
+#  WRORCODE  = func GET_PROPXML(XDATA,"RorCode",I)
+#  If WRORCODE = "" Then
+#    I = IANT
+#  Endif
+# # status
+#  IANT    = I
+#  WSTATUS = func GET_PROPXML(XDATA,"Status",I)
+#  If WSTATUS  = "" Then
+#    I = IANT
+#  Endif
+# # recdatcontainers
+#  IANT              = I
+#  WRECDATCONTAINERS = func GET_PROPXML(XDATA,"RecDatContainers",I)
+#  If WRECDATCONTAINERS  = "" Then
+#    I = IANT
+#  Endif
+# # recdatdate
+#  IANT        = I
+#  WRECDATDATE = func GET_PROPXML(XDATA,"RecDatDate",I)
+#  If WRECDATDATE  = "" Then
+#    I = IANT
+#  Endif
+#
+#  If WRORCODE <> "" Then
+#    If !clalev([F:ZROFH]) Then : Local File ZEXPOROFDEV [F:ZROFH] : Endif
+#    Trbegin [F:ZROFH]
+#    [F:ZROFH]NOMFICH       = LNOMFICHERO
+#    [F:ZROFH]INDICADOR     = "H"
+#    [F:ZROFH]ZSITE         = WSITE
+#    [F:ZROFH]ZRORCODE      = WRORCODE
+#    [F:ZROFH]ZSTATUS       = WSTATUS
+#    [F:ZROFH]ZRECDATCONTA  = val(WRECDATCONTAINERS)
+#    [F:ZROFH]ZRECDATDATE   = WRECDATDATE
+#    Write [F:ZROFH]
+#    If !fstat Then
+#      Commit
+#    Else
+#      Rollback
+#    Endif
+#    Close Local File [ZROFH]
+#  Endif
+#
+##LINEAS #######################################################
+#  # calcula el número de líneas
+#  CONTROL1 = I
+#  Raz WNLIN
+#  While 1=1
+#    WLNENUMBER    = ""
+#    WLNENUMBER    = func GET_PROPXML(XDATA,"LneNumber",CONTROL1)
+#    If val(WLNENUMBER)<>0
+#      CONTROL2    = I
+#      WLNENUMBER  = func GET_PROPXML(XDATA,"RorCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) or (CONTROL1 > CONTROL2 and CONTROL2 = 0) Then
+#        WNLIN     +=1
+#      Else
+#        Break
+#      Endif
+#    Else
+#      If WLNENUMBER=''
+#        Break
+#      Endif
+#    Endif
+#    If WNLIN>999
+#      Break
+#    Endif
+#  Wend
+#
+#  For N=1 To WNLIN
+#   # lnenumber
+#    Raz WLNENUMBER
+#    IANT  = I
+#    WLNENUMBER = func GET_PROPXML(XDATA,"LneNumber",I)
+#    If WLNENUMBER = "" Then
+#      I = IANT
+#    Endif
+#   # lneitemcode
+#    Raz WLNEITEMCODE
+#    IANT  = I
+#    WLNEITEMCODE = func GET_PROPXML(XDATA,"LneItemCode",I)
+#    If WLNEITEMCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lneownercode
+#    Raz WLNEOWNERCODE
+#    IANT  = I
+#    WLNEOWNERCODE = func GET_PROPXML(XDATA,"LneOwnerCode",I)
+#    If WLNEOWNERCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lnecontcode
+##    IANT  = I
+##    WLNECONTCODE = func GET_PROPXML(XDATA,"LneContCode",I)
+##    If WLNECONTCODE = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECONTCODE
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneContCode",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECONTCODE
+#    # existe LNECONTCODE para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECONTCODE  = func GET_PROPXML(XDATA,"LneContCode",I)
+#    # existe LNECONTCODE pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneContCode",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECONTCODE  = func GET_PROPXML(XDATA,"LneContCode",I)
+#      Endif
+#    Endif
+#    $ENDLNECONTCODE
+#   # lnestockstatus
+##    IANT  = I
+##    WLNESTOCKSTATUS = func GET_PROPXML(XDATA,"LneStockStatus",I)
+##    If WLNESTOCKSTATUS = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNESTOCKSTATUS
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockStatus",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKSTATUS
+#    # existe LNESTOCKSTATUS para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKSTATUS = func GET_PROPXML(XDATA,"LneStockStatus",I)
+#    # existe LNESTOCKSTATUS pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockStatus",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKSTATUS = func GET_PROPXML(XDATA,"LneStockStatus",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKSTATUS
+#   # lneqtyexpected
+#    Raz WLNEQTYEXPECTED
+#    IANT  = I
+#    WLNEQTYEXPECTED = func GET_PROPXML(XDATA,"LneQtyExpected",I)
+#    If WLNEQTYEXPECTED = "" Then
+#      I = IANT
+#    Endif
+#   # lneqtyreceived
+#    Raz WLNEQTYRECEIVED
+#    IANT  = I
+#    WLNEQTYRECEIVED = func GET_PROPXML(XDATA,"LneQtyReceived",I)
+#    If WLNEQTYRECEIVED = "" Then
+#      I = IANT
+#    Endif
+#   # lneqtyuomcode
+#    Raz WLNEQTYUOMCODE
+#    IANT  = I
+#    WLNEQTYUOMCODE = func GET_PROPXML(XDATA,"LneQtyUoMCode",I)
+#    If WLNEQTYUOMCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lneqattexpdate
+##    IANT  = I
+##    WLNEATTEXPDATE = func GET_PROPXML(XDATA,"LneAttExpDate",I)
+##    If WLNEATTEXPDATE = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNEATTEXPDATE
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneAttExpDate",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNEATTEXPDATE
+#    # existe LNEATTEXPDATE para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNEATTEXPDATE  = func GET_PROPXML(XDATA,"LneAttExpDate",I)
+#    # existe LNEATTEXPDATE pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneAttExpDate",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNEATTEXPDATE  = func GET_PROPXML(XDATA,"LneAttExpDate",I)
+#      Endif
+#    Endif
+#    $ENDLNEATTEXPDATE
+#   # lnecstatt01
+##    IANT  = I
+##    WLNECSTATT01 = func GET_PROPXML(XDATA,"LneCstAtt01",I)
+##    If WLNECSTATT01 = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECSTATT01
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstAtt01",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECSTATT01
+#    # existe LNECSTATT01 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECSTATT01  = func GET_PROPXML(XDATA,"LneCstAtt01",I)
+#    # existe LNECSTATT01 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneCstAtt01",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECSTATT01  = func GET_PROPXML(XDATA,"LneCstAtt01",I)
+#      Endif
+#    Endif
+#    $ENDLNECSTATT01
+#   # lnecstatt02
+##    IANT  = I
+##    WLNECSTATT02 = func GET_PROPXML(XDATA,"LneCstAtt02",I)
+##    If WLNECSTATT02 = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECSTATT02
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstAtt02",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+##Infbox num$(CONTROL1)
+##Infbox num$(CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECSTATT02
+#    # existe LNECSTATT02 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECSTATT02  = func GET_PROPXML(XDATA,"LneCstAtt02",I)
+#    # existe LNECSTATT02 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneCstAtt02",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECSTATT02  = func GET_PROPXML(XDATA,"LneCstAtt02",I)
+#      Endif
+#    Endif
+#    $ENDLNECSTATT02
+#   # lnecstatt03
+##    IANT  = I
+##    WLNECSTATT03 = func GET_PROPXML(XDATA,"LneCstAtt03",I)
+##    If WLNECSTATT03 = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECSTATT03
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstAtt03",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECSTATT03
+#    # existe LNECSTATT03 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECSTATT03  = func GET_PROPXML(XDATA,"LneCstAtt03",I)
+#    # existe LNECSTATT03 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneCstAtt03",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECSTATT03  = func GET_PROPXML(XDATA,"LneCstAtt03",I)
+#      Endif
+#    Endif
+#    $ENDLNECSTATT03
+#   # lnecstatt04
+##    IANT  = I
+##    WLNECSTATT04 = func GET_PROPXML(XDATA,"LneCstAtt04",I)
+##    If WLNECSTATT04 = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECSTATT04
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstAtt04",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECSTATT04
+#    # existe LNECSTATT04 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECSTATT04  = func GET_PROPXML(XDATA,"LneCstAtt04",I)
+#    # existe LNECSTATT04 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneCstAtt04",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECSTATT04  = func GET_PROPXML(XDATA,"LneCstAtt04",I)
+#      Endif
+#    Endif
+#    $ENDLNECSTATT04
+#   # lnecstatt05
+##    IANT  = I
+##    WLNECSTATT05 = func GET_PROPXML(XDATA,"LneCstAtt05",I)
+##    If WLNECSTATT05 = "" Then
+##      I = IANT
+##    Endif
+#    Raz WLNECSTATT05
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstAtt05",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNECSTATT05
+#    # existe LNECSTATT05 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNECSTATT05  = func GET_PROPXML(XDATA,"LneCstAtt05",I)
+#    # existe LNECSTATT05 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneCstAtt05",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNECSTATT05  = func GET_PROPXML(XDATA,"LneCstAtt05",I)
+#      Endif
+#    Endif
+#    $ENDLNECSTATT05
+#
+#    If WRORCODE <> "" Then
+#      If !clalev([F:ZROFD]) Then : Local File ZEXPOROFDEV [F:ZROFD] : Endif
+#      Trbegin [F:ZROFD]
+#      [F:ZROFD]NOMFICH       = LNOMFICHERO
+#      [F:ZROFD]INDICADOR     = "L"
+#      [F:ZROFD]ZSITE         = WSITE
+#      [F:ZROFD]ZRORCODE      = WRORCODE
+#      [F:ZROFD]ZSTATUS       = WSTATUS
+#      [F:ZROFD]ZRECDATCONTA  = val(WRECDATCONTAINERS)
+#      [F:ZROFD]ZRECDATDATE   = WRECDATDATE
+#      [F:ZROFD]ZLNENUMBER    = val(WLNENUMBER)
+#      [F:ZROFD]ZLNEITEMCODE  = WLNEITEMCODE
+#      [F:ZROFD]ZLNEOWNERCOD  = WLNEOWNERCODE
+#      [F:ZROFD]ZLNECONTCODE  = WLNECONTCODE
+#      [F:ZROFD]ZLNESTOCKSTA  = WLNESTOCKSTATUS
+#      [F:ZROFD]ZLNEQTYEXPEC  = val(WLNEQTYEXPECTED)
+#      [F:ZROFD]ZLNEQTYRECEI  = val(WLNEQTYRECEIVED)
+#      [F:ZROFD]ZLNEQTYUOMCO  = WLNEQTYUOMCODE
+#      If WLNEATTEXPDATE = "" Then
+#        [F:ZROFD]ZLNEATTEXPDA  = [00/00/0000]
+#      Else
+#        [F:ZROFD]ZLNEATTEXPDA  = WLNEATTEXPDATE
+#      Endif
+#      [F:ZROFD]ZLNECSTATT01  = WLNECSTATT01
+#      [F:ZROFD]ZLNECSTATT02  = WLNECSTATT02
+#      [F:ZROFD]ZLNECSTATT03  = WLNECSTATT03
+#      [F:ZROFD]ZLNECSTATT04  = WLNECSTATT04
+#      [F:ZROFD]ZLNECSTATT05  = WLNECSTATT05
+#      Write [F:ZROFD]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#      Close Local File [ZROFD]
+#    Endif
+#  Next
+#
+##STOCK #######################################################
+#  # calcula el número de líneas de stock
+#  CONTROL1 = I
+#  Raz WNLIN
+#  While 1=1
+#    WLNENUMBER    = ""
+#    WLNENUMBER    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL1)
+#    If WLNENUMBER <> ""
+#      CONTROL2    = I
+#      WLNENUMBER  = func GET_PROPXML(XDATA,"RorCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) or (CONTROL1 > CONTROL2 and CONTROL2 = 0) Then
+#        WNLIN     +=1
+#      Else
+#        Break
+#      Endif
+#    Else
+#      If WLNENUMBER=''
+#        Break
+#      Endif
+#    Endif
+#    If WNLIN>999
+#      Break
+#    Endif
+#  Wend
+#
+#  For N=1 To WNLIN
+#   # lnestockcontainercode
+#    Raz WLNESTOCKCONTAINERCODE
+#    IANT  = I
+#    WLNESTOCKCONTAINERCODE  = func GET_PROPXML(XDATA,"LneStockContainerCode",I)
+#    If WLNESTOCKCONTAINERCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockitemcode
+#    Raz WLNESTOCKITEMCODE
+#    IANT  = I
+#    WLNESTOCKITEMCODE  = func GET_PROPXML(XDATA,"LneStockItemCode",I)
+#    If WLNESTOCKITEMCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockqty
+#    Raz WLNESTOCKQTY
+#    IANT  = I
+#    WLNESTOCKQTY  = func GET_PROPXML(XDATA,"LneStockQty",I)
+#    If WLNESTOCKQTY = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockuomcode
+#    Raz WLNESTOCKUOMCODE
+#    IANT  = I
+#    WLNESTOCKUOMCODE  = func GET_PROPXML(XDATA,"LneStockUoMCode",I)
+#    If WLNESTOCKUOMCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockownercode
+#    Raz WLNESTOCKOWNERCODE
+#    IANT  = I
+#    WLNESTOCKOWNERCODE  = func GET_PROPXML(XDATA,"LneStockOwnerCode",I)
+#    If WLNESTOCKOWNERCODE = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockstockstatus
+#    Raz WLNESTOCKSTOCKSTATUS
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockStockStatus",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKSTOCKSTATUS
+#    # existe LNESTOCKSTOCKSTATUS para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKSTOCKSTATUS  = func GET_PROPXML(XDATA,"LneStockStockStatus",I)
+#    # existe LNESTOCKSTOCKSTATUS pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockStockStatus",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKSTOCKSTATUS  = func GET_PROPXML(XDATA,"LneStockStockStatus",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKSTOCKSTATUS
+#   # lnestockrecdate
+#    Raz WLNESTOCKRECDATE
+#    IANT  = I
+#    WLNESTOCKRECDATE  = func GET_PROPXML(XDATA,"LneStockRecDate",I)
+#    If WLNESTOCKRECDATE = "" Then
+#      I = IANT
+#    Endif
+#   # lnestockcstatt01
+#    Raz WLNESTOCKCSTATT01
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstStockCstAtt01",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKCSTATT01
+#    # existe LNESTOCKCSTATT01 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKCSTATT01 = func GET_PROPXML(XDATA,"LneStockCstAtt01",I)
+#    # existe LNESTOCKCSTATT01 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt01",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKCSTATT01 = func GET_PROPXML(XDATA,"LneStockCstAtt01",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKCSTATT01
+#   # lnestockcstatt02
+#    Raz WLNESTOCKCSTATT02
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstStockCstAtt02",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKCSTATT02
+#    # existe LNESTOCKCSTATT02 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKCSTATT02 = func GET_PROPXML(XDATA,"LneStockCstAtt02",I)
+#    # existe LNESTOCKCSTATT02 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt02",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKCSTATT02 = func GET_PROPXML(XDATA,"LneStockCstAtt02",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKCSTATT02
+#   # lnestockcstatt03
+#    Raz WLNESTOCKCSTATT03
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstStockCstAtt03",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKCSTATT03
+#    # existe LNESTOCKCSTATT03 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKCSTATT03 = func GET_PROPXML(XDATA,"LneStockCstAtt03",I)
+#    # existe LNESTOCKCSTATT03 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt03",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKCSTATT03 = func GET_PROPXML(XDATA,"LneStockCstAtt03",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKCSTATT03
+#   # lnestockcstatt04
+#    Raz WLNESTOCKCSTATT04
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstStockCstAtt04",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKCSTATT04
+#    # existe LNESTOCKCSTATT04 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKCSTATT04 = func GET_PROPXML(XDATA,"LneStockCstAtt04",I)
+#    # existe LNESTOCKCSTATT04 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt04",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKCSTATT04 = func GET_PROPXML(XDATA,"LneStockCstAtt04",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKCSTATT04
+#   # lnestockcstatt05
+#    Raz WLNESTOCKCSTATT05
+#    CONTROL1  = I
+#    CONTROL2  = I
+#    RESULT    = func GET_PROPXML(XDATA,"LneCstStockCstAtt05",CONTROL1)
+#    RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#    If CONTROL1 = 0 and CONTROL2 = 0 Then
+#      Goto ENDLNESTOCKCSTATT05
+#    # existe LNESTOCKCSTATT05 para esa línea
+#    Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#      WLNESTOCKCSTATT05 = func GET_PROPXML(XDATA,"LneStockCstAtt05",I)
+#    # existe LNESTOCKCSTATT05 pero en otra línea
+#    Else
+#      CONTROL1  = I
+#      CONTROL2  = I
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockCstAtt05",CONTROL1)
+#      RESULT    = func GET_PROPXML(XDATA,"LneStockContainerCode",CONTROL2)
+#      If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#        WLNESTOCKCSTATT05 = func GET_PROPXML(XDATA,"LneStockCstAtt05",I)
+#      Endif
+#    Endif
+#    $ENDLNESTOCKCSTATT05
+#
+#    If WRORCODE <> "" and WLNESTOCKCONTAINERCODE <> "" Then
+#      If !clalev([F:ZROFS]) Then : Local File ZEXPOROFDEV [F:ZROFS] : Endif
+#      Filter [F:ZROFS] Where ZLNEITEMCODE = WLNESTOCKITEMCODE and ZLNEQTYRECEI = val(WLNESTOCKQTY) and ZLNEQTYUOMCO = WLNESTOCKUOMCODE and ZLNESTOCKSTA = WLNESTOCKSTOCKSTATUS
+#      Read [F:ZROFS] First
+#      If !fstat Then
+#        Trbegin [F:ZROFS]
+#        [F:ZROFS]ZLNESTCONTCO   = WLNESTOCKCONTAINERCODE
+#        [F:ZROFS]ZLNESTITEMCO   = WLNESTOCKITEMCODE
+#        [F:ZROFS]ZLNESTQTY      = val(WLNESTOCKQTY)
+#        [F:ZROFS]ZLNESTUOMCO    = WLNESTOCKUOMCODE
+#        [F:ZROFS]ZLNESTOWNCO    = WLNESTOCKOWNERCODE
+#        [F:ZROFS]ZLNESTSTSTA    = WLNESTOCKSTOCKSTATUS
+#        If WLNESTOCKRECDATE = "" Then
+#          [F:ZROFS]ZLNESTRECDAT = [00/00/0000]
+#        Else
+#          [F:ZROFS]ZLNESTRECDAT = format$("DZ:DD[/]MM[/]YYYY",WLNESTOCKRECDATE)
+#        Endif
+#Infbox num$(format$("DZ:DD[/]MM[/]YYYY",WLNESTOCKRECDATE))
+#        [F:ZROFS]ZLNESTCSTA01   = WLNESTOCKCSTATT01
+#        [F:ZROFS]ZLNESTCSTA02   = WLNESTOCKCSTATT02
+#        [F:ZROFS]ZLNESTCSTA03   = WLNESTOCKCSTATT03
+#        [F:ZROFS]ZLNESTCSTA04   = WLNESTOCKCSTATT04
+#        [F:ZROFS]ZLNESTCSTA05   = WLNESTOCKCSTATT05
+#        Rewrite [F:ZROFS]
+#        If !fstat Then
+#          Commit
+#        Else
+#          Rollback
+#        Endif
+#      Endif
+#      Filter [F:ZROFS]
+#      Close Local File [ZROFS]
+#    Endif
+#  Next
+#
+Return
 
 ##############################################################
 $MUEVE_FILE
@@ -190,6 +831,7 @@ Return
 $RESU_SHH
    [F:ZSHH]ZSTATUS=WNESTADO
    [F:ZSHH]ZUPDATE=num$(datetime$)
+   #format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
    Rewrite [ZSHH]
 # 06.299.138.ini
    If fstat <> 0
@@ -204,6 +846,7 @@ $RESU_SRH
    Trbegin [F:ZSRH]
    [F:ZSRH]ZSTATUS=WNESTADO
    [F:ZSRH]ZUPDATE=num$(datetime$)
+   #format$("D:YYYY[-]MM[-]DD[T]hh[:]mm[:]ss[Z]",datetime$)
    Rewrite [ZSRH]
    If !fstat Then
     Commit

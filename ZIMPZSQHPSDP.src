@@ -14,6 +14,20 @@ Return
 
 ########################################################
 $AP_IMPORT
+#  # guarda en pantalla el valor del campo Facturación portes
+#  # guarda en pantalla el valor del importe de portes
+#  If !clalev([F:ZOPH4]) Then : Local File ZSOHPSHOPH [F:ZOPH4] : Endif
+#  Read [F:ZOPH4]ZOPH0 = [F:SQH]ZPEDIDOWEB
+#  If !fstat Then
+#    [M:SQH1]ZFREINV = [F:ZOPH4]ZFREINV
+#    Affzo [M:SQH1]ZFREINV
+#    If [F:ZOPH4]IMPPORTES > 0 Then
+#      [M:SQH3]INVDTAAMT(1) = [F:ZOPH4]IMPPORTES
+#      Affzo [M:SQH3]INVDTAAMT(1)
+#    Endif
+#  Endif
+#  Call AM_ZFREINV([M:SQH1]ZFREINV) From SPESQH
+#  Close Local File [ZOPH4]
 Return
 
 ########################################################
@@ -85,6 +99,43 @@ Local Integer LERROR
     Else
       Rollback
     Endif
+#    # guarda el comentario del documento en el Texto pie
+#    If !clalev([F:ZSQH]) Then : Local File SQUOTE  [F:ZSQH] : Endif
+#    If !clalev([F:TXC0]) Then : Local File TEXCLOB [F:TXC0] : Endif
+#    Read [F:ZSQH]SQH0 = [F:SQH]SQHNUM
+#    If !fstat Then
+#      Trbegin [F:ZSQH]
+#      [F:ZSQH]SQHTEX2 = "SQH~0"+mid$([F:SQH]SQHNUM,3,7)
+#      Rewrite [F:ZSQH]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+#    Read [F:TXC0]TXC0 = [F:ZSQH]SQHTEX2
+#    If !fstat Then
+#      Trbegin [F:TXC0]
+#      [F:TXC0]TEXTE = [F:ZOPH3]COMCLI
+#      Rewrite [F:TXC0]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Else
+#      Trbegin [F:TXC0]
+#      [F:TXC0]CODE    = [F:ZSQH]SQHTEX2
+#      [F:TXC0]IDENT3  = [F:ZSQH]SQHTEX2
+#      [F:TXC0]TEXTE   = [F:ZOPH3]COMCLI
+#      Write [F:TXC0]
+#      If !fstat Then
+#        Commit
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+#    Close Local File [ZSQH],[TXC0]
   Endif
   Filter [F:ZOPH3]
 
