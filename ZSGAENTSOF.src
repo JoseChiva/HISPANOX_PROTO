@@ -14,6 +14,7 @@
 # 06.319.759 - JC.02032022.Facturas Canarias. Añadir Incoterm al generar la entrega
 # 06.314.024 - JC.07032022.Adapación importación SOF para subcontratación
 # 06.332.553 - JC.05042022.Nº bultos incorrecto
+# 06.333.290 - JC.06042022.Error en la importación SOF del fichero para subcontrataciones por falta de PTE
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -43,7 +44,11 @@ If !clalev([F:ZFCY])  : Local File FACILITY   [ZFCY] : Endif
 If !clalev([F:ZPRH])  : Local File STOPREH    [ZPRH] : Endif
 If !clalev([F:ZPRE])  : Local File STOPRED    [ZPRE] : Endif
 If !clalev([F:ZBPC])  : Local File BPCUSTOMER [ZBPC] : Endif
+#If !clalev([F:ZSOH])  : Local File SORDER     [ZSOH] : Endif
+#If !clalev([F:ZSOP])  : Local File SORDERP    [ZSOP] : Endif
 If !clalev([F:ZITM])  : Local File ITMMASTER  [ZITM] : Endif
+#If !clalev([F:ITM])   : Local File ITMMASTER  [ITM] : Endif
+#If !clalev([F:ITG])   : Local File ITMCATEG   [ITG] : Endif
 If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
 If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                                  # 06.304.506.new
 
@@ -90,6 +95,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
   For A=1 To NFICHEROS
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
     Local Integer LERROR                                                    # 06.299.138.new
 
@@ -116,19 +122,36 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
     Gosub GUARDA_SOF_EN_TABLA
     Openi Using [ZZZ]
-#    Local Integer LRDO
-#    Local Char LMSG(250)
-#    Call  COMPRUEBA_VP(LNOMFICHERO)
-#    Call  ELIMINA_LINEA_VP(LNOMFICHERO)
-#    LRDO = func COMPRUEBA_STOCK(LNOMFICHERO,LMSG)
-#    Call  VP_ENTREGABLE(LNOMFICHERO)
-#    Call  UNLOCK_OSTCTL(LNOMFICHERO)
-#    Call  UNLOCK_BPCSTA(LNOMFICHERO)                                                          # 06.304.506.new
-#    Call  GENERA_ENTREGA(LNOMFICHERO,WSGATMP,WFICINP1,WSGARECIBIDOS,WSGATRATADOS,WSGAERROR)
-#    Call  LOCK_OSTCTL(LNOMFICHERO)
-#    Call  LOCK_BPCSTA(LNOMFICHERO)                                                            # 06.304.506.new
-#
-#    Gosub TRAZA_ERRORES_LINEAS
+    Local Integer LRDO
+    Local Char LMSG(250)
+    Call  COMPRUEBA_VP(LNOMFICHERO)
+    Call  ELIMINA_LINEA_VP2(LNOMFICHERO)
+    LRDO = func COMPRUEBA_STOCK2(LNOMFICHERO,LMSG)
+#    Call  ACTUALIZA_SORDERQ(LNOMFICHERO)
+#    Call  ACTUALIZA_STOPRED(LNOMFICHERO)
+#    Call  ACTUALIZA_STOCK(LNOMFICHERO)
+#    Call  ACTUALIZA_ITMMVT(LNOMFICHERO)
+#    Call  ACTUALIZA_STOALL(LNOMFICHERO)
+    Call  VP_ENTREGABLE(LNOMFICHERO)
+#    Sleep 1
+    Call  UNLOCK_OSTCTL(LNOMFICHERO)
+    Call  UNLOCK_BPCSTA(LNOMFICHERO)                                                          # 06.304.506.new
+    Call  GENERA_ENTREGA2(LNOMFICHERO,WSGATMP,WFICINP1,WSGARECIBIDOS,WSGATRATADOS,WSGAERROR)
+    Call  LOCK_OSTCTL(LNOMFICHERO)
+    Call  LOCK_BPCSTA(LNOMFICHERO)                                                            # 06.304.506.new
+
+#    Call  AJUSTES_ESTADO_LINEA_PEDIDO_ORIGEN(LNOMFICHERO)
+
+    Gosub TRAZA_ERRORES_LINEAS
+
+#    If WOK <> 0 Then                             # si se producen errores
+#      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
+#      Gosub MUEVE_FILE_ERR
+#    Else
+#      Gosub MUEVE_FILE
+#    Endif
+
+#    Openi Using [ZECO]
 
   Next
 
@@ -142,6 +165,14 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
   If dim(GERRSTOCK)> 0 Then : Kill GERRSTOCK  : Endif
 
 End
+
+##############################################################
+#$OPEN_WRITE
+#  Openo filpath(WSGATMP,WFICINP1,''),0    Using [ZECO]
+#  Iomode adxifs ""                        Using [ZECO]
+#  Iomode adxirs chr$(13) + chr$(10)       Using [ZECO]
+#  Iomode adxium 0                         Using [ZECO]
+#Return
 
 ##############################################################
 $GUARDA_SOF_EN_TABLA
@@ -190,6 +221,15 @@ $GUARDA_SOF_EN_TABLA
 # 06.299.407.fin
       WPACNBR         = func GET_PROPXML(XDATA,"PrpContainers",I)
       WPRPRELEASEDATE = func GET_PROPXML(XDATA,"PrpReleaseDate",I)
+##      IANTES         = I
+##      WTRNROUTECODE  = func ZSGAENTSOF.GET_PROPXML(XDATA,"TrnRouteCode",I)
+##      If WTRNROUTECODE = "" Then : I = IANTES : Endif
+##      IANTES         = I
+##      WTRNROUTESTOPS = func ZSGAENTSOF.GET_PROPXML(XDATA,"TrnRouteStops",I)
+##      If WTRNROUTESTOPS = "" Then : I = IANTES : Endif
+##      IANTES         = I
+#      WPRPCONTAINERS = func ZSGAENTSOF.GET_PROPXML(XDATA,"PrpContainers",I)
+#      If WPRPCONTAINERS = "" Then : I = IANTES : Endif
       IANTES         = I
       WCSTATT03      = func ZSGAENTSOF.GET_PROPXML(XDATA,"CstAtt03",I)
       I              = IANTES
@@ -454,6 +494,33 @@ $GUARDA_SOF_EN_TABLA
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
           RESULT  = vireblc(RESULT,1)
           [F:ZESOF]SAU = RESULT
+#         #BPSLOT
+#          WLONG     = 250
+#          CONTROL1  = I
+#          CONTROL2  = I
+#          RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",CONTROL1)
+#          RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDItemCode",CONTROL2)
+#          # existe BPSLOT para esa línea de detalle
+#          If ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",I)
+#            RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#            RESULT  = vireblc(RESULT,1)
+#            [F:ZESOF]BPSLOT = RESULT
+#          # existe BPSLOT pero en otra línea del vale de preparación
+#          Else
+#            CONTROL1  = I
+#            CONTROL2  = I
+#            RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",CONTROL1)
+#            RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+#            If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+#              RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",I)
+#              RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#              RESULT  = vireblc(RESULT,1)
+#              [F:ZESOF]BPSLOT = RESULT
+#            Endif
+#          Endif
+         #ZLOTPROV
+#Infbox num$(I)
           WLONG     = 250
           CONTROL1  = I
           CONTROL2  = I
@@ -480,6 +547,9 @@ $GUARDA_SOF_EN_TABLA
               [F:ZESOF]ZLOTPROV = RESULT
             Endif
           Endif
+#Infbox "C1"-num$(CONTROL1)
+#Infbox "C2"-num$(CONTROL2)
+#Infbox num$(I)
           $ENDZLOTPROV
          #LOT
           WLONG     = 250
@@ -509,11 +579,34 @@ $GUARDA_SOF_EN_TABLA
             Endif
           Endif
           $ENDLOT
+#Infbox num$(I)
+#         #LOT
+#          WLONG     = 250
+#          CONTROL1  = I
+#          CONTROL2  = I
+#          RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt05",CONTROL1)
+#          RESULT    = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+##Infbox num$(CONTROL1)-"/"-num$(CONTROL2)
+#          If ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+#            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt05",I)
+#            RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#            RESULT=vireblc(RESULT,1)
+#            [F:ZESOF]LOT = RESULT
+### JC.02062021.STR
+##          Elsif (CONTROL1 > CONTROL2 and CONTROL1 <> 0 and CONTROL2 <> 0) Then
+##            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt05",I)
+##            RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##            RESULT=vireblc(RESULT,1)
+##            [F:ZESOF]LOT = RESULT
+### JC.02062021.END
+#          Endif
+
          #ZGENSDHFLG
           [F:ZESOF]ZGENSDHFLG = 2
           Write [F:ZESOF]
           If !fstat Then
             Commit
+#            Call ECR_TRACE("Línea:"-num$(WLNENUMBER),0) From GESECRAN
             GSTERROR = 0
           Else
             Rollback
@@ -651,12 +744,434 @@ End
 
 ###############################################################
 #**
+#* elimina del VP todas aquellas líneas que no llegan en el fichero SOF
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ELIMINA_LINEA_VP(PNOMFICH)
+Value Char    PNOMFICH
+
+Local Integer LRET
+Local Char    LSOHORI(50),LORDDAT(15),LSOHNUM(50)
+Local Integer LSOPLIN,LSOPSEQ,LSOPLIN,LSOPSEQ
+Local File    ITMMASTER
+
+  If !clalev([F:AXX1]) Then : Local File ZVESOF3    [F:AXX1] : Endif
+  If !clalev([F:AXX2]) Then : Local File STOPRED    [F:AXX2] : Endif
+  If !clalev([F:AXX3]) Then : Local File ZVESOF7    [F:AXX3] : Endif
+  If !clalev([F:AXX4]) Then : Local File STOPRED    [F:AXX4] : Endif
+  If !clalev([F:ZSOH]) Then : Local File SORDER     [F:ZSOH] : Endif
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ    [F:ZSOQ] : Endif
+  If !clalev([F:ZSOP]) Then : Local File SORDERP    [F:ZSOP] : Endif
+
+# 1.- marcar las líneas del VP que aparecen en el fichero SOF
+  For [AXX1]
+    Read [F:AXX2]PRE0 = [F:AXX1]PRHNUM;[F:AXX1]PRELIN
+    If !fstat Then
+      [F:AXX2]ZSGASOFFLG = 2
+      Trbegin [F:AXX2]
+      Rewrite [F:AXX2]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+  Next
+
+# 2.- recorrer las líneas del VP para eliminar las que no aparecen el el fichero SOF
+  For [AXX3]
+    Filter [F:AXX4] Where PRHNUM = [F:AXX3]PRHNUM and ZSGASOFFLG <> 2
+    Read [F:AXX4] First
+    If !fstat Then
+# 3.- desasignar la línea del VP
+      Call DELALL(3,[F:AXX4]PRHNUM,[F:AXX4]PRELIN,0,[F:AXX4]ITMREF,0,[F:AXX4]ALLQTY,[F:AXX4]ALLQTY,LRET) From STKALL
+      If LRET<>0 Goto ENDNEXTDEL2 Endif
+# 4.- borrar la línea del VP
+      LSOHNUM = [F:AXX4]ORINUM
+      LSOPLIN = [F:AXX4]ORILIN
+      LSOPSEQ = [F:AXX4]ORISEQ
+      Trbegin [F:AXX4]
+      Delete [F:AXX4]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+# 5.- reasignar la línea del pedido
+      Read [F:ZSOH]SOH0 = LSOHNUM
+      Read [F:ZSOQ]SOQ0 = LSOHNUM;LSOPLIN;LSOPSEQ
+      Read [F:ZSOP]SOP0 = LSOHNUM;LSOPLIN;LSOPSEQ
+      Trbegin [F:ZSOQ]
+      [F:ZSOQ]OPRQTY    = 0
+      [F:ZSOQ]OPRQTYSTU = 0
+      Rewrite [F:ZSOQ]
+      If !fstat Then
+        Commit
+        Call UPD_ASIG_SOH(LSOHNUM,LSOPLIN,LSOPSEQ,[F:ZSOQ]STOFCY,[F:ZSOQ]SHIDAT) From ZAULIB01
+      Else
+        Rollback
+      Endif
+    Endif
+    $ENDNEXTDEL2
+  Next
+
+  Close Local File [AXX1],[AXX2],[AXX3],[AXX4],[ZSOH],[ZSOQ],[ZSOP]
+End
+
+###############################################################
+#**
+#* actualiza la tabla SORDERQ para mostrar correctamente la situación de la línea
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ACTUALIZA_SORDERQ(PNOMFICH)
+Value Char PNOMFICH
+
+  Call ECR_TRACE("Actualiza tabla SORDERQ",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1 [F:ZESO1] : Endif
+  If !clalev([F:ZPRE])  Then : Local File STOPRED [F:ZPRE]  : Endif
+  If !clalev([F:ZSOQ])  Then : Local File SORDERQ [F:ZSOQ]  : Endif
+
+  Filter [F:ZESO1] Where ZGENSDHFLG = 2
+  For [F:ZESO1]
+#    If !GSTERROR
+      Read [F:ZPRE]PRE0 = [F:ZESO1]PRHNUM;[F:ZESO1]PRELIN
+      If !fstat Then
+        Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+        If !fstat Then
+          Trbegin [F:ZSOQ]
+          [F:ZSOQ]OPRQTY    -= [F:ZPRE]QTYSTU
+          [F:ZSOQ]OPRQTYSTU -= [F:ZPRE]QTYSTU
+          [F:ZSOQ]PREQTY    += [F:ZESO1]QTY
+          [F:ZSOQ]PREQTYSTU += [F:ZESO1]QTY
+          Rewrite [F:ZSOQ]
+          If !fstat Then
+            Commit
+            Call ECR_TRACE("Pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),0) From GESECRAN
+            GSTERROR = 0
+          Else
+            Rollback
+            Call ECR_TRACE("Error en Pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),1) From GESECRAN
+            GSTERROR = 1
+          Endif
+        Else
+          Call ECR_TRACE("No existe el pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Endif
+#    Else
+#      Break
+#    Endif
+  Next
+  Filter [F:ZESO1]
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESO1],[ZPRE],[ZSOQ]
+
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla STOPRED
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ACTUALIZA_STOPRED(PNOMFICH)
+Value Char    PNOMFICH
+
+  Call ECR_TRACE("Actualiza tabla STOPRED",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1 [F:ZESO1] : Endif
+  If !clalev([F:ZPRE])  Then : Local File STOPRED [F:ZPRE]  : Endif
+  Filter [F:ZESO1] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2 Order By PRHNUM;PRELIN
+  For [F:ZESO1]
+#    If !GSTERROR Then
+      Read [F:ZPRE]PRE0 = [F:ZESO1]PRHNUM;[F:ZESO1]PRELIN
+      If !fstat Then
+        Trbegin [F:ZPRE]
+        [F:ZPRE]ALLTYP    = 2
+        [F:ZPRE]UPDDAT    = date$
+        [F:ZPRE]UPDDATTIM = datetime$
+        [F:ZPRE]ZEXPORT   = 2
+        [F:ZPRE]QTYSTU    = [F:ZESO1]QTY
+        [F:ZPRE]ALLQTY    = [F:ZESO1]QTY
+        [F:ZPRE]OALQTYSTU = [F:ZESO1]QTY
+        Rewrite [F:ZPRE]
+        If !fstat Then
+          Commit
+          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"/ Línea:"-num$([F:ZESO1]PRELIN),0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error en VP:"-[F:ZESO1]PRHNUM-"/ Línea:"-num$([F:ZESO1]PRELIN),1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe el VP:"-[F:ZESO1]PRHNUM-"/ Línea:"-num$([F:ZESO1]PRELIN),1) From GESECRAN
+        GSTERROR = 1
+      Endif
+#    Else
+#      Break
+#    Endif
+  Next
+  Filter [F:ZESO1]
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESO1],[ZPRE]
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla STOCK
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ACTUALIZA_STOCK(PNOMFICH)
+Value Char    PNOMFICH
+
+  Call ECR_TRACE("Actualiza tabla STOCK",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF  [F:ZESOF] : Endif
+  If !clalev([F:ZSTO])  Then : Local File STOCK       [F:ZSTO]  : Endif
+#  Filter [F:ZESOF] Where NOMFICH = PNOMFICH
+  Filter [F:ZESOF] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2 Order By PRHNUM;PRELIN
+  For [F:ZESOF]
+#    If !GSTERROR Then
+      Filter [F:ZSTO] Where ITMREF = [F:ZESOF]ITMREF and LOT = [F:ZESOF]LOT and STOFCY = [F:ZESOF]STOFCY and STA = 'A' and LOC = "SGA"
+      Read [F:ZSTO] First
+      If !fstat Then
+        Trbegin [F:ZSTO]
+        [F:ZSTO]CUMALLQTY += [F:ZESOF]QTY
+        [F:ZSTO]CUMALLQTA += [F:ZESOF]QTY
+        [F:ZSTO]UPDDAT    =  date$
+        [F:ZSTO]UPDDATTIM =  datetime$
+        Rewrite [F:ZSTO]
+        If !fstat
+          Commit
+          Call ECR_TRACE("Artículo:"-[F:ZESOF]ITMREF-"/ Lote:"-[F:ZESOF]LOT,0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error en artículo:"-[F:ZESOF]ITMREF-"/ Lote:"-[F:ZESOF]LOT,1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe stock para el artículo:"-[F:ZESOF]ITMREF-"con lote:"-[F:ZESOF]LOT,1) From GESECRAN
+        GSTERROR = 1
+      Endif
+      Filter [F:ZSTO]
+#    Else
+#      Break
+#    Endif
+  Next
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESOF],[ZSTO]
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla ITMMVT
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ACTUALIZA_ITMMVT(PNOMFICH)
+Value Char    PNOMFICH
+
+  Call ECR_TRACE("Actualiza tabla ITMMVT",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1     [F:ZESO1] : Endif
+  If !clalev([F:ZITV])  Then : Local File ITMMVT      [F:ZITV]  : Endif
+  Filter [F:ZESO1] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2 Order By PRHNUM;PRELIN
+  For [F:ZESO1]
+#    If !GSTERROR Then
+      Read [F:ZITV]ITV0 = [F:ZESO1]ITMREF;[F:ZESO1]STOFCY
+      If !fstat Then
+        Trbegin [F:ZITV]
+        [F:ZITV]PHYALL    += [F:ZESO1]QTY
+        [F:ZITV]GLOALL    -= [F:ZESO1]QTY
+        [F:ZITV]UPDDAT    = date$
+        [F:ZITV]UPDDATTIM = datetime$
+        Rewrite [F:ZITV]
+        If !fstat Then
+          Commit
+          Call ECR_TRACE("Artículo:"-[F:ZESO1]ITMREF-"/ Planta:"-[F:ZESO1]STOFCY,0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error en artículo:"-[F:ZESO1]ITMREF-"/ Planta:"-[F:ZESO1]STOFCY,1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe stock del artículo:"-[F:ZESO1]ITMREF-"en la planta:"-[F:ZESO1]STOFCY,1) From GESECRAN
+        GSTERROR = 1
+      Endif
+#    Else
+#      Break
+#    Endif
+  Next
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Filter [F:ZESO1]
+  Close Local File [ZESO1],[ZITV]
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla STOALL
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog ACTUALIZA_STOALL(PNOMFICH)
+Value Char    PNOMFICH
+
+Local Integer LSEQ, LSEQORI
+Local Char    LDELETE(5) : LDELETE = "YES"
+
+  Call ECR_TRACE("Actualiza tabla STOALL",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1     [F:ZESO1] : Endif
+  If !clalev([F:ZESO3]) Then : Local File ZVESOF3     [F:ZESO3] : Endif
+  If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF  [F:ZESOF] : Endif
+  If !clalev([F:ZSTO])  Then : Local File STOCK       [F:ZSTO]  : Endif
+  If !clalev([F:ZSTA1]) Then : Local File STOALL      [F:ZSTA1] : Endif
+  If !clalev([F:ZSTA2]) Then : Local File STOALL      [F:ZSTA2] : Endif
+  If !clalev([F:ZSTA3]) Then : Local File STOALL      [F:ZSTA3] : Endif
+  If !clalev([F:ZSTA4]) Then : Local File STOALL      [F:ZSTA4] : Endif
+  If !clalev([F:ZSTA5]) Then : Local File STOALL      [F:ZSTA5] : Endif
+  If !clalev([F:ZDS0])  Then : Local File ZDELSTOALL  [F:ZDS0] : Endif
+  If !clalev([F:ZDS1])  Then : Local File ZDELSTOALL  [F:ZDS1] : Endif
+
+  # limpia la tabla temporal
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZDELSTOALL"
+  # guardamos en una tabla temporal todos los registros que hay inicialmente en la tabla STOALL
+  # asociados a los vales de preparación con los que vamos a trabajar
+  For [F:ZESO3] Where NOMFICH = PNOMFICH #and PRHNUM = 'VP2100111'
+    For [F:ZSTA5] Where VCRNUM = [F:ZESO3]PRHNUM and VCRLIN = [F:ZESO3]PRELIN
+      Trbegin [F:ZDS0]
+      [F:ZDS0] = [F:ZSTA5]
+      Write [F:ZDS0]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Next
+  Next
+
+  # filtramos en la vista por nombre del fichero para actuar con todas las líneas de los vales
+  Filter [F:ZESO1] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2 Order By PRHNUM;PRELIN
+  For [F:ZESO1]
+    # filtramos en la tabla donde hemos volcado el fichero xml para crear todas
+    # las líneas en la tabla STOALL
+    Filter [F:ZESOF] Where PRHNUM = [F:ZESO1]PRHNUM and PRELIN = [F:ZESO1]PRELIN and ITMREF = [F:ZESO1]ITMREF
+    For [F:ZESOF]
+      # filtramos en la tabla STOCK por cada línea para obtener el valor de STOCOU, ya que lo
+      # tenemos que informar en el nuevo registro que creamos en la tabla STOALL
+      Filter [F:ZSTO] Where ITMREF = [F:ZESOF]ITMREF and LOT = [F:ZESOF]LOT and STOFCY = [F:ZESOF]STOFCY and STA = 'A' and LOC = "SGA"
+      Read [F:ZSTO] First
+      If !fstat Then
+        Filter [F:ZSTA4] Where STOFCY = [F:ZSTO]STOFCY and ITMREF = [F:ZSTO]ITMREF and STOCOU = [F:ZSTO]STOCOU Order By SEQ Asc
+        Read [F:ZSTA4] First
+        If !fstat Then
+          LSEQ = [F:ZSTA4]SEQ
+        Else
+          Call ECR_TRACE("No existen asignaciones para el artículo"-[F:ZSTO]ITMREF,1) From GESECRAN
+        Endif
+        Filter [F:ZSTA4]
+        # guardamos en la tabla los valores
+        Trbegin [F:ZSTA2]
+        [F:ZSTA2]STOFCY     = [F:ZESOF]STOFCY
+        [F:ZSTA2]ITMREF     = [F:ZESOF]ITMREF
+        [F:ZSTA2]STOCOU     = [F:ZSTO]STOCOU
+        [F:ZSTA2]ALLDAT     = [31/12/2999]
+        [F:ZSTA2]SEQ        = LSEQ - 1
+        [F:ZSTA2]ALLTYP     = 2
+        [F:ZSTA2]VCRTYP     = 3
+        [F:ZSTA2]VCRNUM     = [F:ZESOF]PRHNUM
+        [F:ZSTA2]VCRLIN     = [F:ZESOF]PRELIN
+        [F:ZSTA2]VCRSEQ     = 0
+        [F:ZSTA2]QTYSTU     = [F:ZESOF]QTY
+        [F:ZSTA2]QTYSTUACT  = [F:ZESOF]QTY
+        [F:ZSTA2]BESDAT     = date$
+        [F:ZSTA2]BPRNUM     = ""
+        [F:ZSTA2]SCOFLG     = 1
+        [F:ZSTA2]EXPNUM     = 13    # ???????????????
+        Write [F:ZSTA2]
+        If !fstat Then
+          Commit
+          Call ECR_TRACE("VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:ZSTA2]SEQ),
+& 0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error en VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:
+& ZSTA2]SEQ),1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe stock del artículo:"-[F:ZESOF]ITMREF-"/ Lote:"-[F:ZESOF]LOT-"en la planta:"-[F:ZESO1]STOFCY,1) From GESECRAN
+        GSTERROR = 1
+      Endif
+    Next
+    Filter [F:ZESOF]
+
+#    If LDELETE = "YES" Then
+#      # una vez ya hemos duplicado el registro 'padre' tantas veces como líneas del vale de preparación existan,
+#      # eliminamos ese registro 'padre'
+#      Trbegin [F:ZSTA3]
+#      Readlock [F:ZSTA3]STA0 = [F:ZESO1]STOFCY;[F:ZESO1]ITMREF;0;LSEQORI
+#      Delete [F:ZSTA3]
+#      If !fstat Then
+#        Commit
+##        Infbox "Records deleted:"-num$(adxdlrec)
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+  Next
+  Filter [F:ZESO1]
+
+  # eliminamos de la tabla STOALL todos los registros que existían a priori
+  Call ECR_TRACE("Vacía la tabla STOALL",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+  For [F:ZDS1]
+    Trbegin [F:ZSTA3]
+    Readlock [F:ZSTA3]STA0 = [F:ZDS1]STOFCY;[F:ZDS1]ITMREF;[F:ZDS1]STOCOU;[F:ZDS1]SEQ
+    Delete [F:ZSTA3]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESO1],[ZESO3],[ZESOF],[ZSTO],[ZSTA1],[ZSTA2],[ZSTA3],[ZSTA4],[ZSTA5],[ZDS0],[ZDS1]
+End
+
+###############################################################
+#**
 #* cambia el estado de los vales a entregable
 #*
 #* @param PNOMFICH  > nombre del fichero SOF
 #*!
 Subprog VP_ENTREGABLE(PNOMFICH)
 Value Char PNOMFICH
+
+#If GUSER="ADEV" Then Infbox "entra vp_entregable" : Endif
 
   Call ECR_TRACE("Actualiza vales a Entregables",0) From GESECRAN
   Call ECR_TRACE("---------------------------------------",0) From GESECRAN
@@ -667,41 +1182,46 @@ Value Char PNOMFICH
   If !clalev([F:ZSOQ])  Then : Local File SORDERQ [F:ZSOQ]  : Endif
   Filter [F:ZESO1] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2
   For [F:ZESO1]
-    Read [F:ZPRH]PRH0 = [F:ZESO1]PRHNUM
-    If !fstat Then
-      Trbegin [F:ZPRH]
-      [F:ZPRH]DLVFLG = 2
-      Rewrite [F:ZPRH]
+#    If !GSTERROR Then
+      Read [F:ZPRH]PRH0 = [F:ZESO1]PRHNUM
       If !fstat Then
-        Commit
-        GSTERROR = 0
-      Else
-        Rollback
-        Call ECR_TRACE("Error al convertir el VP:"-[F:ZESO1]PRHNUM-"a entregable",1) From GESECRAN
-        GSTERROR = 1
-      Endif
-    Else
-      Call ECR_TRACE("No existe el VP:"-[F:ZESO1]PRHNUM,1) From GESECRAN
-      GSTERROR = 1
-    Endif
-    Filter [F:ZPRD] Where PRHNUM = [F:ZESO1]PRHNUM and PRELIN = [F:ZESO1]PRELIN
-    For [F:ZPRD]
-      Read [F:ZSOQ]SOQ0 = [F:ZPRD]ORINUM;[F:ZPRD]ORILIN;[F:ZPRD]ORISEQ
-      If !fstat Then
-        [F:ZSOQ]OPRQTY    = 0
-        [F:ZSOQ]OPRQTYSTU = 0
-        [F:ZSOQ]PREQTY    = [F:ZESO1]QTY
-        [F:ZSOQ]PREQTYSTU = [F:ZESO1]QTY
-        Trbegin [F:ZSOQ]
-        Rewrite [F:ZSOQ]
+        Trbegin [F:ZPRH]
+        [F:ZPRH]DLVFLG = 2
+        Rewrite [F:ZPRH]
         If !fstat Then
           Commit
+#          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
+          GSTERROR = 0
         Else
           Rollback
+          Call ECR_TRACE("Error al convertir el VP:"-[F:ZESO1]PRHNUM-"a entregable",1) From GESECRAN
+          GSTERROR = 1
         Endif
+      Else
+        Call ECR_TRACE("No existe el VP:"-[F:ZESO1]PRHNUM,1) From GESECRAN
+        GSTERROR = 1
       Endif
-    Next
-    Filter [F:ZPRD]
+      Filter [F:ZPRD] Where PRHNUM = [F:ZESO1]PRHNUM and PRELIN = [F:ZESO1]PRELIN
+      For [F:ZPRD]
+        Read [F:ZSOQ]SOQ0 = [F:ZPRD]ORINUM;[F:ZPRD]ORILIN;[F:ZPRD]ORISEQ
+        If !fstat Then
+          [F:ZSOQ]OPRQTY    = 0
+          [F:ZSOQ]OPRQTYSTU = 0
+          [F:ZSOQ]PREQTY    = [F:ZESO1]QTY
+          [F:ZSOQ]PREQTYSTU = [F:ZESO1]QTY
+          Trbegin [F:ZSOQ]
+          Rewrite [F:ZSOQ]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
+        Endif
+      Next
+      Filter [F:ZPRD]
+#    Else
+#      Break
+#    Endif
   Next
 
   Call ECR_TRACE("########################################################################",0) From GESECRAN
@@ -709,7 +1229,178 @@ Value Char PNOMFICH
   Filter [F:ZESO1]
   Close Local File [ZESO1],[ZPRH],[ZPRD],[ZSOQ]
 
+#If GUSER="ADEV" Then Infbox "sale vp_entregable" : Endif
+
 End
+
+###############################################################
+#**
+#* genera la entrega a partir del vale
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog GENERA_ENTREGA(PNOMFICH,PWSGATMP,PWFICINP1,PWSGARECIBIDOS,PWSGATRATADOS,PWSGAERROR)
+Value Char PNOMFICH,PWSGATMP,PWFICINP1,PWSGARECIBIDOS,PWSGATRATADOS,PWSGAERROR
+
+Local Integer LFICH2, STAT
+Local Char    LFILETXT(250), LFILEXML(250), LDIRIMPORTTMP(250), LDIRIMPORTRECIBIDOS(250), LDIRIMPORTTRATADOS(250), LDIRIMPORTERROR(250)
+Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
+
+  LDIRIMPORTTMP       = filpath(PWSGATMP,"","")
+  LDIRIMPORTRECIBIDOS = filpath(PWSGARECIBIDOS,"","")
+  LDIRIMPORTTRATADOS  = filpath(PWSGATRATADOS,"","")
+  LDIRIMPORTERROR     = filpath(PWSGAERROR,"","")
+
+  LFILETXT = LDIRIMPORTTMP + "\" + PWFICINP1 + ".txt"
+  LFILEXML = LDIRIMPORTRECIBIDOS + "\" + PWFICINP1 + ".xml"
+
+  # borramos el fichero si existe...
+  If filinfo(LFILETXT, 7) > 0 Then
+    System "ae_rm " + LFILETXT
+  Endif
+
+  adxifs = ";"
+  adxirs = chr$(13)+chr$(10)
+  Openo LFILETXT Using [ZIMP]
+
+  Call ECR_TRACE("Generación del fichero "+PWFICINP1+".txt",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF  [F:ZESOF] : Endif
+  If !clalev([F:ZESOX]) Then : Local File ZEXPORTSOF  [F:ZESOX] : Endif
+  If !clalev([F:ZESO2]) Then : Local File ZVESOF2     [F:ZESO2] : Endif
+  If !clalev([F:ZESO5]) Then : Local File ZVESOF5     [F:ZESO5] : Endif
+  If !clalev([F:ZPRE])  Then : Local File STOPRED     [F:ZPRE]  : Endif
+
+  Filter [F:ZESO2] Where NOMFICH = PNOMFICH and ZGENSDHFLG = 2 Order By SDHNUM
+  For [F:ZESO2]
+    # añade al fichero la cabecera del vale desde la tabla específica
+    Filter [F:ZESOF] Where NOMFICH = [F:ZESO2]NOMFICH and SDHNUM = [F:ZESO2]SDHNUM and INDICADOR = "H"
+    Read [F:ZESOF] First
+    If !fstat Then
+      LSHIDAT = left$(num$([F:ZESOF]SHIDAT),2)+mid$(num$([F:ZESOF]SHIDAT),4,2)+mid$(num$([F:ZESOF]SHIDAT),7,4)
+      LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
+      Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
+&           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
+&           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
+&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
+    Endif
+    Filter [F:ZESOF]
+    # añade al fichero las líneas del vale desde la tabla específica
+    Filter [F:ZESO5] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "L" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
+    For [F:ZESO5]
+      Call ECR_TRACE("  VP:"-[F:ZESO5]PRHNUM-"/ Línea:"-num$([F:ZESO5]PRELIN)-"/ Artículo:"-[F:ZESO5]ITMREF-"/ Cantidad:"-num$([F:ZESO5]QTY),0) From GESECRAN
+      Wrseq [F:ZESO5]INDICADOR  + ";" + [F:ZESO5]PRHNUM   + ";" + num$([F:ZESO5]PRELIN) + ";" +
+&           [F:ZESO5]ITMREF     + ";" + [F:ZESO5]ITMDES   + ";" + num$([F:ZESO5]QTY)    + ";" +
+&           [F:ZESO5]SAU        + ";" + [F:ZESO5]ZLOTPROV + ";" + [F:ZESO5]ZUSRSERV     Using [ZIMP]
+      STAT = func COMPRUEBA_STOCK([F:ZESO5]PRHNUM,[F:ZESO5]PRELIN,LMESSAGE)
+      If STAT = 0 Then
+        Call ECR_TRACE(LMESSAGE,1) From GESECRAN
+      Endif
+    Next
+    Filter [F:ZESO5]
+    # añade al fichero, desde la tabla de líneas de vale de preparación, aquellas líneas que contengan artículos que no gestionen stock (CERT001)
+    Filter [F:ZESOX] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "H" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
+    For [F:ZESOX]
+      Filter [F:ZPRE] Where PRHNUM = [F:ZESOX]PRHNUM and STOMGTCOD = 1
+      For [F:ZPRE]
+        Call ECR_TRACE("  VP:"-[F:ZPRE]PRHNUM-"/ Línea:"-num$([F:ZPRE]PRELIN)-"/ Artículo:"-[F:ZPRE]ITMREF-"/ Cantidad:"-num$([F:ZPRE]QTYSTU),0) From GESECRAN
+        Wrseq "L"                 + ";" + [F:ZPRE]PRHNUM    + ";" + num$([F:ZPRE]PRELIN) + ";" +
+&             [F:ZPRE]ITMREF      + ";" + [F:ZPRE]ITMDES1   + ";" + num$([F:ZPRE]QTYSTU) + ";" +
+&             [F:ZPRE]STU         + ";" + ""                + ";" + ""                   Using [ZIMP]
+      Next
+      Filter [F:ZPRE]
+    Next
+  Next
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE]
+
+  # cerramos el fichero
+  Openo Using [ZIMP]
+
+  # lanzamos la importación
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+  Call ECR_TRACE("Lanza la importación",0) From GESECRAN
+  mkstat = 0 : fstat = 0 : GERRTRACE = 0
+  Call IMPORTSIL ("ZSDHSOF3",LFILETXT)From GIMPOBJ
+
+  # gestiona un error en la importación
+  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se produce error de importación...
+#    If filinfo(LFILETXT+".err", 7) > 0 Then
+#      Call MOVE(LFILETXT+".err",LDIRIMPORTERROR,STAT) From ORDSYS                     # mueve el fichero .err con errores en la importación
+##      System "ae_rm " + LFILETXT                                                      # borra el fichero .txt que ha dado errores
+#    Endif
+#    If filinfo(LFILEXML+".err", 7) > 0 Then
+#      Call MOVE(LFILEXML+".err",LDIRIMPORTERROR,STAT) From ORDSYS                     # mueve el fichero .err con errores en la importación
+##    System "ae_rm " + LFILEXML                                                      # borra el fichero .xml que ha dado errores
+#    Endif
+#    Call ECR_TRACE("########################################################################",0) From GESECRAN
+#    Call ECR_TRACE("Error en la importación",1) From GESECRAN
+#    # lanza un workflow para avisar de que la importación ha fallado
+#    Global Char GCORREO(250),GFICHERO(250)
+#    GCORREO   = "joseluis.chiva@auren.es"
+#    GFICHERO  = PNOMFICH
+#    GFILPATH  = LDIRIMPORTERROR + "\" + PNOMFICH + ".xml"
+#    Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+#    If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+#    If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  Else
+    Call MOVE(LFILETXT,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero txt a la carpeta de procesados
+    Call MOVE(LFILEXML,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero xml a la carpeta de procesados
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+    Call ECR_TRACE("Importación correcta",0) From GESECRAN
+  Endif
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+End
+
+##############################################################
+Funprog COMPRUEBA_STOCK(PPRHNUM,PPRELIN,PMESSAGE)
+Value     Char    PPRHNUM
+Value     Integer PPRELIN
+Variable  Char    PMESSAGE
+
+Local Integer LRES    # 0=stock inferior ; 1=stock igual o superior
+
+  If !clalev([F:ZSTO1]) Then : Local File STOCK   [F:ZSTO1] : Endif
+  If !clalev([F:ZESO6]) Then : Local File ZVESOF6 [F:ZESO6] : Endif
+  If !clalev([F:ZITV1]) Then : Local File ITMMVT  [F:ZITV1] : Endif
+  Filter [F:ZESO6] Where PRHNUM = PPRHNUM and PRELIN = PPRELIN
+  Read [F:ZESO6] First
+  If !fstat Then
+    Filter [F:ZSTO1] Where ITMREF = [F:ZESO6]ITMREF and STA = 'A' and LOT = [F:ZESO6]LOT
+    Read [F:ZSTO1] First
+      If [F:ZSTO1]QTYSTU > [F:ZESO6]QTY Then
+        LRES      = 1
+      Else
+        LRES      = 0
+        PMESSAGE  = "No hay stock suficiente del artículo " + [F:ZESO6]ITMREF + " para el lote " + [F:ZESO6]LOT
+        # entrada varia
+        Local Char LFECHA(250),LHORA(250)
+        LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
+        LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)
+        Local Char LFILE_W_EV(250) : LFILE_W_EV = filpath("ZSGA\SGA\IMPORTX3","","") + "\EV_" + LFECHA + LHORA + ".txt"
+        adxifs = ";"
+        adxirs = chr$(13)+chr$(10)
+        Openo LFILE_W_EV Using [YIMP_WEV]
+        Read [F:ZITV1]ITV0 = [F:ZESO6]ITMREF;[F:ZESO6]STOFCY
+        Wrseq "E" + ";" + num$(19) + ";" + "" + ";" + [F:ZESO6]STOFCY + ";" + date$ + ";" + "Ajustes SGA entrega" + ";" + "REG" + ";" + "010"           Using [YIMP_WEV]
+        Wrseq "L" + ";" + num$(1000) + ";" + [F:ZESO6]ITMREF + ";" + [F:ZESO6]SAU + ";" + num$(abs([F:ZESO6]QTY-[F:ZSTO1]QTYSTU)) + ";" + [F:ZESO6]SAU +
+&             ";" + num$(abs([F:ZESO6]QTY-[F:ZSTO1]QTYSTU)) + ";" + num$([F:ZITV1]AVC)                                                                  Using [YIMP_WEV]
+        Wrseq "S" + ";" + [F:ZESO6]SAU + ";" + num$(abs([F:ZESO6]QTY-[F:ZSTO1]QTYSTU)) + ";" + "" + ";" + [F:ZESO6]LOT + ";" + "SGA" + ";" + "A" + ";" + "Ajustes SGA entrega"
+&                                                                                                                                                       Using [YIMP_WEV]
+        Openo Using [YIMP_WEV]
+        mkstat = 0 : fstat = 0 : GERRTRACE = 0
+        Call IMPORTSIL("ZSMR2",LFILE_W_EV) From GIMPOBJ
+      Endif
+    Filter [F:ZSTO1]
+  Endif
+  Filter [F:ZESO6]
+  Close Local File [ZSTO1],[ZESO6],[ZITV1]
+End LRES
 
 ###############################################################
 # muestra mensajes en la traza cuando se han producido errores en las líneas
@@ -762,6 +1453,222 @@ Value Char  PNOMFICH
   If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
   If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
 End
+
+###############################################################
+#$CREA_EXPORT
+#  Local Integer WLONG
+#  WLCOMA=';'
+#  #H
+#  WLONG=1
+#  RESULT='H'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+#  #SALFCY
+#  WLONG=5
+#  RESULT='PHISP'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+#  #STOFCY
+#  WLONG=5
+#  RESULT='PHISP'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #SDHNUM
+#  WLONG=1
+#  RESULT= WCSTATT03
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,2)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #SDHTYP
+#  WLONG=2
+#  RESULT='EN'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #BPCORD
+#  Read [ZPRH]PRH0=WSORCODE
+#  If fstat
+#   Call ECR_TRACE("No existe Vale Preparacion: "+WSORCODE,1) From GESECRAN
+#  Endif
+#  WLONG=50
+#  RESULT=[ZPRH]BPCORD
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #BPAADD
+#  WLONG=3
+#  RESULT=[ZPRH]BPAADD
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #CUR
+#  WLONG=3
+#  RESULT='EUR'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #SHIDAT
+#  WLONG=10
+#  RESULT=num$(date$)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #DLVDAT
+#  WLONG=10
+#  RESULT=num$(date$)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO]
+# #ZTIPOPEDSGA
+#  WLONG=20
+#  WMIOLDI=I
+#  CSTATT20    =func GET_PROPXML(XDATA,"CstAtt20",I)
+#  I=WMIOLDI
+#  RESULT=CSTATT20
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA Using [ZECO]
+#
+#  #LINEAS #######################################################333
+#  WFINLIN=0
+#  WFINSTO=0
+#  For N=1 To WNLIN
+#    If WFINLIN<>0
+#      I=WFINLIN
+#    Endif
+#   #L
+#    WLONG=1
+#    RESULT='L'
+#    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#   #PRHNUM
+#    WLONG=250
+#    WLNEITEMCODE=func GET_PROPXML(XDATA,"LneItemCode",I)
+#    # JC - FILTRANDO POR Nº VP Y ARTÍCULO PODRÍA POSICIONARSE EN UNA LÍNEA QUE NO FUERA LA CORRECTA SI HAY VARIAS CON EL MISMO ARTÍCULO!!!!!!!!!!!!!!!!
+#    # JC.STR
+##    Filter [ZPRE] Where [ZPRE]PRHNUM=WSORCODE and ITMREF=WLNEITEMCODE
+##    Read [ZPRE] First
+##    RESULT=[ZPRE]ORINUM
+#    RESULT=[ZPRE]PRHNUM
+#    # JC.END
+#    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#   #PRELIN
+#    WLONG=10
+#    # JC.STR
+##    RESULT=num$([ZPRE]ORILIN)
+#    RESULT=num$([ZPRE]PRELIN)
+#    # JC.END
+#    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#   #ITMREF
+#    WLONG=250
+#    RESULT=WLNEITEMCODE
+#    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#   #ITMDES
+#    WLONG=250
+#    Read [F:ZITM]ITM0=WLNEITEMCODE
+#    RESULT=[ZITM]ITMDES2
+#    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #QTYU
+#    WLONG=250
+#    WLNEQTYORDER=func GET_PROPXML(XDATA,"LneQtyOrder",I)
+#    RESULT=WLNEQTYORDER
+#    Read [F:ITV]ITV0=WLNEITEMCODE;'PHISP'
+##    Gosub  OBTENER_DISPONIBLE
+##    If WLNEQTYORDER-WDISP<0
+##      Gosub CREA_ENTRADAVARIA
+##    Endif
+#    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA;Using [ZECO]
+#    #SAU
+#    WLONG=250
+#    WLNEQTYUOMCODE=func GET_PROPXML(XDATA,"LneQtyUoMCode",I)
+#    RESULT=WLNEQTYUOMCODE
+#    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#    RESULT=vireblc(RESULT,1)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #GROPRI
+#    Filter [ZSOP] Where SOHNUM=[F:ZPRE]ORINUM and ITMREF=WLNEITEMCODE
+#    Read [ZSOP] First
+#    If !fstat
+#      RESULT=num$([F:ZSOP]GROPRI)
+#    Else
+#      RESULT='0'
+#    Endif
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #PRIREN
+#    RESULT=num$([F:ZSOP]PRIREN)
+#    Filter [ZSOP]
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGVAL1
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGREN1
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGVAL2
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGREN2
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGVAL3
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #DISCRGREN3
+#    RESULT=''
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #VACITM(0)
+#    RESULT=[F:ZITM]VACITM(0)
+#    Wrseq RESULT+WLCOMA; Using [ZECO]
+#    #VACITM(0)
+#    RESULT=[F:ZITM]VACITM(1)
+#    Wrseq RESULT+WLCOMA Using [ZECO]
+##    #STOJOU
+##   #S
+##    WLONG=1
+##    RESULT='S'
+##    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    Wrseq RESULT+WLCOMA; Using [ZECO]
+##   #STA
+##    WLONG=1
+##    RESULT='A'
+##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    Wrseq RESULT+WLCOMA; Using [ZECO]
+##   #PCU
+##    WLONG=250
+##    RESULT=WLNEQTYUOMCODE
+##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    RESULT=vireblc(RESULT,1)
+##    Wrseq RESULT+WLCOMA; Using [ZECO]
+##   #QTYPCU
+##    WLONG=250
+##    RESULT=WLNEQTYORDER
+##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    RESULT=vireblc(RESULT,1)
+##    Wrseq RESULT+WLCOMA; Using [ZECO]
+##   #LPNNUM
+##    WLONG=1
+##    RESULT=''
+##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    RESULT=vireblc(RESULT,1)
+##    Wrseq RESULT+WLCOMA; Using [ZECO]
+##   #LOC
+##    WLONG=250
+##    RESULT='SGA'
+##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+##    RESULT=vireblc(RESULT,1)
+##    Wrseq RESULT+WLCOMA Using [ZECO]
+#
+#  Next
+#
+#Return
 
 ##############################################################
 $MUEVE_FILE
@@ -898,6 +1805,56 @@ $CREA_ENTRADA_VARIA
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
   RESULT=vireblc(RESULT,1)
   Wrseq RESULT Using [ZECO2]
+#  #S
+#  WLONG=1
+#  RESULT='S'
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #PCU
+#  WLONG=50
+#  RESULT=WUOMCODE
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #QTYPCU
+#  WLONG=250
+#  RESULT=num$(WQUANTITYVAR)
+#  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #BPSLOT
+#  WLONG=250
+#  RESULT=WCSTATT04
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #LOT
+#  WLONG=250
+#  RESULT=WCSTATT05
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #LOC
+#  WLONG=250
+#  RESULT='SGA'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #STA
+#  WLONG=250
+#  RESULT=WSTAUSRCODE
+#  If RESULT=''
+#    RESULT='A'
+#  Endif
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT+WLCOMA; Using [ZECO2]
+#  #MTVDES
+#  WLONG=250
+#  RESULT='SOR '+LNOMFICHERO+' '+WSORCODE+' STOCK INSUFICIENTE'
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq RESULT Using [ZECO2]
 
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ
@@ -910,6 +1867,8 @@ Value Char VARNAME
 Variable Integer I
 
 Local Integer J
+#  I=1
+#  I=instr(I,XMLSTRING,VARNAME+'>')
   I=instr(I,XMLSTRING,'<'+VARNAME+'>')
   If I
     I=instr(I+len(VARNAME),XMLSTRING,'>')
@@ -935,6 +1894,8 @@ End ""
 Funprog GET_QFL(PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char PITMREF,PLOT,PSTA,PSTOFCY
 
+#If GUSER="ADEV" Then Infbox "entra get_qfl" : Endif
+
 Local Decimal LRES
 
   If !clalev([F:ZSTO]) Then : Local File STOCK [F:ZSTO] : Endif
@@ -951,6 +1912,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO]
 
+#If GUSER="ADEV" Then Infbox "sale get_qfl" : Endif
+
 End LRES
 
 ##############################################################
@@ -958,6 +1921,8 @@ End LRES
 # Cantidad de stock total existente en Sage X3 (independientemente de cantidad asignada) en el estado de stock para la entrega (en general siempre será A) de todos los totes existentes en stock
 Funprog GET_QFT(PITMREF,PSTA,PSTOFCY)
 Value Char PITMREF,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qft" : Endif
 
 Local Decimal LRES
 
@@ -974,6 +1939,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO]
 
+#If GUSER="ADEV" Then Infbox "sale get_qft" : Endif
+
 End LRES
 
 ##############################################################
@@ -982,6 +1949,8 @@ End LRES
 Funprog GET_QDL(PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char PITMREF,PLOT,PSTA,PSTOFCY
 
+#If GUSER="ADEV" Then Infbox "entra get_qdl" : Endif
+
 Local Decimal LRES,LSTKFIS,LSTKASD
 
   If !clalev([F:ZSTO]) Then : Local File STOCK  [F:ZSTO] : Endif
@@ -989,6 +1958,7 @@ Local Decimal LRES,LSTKFIS,LSTKASD
 
   # cantidad stock físico de un lote concreto
   LSTKFIS = func GET_QFL(PITMREF,PLOT,PSTA,PSTOFCY)
+#If GUSER="ADEV" Then : Infbox "Stock físico="-num$(LSTKFIS) : Endif
   If PSTA <> "" Then
     Filter [F:ZSTO] Where ITMREF = PITMREF and LOT = PLOT and LOC = "SGA" and STOFCY = PSTOFCY and STA = PSTA
   Else
@@ -1004,10 +1974,13 @@ Local Decimal LRES,LSTKFIS,LSTKASD
     Filter [F:ZSTA]
   Endif
   Filter [F:ZSTO]
+#If GUSER="ADEV" Then : Infbox "asignado en detalle="-num$(LSTKASD) : Endif
 
   Close Local File [ZSTO],[ZSTA]
 
   LRES = LSTKFIS - LSTKASD
+
+#If GUSER="ADEV" Then Infbox "sale get_qdl" : Endif
 
 End LRES
 
@@ -1016,6 +1989,8 @@ End LRES
 # Cantidad de stock disponible (físico menos asignado detalle o global) en el estado de stock para entrega, de todos los lotes existentes en stock
 Funprog GET_QDT(PITMREF,PSTA,PSTOFCY)
 Value Char PITMREF,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qdt" : Endif
 
 Local Decimal LRES,LSTKFIS,LSTKASD,LSTKASG
 
@@ -1050,6 +2025,8 @@ Local Decimal LRES,LSTKFIS,LSTKASD,LSTKASG
 
   LRES = LSTKFIS - (LSTKASD + LSTKASG)
 
+#If GUSER="ADEV" Then Infbox "sale get_qdt" : Endif
+
 End LRES
 
 ##############################################################
@@ -1057,6 +2034,8 @@ End LRES
 # Cantidad de stock asignada en detalle en el estado de stock para entrega de un LOTE concreto
 Funprog GET_QAL(PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char PITMREF,PLOT,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qal" : Endif
 
 Local Decimal LRES
 
@@ -1080,6 +2059,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO],[ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qal" : Endif
+
 End LRES
 
 ##############################################################
@@ -1087,6 +2068,8 @@ End LRES
 # Cantidad de stock asignada en detalle + asignada global, en el estado de stock para entrega (incluir todas las asignaciones: en pedidos, vales,…)
 Funprog GET_QAT(PITMREF,PSTA,PSTOFCY)
 Value Char PITMREF,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qat" : Endif
 
 Local Decimal LRES
 
@@ -1116,6 +2099,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO],[ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qat" : Endif
+
 End LRES
 
 ##############################################################
@@ -1124,6 +2109,8 @@ End LRES
 # las asignaciones a pedidos de venta pendientes pueden ser canceladas
 Funprog GET_QALPED(PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char PITMREF,PLOT,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qalped" : Endif
 
 Local Decimal LRES
 
@@ -1147,6 +2134,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO],[ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qalped" : Endif
+
 End LRES
 
 ##############################################################
@@ -1155,6 +2144,8 @@ End LRES
 # las asignaciones a pedidos de venta pendientes pueden ser canceladas
 Funprog GET_QADPED(PITMREF,PSTA,PSTOFCY)
 Value Char PITMREF,PSTA,PSTOFCY
+
+#If GUSER="ADEV" Then Infbox "entra get_qadped" : Endif
 
 Local Decimal LRES
 
@@ -1177,6 +2168,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO],[ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qadped" : Endif
+
 End LRES
 
 ##############################################################
@@ -1184,6 +2177,8 @@ End LRES
 # Cantidad de stock asignada global en el estado de stock para entrega, que está asignada a pedidos de venta. Solo las asignaciones a pedidos de venta pendientes pueden ser canceladas
 Funprog GET_QAGPED(PITMREF)
 Value Char PITMREF
+
+#If GUSER="ADEV" Then Infbox "entra get_qagped" : Endif
 
 Local Decimal LRES
 
@@ -1198,6 +2193,8 @@ Local Decimal LRES
 
   Close Local File [ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qagped" : Endif
+
 End LRES
 
 ##############################################################
@@ -1208,17 +2205,23 @@ Value Integer PPRELIN
 
 #If GUSER="ADEV" Then Infbox "entra get_qsof" : Endif
 
+Local Decimal LRES
+
   If !clalev([F:ZSOF]) Then : Local File ZEXPORTSOF [F:ZSOF] : Endif
   If PLOT <> 'NOTIENELOTE' Then
     Filter [F:ZSOF] Where NOMFICH = PNOMFICH and PRHNUM = PPRHNUM and PRELIN = PPRELIN and ITMREF = PITMREF and LOT = PLOT
+#    Filter [F:ZSOF] Where NOMFICH = PNOMFICH and PRHNUM = PPRHNUM and ITMREF = PITMREF and LOT = PLOT
   Else
     Filter [F:ZSOF] Where NOMFICH = PNOMFICH and PRHNUM = PPRHNUM and PRELIN = PPRELIN and ITMREF = PITMREF
+#    Filter [F:ZSOF] Where NOMFICH = PNOMFICH and ITMREF = PITMREF
   Endif
   For [ZSOF]
     LRES += [F:ZSOF]QTY
   Next
   Filter [F:ZSOF]
   Close Local File [ZSOF]
+
+#If GUSER="ADEV" Then Infbox "sale get_qsof" : Endif
 
 End LRES
 
@@ -1229,10 +2232,14 @@ Funprog GET_QFN(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PSTOFCY)
 Value Char    PNOMFICH,PPRHNUM,PITMREF,PSTOFCY
 Value Integer PPRELIN
 
+#If GUSER="ADEV" Then Infbox "entra get_qfn" : Endif
+
 Local Decimal LRES
 
   # lres = cantidad de stock físico en x3 - cantidad de la línea de detalle en SOF
   LRES = abs(func GET_QFT(PITMREF,'',PSTOFCY) - func GET_QSOF(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,''))
+
+#If GUSER="ADEV" Then Infbox "sale get_qfn" : Endif
 
 End LRES
 
@@ -1243,10 +2250,14 @@ Funprog GET_QAN(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char    PNOMFICH,PPRHNUM,PITMREF,PLOT,PSTA,PSTOFCY
 Value Integer PPRELIN
 
+#If GUSER="ADEV" Then Infbox "entra get_qan" : Endif
+
 Local Decimal LRES
 
   # lres = cantidad de la línea de detalle de stock en SOF - cantidad ya asignada en detalle en la línea del VP
   LRES = abs(func GET_QSOF(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT) - func GET_QAVD(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,PSTOFCY))
+
+#If GUSER="ADEV" Then Infbox "sale get_qan" : Endif
 
 End LRES
 
@@ -1256,6 +2267,8 @@ End LRES
 Funprog GET_QAVD(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,PSTOFCY)
 Value Char    PNOMFICH,PPRHNUM,PITMREF,PLOT,PSTA,PSTOFCY
 Value Integer PPRELIN
+
+#If GUSER="ADEV" Then Infbox "entra get_qavd" : Endif
 
 Local Decimal LRES
 
@@ -1280,6 +2293,8 @@ Local Decimal LRES
 
   Close Local File [ZSTO],[ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qavd" : Endif
+
 End LRES
 
 ##############################################################
@@ -1288,6 +2303,8 @@ End LRES
 Funprog GET_QAVG(PNOMFICH,PPRHNUM,PPRELIN,PITMREF)
 Value Char    PNOMFICH,PPRHNUM,PITMREF
 Value Integer PPRELIN
+
+#If GUSER="ADEV" Then Infbox "entra get_qavg" : Endif
 
 Local Decimal LRES
 
@@ -1302,12 +2319,16 @@ Local Decimal LRES
 
   Close Local File [ZSTA]
 
+#If GUSER="ADEV" Then Infbox "sale get_qavg" : Endif
+
 End LRES
 
 ##############################################################
-Funprog COMPRUEBA_STOCK(PNOMFICH,PMESSAGE)
+Funprog COMPRUEBA_STOCK2(PNOMFICH,PMESSAGE)
 Value     Char    PNOMFICH
 Variable  Char    PMESSAGE
+
+#If GUSER="ADEV" Then Infbox "entra comprueba_stock2" : Endif
 
 Local Integer LRES    # 0=stock inferior ; 1=stock igual o superior
 Local Integer LRET
@@ -1336,6 +2357,8 @@ Local Integer LUPDFLG
         # comprobar cantidad y lote fichero SOF vs cantidad y lote asignado en SAGE X3
         LQSOF = func GET_QSOF([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,[F:ZES6]LOT)
         LQAVD = func GET_QAVD([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,[F:ZES6]LOT,'A',[F:ZES6]STOFCY)
+#If GUSER="ADEV" Then Infbox num$(LQSOF) Endif
+#If GUSER="ADEV" Then Infbox num$(LQAVD) Endif
         If LQSOF = LQAVD Then
           # Se entrega exactamente la misma cantidad del lote que la asignación previa detallada en el vale. No es necesario realizar ningún ajuste,
           # la cantidad ya asignada en línea de vale coindice con lo entregado
@@ -1343,12 +2366,75 @@ Local Integer LUPDFLG
         Elsif LQSOF < LQAVD Then
           LUPDFLG =   1
           LUPDQTY +=  [F:ZES6]QTY
+          # Se entrega menor cantidad del lote que la asignación previa detallada en el vale.
+          # Disminuir stock detallado en línea de stock del vale con la cantidad entregada,
+          # liberar diferencia stock en línea de asignación del vale,
+          # se asigna esta diferencia al pedido que tendrá el restante pendiente
+#          If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+#          Read [F:STO9] First
+#          If !fstat Then
+#            [F:STO9]CUMALLQTY += LQSOF - LQAVD
+#            [F:STO9]CUMALLQTA += LQSOF - LQAVD
+#            Trbegin [F:STO9]
+#            Rewrite [F:STO9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Filter [F:STO9]
+#          Close Local File [STO9]
+#          If !clalev([F:ITV9]) Then : Local File ITMMVT [F:ITV9] : Endif
+#          Read [F:ITV9]ITV0 = [F:ZES6]ITMREF;[F:ZES6]STOFCY
+#          If !fstat Then
+#            [F:ITV9]PHYALL += LQSOF - LQAVD
+#            Trbegin [F:ITV9]
+#            Rewrite [F:ITV9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Close Local File [ITV9]
         Elsif LQSOF > LQAVD Then
           LUPDFLG = 1
           LUPDQTY +=  [F:ZES6]QTY
           # Se entrega más cantidad del lote que la asignación previa detallada en el vale
           # Ejecutar [Verificar stock] y autocorrección si se necesita
           Call VERIFICAR_STOCK([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,[F:ZES6]LOT,'A','DET',0)
+          # Ajustar stock detallado en línea de stock del vale con la cantidad entregada tras verificación y autocorrección del stock
+#          If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+#          Read [F:STO9] First
+#          If !fstat Then
+#            [F:STO9]CUMALLQTY += LQSOF - LQAVD
+#            [F:STO9]CUMALLQTA += LQSOF - LQAVD
+#            Trbegin [F:STO9]
+#            Rewrite [F:STO9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Filter [F:STO9]
+#          Close Local File [STO9]
+#          If !clalev([F:ITV9]) Then : Local File ITMMVT [F:ITV9] : Endif
+#          Read [F:ITV9]ITV0 = [F:ZES6]ITMREF;[F:ZES6]STOFCY
+#          If !fstat Then
+#            [F:ITV9]PHYALL += LQSOF - LQAVD
+#            Trbegin [F:ITV9]
+#            Rewrite [F:ITV9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Close Local File [ITV9]
         Endif
       Next
       Filter [F:ZES6]
@@ -1364,8 +2450,10 @@ Local Integer LUPDFLG
         Close Local File [ZPRE2]
       Endif
 
+#      If LUPDFLG = 1 Then
       If LUPDFLG = 1 or LQTYVP > LUPDQTY Then
 # 06.315.591.fin
+#If GUSER="ADEV" Then Infbox "1lupdqty:"-num$(LUPDQTY) Endif
 
         # JC.14122021.INI
         # Se cancela la cantidad asignada global
@@ -1405,7 +2493,9 @@ Local Integer LUPDFLG
         Filter [F:ZES6]
         # JC.14122021.FIN
 
-        Call ACTUALIZA_STOPRED([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        Call ACTUALIZA_SORDERQ2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+        Call ACTUALIZA_STOPRED2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        Call ACTUALIZA_STOALL2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,1)
 
       Endif
     # si la línea del vale tiene asignación GLOBAL en SAGE X3
@@ -1415,6 +2505,14 @@ Local Integer LUPDFLG
       # 1. comprobar cantidad fichero SOF vs cantidad disponible en SAGE X3 y cantidad global asignada al Vale
       LQSOF = [F:ZES1]QTY
       LQAVG = func GET_QAVG([F:ZES1]NOMFICH,[F:ZES1]PRHNUM,[F:ZES1]PRELIN,[F:ZES1]ITMREF)
+#If GUSER="ADEV" Then Infbox num$(LQSOF) Endif
+#If GUSER="ADEV" Then Infbox num$(LQAVG) Endif
+#      Filter [F:ZES6] Where NOMFICH = [F:ZES1]NOMFICH and PRHNUM = [F:ZES1]PRHNUM and PRELIN = [F:ZES1]PRELIN and ITMREF = [F:ZES1]ITMREF
+#      LQSOF = func GET_QSOF([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,'NOTIENELOTE')
+#      For [ZES6]
+#        LQSOF += func GET_QSOF([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,'NOTIENELOTE')
+#      Next
+#      Filter [F:ZES6]
       # Entrega de la misma cantidad o menor a la asignada global en la línea del vale
       If LQSOF <= LQAVG Then
         Filter [F:ZES6] Where NOMFICH = [F:ZES1]NOMFICH and PRHNUM = [F:ZES1]PRHNUM and PRELIN = [F:ZES1]PRELIN and ITMREF = [F:ZES1]ITMREF
@@ -1469,7 +2567,9 @@ Local Integer LUPDFLG
         Filter [F:ZES6]
         # JC.14122021.FIN
 
-        Call ACTUALIZA_STOPRED([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        Call ACTUALIZA_SORDERQ2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+        Call ACTUALIZA_STOPRED2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        Call ACTUALIZA_STOALL2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,1)
 
       # Entrega de mayor cantidad asignada global
       Elsif LQSOF > LQAVG Then
@@ -1478,6 +2578,37 @@ Local Integer LUPDFLG
           LUPDQTY +=  [F:ZES6]QTY
           # Ejecutar [Verificar stock] y autocorrección si se necesita
           Call VERIFICAR_STOCK([F:ZES6]NOMFICH,[F:ZES6]PRHNUM,[F:ZES6]PRELIN,[F:ZES6]ITMREF,[F:ZES6]LOT,'A','GLO',[F:ZES1]QTY)
+          # Se asigna la cantidad detallada en la línea del vale por el lote indicado y se cancela la cantidad asignada global
+#          If !clalev([F:STO9]) Then : Local File STOCK [F:STO9] : Endif
+#          Filter [F:STO9] Where ITMREF = [F:ZES6]ITMREF and LOT = [F:ZES6]LOT and STOFCY = [F:ZES6]STOFCY
+#          Read [F:STO9] First
+#          If !fstat Then
+#            [F:STO9]CUMALLQTY += LQSOF - LQAVG
+#            [F:STO9]CUMALLQTA += LQSOF - LQAVG
+#            Trbegin [F:STO9]
+#            Rewrite [F:STO9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Filter [F:STO9]
+#          Close Local File [STO9]
+#          If !clalev([F:ITV9]) Then : Local File ITMMVT [F:ITV9] : Endif
+#          Read [F:ITV9]ITV0 = [F:ZES6]ITMREF;[F:ZES6]STOFCY
+#          If !fstat Then
+#            [F:ITV9]PHYALL += LQSOF - LQAVG
+##            [F:ITV9]GLOALL -= LQSOF - LQAVG
+#            Trbegin [F:ITV9]
+#            Rewrite [F:ITV9]
+#            If !fstat Then
+#              Commit
+#            Else
+#              Rollback
+#            Endif
+#          Endif
+#          Close Local File [ITV9]
         Next
         Filter [F:ZES6]
 
@@ -1519,13 +2650,49 @@ Local Integer LUPDFLG
         Filter [F:ZES6]
         # JC.14122021.FIN
 
-        Call ACTUALIZA_STOPRED([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        If !clalev([F:STA9]) Then : Local File STOALL [F:STA9] : Endif
+#        If !clalev([F:ITV9]) Then : Local File ITMMVT [F:ITV9] : Endif
+#        Local Decimal LASIGGLO,LASIGDET
+#        Filter [F:STA9] Where STOFCY = 'PHISP' and ITMREF = [F:ZES1]ITMREF and ALLTYP = 1
+#        For [STA9]
+#          LASIGGLO += [F:STA9]QTYSTUACT
+#        Next
+#        Filter [F:STA9]
+#        Filter [F:STA9] Where STOFCY = 'PHISP' and ITMREF = [F:ZES1]ITMREF and ALLTYP = 2
+#        For [STA9]
+#          LASIGDET += [F:STA9]QTYSTU
+#        Next
+#        Filter [F:STA9]
+#        Read [F:ITV9]ITV0 = [F:ZES1]ITMREF;'PHISP'
+#        If !fstat Then
+#          [F:ITV9]PHYALL = LASIGDET
+#          [F:ITV9]GLOALL = LASIGGLO
+#          Trbegin [F:ITV9]
+#          Rewrite [F:ITV9]
+#          If !fstat Then
+#            Commit
+#          Else
+#            Rollback
+#          Endif
+#        Endif
+#        Close Local File [STA9],[ITV9]
+
+#        Call ACTUALIZA_SORDERQ2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+        Call ACTUALIZA_STOPRED2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#        Call ACTUALIZA_STOALL2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,1)
       Endif
+      # 2. Cancelar cantidad asignada global al vale y ajustar cantidad total entregada línea vale
+#      Call ACTUALIZA_SORDERQ2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#      Call ACTUALIZA_STOPRED2([F:ZES1]PRHNUM,[F:ZES1]PRELIN,LUPDQTY)
+#      Call ACTUALIZA_STOALL2([F:ZES1]PRHNUM,[F:ZES1]PRELIN)
     Endif
+#Next
     Filter [F:ZSTA]
   Next
   Filter [F:ZES1]
   Close Local File  [ZSTA],[ZES1],[ZES6]
+
+#If GUSER="ADEV" Then Infbox "sale comprueba_stock2" : Endif
 
 End LRES
 
@@ -1534,6 +2701,8 @@ Funprog VERIFICAR_STOCK(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,PTIPOAS,PQSOF
 Value Char    PNOMFICH,PPRHNUM,PITMREF,PLOT,PSTA,PTIPOAS
 Value Integer PPRELIN
 Value Decimal PQSOF
+
+#If GUSER="ADEV" Then Infbox "entra get_verificar_stock" : Endif
 
 Local Integer LRES
 Local Decimal LQAN,LQALPED,LQAGPED
@@ -1550,19 +2719,31 @@ Local Decimal LQADPED
     LQAVD = func GET_QAVD(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,'PHISP')
     LQDL  = func GET_QDL(PITMREF,PLOT,PSTA,'PHISP')
     LQAN  = LQSOF - LQAVD - LQDL
+#If GUSER="ADEV" Then Infbox num$("pto1") Endif
+#If GUSER="ADEV" Then Infbox num$(LQSOF) Endif
+#If GUSER="ADEV" Then Infbox num$(LQAVD) Endif
+#If GUSER="ADEV" Then Infbox num$(LQDL) Endif
+#If GUSER="ADEV" Then : Infbox "DET: QAN = QSOF-QAVD-QDL ="-num$(LQAN) : Endif
   # Si línea vale asignada globalmente necesitamos la cantidad total entregada, teniendo en cuenta la cantidad disponible que podemos asignar
   Else
     # QAN = QSOF – QDL
     LQSOF = func GET_QSOF(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT)
     LQDL  = func GET_QDL(PITMREF,PLOT,PSTA,'PHISP')
     LQAN  = LQSOF - LQDL
+#If GUSER="ADEV" Then Infbox "QSOF:"-num$(LQSOF) Endif
+#If GUSER="ADEV" Then Infbox "QDL("+PLOT+"):"-num$(LQDL) Endif
+#If GUSER="ADEV" Then : Infbox "GLO: QAN = QSOF-QDL("+PLOT+") ="-num$(LQAN) : Endif
   Endif
 
   # 2. Calcular cantidad asignada detallada del lote entregado a pedidos de venta. Solo las asignaciones a pedidos de venta pendientes pueden ser canceladas: QAL Ped.
   LQALPED = func GET_QALPED(PITMREF,PLOT,PSTA,'PHISP')
+#If GUSER="ADEV" Then Infbox num$("pto2") Endif
+#If GUSER="ADEV" Then Infbox num$(LQALPED) Endif
 
   # 3. Calcular cantidad asignada global a pedidos de venta (asignación global sin detalle de lote). Solo las asignaciones a pedidos de venta pendientes pueden ser canceladas: QAG Ped.
   LQAGPED = func GET_QAGPED(PITMREF)
+#If GUSER="ADEV" Then Infbox num$("pto3") Endif
+#If GUSER="ADEV" Then Infbox num$(LQAGPED) Endif
 
   # 4. Ejecutar acciones de autocorrección de stock según el estado asignaciones de stock
   If LQAN < 0 Then
@@ -1575,6 +2756,8 @@ Local Decimal LQADPED
     # con la cancelación de las asignaciones existentes en pedidos podremos registrar la asignación en el vale entregado por el SGA
     # Ejecutar [Cancelación stock asignado Detallado] por la cantidad QAN
     Call CANCELACION_STOCK_ASIGNADO_DETALLADO(PITMREF,LQAN,PLOT,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#If GUSER="ADEV" Then Infbox num$("pto4") Endif
+#If GUSER="ADEV" Then Infbox num$(LQTYPENDIENTEDESPUESDECANCELAR) Endif
   Elsif LQAN > LQALPED
     # Si QAN > QAL Ped
     # Si la cantidad necesaria pendiente de asignar detalladamente a la línea del vale de preparación es superior a la cantidad asignada del lote en pedidos de venta,
@@ -1583,6 +2766,7 @@ Local Decimal LQADPED
     # completar la cantidad necesaria
     # Ejecutar [Cancelación stock asignado Detallado] por la cantidad QAL Ped
     Call CANCELACION_STOCK_ASIGNADO_DETALLADO(PITMREF,LQALPED,PLOT,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#If GUSER="ADEV" Then Infbox num$(LQTYPENDIENTEDESPUESDECANCELAR) Endif
     # Ejecutar [Entrada stock físico lote] por la diferencia para cubrir la necesidad (QAN - QAL Ped)
     Local Decimal LQTYATRATAR : LQTYATRATAR = LQAN - LQALPED
     Call ENTRADA_STOCK_FISICO_LOTE(PITMREF,LQTYATRATAR,PLOT,PSTA)
@@ -1597,14 +2781,60 @@ Local Decimal LQADPED
   LQSOF = func GET_QSOF(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT)
   LQAVG = func GET_QAVG(PNOMFICH,PPRHNUM,PPRELIN,PITMREF)
   LQAVD = func GET_QAVD(PNOMFICH,PPRHNUM,PPRELIN,PITMREF,PLOT,PSTA,'PHISP')
+#If GUSER="ADEV" Then Infbox num$("pto5") Endif
+#If GUSER="ADEV" Then : Infbox "QFT:"-num$(LQFT) : Endif
+#If GUSER="ADEV" Then : Infbox "QAT:"-num$(LQAT) : Endif
+#If PTIPOAS = 'DET' Then
+#  If GUSER="ADEV" Then : Infbox "QSOF:"-num$(LQSOF) : Endif
+#Else
+#  If GUSER="ADEV" Then : Infbox "QSOF:"-num$(PQSOF) : Endif
+#Endif
+#If GUSER="ADEV" Then : Infbox "QAVG:"-num$(LQAVG) : Endif
+#If GUSER="ADEV" Then : Infbox "QAVD:"-num$(LQAVD) : Endif
+  # Si QFT < QAT + QSOF – (QAVG + QAVD)
+  # Si cantidad física total < cantidad asignada total (detallada + global) + cantidad que asignaremos detalladamente a la línea del vale de
+  # preparación (cantidad pendiente si vale asignado en detalle o cantidad total entregada si vale asignado globalmente – cantidad previamente
+  # asignada al vale si vale asignado global), tenemos que cancelar stock asignado Global por la diferencia hasta dejar stock coherente
+#If GUSER="ADEV" Then : Infbox "QFT:"-num$(LQFT) : Endif
   Local Decimal LQTYCOMP
   If PTIPOAS = 'DET' Then
     LQTYCOMP = LQAT + LQSOF - (LQAVG + LQAVD)
+#If GUSER="ADEV" Then : Infbox "LQAT+LQSOF-(LQAVG+LQAVD)="-num$(LQAT + LQSOF - (LQAVG + LQAVD)) : Endif
   Else
     LQTYCOMP = LQAT + PQSOF - (LQAVG + LQAVD)
+#If GUSER="ADEV" Then : Infbox "LQAT+PQSOF-(LQAVG+LQAVD)="-num$(LQAT + PQSOF - (LQAVG + LQAVD)) : Endif
   Endif
+#If GUSER="ADEV" Then : Infbox num$(LQTYCOMP)-"-"-num$(LQFT)-"="-num$(LQTYCOMP-LQFT) : Endif
+#  If LQFT < LQAT + LQSOF - (LQAVG + LQAVD) Then
+#    LQTYACANCELARGLOBAL = LQAT + LQSOF - (LQAVG + LQAVD) - LQFT
   If LQFT < LQTYCOMP Then
     LQTYACANCELARGLOBAL = LQTYCOMP - LQFT
+#If GUSER="ADEV" Then : Infbox "A cancelar:"-num$(LQTYACANCELARGLOBAL) : Endif
+#    If LQTYACANCELARGLOBAL <= LQAGPED Then
+#      # Si cantidad a cancelar <= QAG Ped (cantidad asignada global a pedidos). Ejecutar [Cancelación stock asignado Global] por la cantidad a cancelar
+#      Call CANCELACION_STOCK_ASIGNADO_GLOBAL(PITMREF,LQTYACANCELARGLOBAL,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#    Elsif LQTYACANCELARGLOBAL > LQAGPED Then
+#      # Si cantidad a cancelar > QAG Ped (cantidad asignada global a pedidos). Ejecutar [Cancelación stock asignado Global] por la cantidad QAG Ped
+#      Call CANCELACION_STOCK_ASIGNADO_GLOBAL(PITMREF,LQAGPED,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#      # Si no podemos cancelar asignaciones globales por el total que necesitamos cancelar. En este caso debemos cancelar asignaciones de stock detallado
+#      LQTYPENDIENTEACANCELAR = LQTYACANCELARGLOBAL - LQAGPED
+#      LQADPED = func GET_QADPED(PITMREF,PSTA,'PHISP')
+#      If LQTYPENDIENTEACANCELAR <= LQADPED Then
+#        # Si cantidad pendiente a cancelar <= QAD Ped
+#        # Ejecutar [Cancelación stock asignado detalle] de cualquier lote, por cantidad pendiente cancelar
+#        Call CANCELACION_STOCK_ASIGNADO_DETALLADO(PITMREF,LQTYPENDIENTEACANCELAR,PLOT,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#      Elsif LQTYPENDIENTEACANCELAR > LQADPED Then
+#        # Si cantidad pendiente a cancelar > QAD Ped
+#        # Ejecutar [Cancelación stock asignado detalle] de cualquier lote, por la cantidad QAD Ped. es decir, cancelar todas las asignaciones detalladas a pedidos.
+#        Call CANCELACION_STOCK_ASIGNADO_DETALLADO(PITMREF,LQADPED,PLOT,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
+#        # Si no podemos cancelar toda la cantidad pendiente a cancelar, pero las asignaciones se encuentran en fases que no podemos cancelar
+#        # automáticamente (en vales pendientes o en entregas pendientes de validar)
+#        # En esta situación, la única solución es registrar una entrada varia para que, aunque el stock no será correcto, sea coherente con las cantidades asignadas.
+#        # Ejecutar [Entrada stock físico lote] por la cantidad error a regularizar y lote en blanco o lote “ERR”
+#        LQTYERRORAREGULARIZAR = LQTYPENDIENTEACANCELAR - LQADPED
+#        Call ENTRADA_STOCK_FISICO_LOTE(PITMREF,LQTYERRORAREGULARIZAR,PLOT,PSTA)
+#      Endif
+#    Endif
     Call CANCELACION_STOCK_ASIGNADO_GLOBAL(PITMREF,LQTYACANCELARGLOBAL,PSTA,LQTYPENDIENTEDESPUESDECANCELAR)
     # Si no podemos cancelar asignaciones globales por el total que necesitamos cancelar. En este caso debemos cancelar asignaciones de stock detallado
     LQTYPENDIENTEACANCELAR = LQTYPENDIENTEDESPUESDECANCELAR
@@ -1621,10 +2851,14 @@ Local Decimal LQADPED
       # Ejecutar [Entrada stock físico lote] por la cantidad error a regularizar y lote en blanco o lote “ERR”
       LQTYERRORAREGULARIZAR = LQTYPENDIENTEDESPUESDECANCELAR
       If LQTYERRORAREGULARIZAR > 0 Then
+#If GUSER="ADEV" Then : Infbox "antes entrada stock físico"-num$(LQTYERRORAREGULARIZAR) : Endif
         Call ENTRADA_STOCK_FISICO_LOTE(PITMREF,LQTYERRORAREGULARIZAR,PLOT,PSTA)
+#If GUSER="ADEV" Then : Infbox "después entrada stock físico"-num$(LQTYERRORAREGULARIZAR) : Endif
       Endif
     Endif
   Endif
+
+#If GUSER="ADEV" Then Infbox "sale get_verificar_stock" : Endif
 
 End
 
@@ -1632,6 +2866,8 @@ End
 Subprog ENTRADA_STOCK_FISICO_LOTE(PITMREF,PQTY,PLOT,PSTA)
 Value Char    PITMREF,PLOT,PSTA
 Value Decimal PQTY
+
+#If GUSER="ADEV" Then Infbox "entra entrada_stock_fisico_lote" : Endif
 
   If !clalev([F:ZSTO1]) Then : Local File STOCK     [F:ZSTO1] : Endif
   If !clalev([F:ZITV1]) Then : Local File ITMMVT    [F:ZITV1] : Endif
@@ -1665,6 +2901,8 @@ Value Decimal PQTY
   Filter  [F:ZSTO1]
   Close Local File [ZSTO1],[ZITV1],[ZITM1]
 
+#If GUSER="ADEV" Then Infbox "sale entrada_stock_fisico_lote" : Endif
+
 End
 
 ##############################################################
@@ -1673,9 +2911,13 @@ Value     Char    PITMREF,PLOT,PSTA
 Value     Decimal PQTY
 Variable  Decimal PQTYREST
 
+#If GUSER="ADEV" Then Infbox "entra cancelacion_stock_asignado_detallado" : Endif
+
 Local     Decimal LQTYDESASIG
 
   PQTYREST = PQTY
+
+#If GUSER="ADEV" Then : Infbox num$(PQTY) : Endif
 
   If !clalev([F:STO1]) Then : Local File STOCK        [F:STO1] : Endif
   If !clalev([F:STO2]) Then : Local File STOCK        [F:STO2] : Endif
@@ -1696,6 +2938,7 @@ Local     Decimal LQTYDESASIG
         # Ejecutar proceso cancelación de asignaciones detalladas de las líneas de pedido anteriores hasta haber desasignado una cantidad igual o superior a la cantidad indicada
         Call ECR_TRACE("Cancelación stock asignado detallado. Pedido:"-[F:ZVAL]SOHNUM-",línea:"-num$([F:ZVAL]SOPLIN)-",lote:"-PLOT,0) From GESECRAN
         Call UPD_DEASIG_SOH([F:ZVAL]SOHNUM,[F:ZVAL]SOPLIN,[F:ZVAL]SOQSEQ,[F:ZVAL]STOFCY,[F:ZVAL]SHIDAT) From ZAULIB01
+#If GUSER="ADEV" Then : Infbox num$([F:ZVAL]SOHNUM) : Endif
         LQTYDESASIG = [F:ZVAL]QTYSTUACT
         PQTYREST    -= LQTYDESASIG
         If PQTYREST <= 0 Then
@@ -1707,6 +2950,12 @@ Local     Decimal LQTYDESASIG
     Filter [F:ZVAL]
   Endif
   Filter [F:STO1]
+
+#If GUSER="ADEV" Then : Infbox num$(PQTYREST) : Endif
+
+
+
+#################################  ?????????????????????????????????????????????????????????????
 
   If PQTYREST > 0 Then
     Filter [F:STO2] Where STOFCY = "PHISP" and ITMREF = PITMREF and STA = PSTA and LOC = "SGA" and LOT <> PLOT
@@ -1720,6 +2969,7 @@ Local     Decimal LQTYDESASIG
           # Ejecutar proceso cancelación de asignaciones detalladas de las líneas de pedido anteriores hasta haber desasignado una cantidad igual o superior a la cantidad indicada
           Call ECR_TRACE("Cancelación stock asignado detallado. Pedido:"-[F:ZVA1]SOHNUM-",línea:"-num$([F:ZVA1]SOPLIN)-",lote:"-[F:STO2]LOT,0) From GESECRAN
           Call UPD_DEASIG_SOH([F:ZVA1]SOHNUM,[F:ZVA1]SOPLIN,[F:ZVA1]SOQSEQ,[F:ZVA1]STOFCY,[F:ZVA1]SHIDAT) From ZAULIB01
+#If GUSER="ADEV" Then : Infbox num$([F:ZVA1]SOHNUM) : Endif
           LQTYDESASIG = [F:ZVA1]QTYSTUACT
           PQTYREST    -= LQTYDESASIG
           If PQTYREST <= 0 Then
@@ -1732,8 +2982,11 @@ Local     Decimal LQTYDESASIG
     Next
     Filter [F:STO2]
   Endif
+#If GUSER="ADEV" Then : Infbox num$(PQTYREST) : Endif
 
   Close Local File [STO1],[STO2],[ZVAL],[ZVA1],[ZALK],[ZAL1]
+
+#If GUSER="ADEV" Then Infbox "sale cancelacion_stock_asignado_detallado" : Endif
 
 End
 
@@ -1743,9 +2996,13 @@ Value     Char    PITMREF,PSTA
 Value     Decimal PQTY
 Variable  Decimal PQTYREST
 
+#If GUSER="ADEV" Then Infbox "entra cancelacion_stock_asignado_global" : Endif
+
 Local     Decimal LQTYDESASIG
 
   PQTYREST = PQTY
+
+#If GUSER="ADEV" Then : Infbox num$(PQTYREST) : Endif
 
   If !clalev([F:ZVA2]) Then : Local File ZVSTVALLSOH2 [F:ZVA2] : Endif
   If !clalev([F:ZALK]) Then : Local File APLLCK       [F:ZALK] : Endif
@@ -1759,6 +3016,7 @@ Local     Decimal LQTYDESASIG
       # Ejecutar proceso cancelación de asignaciones globales de las líneas de pedido anteriores hasta haber desasignado una cantidad igual o superior a la cantidad indicada
       Call ECR_TRACE("Cancelación stock asignado global. Pedido:"-[F:ZVA2]SOHNUM-",línea:"-num$([F:ZVA2]SOPLIN),0) From GESECRAN
       Call UPD_DEASIG_SOH([F:ZVA2]SOHNUM,[F:ZVA2]SOPLIN,[F:ZVA2]SOQSEQ,[F:ZVA2]STOFCY,[F:ZVA2]SHIDAT) From ZAULIB01
+#If GUSER="ADEV" Then : Infbox num$([F:ZVA2]SOHNUM) : Endif
       LQTYDESASIG += [F:ZVA2]QTYSTUACT
       PQTYREST    -= LQTYDESASIG
       If PQTYREST <= 0 Then
@@ -1771,6 +3029,11 @@ Local     Decimal LQTYDESASIG
 
   Close Local File [ZVA2],[ZALK]
 
+#If GUSER="ADEV" Then : Infbox num$(PQTYREST) : Endif
+
+
+#If GUSER="ADEV" Then Infbox "sale cancelacion_stock_asignado_global" : Endif
+
 End
 
 ###############################################################
@@ -1779,8 +3042,10 @@ End
 #*
 #* @param PNOMFICH  > nombre del fichero SOF
 #*!
-Subprog ELIMINA_LINEA_VP(PNOMFICH)
+Subprog ELIMINA_LINEA_VP2(PNOMFICH)
 Value Char    PNOMFICH
+
+#If GUSER="ADEV" Then Infbox "entra elimina_linea_vp2" : Endif
 
 Local Integer LRET
 Local Char    LSOHORI(50),LORDDAT(15),LSOHNUM(50)
@@ -1837,11 +3102,14 @@ Local Decimal LQTYPRE
         Read [F:ZSOQ]SOQ0 = LSOHNUM;LSOPLIN;LSOPSEQ
         Read [F:ZSOP]SOP0 = LSOHNUM;LSOPLIN;LSOPSEQ
         Trbegin [F:ZSOQ]
+#      [F:ZSOQ]OPRQTY    = 0
+#      [F:ZSOQ]OPRQTYSTU = 0
         [F:ZSOQ]OPRQTY    -= LQTYPRE
         [F:ZSOQ]OPRQTYSTU -= LQTYPRE
         Rewrite [F:ZSOQ]
         If !fstat Then
           Commit
+#        Call UPD_ASIG_SOH(LSOHNUM,LSOPLIN,LSOPSEQ,[F:ZSOQ]STOFCY,[F:ZSOQ]SHIDAT) From ZAULIB01
         Else
           Rollback
         Endif
@@ -1851,6 +3119,68 @@ Local Decimal LQTYPRE
   Next
 
   Close Local File [AXX1],[AXX2],[AXX3],[AXX4],[ZSOH],[ZSOQ],[ZSOP]
+
+#If GUSER="ADEV" Then Infbox "sale elimina_linea_vp2" : Endif
+
+End
+
+###############################################################
+#**
+#* actualiza la tabla SORDERQ para mostrar correctamente la situación de la línea
+#*
+#* @param PPRHNUM  > número de VP
+#* @param PPRELIN  > línea del VP
+#* @param PQTY     > cantidad a actualizar
+#*!
+Subprog ACTUALIZA_SORDERQ2(PPRHNUM,PPRELIN,PQTY)
+Value Char    PPRHNUM
+Value Integer PPRELIN
+Value Decimal PQTY
+
+#If GUSER="ADEV" Then Infbox "entra actualiza_sorderq2" : Endif
+
+  Call ECR_TRACE("Actualiza tabla SORDERQ",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZPRE])  Then : Local File STOPRED [F:ZPRE]  : Endif
+  If !clalev([F:ZSOQ])  Then : Local File SORDERQ [F:ZSOQ]  : Endif
+
+  Read [F:ZPRE]PRE0 = PPRHNUM;PPRELIN
+  If !fstat Then
+    Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+    If !fstat Then
+      Trbegin [F:ZSOQ]
+#      [F:ZSOQ]OPRQTY    -= [F:ZPRE]QTYSTU
+#      [F:ZSOQ]OPRQTYSTU -= [F:ZPRE]QTYSTU
+##      [F:ZSOQ]PREQTY    += PQTY
+##      [F:ZSOQ]PREQTYSTU += PQTY
+#      [F:ZSOQ]PREQTY    = PQTY
+#      [F:ZSOQ]PREQTYSTU = PQTY
+      [F:ZSOQ]OPRQTY    = PQTY
+      [F:ZSOQ]OPRQTYSTU = PQTY
+      [F:ZSOQ]PREQTY    = 0
+      [F:ZSOQ]PREQTYSTU = 0
+      Rewrite [F:ZSOQ]
+      If !fstat Then
+        Commit
+        Call ECR_TRACE("Pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),0) From GESECRAN
+        GSTERROR = 0
+      Else
+        Rollback
+        Call ECR_TRACE("Error en Pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),1) From GESECRAN
+        GSTERROR = 1
+      Endif
+    Else
+      Call ECR_TRACE("No existe el pedido:"-[F:ZPRE]ORINUM-"/ Línea:"-num$([F:ZPRE]ORILIN),1) From GESECRAN
+      GSTERROR = 1
+    Endif
+  Endif
+
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZPRE],[ZSOQ]
+
+#If GUSER="ADEV" Then Infbox "sale actualiza_sorderq2" : Endif
 
 End
 
@@ -1862,10 +3192,15 @@ End
 #* @param PPRELIN  > línea del VP
 #* @param PQTY     > cantidad a actualizar
 #*!
-Subprog ACTUALIZA_STOPRED(PPRHNUM,PPRELIN,PQTY)
+Subprog ACTUALIZA_STOPRED2(PPRHNUM,PPRELIN,PQTY)
 Value Char    PPRHNUM
 Value Integer PPRELIN
 Value Decimal PQTY
+
+#If GUSER="ADEV" Then Infbox "entra actualiza_stopred2" : Endif
+
+#  Call ECR_TRACE("Actualiza tabla STOPRED",0) From GESECRAN
+#  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
 
   If !clalev([F:ZPRE])  Then : Local File STOPRED [F:ZPRE]  : Endif
 
@@ -1882,6 +3217,7 @@ Value Decimal PQTY
     Rewrite [F:ZPRE]
     If !fstat Then
       Commit
+#      Call ECR_TRACE("VP:"-PPRHNUM-"/ Línea:"-num$(PPRELIN),0) From GESECRAN
       GSTERROR = 0
     Else
       Rollback
@@ -1894,7 +3230,348 @@ Value Decimal PQTY
     GERRSTOCK = 1                                                                             # 06.315.150.new
   Endif
 
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
   Close Local File [ZPRE]
+
+#If GUSER="ADEV" Then Infbox "sale actualiza_stopred2" : Endif
+
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla STOCK
+#*
+#* @param PITMREF  > artículo
+#* @param PLOT     > lote
+#* @param PSTOFCY  > planta
+#* @param PQTY     > cantidad a actualizar
+#*!
+Subprog ACTUALIZA_STOCK2(PITMREF,PLOT,PSTOFCY,PQTY)
+Value Char    PITMREF,PLOT,PSTOFCY
+Value Decimal PQTY
+
+#If GUSER="ADEV" Then Infbox "entra actualiza_stock2" : Endif
+
+  Call ECR_TRACE("Actualiza tabla STOCK",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZSTO])  Then : Local File STOCK       [F:ZSTO]  : Endif
+
+  Filter [F:ZSTO] Where ITMREF = PITMREF and LOT = PLOT and STOFCY = PSTOFCY and STA = 'A' and LOC = "SGA"
+  Read [F:ZSTO] First
+  If !fstat Then
+    Trbegin [F:ZSTO]
+    [F:ZSTO]CUMALLQTY += PQTY
+    [F:ZSTO]CUMALLQTA += PQTY
+    [F:ZSTO]UPDDAT    =  date$
+    [F:ZSTO]UPDDATTIM =  datetime$
+    Rewrite [F:ZSTO]
+    If !fstat
+      Commit
+#      Call ECR_TRACE("Artículo:"-PITMREF-"/ Lote:"-PLOT,0) From GESECRAN
+      GSTERROR = 0
+    Else
+      Rollback
+      Call ECR_TRACE("Error en artículo:"-PITMREF-"/ Lote:"-PLOT,1) From GESECRAN
+      GSTERROR = 1
+    Endif
+  Else
+    Call ECR_TRACE("No existe stock para el artículo:"-PITMREF-"con lote:"-PLOT,1) From GESECRAN
+    GSTERROR = 1
+  Endif
+
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZSTO]
+
+#If GUSER="ADEV" Then Infbox "sale actualiza_stock2" : Endif
+
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla ITMMVT
+#*
+#* @param PITMREF  > artículo
+#* @param PSTOFCY  > planta
+#* @param PQTY     > cantidad a actualizar
+#*!
+Subprog ACTUALIZA_ITMMVT2(PITMREF,PSTOFCY,PQTY)
+Value Char    PITMREF,PSTOFCY
+Value Decimal PQTY
+
+#If GUSER="ADEV" Then Infbox "entra actualiza_itmmvt2" : Endif
+
+  Call ECR_TRACE("Actualiza tabla ITMMVT",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1     [F:ZESO1] : Endif
+  If !clalev([F:ZITV])  Then : Local File ITMMVT      [F:ZITV]  : Endif
+
+  Read [F:ZITV]ITV0 = PITMREF;PSTOFCY
+  If !fstat Then
+    Trbegin [F:ZITV]
+    [F:ZITV]PHYALL    += PQTY
+    [F:ZITV]GLOALL    -= PQTY
+    [F:ZITV]UPDDAT    = date$
+    [F:ZITV]UPDDATTIM = datetime$
+    Rewrite [F:ZITV]
+    If !fstat Then
+      Commit
+#      Call ECR_TRACE("Artículo:"-PITMREF-"/ Planta:"-PSTOFCY,0) From GESECRAN
+      GSTERROR = 0
+    Else
+      Rollback
+      Call ECR_TRACE("Error en artículo:"-PITMREF-"/ Planta:"-PSTOFCY,1) From GESECRAN
+      GSTERROR = 1
+    Endif
+  Else
+    Call ECR_TRACE("No existe stock del artículo:"-PITMREF-"en la planta:"-PSTOFCY,1) From GESECRAN
+    GSTERROR = 1
+  Endif
+
+  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZITV]
+
+#If GUSER="ADEV" Then Infbox "sale actualiza_itmmvt2" : Endif
+
+End
+
+###############################################################
+#**
+#* actualiza los campos en la tabla STOALL
+#*
+#* @param PPRHNUM  > número de VP
+#* @param PPRELIN  > línea del VP
+#* @param PITMREF  > artículo
+#* @param PLOT     > lote
+#* @param PSTOFCY  > planta
+#* @param PQTY     > cantidad
+#*!
+Subprog ACTUALIZA_STOALL2(PPRHNUM,PPRELIN,PALLTYP)
+Value Char    PPRHNUM
+Value Integer PPRELIN,PALLTYP
+
+#If GUSER="ADEV" Then Infbox "entra actualiza_stoall2" : Endif
+
+Local Integer LSEQ, LSEQORI
+Local Char    LDELETE(5) : LDELETE = "YES"
+
+  Call ECR_TRACE("Actualiza tabla STOALL",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1     [F:ZESO1] : Endif
+  If !clalev([F:ZESO3]) Then : Local File ZVESOF3     [F:ZESO3] : Endif
+  If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF  [F:ZESOF] : Endif
+  If !clalev([F:ZSTO])  Then : Local File STOCK       [F:ZSTO]  : Endif
+  If !clalev([F:ZSTA1]) Then : Local File STOALL      [F:ZSTA1] : Endif
+  If !clalev([F:ZSTA2]) Then : Local File STOALL      [F:ZSTA2] : Endif
+  If !clalev([F:ZSTA3]) Then : Local File STOALL      [F:ZSTA3] : Endif
+  If !clalev([F:ZSTA4]) Then : Local File STOALL      [F:ZSTA4] : Endif
+  If !clalev([F:ZSTA5]) Then : Local File STOALL      [F:ZSTA5] : Endif
+  If !clalev([F:ZDS0])  Then : Local File ZDELSTOALL  [F:ZDS0] : Endif
+  If !clalev([F:ZDS1])  Then : Local File ZDELSTOALL  [F:ZDS1] : Endif
+
+  # limpia la tabla temporal
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZDELSTOALL"
+  # guardamos en una tabla temporal todos los registros que hay inicialmente en la tabla STOALL
+  # asociados al vale de preparación con el que vamos a trabajar
+  For [F:ZSTA5] Where VCRNUM = PPRHNUM and VCRLIN = PPRELIN
+    Trbegin [F:ZDS0]
+    [F:ZDS0] = [F:ZSTA5]
+    Write [F:ZDS0]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+
+## asignación detallada
+#If PALLTYP = 2 Then
+  # filtramos en la vista por la línea del vale
+  Filter [F:ZESO1] Where PRHNUM = PPRHNUM and PRELIN <> 0 and ZGENSDHFLG = 2 Order By PRHNUM;PRELIN
+  For [F:ZESO1]
+    # filtramos en la tabla donde hemos volcado el fichero xml para crear todas
+    # las líneas en la tabla STOALL
+    Filter [F:ZESOF] Where PRHNUM = [F:ZESO1]PRHNUM and PRELIN = [F:ZESO1]PRELIN and ITMREF = [F:ZESO1]ITMREF
+    For [F:ZESOF]
+      # filtramos en la tabla STOCK por cada línea para obtener el valor de STOCOU, ya que lo
+      # tenemos que informar en el nuevo registro que creamos en la tabla STOALL
+      Filter [F:ZSTO] Where ITMREF = [F:ZESOF]ITMREF and LOT = [F:ZESOF]LOT and STOFCY = [F:ZESOF]STOFCY and STA = 'A' and LOC = "SGA"
+      Read [F:ZSTO] First
+      If !fstat Then
+        Filter [F:ZSTA4] Where STOFCY = [F:ZSTO]STOFCY and ITMREF = [F:ZSTO]ITMREF and STOCOU = [F:ZSTO]STOCOU Order By SEQ Asc
+        Read [F:ZSTA4] First
+        If !fstat Then
+          LSEQ = [F:ZSTA4]SEQ
+        Else
+          Call ECR_TRACE("No existen asignaciones para el artículo"-[F:ZSTO]ITMREF,1) From GESECRAN
+        Endif
+        Filter [F:ZSTA4]
+        # guardamos en la tabla los valores
+        Trbegin [F:ZSTA2]
+        [F:ZSTA2]STOFCY     = [F:ZESOF]STOFCY
+        [F:ZSTA2]ITMREF     = [F:ZESOF]ITMREF
+        [F:ZSTA2]STOCOU     = [F:ZSTO]STOCOU
+        [F:ZSTA2]ALLDAT     = [31/12/2999]
+        [F:ZSTA2]SEQ        = LSEQ - 1
+        [F:ZSTA2]ALLTYP     = 2
+        [F:ZSTA2]VCRTYP     = 3
+        [F:ZSTA2]VCRNUM     = [F:ZESOF]PRHNUM
+        [F:ZSTA2]VCRLIN     = [F:ZESOF]PRELIN
+        [F:ZSTA2]VCRSEQ     = 0
+        [F:ZSTA2]QTYSTU     = [F:ZESOF]QTY
+        [F:ZSTA2]QTYSTUACT  = [F:ZESOF]QTY
+        [F:ZSTA2]BESDAT     = date$
+        [F:ZSTA2]BPRNUM     = ""
+        [F:ZSTA2]SCOFLG     = 1
+        [F:ZSTA2]EXPNUM     = 13    # ???????????????
+        Write [F:ZSTA2]
+        If !fstat Then
+          Commit
+#          Call ECR_TRACE("VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-
+#&         num$([F:ZSTA2]SEQ),0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error en VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:
+& ZSTA2]SEQ),1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe stock del artículo:"-[F:ZESOF]ITMREF-"/ Lote:"-[F:ZESOF]LOT-"en la planta:"-[F:ZESO1]STOFCY,1) From GESECRAN
+        GSTERROR = 1
+      Endif
+    Next
+    Filter [F:ZESOF]
+
+#    If LDELETE = "YES" Then
+#      # una vez ya hemos duplicado el registro 'padre' tantas veces como líneas del vale de preparación existan,
+#      # eliminamos ese registro 'padre'
+#      Trbegin [F:ZSTA3]
+#      Readlock [F:ZSTA3]STA0 = [F:ZESO1]STOFCY;[F:ZESO1]ITMREF;0;LSEQORI
+#      Delete [F:ZSTA3]
+#      If !fstat Then
+#        Commit
+##        Infbox "Records deleted:"-num$(adxdlrec)
+#      Else
+#        Rollback
+#      Endif
+#    Endif
+  Next
+  Filter [F:ZESO1]
+
+## asignación global
+#Else
+#  Filter [F:ZSTA4] Where STOFCY = 'PHISP' and ITMREF = [F:ZSTO]ITMREF and STOCOU = 0 and VCRNUM = PPRHNUM and VCRLIN = PPRELIN Order By SEQ Asc
+#  Read [F:ZSTA4] First
+#  If !fstat Then
+#    LSEQ = [F:ZSTA4]SEQ
+#  Else
+#    Call ECR_TRACE("No existen asignaciones para el artículo"-[F:ZSTO]ITMREF,1) From GESECRAN
+#  Endif
+#  Filter [F:ZSTA4]
+#  # guardamos en la tabla los valores
+#  Trbegin [F:ZSTA2]
+#  [F:ZSTA2]STOFCY     = [F:ZESOF]STOFCY
+#  [F:ZSTA2]ITMREF     = [F:ZESOF]ITMREF
+#  [F:ZSTA2]STOCOU     = [F:ZSTO]STOCOU
+#  [F:ZSTA2]ALLDAT     = [31/12/2999]
+#  [F:ZSTA2]SEQ        = LSEQ - 1
+#  [F:ZSTA2]ALLTYP     = 2
+#  [F:ZSTA2]VCRTYP     = 3
+#  [F:ZSTA2]VCRNUM     = [F:ZESOF]PRHNUM
+#  [F:ZSTA2]VCRLIN     = [F:ZESOF]PRELIN
+#  [F:ZSTA2]VCRSEQ     = 0
+#  [F:ZSTA2]QTYSTU     = [F:ZESOF]QTY
+#  [F:ZSTA2]QTYSTUACT  = [F:ZESOF]QTY
+#  [F:ZSTA2]BESDAT     = date$
+#  [F:ZSTA2]BPRNUM     = ""
+#  [F:ZSTA2]SCOFLG     = 1
+#  [F:ZSTA2]EXPNUM     = 13    # ???????????????
+#  Write [F:ZSTA2]
+#  If !fstat Then
+#    Commit
+#    Call ECR_TRACE("VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:ZSTA2]SEQ),
+#& 0) From GESECRAN
+#    GSTERROR = 0
+#  Else
+#    Rollback
+#    Call ECR_TRACE("Error en VP:"-[F:ZSTA2]VCRNUM-"/ Línea:"-num$([F:ZSTA2]VCRLIN)-"/ Artículo:"-[F:ZSTA2]ITMREF-"/ Planta:"-[F:ZSTA2]STOFCY-"/ Stocou:"-num$([F:ZSTA2]STOCOU)-"/ Seq:"-num$([F:
+#& ZSTA2]SEQ),1) From GESECRAN
+#    GSTERROR = 1
+#  Endif
+#Endif
+
+  # eliminamos de la tabla STOALL todos los registros que existían a priori
+  Call ECR_TRACE("Vacía la tabla STOALL",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+  For [F:ZDS1]
+    Trbegin [F:ZSTA3]
+    Readlock [F:ZSTA3]STA0 = [F:ZDS1]STOFCY;[F:ZDS1]ITMREF;[F:ZDS1]STOCOU;[F:ZDS1]SEQ
+    Delete [F:ZSTA3]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Next
+
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Close Local File [ZESO1],[ZESO3],[ZESOF],[ZSTO],[ZSTA1],[ZSTA2],[ZSTA3],[ZSTA4],[ZSTA5],[ZDS0],[ZDS1]
+
+#If GUSER="ADEV" Then Infbox "sale actualiza_stoall2" : Endif
+
+End
+
+###############################################################
+#**
+#* cambia el estado de los vales a entregable
+#*
+#* @param PNOMFICH  > nombre del fichero SOF
+#*!
+Subprog VP_ENTREGABLE2(PNOMFICH)
+Value Char PNOMFICH
+
+  Call ECR_TRACE("Actualiza vales a Entregables",0) From GESECRAN
+  Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+
+  If !clalev([F:ZESO1]) Then : Local File ZVESOF1 [F:ZESO1] : Endif
+  If !clalev([F:ZPRH])  Then : Local File STOPREH [F:ZPRH] : Endif
+  Filter [F:ZESO1] Where NOMFICH = PNOMFICH and PRELIN <> 0 and ZGENSDHFLG = 2
+  For [F:ZESO1]
+#    If !GSTERROR Then
+      Read [F:ZPRH]PRH0 = [F:ZESO1]PRHNUM
+      If !fstat Then
+        Trbegin [F:ZPRH]
+        [F:ZPRH]DLVFLG = 2
+        Rewrite [F:ZPRH]
+        If !fstat Then
+          Commit
+#          Call ECR_TRACE("VP:"-[F:ZESO1]PRHNUM-"entregable",0) From GESECRAN
+          GSTERROR = 0
+        Else
+          Rollback
+          Call ECR_TRACE("Error al convertir el VP:"-[F:ZESO1]PRHNUM-"a entregable",1) From GESECRAN
+          GSTERROR = 1
+        Endif
+      Else
+        Call ECR_TRACE("No existe el VP:"-[F:ZESO1]PRHNUM,1) From GESECRAN
+        GSTERROR = 1
+      Endif
+#    Else
+#      Break
+#    Endif
+  Next
+
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+  Filter [F:ZESO1]
+  Close Local File [ZESO1],[ZPRH]
 
 End
 
@@ -1904,8 +3581,10 @@ End
 #*
 #* @param PNOMFICH  > nombre del fichero SOF
 #*!
-Subprog GENERA_ENTREGA(PNOMFICH,PWSGATMP,PWFICINP1,PWSGARECIBIDOS,PWSGATRATADOS,PWSGAERROR)
+Subprog GENERA_ENTREGA2(PNOMFICH,PWSGATMP,PWFICINP1,PWSGARECIBIDOS,PWSGATRATADOS,PWSGAERROR)
 Value     Char    PNOMFICH,PWSGATMP,PWFICINP1,PWSGARECIBIDOS,PWSGATRATADOS,PWSGAERROR
+
+#If GUSER="ADEV" Then Infbox "entra genera_entrega2" : Endif
 
 Local Integer LFICH2, STAT
 Local Char    LFILETXT(250), LFILEXML(250), LDIRIMPORTTMP(250), LDIRIMPORTRECIBIDOS(250), LDIRIMPORTTRATADOS(250), LDIRIMPORTERROR(250)
@@ -1944,6 +3623,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   If !clalev([F:ZES11]) Then : Local File ZVESOF11    [F:ZES11] : Endif
 # 06.300.273.fin
   If !clalev([F:ZES12]) Then : Local File ZVESOF12    [F:ZES12] : Endif   # 06.332.553.new
+  If !clalev([F:ZSCO])  Then : Local File SCOHEAD     [F:ZSCO]  : Endif   # 06.333.290.new
+  If !clalev([F:ZBPS])  Then : Local File BPSUPPLIER  [F:ZBPS]  : Endif   # 06.333.290.new
 
   Filter [F:ZESO2] Where NOMFICH = PNOMFICH and ZGENSDHFLG = 2 Order By SDHNUM
   For [F:ZESO2]
@@ -1967,6 +3648,18 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
             LCONDPAGO     = [F:ZSOH1]PTE                                                    # 06.310.719.new
             LINCOTERM     = [F:ZSOH1]EECICT                                                 # 06.319.759.new
             LCTYINCOT     = [F:ZSOH1]ICTCTY                                                 # 06.319.759.new
+# 06.333.290.ini
+          Else
+            Read [F:ZSCO]SCO0 = [F:ZPRE1]ORINUM
+            If !fstat Then
+              Read [F:ZBPS]BPS0 = [F:ZSCO]BPRNUM
+              If !fstat Then
+                LTRANSP   = [F:ZBPS]BPTNUM
+                LCONDPAGO = [F:ZBPS]PTE
+                LINCOTERM = [F:ZBPS]EECICT
+              Endif
+            Endif
+# 06.333.290.fin
           Endif
         Endif
       Filter [F:ZPRE1]
@@ -2033,6 +3726,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
     Next
   Next
 
+#  Call ECR_TRACE("########################################################################",0) From GESECRAN
+
 # 06.298.127.ini
 #  Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE]
   Close Local File [ZESOF],[ZESOX],[ZESO2],[ZESO5],[ZPRE],[ZSOH1],[ZPRE1],[ZES11]
@@ -2064,7 +3759,18 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
     Call  LANZA_WORKFLOW_ERRORES(PNOMFICH)
     Call ECR_TRACE("########################################################################",0) From GESECRAN
     Call ECR_TRACE("Error en la importación",1) From GESECRAN
+#    # lanza un workflow para avisar de que la importación ha fallado
+#    Global Char GCORREO(250),GASUNTO(250),GTEXTO1(250)
+#    GCORREO   = "joseluis.chiva@auren.es"
+#    GASUNTO   = "Error importación fichero SOF"
+#    GTEXTO1   = "Fichero"-PNOMFICH
+#    GFILPATH  = LDIRIMPORTERROR + "\" + PNOMFICH + ".xml"
+#    Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+#    If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+#    If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+#    If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
   Else
+#    Call MOVE(LFILETXT,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero txt a la carpeta de procesados
     If filinfo(LFILEXML,7) > 0 Then
       Call MOVE(LFILEXML,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero xml a la carpeta de procesados
     Endif
@@ -2076,8 +3782,13 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   If filinfo(LFILETXT, 7) > 0 Then
     System "ae_rm " + LFILETXT
   Endif
+#  If filinfo(LFILETXT+".err", 7) > 0 Then
+#    System "ae_rm " + LFILETXT+".err"
+#  Endif
 
   Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+#If GUSER="ADEV" Then Infbox "sale genera_entrega2" : Endif
 
 End
 
