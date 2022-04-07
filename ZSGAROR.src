@@ -562,10 +562,10 @@ $LINEASSRH
       WLNEQTYEXPECTED=[F:ZSRD2]EXTQTY
     Endif
     Read [F:ZITM]ITM0=[F:ZSRD2]ITMREF
-    AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(WLNEQTYEXPECTED*[F:ZITM]ITMWEI/1000,0.001)),2),3,2)
+    AA=func PUT_PROPXML('LneAttWeight',vireblc(num$(arr(WLNEQTYEXPECTED*[F:ZITM]ITMWEI/1000,0.001)),2),5,2)
 # 06.304.683.ini
    #LneAttVersion
-    Filter [F:ZBOM0] Where ITMREF = [F:ZSHD2]ITMREF
+    Filter [F:ZBOM0] Where ITMREF = [F:ZSRD2]ITMREF
     Read [F:ZBOM0] First
     If !fstat Then
       AA=func PUT_PROPXML('LneAttVersion','1',5,2)
