@@ -3,6 +3,7 @@
 # 06.301.868 - JC.18012022.problemas dirección entrega en importación pedidos WEB
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 # 06.309.392 - JC.04022022.Errores importación web
+# 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop
 ########################################################################
 
 
@@ -84,7 +85,7 @@ Local Char    LIMPDESCUP(250),LCOMCLI(250),LEXTRA(250),LNOMBREENVIOCOMPLETO(250)
 
   # tratamiento ficheros cabecera
   LFICHEROIMP='WCPED*'
-#  LFICHEROIMP='WCPED5081083'
+#  LFICHEROIMP='WCPED5091165'
   Raz NFICHEROS
 
   LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
@@ -230,7 +231,7 @@ Local Char    LBPCORD(250)
 
   # tratamiento ficheros líneas
   LFICHEROIMP='WLPED*'
-#  LFICHEROIMP='WLPED5081083'
+#  LFICHEROIMP='WLPED5091165'
   Raz NFICHEROS
 
   LPSHOPRECIBIDOS   = "ZPSHOP\WEB_to_ERP"
@@ -381,14 +382,15 @@ Local Char    LSQHNUM(250)
     Filter [ZOPD1]
     If LNUMLINSOH = LNUMLINIMPORT Then
       [F:ZOPH1]IMPORTFLG = "E"
-    Endif
-    [F:ZOPH1]SQHNUM = LSQHNUM
-    Trbegin [F:ZOPH1]
-    Rewrite [F:ZOPH1]
-    If !fstat Then
-      Commit
-    Else
-      Rollback
+      [F:ZOPH1]SQHNUM = LSQHNUM
+      Trbegin [F:ZOPH1]
+      Rewrite [F:ZOPH1]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+      Raz LNUMLINIMPORT                                                   # 06.333.494.new
     Endif
   Next
 
