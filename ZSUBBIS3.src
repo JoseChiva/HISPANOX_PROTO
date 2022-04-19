@@ -6,7 +6,7 @@ $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "LOAD_GDALIN"      : Gosub LOAD_GDALIN
+  When "LOAD_GDALIN"      :  Gosub LOAD_GDALIN
   When Default
 Endcase
 
@@ -26,9 +26,8 @@ $LOAD_GDALIN
     When 5
       [M]PURTYP(NOL) = 3 : # Purchase goods
   Endcase
-  [M]NBLIG += 1
 # 06.316.515.fin
-End
+Return
 
 ##############################################################
 ######################    ETIQUETAS    #######################
