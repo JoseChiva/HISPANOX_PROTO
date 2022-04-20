@@ -2,6 +2,7 @@
 #
 # 06.288.239 : error lectura SOC - nuevo estado 'Rotura stock'
 # 06.299.137 - JC.12012022.error SOC - nuevo estado
+# 06.337.145 - JC.22022022.Errores importación ficheros
 ################################################################
 
 
@@ -71,20 +72,39 @@ Local Clbfile XDATA (10)
   For A=1 To NFICHEROS
     Local Integer LERROR
 
+    Local Char LNAMEFILE(250) : LNAMEFILE = FICHEROS(A)
     LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
     WFICINP1=LNOMFICHERO
 #    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
+
+# 06.337.145.ini
+    If ctrans(LNOMFICHERO,'.xml','') <> func ZAULIB01.REPLACE(LNAMEFILE,'.xml','') Then
+      Local Integer LSTA
+      Local Char    LSTR(250) : LSTR = mid$(WFICINP1,1,len(WFICINP1)-2)
+      Local Char    PATHORI(250),PATHDES(250)
+      PATHORI = filpath(WSGARECIBIDOS,"","")+"\"+WFICINP1+".xml"
+      PATHDES = filpath(WSGARECIBIDOS,"","")+"\"+LSTR+"R.xml"
+      LSTA = renameFile(PATHORI,PATHDES)
+      If LSTA = 0 Then
+        WFICINP1    = LSTR+"R"
+        LNOMFICHERO = LSTR+"R"
+      Endif
+    Endif
+# 06.337.145.fin
+
     Call ECR_TRACE('Lectura: '+WFICINP1+'.xml',0) From GESECRAN
 
-# 06.299.138.ini
-    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (SOC0xxxxxxxxxxx.0.xml)
-    If WFICINP1 <> LNOMFICHERO Then
-      Call  LANZA_WORKFLOW_ERRORES(WFICINP1)
-      Gosub MUEVE_FILE_ERR
-      Break
-    Endif
-# 06.299.138.fin
+# 06.337.145.ini
+## 06.299.138.ini
+#    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (SOC0xxxxxxxxxxx.0.xml)
+#    If WFICINP1 <> LNOMFICHERO Then
+#      Call  LANZA_WORKFLOW_ERRORES(WFICINP1)
+#      Gosub MUEVE_FILE_ERR
+#      Break
+#    Endif
+## 06.299.138.fin
+# 06.337.145.fin
 
     #Abrimos y leemos el fichero
     Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
