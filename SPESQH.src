@@ -107,10 +107,8 @@ For X=0 To [M:SQH2]NBLIG-1
   Else
     Chgstl [M:SQH2]NBLIG(X) With "BACKGREY"
   Endif
-  Affzo [M:SQH2]NBLIG(X)
+#  Affzo [M:SQH2]NBLIG(X)                                                 # 06.326.337.new
 Next
-
-#Affzo [M:SQH2]                                                           # 06.326.337.new
 
 Gosub IMPORTES_TOTALES
 
@@ -124,6 +122,8 @@ Gosub IMPORTES_TOTALES
   Affzo [M:ZSQH1]QUOINVATI
 
   Diszo [M:SQH0]ZPEDIDOWEB
+
+Affzo [M:SQH2]                                                            # 06.326.337.new
 
 Return
 
