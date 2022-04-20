@@ -1230,7 +1230,6 @@ Funprog REPLACE(STR, OLD, NEW)
         #the string to substitute is empty or it is longer than initial string, so we do nothing
         End STR
     Endif
-
     Local Integer INDEX
     Local Integer INDEXSTART
 
