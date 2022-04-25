@@ -28,6 +28,7 @@ Local Clbfile XDATA (10)
   If !clalev([F:ZQLD]) : Local File STOQLYD     [ZQLD] : Endif
   If !clalev([F:ZQLH]) : Local File STOQLYH     [ZQLH] : Endif
   If !clalev([F:ZITV]) : Local File ITMMVT      [ZITV] : Endif
+  If !clalev([F:ZITF]) : Local File ITMFACILIT  [ZITF] : Endif              # 06.308.477.new
 
   WFICHEROIMP='KST0*'
 #  WFICHEROIMP='_KST0120220131113445000'
@@ -122,6 +123,7 @@ Local Clbfile XDATA (10)
       Gosub MUEVE_FILE_ERR                                                  # 06.299.138.new
     Else                                                                    # 06.299.138.new
       Gosub MUEVE_FILE
+      Call  UPD_ZCMO                                                        # 06.308.477.new
     Endif                                                                   # 06.299.138.new
   Next
 
@@ -133,6 +135,7 @@ $GUARDA_KST_EN_TABLA
   Local Char    WLNENUMBER(250),WWORKORDERCODE(250)
   Local Integer WNLIN2,CONTROL1,CONTROL2,K1,K2,K3,N
   Local Decimal PMPTOT
+  Local Decimal CMOTOT                                                      # 06.308.477.new
 
   If !clalev([F:ZEKST]) Then : Local File ZEXPORTKST [F:ZEKST] : Endif
 
@@ -349,10 +352,17 @@ $GUARDA_KST_EN_TABLA
       Endif
       $ENDCOMPCSTATT05
 # 06.308.477.fin
-     #PMP
+     #PMP y CMO
       Read [F:ZITV]ITV0     = [F:ZEKST]ITEMCODE;[F:ZEKST]SALFCY
       [F:ZEKST]PMP          = [F:ZITV]AVC
       PMPTOT               += [F:ZITV]AVC * [F:ZEKST]QUANTITY
+# 06.308.477.ini
+      Read [F:ZITF]ITF0     = [F:ZEKST]ITEMCODE;"PHISP"
+      If !fstat Then
+        [F:ZEKST]CMO        = [F:ZITF]ZCMO
+        CMOTOT             += [F:ZITF]ZCMO * [F:ZEKST]QUANTITY
+      Endif
+# 06.308.477.fin
       Trbegin [F:ZEKST]
       Write   [F:ZEKST]
       If !fstat Then
@@ -369,6 +379,9 @@ $GUARDA_KST_EN_TABLA
     Read   [F:ZEKST] First
     If !fstat Then
       [F:ZEKST]PMP = PMPTOT / [F:ZEKST]QUANTITY
+# 06.308.477.ini
+      [F:ZEKST]CMO = CMOTOT / [F:ZEKST]QUANTITY
+# 06.308.477.fin
       Trbegin [F:ZEKST]
       Rewrite   [F:ZEKST]
       If !fstat Then
@@ -780,4 +793,31 @@ Value Char  PNOMFICH,PTIPO
   If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
   If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
   If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+End
+
+###############################################################
+# 06.308.477
+#**
+#* actualiza el valor de ZCMO en el artículo compuesto
+#*
+#*!
+Subprog UPD_ZCMO
+    If !clalev([F:ZKST2]) Then : Local File ZEXPORTKST [F:ZKST2] : Endif
+    If !clalev([F:ZITF2]) Then : Local File ITMFACILIT [F:ZITF2] : Endif
+    Filter [F:ZKST2] Where INDICADOR = "E"
+    For [ZKST2]
+      Read [F:ZITF2]ITF0 = [F:ZKST2]ITEMCODE;"PHISP"
+      If !fstat Then
+        [F:ZITF2]ZCMO = [F:ZKST2]CMO
+        Trbegin [F:ZITF2]
+        Rewrite [F:ZITF2]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+      Endif
+    Next
+    Filter [F:ZKST2]
+    Close Local File [ZKST2],[ZITF2]
 End
