@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.337.679 - JC.26042022.Error en la importación STC (estado origen y destino coinciden)
+######################################################################################################
+
 #If GUSER="ADEV"
 Call ZSGAENTSTC From ZSGAENTSTC
 #Endif
@@ -160,12 +163,23 @@ Local Clbfile XDATA (10)
         Openi Using [ZECO]
         WCFILE=WFICINP1+WPREF
         mkstat = 0 : fstat = 0 : GERRTRACE = 0
-        Call IMPORTSIL ("ZSCS",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
-
-        If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se producen errores
-          Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
-          LERROR = 1
+# 06.337.679.ini
+#        Call IMPORTSIL ("ZSCS",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
+#        If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se producen errores
+#          Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
+#          LERROR = 1
+#        Endif
+        If WSTAUSRPREVCODE <> WSTAUSRCODE Then
+          Call IMPORTSIL ("ZSCS",filpath(WSGATMP,WCFILE,"","")) From GIMPOBJ
+          If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                             # si se producen errores
+            Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO)
+            LERROR = 1
+          Endif
+        Else
+          Call ECR_TRACE("AVISO: No se ha podido realizar el cambio para el artículo: "+WITEMCODE+" porque STA ori: "+WSTAUSRPREVCODE+" y STA dest: "+WSTAUSRCODE+" son idénticos",0) From GESECRAN
+          Call ECR_TRACE(string$(70,'-'),0) From GESECRAN
         Endif
+# 06.337.679.fin
 
 # JC.06102021.FIN
 
@@ -187,6 +201,9 @@ Local Clbfile XDATA (10)
 
   If WTRAZA=2
     Call FERME_TRACE From LECFIC
+  Endif
+  If !GSERVEUR Then
+    Call LEC_TRACE From LECFIC
   Endif
 
 End
@@ -772,7 +789,7 @@ Value Char  PNOMFICH
   Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
   GASUNTO   = "Error en la importación STC del fichero"-PNOMFICH
   GCORREO   = "sergi.cunill@hispanox.com"
-#  GCORREO   = "joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
   GFICHERO  = PNOMFICH
   GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
   GTEXTO2   = "Documento adjunto con la traza."
