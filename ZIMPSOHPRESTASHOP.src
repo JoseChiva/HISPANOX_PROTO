@@ -3,7 +3,7 @@
 # 06.301.868 - JC.18012022.problemas dirección entrega en importación pedidos WEB
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 # 06.309.392 - JC.04022022.Errores importación web
-# 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop
+# 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop (no pasa 'Facturación porte','Comentarios cli. Web', 'Prioridad entrega')
 ########################################################################
 
 
@@ -214,7 +214,7 @@ Local Char    LIMPDESCUP(250),LCOMCLI(250),LEXTRA(250),LNOMBREENVIOCOMPLETO(250)
     # cierra el fichero
     Openi Using [ZIMPH_R]
 
-    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+#    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
 
   Next
 
@@ -324,7 +324,7 @@ Local Char    LBPCORD(250)
     # cierra el fichero
     Openi Using [ZIMPD_R]
 
-    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
+#    Call MOVE(LFILE,filpath(LPSHOPSOH,"",""),LSTAT) From ORDSYS                       # mueve el fichero origen
 
   Next
 
@@ -557,9 +557,20 @@ Local Char LPTE(250)
       LPTE = [F:ZBPC3]PTE
     Endif
 
+# 06.333.494.ini
+    Local Decimal LDTOPP,LPORTES
+    Gosub TRANSPORTE_SOH
+    Gosub ELEM_FACT_SOH
+# 06.333.494.end
+
     # datos de cabecera de pedido
+# 06.333.494.ini
+#    Wrseq "E" + ";" + "PHISP" + ";" + "PW" + ";" + [F:ZOPH3]SOHNUM + ";" + [F:ZOPH3]BPCORD + ";" + num$([F:ZOPH3]ORDDAT) + ";" + [F:ZOPH3]CUSORDREF + ";" + "PHISP" + ";" +
+#&         [F:ZOPH3]CUR + ";" + [F:ZOPH3]SQHNUM + ";" + LPTE + ";" + "1" + ";" + num$(GPRIORIDAD) Using [ZIMPO_W]
     Wrseq "E" + ";" + "PHISP" + ";" + "PW" + ";" + [F:ZOPH3]SOHNUM + ";" + [F:ZOPH3]BPCORD + ";" + num$([F:ZOPH3]ORDDAT) + ";" + [F:ZOPH3]CUSORDREF + ";" + "PHISP" + ";" +
-&         [F:ZOPH3]CUR + ";" + [F:ZOPH3]SQHNUM + ";" + LPTE + ";" + "1" + ";" + num$(GPRIORIDAD)   Using [ZIMPO_W]
+&         [F:ZOPH3]CUR + ";" + [F:ZOPH3]SQHNUM + ";" + LPTE + ";" + "1" + ";" + num$(GPRIORIDAD) + ";" + GBPTNUM + ";" + num$(LPORTES) + ";" + "1" + ";" + "2" + ";" + num$(LDTOPP) + ";" +
+&         "3" + ";" + "3" + ";" + num$(GZFREINV) + ";" + [F:ZOPH3]COMCLI Using [ZIMPO_W]
+# 06.333.494.fin
     Trbegin [F:ZOPH3]
     [F:ZOPH3]IMPORTFLG = "P"   # cabecera procesada
     Rewrite [F:ZOPH3]
@@ -936,27 +947,6 @@ Local Decimal LORDNOT
 &                       S_CODIGO_POSTAL,[F:ZOPH2]CUR,1,[F:ZOPH2]ORDDAT,LORDNOT,
 &                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
 &                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
-#If GUSER="ADEV" Then
-#Infbox num$(S_TRANSPORTISTA)
-#Infbox num$([F:ZOPH2]BPCORD)
-#Infbox num$(GZFREINV)
-#Infbox num$("PHISP")
-#Infbox num$(S_PAIS)
-#Infbox num$(S_CIUDAD)
-#Infbox num$(S_CODIGO_POSTAL)
-#Infbox num$([F:ZOPH2]CUR)
-#Infbox num$(1)
-#Infbox num$([F:ZOPH2]ORDDAT)
-#Infbox num$(LORDNOT)
-#Infbox num$(S_UNIWEI)
-#Infbox num$(F_PESOS)
-#Infbox num$(S_UNIVOL)
-#Infbox num$(F_VOLUMEN)
-#Infbox num$(S_REGION)
-#Infbox num$(F_IMPORTE_TRANSPORTE)
-#Infbox num$(S_EXPLICACION_CALCULO)
-#Infbox num$(I_STAT)
-#Endif
 
           If find(I_STAT,0,4,5) Then
             LPORTES = F_IMPORTE_TRANSPORTE
@@ -1036,6 +1026,171 @@ Local Char    LSAU(50)
 
   Close Local File [ZITM4],[ZITV4]
 Return
+
+########################################################
+# 06.333.494.ini
+$TRANSPORTE_SOH
+
+  If !clalev([F:ZBPC1]) Then : Local File BPCUSTOMER  [F:ZBPC1] : Endif
+  If !clalev([F:ZBPD1]) Then : Local File BPDLVCUST   [F:ZBPD1] : Endif
+  Read [F:ZBPC1]BPC0 = [F:ZOPH3]BPCORD
+  If [F:ZOPH3]CODADR <> "" Then
+    Read [F:ZBPD1]BPD0 = [F:ZBPC1]BPCNUM;[F:ZOPH3]CODADR
+# 06.309.392.ini
+    # si la dirección de entrega indicada en el fichero no está activa, se filtra por la dirección 'Cliente destinatario por defecto'
+    If [F:ZBPD1]ENAFLG <> 2 Then
+      Read [F:ZBPD1]BPD0 = [F:ZBPC1]BPCNUM;[F:ZBPC1]BPDADD
+    Endif
+# 06.309.392.fin
+  Else
+    Read [F:ZBPD1]BPD0 = [F:ZBPC1]BPCNUM;[F:ZBPC1]BPDADD
+  Endif
+
+  Case [F:ZOPH3]ZFREINV
+    When 0
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes
+      # si imp_portes = 0 -> freinv pedido = freinv ficha cliente
+      If [F:ZOPH3]IMPPORTES = 0 Then
+        GZFREINV  = [F:ZBPC1]FREINV
+      # si imp_portes > 0 -> freinv pedido = facturado
+      Elsif [F:ZOPH3]IMPPORTES > 0 Then
+        GZFREINV  = 1
+      Endif
+      # transportista
+      # si transportista ficha cliente <> SUS MEDIOS (T0077) -> trasnportista pedido = transportista ficha cliente
+      If [F:ZBPD1]BPTNUM <> "T0077" Then
+        GBPTNUM   = [F:ZBPD1]BPTNUM
+      # si transportista ficha cliente = SUS MEDIOS -> transportista pedido = en blanco
+      Else
+        GBPTNUM   = ""
+      Endif
+    When 1
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes pedido = freinv ficha cliente
+      GZFREINV    = [F:ZBPC1]FREINV
+      # trasnportista pedido = transportista ficha cliente
+      GBPTNUM     = [F:ZBPD1]BPTNUM
+    When 2
+      # prioridad entrega = normal
+      GPRIORIDAD  = 1
+      # facturación portes pedido = sus medios
+      GZFREINV    = 9
+      # trasnportista pedido = agencia pedido web
+      GBPTNUM     = [F:ZOPH3]BPTNUM
+    When 3
+      # prioridad entrega = urgente
+      GPRIORIDAD  = 2
+      # facturación portes pedido = facturado
+      GZFREINV    = 1
+      # trasnportista pedido = agencia pedido web
+      GBPTNUM     = [F:ZOPH3]BPTNUM
+  Endcase
+
+  Close Local File [ZBPC1],[ZBPD1]
+
+  Gosub CALCULA_PORTES_SOH
+
+Return
+
+########################################################
+$ELEM_FACT_SOH
+  If !clalev([F:BPC2]) Then : Local File BPCUSTOMER [F:BPC2] : Endif
+  Read [F:BPC2]BPC0 = [F:ZOPH3]BPCORD
+  If !fstat Then
+    LDTOPP = [F:BPC2]INVDTAAMT(2)
+  Endif
+  Close Local File [BPC2]
+Return
+
+###############################################################
+$CALCULA_PORTES_SOH
+Local Integer LCON
+Local Char    LSTA(1)
+Local Char    S_PAIS(250)
+Local Char    S_CIUDAD(250)
+Local Char    S_CODIGO_POSTAL(250)
+Local Char    S_REGION(5)
+Local Char    S_TRANSPORTISTA(250)
+Local Decimal F_PESOS
+Local Decimal F_VOLUMEN
+Local Decimal F_IMPORTE_TRANSPORTE
+Local Char    S_EXPLICACION_CALCULO (1)
+Local Integer I_STAT
+Local Char    S_UNIWEI(10)
+Local Char    S_UNIVOL(10)
+Local Integer YESNO : YESNO = 1
+Local Decimal LORDNOT
+
+  If !clalev([F:ZSFI0])  Then : Local File SFOOTINV    [F:ZSFI0]  : Endif
+  If !clalev([F:ZBPA0])  Then : Local File BPADDRESS   [F:ZBPA0]  : Endif
+  If !clalev([F:ZBPD0])  Then : Local File BPDLVCUST   [F:ZBPD0]  : Endif
+  If !clalev([F:ZITM0])  Then : Local File ITMMASTER   [F:ZITM0]  : Endif
+  If !clalev([F:ZOPD5]) Then : Local File ZSOHPSHOPD  [F:ZOPD5] : Endif
+
+  Read [F:ZSFI0]SFI0 = GFRENUM
+  If fstat = 0 and [F:ZSFI0]DACDLV <> 0 Then
+    Read [F:ZBPA0]BPA0=1;[F:ZOPH3]BPCORD;LCODADR
+    If fstat = 0 Then
+      S_PAIS          = [F:ZBPA0]CRY
+      S_CIUDAD        = [F:ZBPA0]CTY
+      S_CODIGO_POSTAL = [F:ZBPA0]POSCOD
+    Endif
+  Endif
+
+  S_TRANSPORTISTA     = GBPTNUM
+
+  If GFRENUM <> 0 and [F:ZSFI0]DACDLV <> 0 Then
+    Case GZFREINV
+      When 1
+        #Facturados, calculo de la tarifa de transporte
+        If S_TRANSPORTISTA <> "" Then
+          Filter [F:ZOPD5] Where SOHNUM = [F:ZOPH3]SOHNUM
+          For [ZOPD5]
+            #Me sitúo en el artículo
+            Read [F:ZITM0]ITM0 = [F:ZOPD5]ITMREF
+            If !fstat Then
+              S_UNIWEI = [F:ZITM0]WEU
+              S_UNIVOL = [F:ZITM0]VOU
+            Endif
+#            #Paso todo a KG
+            F_PESOS    += [F:ZITM0]ITMWEI*[F:ZOPD5]QTY
+#            #Paso todo a M3
+            F_VOLUMEN  += [F:ZITM0]ITMVOU*[F:ZOPD5]QTY
+            LORDNOT    += [F:ZOPD5]IMPORTE
+          Next
+          Filter [F:ZOPD5]
+
+          Call TRANSPORT(S_TRANSPORTISTA,[F:ZOPH3]BPCORD,GZFREINV,"PHISP",S_PAIS,S_CIUDAD,
+&                       S_CODIGO_POSTAL,[F:ZOPH3]CUR,1,[F:ZOPH3]ORDDAT,LORDNOT,
+&                       S_UNIWEI,F_PESOS,S_UNIVOL,F_VOLUMEN,S_REGION,
+&                       F_IMPORTE_TRANSPORTE,S_EXPLICACION_CALCULO,I_STAT) From ZAULIB01
+
+          If find(I_STAT,0,4,5) Then
+            LPORTES = F_IMPORTE_TRANSPORTE
+          Else
+            LPORTES = 0
+          Endif
+        Endif
+
+      When 8
+        #Facturación manual, no hago nada
+        LPORTES = [F:ZOPH3]IMPPORTES
+
+      When Default
+        #Todos los demás casos, no se facturan portes
+        LPORTES = 0
+    Endcase
+  Endif
+
+  Close Local File [ZSFI0],[ZBPA0],[ZBPD0],[ZITM0],[ZOPD5]
+
+  If dim(LCON) > 0 Then : Kill LCON : Endif
+  If dim(LSTA) > 0 Then : Kill LSTA : Endif
+Return
+# 06.333.494.fin
 
 ###############################################################
 #**
