@@ -1,4 +1,5 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.338.596 - JC.27042022.Importes líneas expedición diferents a recepción
 ######################################################################################
 # Gestion du masque SHIP
 # Caution, this screen is manage with hybrid code
@@ -157,7 +158,10 @@ If clalev([POQ]) Local File PORDERQ [POQ] : Endif
   If [F:POQ]QTYUOM <>0
     [M:SHIP1]SHIQTYPUU(NOL) = [F:POQ]QTYPUU * VALEUR / [F:POQ]QTYUOM
     [M:SHIP1]SHIQTYSTU(NOL) = [F:POQ]QTYSTU * VALEUR / [F:POQ]QTYUOM
-    [M:SHIP1]LINAMT(NOL) = [F:POQ]LINAMT * VALEUR / [F:POQ]QTYUOM
+# 06.338.596.ini
+#    [M:SHIP1]LINAMT(NOL) = [F:POQ]LINAMT * VALEUR / [F:POQ]QTYUOM
+    [M:SHIP1]LINAMT(NOL) = arr(([F:POQ]LINAMT / [F:POQ]QTYUOM), 10^-GDECPRI) * VALEUR
+# 06.338.596.fin
     Call ARRDEV([M:SHIP1]LINAMT(NOL),[F:POQ]NETCUR) From TRTDIV  # Issue X3-70790 - 2018-01-15 by MAE
   Else
     [M:SHIP1]SHIQTYPUU(NOL) = [F:POQ]QTYPUU
