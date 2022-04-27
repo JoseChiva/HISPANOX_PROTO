@@ -17,6 +17,7 @@
 #AUR01: 20/01/2022 ML campo Total en divisa
 #AUR02: 20/01/2022 ML campo Campo suma en la grilla detalle de expediciones
 #AUR03: 20/01/2022 ML campo Campo planta por defecto "PHISP"
+# 06.333.348 07/04/2022 ML : Afegir camp a EXpedicions
 $OUVRE
 If clalev([ZPOP])<=0  :  Local File PORDERP [ZPOP]  :  Endif
 If clalev([ZPOQ])<=0  :  Local File PORDERQ [ZPOQ]  :  Endif
@@ -163,6 +164,17 @@ For I = 0 To [M:SHIP1]NBLIG-1
 #AUR01.ini
   [M:CSTS]ZTOTCUR+=[M:SHIP1]LINAMT(I)
 #AUR01.fin
+# 06.333.348.ini
+  Read [F:ITM]ITM0 = [M:SHIP1]ITMREF(I)
+  If !fstat
+    If [F:ITM]PCU(1) = "PAC" and [F:ITM]PCUSTUCOE(1) > 1
+      [M:SHIP1]ZPACK(I)=[F:ITM]PCUSTUCOE(1)
+      If [F:ITM]ZCANTJUSTA<>2 and [M:SHIP1]SHIQTY(I)>[F:ITM]PCUSTUCOE(1)
+        [M:SHIP1]ZQTYRES(I)=mod([M:SHIP1]SHIQTY(I),[F:ITM]PCUSTUCOE(1))
+      Endif
+    Endif
+  Endif
+# 06.333.348.fin
   Read [F:ZPOP]POP0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
   If !fstat
     Read [F:ZPOQ]POQ0 = [M:SHIP1]POHNUM(I);[M:SHIP1]POPLIN(I);[M:SHIP1]POQSEQ(I)
@@ -259,6 +271,14 @@ If status=0 and currbox = GBOXPO6
   Else
     [M:SHIP1]STA(NOL) = "A"
   Endif
+# 06.333.348.ini
+  If [F:ITM]PCU(1) = "PAC" and [F:ITM]PCUSTUCOE(1) > 1
+    [M:SHIP1]ZPACK(NOL)=[F:ITM]PCUSTUCOE(1)
+    If [F:ITM]ZCANTJUSTA<>2 and [M:SHIP1]SHIQTY(NOL)>[F:ITM]PCUSTUCOE(1)
+      [M:SHIP1]ZQTYRES(NOL)=mod([M:SHIP1]SHIQTY(NOL),[F:ITM]PCUSTUCOE(1))
+    Endif
+  Endif
+# 06.333.348.fin
   Affzo [M:SHIP1]ZPALENT(NOL)
   Affzo [M:SHIP1]ZLBPSPRI(NOL)
   Affzo [M:SHIP1]ZLPRIDIV(NOL)
@@ -405,7 +425,13 @@ If !fstat
     Chgstl [M:SHIP1]ZQTYASIG(nolign-1) With ""
   Endif
 Endif
-
+# 06.333.348.ini
+If [M:SHIP1]ZQTYRES(nolign-1)>0
+  Chgstl [M:SHIP1]ZQTYRES(nolign-1) With "BACKRED"
+Else
+  Chgstl [M:SHIP1]ZQTYRES(nolign-1) With ""
+Endif
+# 06.333.348.fin
 Return
 
 $COLOR_PALET
