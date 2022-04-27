@@ -6,6 +6,7 @@
 #DEV: AFVI 01-01-2021 COMP-015 - Lotes y estado en contenedor y expedición
 #AUR01: 20/01/2022 ML campo Campo suma en la grilla detalle de expediciones
 #AUR02: 20/01/2022 ML campo Campo planta por defecto "PHISP"
+# 06.333.348 07/04/2022 ML : Afegir camp a EXpedicions
 $ACTION
 #If GUSER="ADMIN" and dim([M:CSTS]TOTSOC)>0 :Infbox ACTION+"/"+num$([M:CSTS]TOTSOC) Endif
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
@@ -365,3 +366,25 @@ Subprog AM_ZFILITM(VALEUR)
 Variable Char    VALEUR()
 [M:PLCW]WITMREF = VALEUR
 End
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SHIP1) 07/04/2022 23:00:09 (ADMIN)
+######################################################################################
+Subprog AM_SHIQTY(VALEUR)
+Variable Decimal VALEUR
+# 06.333.348.ini
+Read [F:ITM]ITM0 = [M:SHIP1]ITMREF(nolign-1)
+If !fstat
+  If [F:ITM]ZCANTJUSTA<>2 and VALEUR>[F:ITM]PCUSTUCOE(1)
+    [M:SHIP1]ZQTYRES(nolign-1)=mod(VALEUR,[F:ITM]PCUSTUCOE(1))
+    If [M:SHIP1]ZQTYRES(nolign-1)>0
+      Chgstl [M:SHIP1]ZQTYRES(nolign-1) With "BACKRED"
+    Else
+      Chgstl [M:SHIP1]ZQTYRES(nolign-1) With ""
+    Endif
+  Endif
+Endif
+# 06.333.348.fin
+End
+
+
+######################################################################################
