@@ -1124,6 +1124,8 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
 
 #Infbox "WNLIN:"-num$(WNLIN)
 
+    Local Decimal LRESTANTE                                               # 06.302.893.new
+
     For N=1 To WNLIN
       WLNENUMBER          = func GET_PROPXML(XDATA,"LneNumber",LPOS)
 
@@ -1348,6 +1350,7 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
           [F:ZREF0]SHLDAT     = WLNESTOCKRECDATE
           [F:ZREF0]ZNUMORDEN  = LNUMORDEN
           LNUMORDEN += 1
+          LRESTANTE += val(WLNESTOCKQTY)                                  # 06.302.893.new
           Write [F:ZREF0]
           If !fstat Then
             Commit
@@ -1509,7 +1512,11 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
                     LQTYASIG        = [F:ZSHI1]SHIQTY
 # 06.302.893.fin - Montse nos ha pedido que la recepción se cree con las cantidades de la expedición, no del pedido como estaba en un principio porque nos lo dijo así Sergi
                   Else
-                    LQTYASIG        = val(WLNEQTYRECEIVED)
+# 06.302.893.ini
+#                    LQTYASIG        = val(WLNEQTYRECEIVED)
+                    LQTYASIG        = [F:ZSHI1]SHIQTY-LRESTANTE
+                    Raz LRESTANTE
+# 06.302.893.ini
                   Endif
                 Else
                   LQTYASIG          = val(WLNEQTYRECEIVED)
