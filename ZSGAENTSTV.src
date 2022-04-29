@@ -507,12 +507,12 @@ Local Clbfile XDATA (10)
           If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
             LERRORSTV += 1
             Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
-          Endif
-          mkstat = 0 : fstat = 0 : GERRTRACE = 0
-          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
-          If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-            LERRORSTV += 1
-            Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+          Else
+            Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
+            If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+              LERRORSTV += 1
+              Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+            Endif
           Endif
         Else
 #          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
