@@ -1,0 +1,257 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#############################################################
+$ACTION
+Case ACTION
+  When "AUTORIS"    : Gosub AUTORIS
+  When "OUVRE"      : Gosub OUVRE
+  When "LECTURE"    : Gosub LECTURE
+  When "SETBOUT"    : Gosub SETBOUT
+
+  When Default
+Endcase
+Return
+
+############################################################
+$AUTORIS
+Return
+
+############################################################
+$SETBOUT
+#CHMEN+="BC"
+Return
+
+###################################################################
+# analyse paramères, initialisations, ouvertures et déclarations  #
+###################################################################
+$OUVRE
+adxsca = "...,**$_"
+NAVIG="ZCNSZRPR"
+GCONSULT = 1
+Local Char    WFIL(250)
+Global Char TMPVCRRESP :Raz TMPVCRRESP
+If !clalev([F:ZITM])  Local File ITMMASTER [ZITM]  : Endif
+If clalev([F:ZPPH])=0:  Local File ZPRESP [ZPPH]: Endif
+If clalev([F:ZPPD])=0:  Local File ZPRESPD [ZPPD]: Endif
+If clalev([F:ZBPS])=0:  Local File BPSUPPLIER[ZBPS]: Endif
+If clalev([F:ZITV])=0:  Local File ITMMVT[ZITV]: Endif
+If clalev([F:ITV])=0:  Local File ITMMVT[ITV]: Endif
+If clalev([F:ITG])=0:  Local File ITMCATEG[ITG]: Endif
+If clalev([F:ZSDD])=0:  Local File SDELIVERYD[ZSDD]: Endif
+If clalev([F:ZSDH])=0:  Local File SDELIVERY[ZSDH]: Endif
+If clalev([F:ZTCH])=0 Local File TABCHANGE [ZTCH]   : Endif
+If clalev([F:ZSAT])=0 Local File STAT [ZSAT]   : Endif
+Gosub DEFCRIT
+Return
+
+# --------------------------------------------------------------------------#
+# Analyse paramètres, initialisations                                       #
+# --------------------------------------------------------------------------#
+$DEFCRIT
+For I = 1 To dim(PARAM)
+  Case I
+    When 1 :    : # Parametre Fournisseur
+      If PARAM(I) <> ""
+        If [F:ZITM]ITMREF <> PARAM(I) Read [F:ZITM]ITM0 = PARAM(I)
+                                     If fstat  Raz [F:ZITM], PARAM(I) : Endif
+        Endif
+        [M:ZRPR0]ITMREF = PARAM(I)
+      Endif
+
+  Endcase
+Next I
+
+Return
+
+############################################################
+$LECTURE
+If [M:ZRPR0]ITMREF = "" and [M:ZRPR0]ITMDES = ""
+  NBLU = 0
+  Return
+Endif
+NBLU = 1
+
+Gosub LOAD_FILTER
+Raz [M:ZRPR0]AVC,[M:ZRPR0]STOAVAILABLE,[M:ZRPR0]SALSTO,[M:ZRPR0]ORDSTO,[M:ZRPR0]HXCOVER
+Raz [M:ZRPR0]STOREAL,[M:ZRPR0]QTYBPC,[M:ZRPR0]QTYSOH,[M:ZRPR0]QTYSOHLIN
+$BOUCLE
+Local Integer FIRSTLEC: FIRSTLEC = 1
+Filter [F:ZPPD] Where evalue(WFIL) and [F:ZPPD]HXCOST <> 0 Order By [F:ZPPD]HXCOST Asc
+Raz [M:ZRPR1]NBLIG
+For [F:ZPPD]
+  If [M:ZRPR0]ITMDES <> ""
+    If pat(toupper([F:ZPPD]ZITMDES2),"*"+toupper([M:ZRPR0]ITMDES)+"*")=0
+      Goto NEXT_ZPPD
+    Endif
+  Endif
+  Read [F:ZBPS]BPS0 = [F:ZPPD]BPSNUM
+  If [M:ZRPR0]BPRSHO <> ""
+    If [F:ZBPS]BPSSHO <> [M:ZRPR0]BPRSHO
+      Goto NEXT_ZPPD
+    Endif
+  Endif
+  I = [M:ZRPR1]NBLIG
+  If I>4998
+    Errbox "Agregar filtros, algunos registros no se mostraran"
+    Break
+  Endif
+  If FIRSTLEC = 1
+    FIRSTLEC = 0
+    Gosub LOAD_DET_ITM
+  Endif
+  [M:ZRPR1]BPSNUM(I) = [F:ZPPD]BPSNUM
+  [M:ZRPR1]BPSPRI(I) = [F:ZPPD]BPSPRI
+  [M:ZRPR1]BPSSHO(I) = [F:ZBPS]BPSSHO
+  [M:ZRPR1]COSTECALARAN(I) = [F:ZPPD]HXCOST/100 * max([F:ZPPD]OFERQTY,[F:ZPPD]MINQTY)
+  [M:ZRPR1]CUR(I) = [F:ZPPD]LINCUR
+  If [F:ZPPD]LINCUR <> "EUR"
+     Filter [ZTCH] Where CUR = 'EUR' and CURDEN = [F:ZPPD]LINCUR  Order By CHGSTRDAT Desc
+     Read [ZTCH]First
+     If !fstat
+       [M:ZRPR1]CURCHANGE(I) = [ZTCH]CHGDIV
+     Endif
+     Filter [ZTCH]
+  Endif
+  [M:ZRPR1]HXCOST(I) = [F:ZPPD]HXCOST
+  [M:ZRPR1]ITMDES(I) = [F:ZPPD]ZITMDES2
+  [M:ZRPR1]ITMREF(I) = [F:ZPPD]ITMREF
+  [M:ZRPR1]LDISCRGVAL1(I) = [F:ZPPD]LDISCRGVAL1
+  [M:ZRPR1]LINCPRCOE(I) = [F:ZPPD]LINCPRCOE
+  [M:ZRPR1]LTI(I) = [F:ZPPD]LINLTI
+  [M:ZRPR1]MINQTY(I) = [F:ZPPD]MINQTY
+  [M:ZRPR1]NUMRESP(I) = [F:ZPPD]LINNUMRESP
+  [M:ZRPR1]OFERQTY(I) = [F:ZPPD]OFERQTY
+  [M:ZRPR1]PLIENDDAT(I) = [F:ZPPD]LINPLIENDDAT
+  [M:ZRPR1]PQHNUM(I) = [F:ZPPD]PQHNUM
+  [M:ZRPR1]PRIDIV(I) = [F:ZPPD]LINPRIDIV
+  [M:ZRPR1]PUU(I) = [F:ZPPD]PUU
+  [M:ZRPR1]QTYCONPRO(I) = [F:ZPPD]QTYCON
+  [M:ZRPR1]RESPDAT(I) = [F:ZPPD]LINRSPDAT
+  [M:ZRPR1]NBLIG+=1
+  $NEXT_ZPPD
+Next
+Filter [F:ZPPD]
+################################
+Filter [F:ZPPD] Where evalue(WFIL) and [F:ZPPD]HXCOST = 0
+For [F:ZPPD]
+  If [M:ZRPR0]ITMDES <> ""
+    If pat(toupper([F:ZPPD]ZITMDES2),"*"+toupper([M:ZRPR0]ITMDES)+"*")=0
+      Goto NEXT_ZPPD2
+    Endif
+  Endif
+  Read [F:ZBPS]BPS0 = [F:ZPPD]BPSNUM
+  If [M:ZRPR0]BPRSHO <> ""
+    If [F:ZBPS]BPSSHO <> [M:ZRPR0]BPRSHO
+      Goto NEXT_ZPPD2
+    Endif
+  Endif
+  I = [M:ZRPR1]NBLIG
+  If I>4998
+    Errbox "Agregar filtros, algunos registros no se mostraran"
+    Break
+  Endif
+
+  [M:ZRPR1]BPSNUM(I) = [F:ZPPD]BPSNUM
+  [M:ZRPR1]BPSPRI(I) = [F:ZPPD]BPSPRI
+  [M:ZRPR1]BPSSHO(I) = [F:ZBPS]BPSSHO
+  [M:ZRPR1]COSTECALARAN(I) = [F:ZPPD]HXCOST/100 * max([F:ZPPD]OFERQTY,[F:ZPPD]MINQTY)
+  [M:ZRPR1]CUR(I) = [F:ZPPD]LINCUR
+  If [F:ZPPD]LINCUR <> "EUR"
+     Filter [ZTCH] Where CUR = 'EUR' and CURDEN = [F:ZPPD]LINCUR  Order By CHGSTRDAT Desc
+     Read [ZTCH]First
+     If !fstat
+       [M:ZRPR1]CURCHANGE(I) = [ZTCH]CHGDIV
+     Endif
+     Filter [ZTCH]
+  Endif
+  [M:ZRPR1]HXCOST(I) = [F:ZPPD]HXCOST
+  [M:ZRPR1]ITMDES(I) = [F:ZPPD]ZITMDES2
+  [M:ZRPR1]ITMREF(I) = [F:ZPPD]ITMREF
+  [M:ZRPR1]LDISCRGVAL1(I) = [F:ZPPD]LDISCRGVAL1
+  [M:ZRPR1]LINCPRCOE(I) = [F:ZPPD]LINCPRCOE
+  [M:ZRPR1]LTI(I) = [F:ZPPD]LINLTI
+  [M:ZRPR1]MINQTY(I) = [F:ZPPD]MINQTY
+  [M:ZRPR1]NUMRESP(I) = [F:ZPPD]LINNUMRESP
+  [M:ZRPR1]OFERQTY(I) = [F:ZPPD]OFERQTY
+  [M:ZRPR1]PLIENDDAT(I) = [F:ZPPD]LINPLIENDDAT
+  [M:ZRPR1]PQHNUM(I) = [F:ZPPD]PQHNUM
+  [M:ZRPR1]PRIDIV(I) = [F:ZPPD]LINPRIDIV
+  [M:ZRPR1]PUU(I) = [F:ZPPD]PUU
+  [M:ZRPR1]QTYCONPRO(I) = [F:ZPPD]QTYCON
+  [M:ZRPR1]RESPDAT(I) = [F:ZPPD]LINRSPDAT
+  [M:ZRPR1]NBLIG+=1
+  $NEXT_ZPPD2
+Next
+Filter [F:ZPPD]
+
+###############################
+Affzo [M:ZRPR1]
+
+Return
+
+$LOAD_DET_ITM
+Local Decimal ZLSTUACTDIS :Raz ZLSTUACTDIS
+Read [F:ITV]ITV0 = [F:ZPPD]ITMREF;"PHISP"
+If fstat Return Endif
+[M:ZRPR0]AVC = arr([F:ITV]AVC*100,0.001)
+Read [ITG]ITG0 = "PHISP";"PROD"
+Call STODISTOT("[F:ITV]",0,0,"",ZLSTUACTDIS) From STKLIB
+[M:ZRPR0]STOAVAILABLE = ZLSTUACTDIS
+[M:ZRPR0]SALSTO = [F:ITV]SALSTO
+[M:ZRPR0]ORDSTO = [F:ITV]ORDSTO
+[M:ZRPR0]STOREAL = [F:ITV]PHYSTO
+[M:ZRPR0]HXCOVER=func ZAULIB01.GET_COBERTURA([F:ZPPD]ITMREF,"PHISP")
+If [M:ZRPR0]HXCOVER = 999 : [M:ZRPR0]HXCOVER=0 Endif
+Call DATA12MESES([M:ZRPR0]QTYBPC,[M:ZRPR0]QTYSOHLIN,[M:ZRPR0]QTYSOH,[F:ZPPD]ITMREF)
+Affzo [M:ZRPR0]
+Return
+############################################################
+#    Préparation du filtre                                 #
+############################################################
+$LOAD_FILTER
+
+WFIL  = "1=1"
+
+If [M:ZRPR0]ITMREF <> ""
+   WFIL += "&[F:ZPPD]ITMREF=[M:ZRPR0]ITMREF"
+Endif
+If [M:ZRPR0]PQHNUM <> ""
+   WFIL += "&[F:ZPPD]PQHNUM=[M:ZRPR0]PQHNUM"
+Endif
+If [M:ZRPR0]BPSNUM  <> ""
+   WFIL += "&[F:ZPPD]BPSNUM =[M:ZRPR0]BPSNUM"
+Endif
+If [M:ZRPR0]RSPDATFROM <> [0/0/0]
+   WFIL += "&[F:ZPPD]LINRSPDAT>=[M:ZRPR0]RSPDATFROM"
+Endif
+If [M:ZRPR0]RSPDATTO <> [0/0/0]
+   WFIL += "&[F:ZPPD]LINRSPDAT<=[M:ZRPR0]RSPDATTO"
+Endif
+Return
+
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla ZRPR1) 06/12/2021 06:53:31 (ADMIN)
+######################################################################################
+Subprog AS_NBLIG
+TMPVCRRESP = [M:ZRPR1]NUMRESP(nolign-1)
+End
+
+Subprog DATA12MESES(CLIENTES,LINEAS,CANTIDADES,ARTICULO)
+Variable Decimal CLIENTES
+Variable Decimal CANTIDADES
+Variable Decimal LINEAS
+Value Char ARTICULO
+Local Date FECHA
+Local Char TMPBCP
+Raz CLIENTES,CANTIDADES,LINEAS,FECHA,TMPBCP
+FECHA = date$-365
+Filter [ZSAT] Where [ZSAT]COD="ZS12D" and [ZSAT]CRI1=ARTICULO and [ZSAT]DAT>FECHA Order By [ZSAT]DES2
+For [ZSAT]
+  If TMPBCP <> [ZSAT]DES2 : TMPBCP = [ZSAT]DES2 :CLIENTES +=1 Endif
+  If [ZSAT]CRI2 = "$$$"
+    LINEAS+=[ZSAT]AMT(1)
+    CANTIDADES+=[ZSAT]AMT(0)
+  Endif
+Next
+
+Filter [ZSAT]
+End
