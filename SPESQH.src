@@ -16,6 +16,7 @@
 # 06.322.933 - JC.09032022.Cálculo erróneo de los bloques 'Marge/Acumulado' y 'Bloque informativo'
 # 06.325.878 - JC.21032022.Campo Transportista no carga información del cliente destinatario al modificar dirección de entrega
 # 06.326.337 - JC.05042022.Lentitud Sage entrada ofertas largas
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 ######################################################################################
 
 ######################################################################################
@@ -412,7 +413,10 @@ Local Decimal LZCOSTMED
     # Stock disponible
     [M:ZSQH0]ZSTODISPO      = func ZAULIB01.STOCK_DISPONIBLE([M:SQH0]SQHNUM,[M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1),[M:SQH2]SQDLIN(nolign-1),[L]I_ERROR)
     # Cobertura
-    If func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 999 Then
+# 06.339.932.ini
+#    If func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 999 Then
+    If func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 0 Then
+# 06.339.932.ini
       [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)),2)
     Else
       [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))

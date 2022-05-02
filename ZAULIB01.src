@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+###############################################################################
+
 #If !clalev([F:ZSID]) Then : Local File SINVOICED  [F:ZSID] : Endif
 #Filter [F:ZSID] Where NUM = "PHISP2105PRF00000001"
 #Read [F:ZSID] First
@@ -601,7 +604,10 @@ Raz LRET
 
    Read [F:ZVSAT]ZVS12M0=PS_FCY;PS_ITMREF
    If !fstat
-      LRET=[F:ZVSAT]AMT
+# 06.339.932.ini
+#    LRET=[F:ZVSAT]AMT
+    LRET=max([F:ZVSAT]AMT,0)
+# 06.339.932.ini
    Endif
    Close Local File [ZVSAT]
 
@@ -622,7 +628,10 @@ Value Char PS_ITMREF,PS_FCY
 Local Decimal LV12,LSTOCKD,LCEPR,LRET
 Local Integer LERROR
 
-  LRET = 999
+# 06.339.932.ini
+#  LRET = 999
+  LRET = 0
+# 06.339.932.fin
 
   # obtener V12
   LV12    = func GET_V12(PS_ITMREF,PS_FCY)
