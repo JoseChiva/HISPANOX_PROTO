@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.341.808 - JC.09052022.No se informa del envasado caija/pack cuando el valor es 1
+####################################################################################################################
+
 Local Char PITM : PITM = ''
 Call ZSGAITM(PITM) From ZSGAITM
 
@@ -223,7 +226,7 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
        Endif
        AA=func PUT_PROPXML('/Conversion','',3,1)
        #CAJ
-       If [F:ZITM]PCUSTUCOE<>1
+#       If [F:ZITM]PCUSTUCOE<>1                                           # 06.341.808.new
          AA=func PUT_PROPXML('Conversion','',3,1)
          AA=func PUT_PROPXML('Operation','S',4,2)
          Read [ZAXX]AXX0='TABUNIT';'DESSHO';'SPA';[F:ZITM]PCU
@@ -240,11 +243,11 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
            AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000*[F:ZITM]PCUSTUCOE),4,2)
          Endif
          AA=func PUT_PROPXML('/Conversion','',3,1)
-       Endif
+#       Endif                                                             # 06.341.808.new
 
        #Pack
        If [F:ZITM]PCU(1)<>''
-         If [F:ZITM]PCUSTUCOE(1)<>1
+#         If [F:ZITM]PCUSTUCOE(1)<>1                                      # 06.341.808.new
            AA=func PUT_PROPXML('Conversion','',3,1)
            AA=func PUT_PROPXML('Operation','S',4,2)
              AA=func PUT_PROPXML('CnvUoMCode','Pack',4,2)
@@ -253,7 +256,7 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
              AA=func PUT_PROPXML('CnvWeight',num$([F:ZITM]ITMWEI/1000*[F:ZITM]PCUSTUCOE(1)),4,2)
            Endif
            AA=func PUT_PROPXML('/Conversion','',3,1)
-        Endif
+#        Endif                                                            # 06.341.808.new
        Endif
        AA=func PUT_PROPXML('/Conversions','',2,1)
      #CustomAttributes
