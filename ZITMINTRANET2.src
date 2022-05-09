@@ -1,0 +1,561 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#Local Char NUM
+#NUM = '10'
+###100 salinox 1000 nada
+#
+#Call ARTICULOS(NUM)
+#End
+##################################################################
+
+#############################################################
+# 06.319.601 - AMG.01032022 datos última consulta fichero intranet articulos.csv
+# 06.320.301 - AMG.03032022 campo Cli fichero articulos.csv con datos incorrectos
+# 06.304.004 - AMG.03022022 coste última recepción
+# 06.323.891 - AMG.11032022 URGENTE - CAMPOS ÚLTIMA CONSULTA FICHERO ARTICULOS.CSV
+# 06.317.599 - AMG.17032022 Facturacions de recepcions compres
+#############################################################
+
+##################################################################
+Subprog ARTICULOS(WITM)
+#Variable Char WITM
+#Gosub OPEN_TABLAS
+##Filter [F:ZITN] Where ITMREF=WITM
+#Filter [F:ZITN] Where (WITM="" or ITMREF=WITM)
+##Filter [F:ZITN] Where ITMREF <= '20039' # para pruebas porque hay 59.000 articulos
+#Read [F:ZITN] First
+#If rowcount([F:ZITN])>0
+#  Gosub CREAR_FICHERO
+#  Gosub CABECERA
+#    For [F:ZITN]
+#      Gosub INI_VAR
+#      Gosub BUSCAR_DATOS
+#      Gosub ESC_REGISTRO
+#    Next
+#  Openo Using [ITM]
+#Endif
+#Gosub CLOSE_TABLAS
+#End
+Variable Char WITM
+Gosub OPEN_TABLAS
+Filter [F:ZITN] Where (WITM="" or ITMREF=WITM) Order By ITMREF
+#Filter [F:ZITN] Where ITMREF <= '20039'
+  Gosub CREAR_FICHERO
+  Gosub CABECERA
+    For [F:ZITN]
+      Gosub INI_VAR
+      Gosub BUSCAR_DATOS
+      Gosub ESC_REGISTRO
+    Next
+  Openo Using [ITM]
+Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+Local File ATEXTRA
+Local File ZPRESPD
+If !clalev([F:ZSDBPC]) : Local File ZS12DBPC[ZSDBPC]: Endif
+If !clalev([F:AXX1])   : Local File ATEXTRA[AXX1]: Endif
+If !clalev([F:AXX2])   : Local File ATEXTRA[AXX2]: Endif
+If !clalev([F:AXX3])   : Local File ATEXTRA[AXX3]: Endif
+If !clalev([F:ZITN])   : Local File ZITMTRANET[ZITN]: Endif
+If !clalev([F:ZPPD])   : Local File ZPRESPD[ZPPD]: Endif
+Local File PRECEIPTD
+Local File BPSUPPLIER
+
+
+Return
+
+###################################################################
+$CREAR_FICHERO
+
+#Call ECR_TRACE("Creación fichero artículos "+num$(datetime$),0) From GESECRAN
+
+If WITM=""
+  Openo filpath("ZINT\ERP_to_intranet","articulos","csv"),0 Using [ITM]
+Else
+  Openo filpath("ZINT\ERP_to_intranet","articulos_"+WITM,"csv"),0 Using [ITM]
+Endif
+
+Iomode adxifs ";"        Using [ITM]
+#Iomode adxirs "\013\010" Using [ITM]
+Iomode adxium 50         Using [ITM]
+
+Return
+
+##########################################################################
+$CABECERA
+Wrseq "Nº Inventario"; Using [ITM]
+Wrseq "Familia"; Using [ITM]
+Wrseq "Norma"; Using [ITM]
+Wrseq "Máscara"; Using [ITM]
+Wrseq "Stock real"; Using [ITM]
+Wrseq "Stock disponible"; Using [ITM]
+Wrseq "Stock mínimo"; Using [ITM]
+#Wrseq "Ubic 1"; Using [ITM]
+#Wrseq "Ubic 2"; Using [ITM]
+Wrseq "Caja"; Using [ITM]
+Wrseq "Pack"; Using [ITM]
+Wrseq "Peso (kgx1000)"; Using [ITM]
+Wrseq "Grupo"; Using [ITM]
+Wrseq "Plazo"; Using [ITM]
+Wrseq "Clase Oferta Artículos"; Using [ITM]
+Wrseq "Pendiente servir"; Using [ITM]
+Wrseq "Pendiente recibir"; Using [ITM]
+Wrseq "Salida Imp"; Using [ITM]
+#Wrseq "Salida Par"; Using [ITM]
+Wrseq "Entrada año"; Using [ITM]
+Wrseq "Referencia"; Using [ITM]
+Wrseq "Ultima compra - código proveedor"; Using [ITM]
+Wrseq "Ultima compra - mote proveedor"; Using [ITM]
+Wrseq "Ultima compra - fecha"; Using [ITM]
+Wrseq "Ultima compra - coste"; Using [ITM]
+Wrseq "Ultima consulta - código proveedor"; Using [ITM]
+Wrseq "Ultima consulta - mote proveedor"; Using [ITM]
+Wrseq "Ultima consulta - fecha"; Using [ITM]
+Wrseq "Ultima consulta - coste"; Using [ITM]
+Wrseq "Coste Medio"; Using [ITM]
+Wrseq "Coste Medio/kg"; Using [ITM]
+Wrseq "Coste Oferta"; Using [ITM]
+Wrseq "Coste Reposición"; Using [ITM]
+Wrseq "Salida 12 meses"; Using [ITM]
+Wrseq "Media mes"; Using [ITM]
+Wrseq "Máxima salida"; Using [ITM]
+Wrseq "Of_NO_Ven"; Using [ITM]
+Wrseq "Lin"; Using [ITM]
+Wrseq "Cli"; Using [ITM]
+Wrseq "Cobertura"; Using [ITM]
+#Wrseq "Notas"; Using [ITM]
+Wrseq "ventas año sal"; Using [ITM]
+Wrseq "ventas año coste"; Using [ITM]
+Wrseq "ventas año vta"; Using [ITM]
+Wrseq "ventas año margen"; Using [ITM]
+Wrseq "Qty vendida año actual"; Using [ITM]
+Wrseq "Qty vendida año actual-1"; Using [ITM]
+Wrseq "Qty vendida año actual-2"; Using [ITM]
+Wrseq "Qty vendida año actual-3"; Using [ITM]
+Wrseq "Qty vendida año actual-4"; Using [ITM]
+Wrseq "Qty vendida año actual-5"; Using [ITM]
+Wrseq "MB ven año actual"; Using [ITM]
+Wrseq "MB ven año actual-1"; Using [ITM]
+Wrseq "MB ven año actual-2"; Using [ITM]
+Wrseq "MB ven año actual-3"; Using [ITM]
+Wrseq "MB ven año actual-4"; Using [ITM]
+Wrseq "MB ven año actual-5"; Using [ITM]
+Wrseq "Qty ven año actual"; Using [ITM]
+Wrseq "Qty ven año actual-1"; Using [ITM]
+Wrseq "Qty ven año actual-2"; Using [ITM]
+Wrseq "Qty ven año actual-3"; Using [ITM]
+Wrseq "Qty ven año actual-4"; Using [ITM]
+Wrseq "Qty ven año actual-5"; Using [ITM]
+Wrseq "Qty ofe año actual"; Using [ITM]
+Wrseq "Qty ofe año actual-1"; Using [ITM]
+Wrseq "Qty ofe año actual-2"; Using [ITM]
+Wrseq "Qty ofe año actual-3"; Using [ITM]
+Wrseq "Qty ofe año actual-4"; Using [ITM]
+Wrseq "Qty ofe año actual-5"; Using [ITM]
+Wrseq "Qty v/o año actual"; Using [ITM]
+Wrseq "Qty v/o año actual-1"; Using [ITM]
+Wrseq "Qty v/o año actual-2"; Using [ITM]
+Wrseq "Qty v/o año actual-3"; Using [ITM]
+Wrseq "Qty v/o año actual-4"; Using [ITM]
+Wrseq "Qty v/o año actual-5"; Using [ITM]
+Wrseq "Lin ven año actual"; Using [ITM]
+Wrseq "Lin ven año actual-1"; Using [ITM]
+Wrseq "Lin ven año actual-2"; Using [ITM]
+Wrseq "Lin ven año actual-3"; Using [ITM]
+Wrseq "Lin ven año actual-4"; Using [ITM]
+Wrseq "Lin ven año actual-5"; Using [ITM]
+Wrseq "Lin ofe año actual"; Using [ITM]
+Wrseq "Lin ofe año actual-1"; Using [ITM]
+Wrseq "Lin ofe año actual-2"; Using [ITM]
+Wrseq "Lin ofe año actual-3"; Using [ITM]
+Wrseq "Lin ofe año actual-4"; Using [ITM]
+Wrseq "Lin ofe año actual-5"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual-1"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual-2"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual-3"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual-4"; Using [ITM]
+Wrseq "Lin ofe ocultas año actual-5"; Using [ITM]
+Wrseq "Cli ven año actual"; Using [ITM]
+Wrseq "Cli ven año actual-1"; Using [ITM]
+Wrseq "Cli ven año actual-2"; Using [ITM]
+Wrseq "Cli ven año actual-3"; Using [ITM]
+Wrseq "Cli ven año actual-4"; Using [ITM]
+Wrseq "Cli ven año actual-5"; Using [ITM]
+Wrseq "Cli ofe año actual"; Using [ITM]
+Wrseq "Cli ofe año actual-1"; Using [ITM]
+Wrseq "Cli ofe año actual-2"; Using [ITM]
+Wrseq "Cli ofe año actual-3"; Using [ITM]
+Wrseq "Cli ofe año actual-4"; Using [ITM]
+Wrseq "Cli ofe año actual-5"; Using [ITM]
+Wrseq "Cli ofe oculto año actual"; Using [ITM]
+Wrseq "Cli ofe oculto año actual-1"; Using [ITM]
+Wrseq "Cli ofe oculto año actual-2"; Using [ITM]
+Wrseq "Cli ofe oculto año actual-3"; Using [ITM]
+Wrseq "Cli ofe oculto año actual-4"; Using [ITM]
+Wrseq "Cli ofe oculto año actual-5"; Using [ITM]
+Wrseq "EAN13"; Using [ITM]
+Wrseq "Pallet_Ent"; Using [ITM]
+Wrseq "Web"; Using [ITM]
+Wrseq "Ctr Web"; Using [ITM]
+Wrseq "Medida 1"; Using [ITM]
+Wrseq "Medida 2"; Using [ITM]
+Wrseq "Medida 3"; Using [ITM]
+Wrseq "Perfil"; Using [ITM]
+Wrseq "Tipo Ubic ML "; Using [ITM]
+Wrseq "Recepción ML (RECML)"; Using [ITM]
+Wrseq "Granel aparte (GRAAPA)"; Using [ITM]
+Wrseq "Descripción Clase Oferta"; Using [ITM]
+Wrseq "Categoría producto"; Using [ITM]
+Wrseq "Descripción Categoría"; Using [ITM]
+Wrseq "Material artículo"; Using [ITM]
+Wrseq "Descripción Material"; Using [ITM]
+Wrseq "Tipo Artículo"; Using [ITM]
+Wrseq "Descripción Tipo" Using [ITM]
+
+
+
+Return
+
+##################################################################
+$ESC_REGISTRO
+Wrseq [F:ZITN]ITMREF;                                                            Using [ITM]
+Wrseq [F:ZITN]ITMDES2;                                                           Using [ITM]
+Wrseq [F:ZITN]ITMDES3;                                                           Using [ITM]
+Wrseq [F:ZITN]ZMASK;                                                             Using [ITM]
+Wrseq num$(STOCK_REAL);                                                         Using [ITM]
+Wrseq num$(STOCK_DISP);                                                         Using [ITM]
+Wrseq num$(ZSAFSTO);                                                      Using [ITM]
+#Wrseq "Ubic 1";                                 Using [ITM]
+#Wrseq "Ubic 2";                                 Using [ITM]
+Wrseq num$(CAJA);                                                               Using [ITM]
+Wrseq num$(PACK);                                                               Using [ITM]
+Wrseq ctrans(num$(format$("N:6.3",ITMWEI)),".",",");                            Using [ITM]
+#Wrseq num$(ctrans(num$(ar2(ITMWEI)),".",","));            Using [ITM]
+Wrseq [F:ZITN]ZGRUPO;                                                            Using [ITM]
+Wrseq [F:ZITN]OFS;                                                               Using [ITM]
+Wrseq [F:ZITN]TSICOD(0);                                                         Using [ITM]
+Wrseq num$([F:ZITN]SALSTO);                                                      Using [ITM]
+Wrseq num$([F:ZITN]ORDSTO);                                                      Using [ITM]
+Wrseq num$(SALIDA_IMP);                                                         Using [ITM]
+#Wrseq "Salida Par";                             Using [ITM]
+Wrseq num$(ENTRADA_A);                                                          Using [ITM]
+Wrseq [F:ZITN]ITMDES1;                                                           Using [ITM]
+Wrseq ZBPSNUM;                                                                  Using [ITM]
+Wrseq ZBPSSHO;                                                                  Using [ITM]
+Wrseq num$(ZRCPDAT);                                                            Using [ITM]
+Wrseq ctrans(num$(ZCOSTE),".",",");                                             Using [ITM]
+Wrseq ZBPSNUMOF;                                                                Using [ITM]
+Wrseq ZBPSSHO_OF;                                                               Using [ITM]
+Wrseq num$(ZLINRSPDAT);                                                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.3",ZHXCOST)),".",",");                          Using [ITM]
+Wrseq ctrans(num$(COSTE_MEDIO),".",",");                                        Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",COSTE_M_KG)),".",",");                       Using [ITM]
+Wrseq ctrans(num$(ZCMO),".",",");                                               Using [ITM]
+Wrseq ctrans(num$(ZCMREP),".",",");                                             Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",SALIDA_12)),".",",");                        Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",(SALIDA_12/12))),".",",");                   Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",SALIDA_MAX)),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",OF_NO_VEN)),".",",");                        Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",SALIDA_LIN)),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",CLI)),".",",");                              Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",COBERTURA)),".",",");                        Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(0))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_COSTE(0))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_VENTAS(0))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(0))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(0))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(1))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(2))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(3))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(4))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY(5))),".",",");                         Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(0))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(1))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(2))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(3))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(4))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_MARGEN(5))),".",",");                      Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(0))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(1))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(2))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(3))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(4))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_QTY_VEN(5))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(0))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(1))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(2))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(3))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(4))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQTY_OF(5))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(0))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(1))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(2))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(3))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(4))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZQ_VEN_ZQTY_OF(5))),".",",");                Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(0))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(1))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(2))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(3))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(4))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",V_LIN_VEN(5))),".",",");                     Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(0))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(1))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(2))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(3))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(4))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OF(5))),".",",");                       Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OFE_O(0))),".",",");                    Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OFE_O(1))),".",",");                    Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OFE_O(2))),".",",");                    Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OFE_O(3))),".",",");                    Using [ITM]
+Wrseq ctrans(num$(format$("N:12.2",ZLIN_OFE_O(4))),".",",");                    Using [ITM]
+Wrseq ctrans(num$( format$("N:12.2",ZLIN_OFE_O(5))),".",",");                   Using [ITM]
+Wrseq num$(ZCLIVEN(0));                                                         Using [ITM]
+Wrseq num$(ZCLIVEN(1));                                                         Using [ITM]
+Wrseq num$(ZCLIVEN(2));                                                         Using [ITM]
+Wrseq num$(ZCLIVEN(3));                                                         Using [ITM]
+Wrseq num$(ZCLIVEN(4));                                                         Using [ITM]
+Wrseq num$(ZCLIVEN(5));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(0));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(1));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(2));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(3));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(4));                                                         Using [ITM]
+Wrseq num$(ZCLIOFE(5));                                                         Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(0));                                                   Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(1));                                                   Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(2));                                                   Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(3));                                                   Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(4));                                                   Using [ITM]
+Wrseq num$(ZCLIOFEOCULTO(5));                                                   Using [ITM]
+Wrseq [F:ZITN]EANCOD;                                                            Using [ITM]
+Wrseq PALET;                                                                    Using [ITM]
+Wrseq WEB;                                                                      Using [ITM]
+Wrseq ZCANTJUS;                                                                 Using [ITM]
+Wrseq [F:ZITN]ZMEDIDA(0);                                                          Using [ITM]
+Wrseq [F:ZITN]ZMEDIDA(1);                                                          Using [ITM]
+Wrseq [F:ZITN]ZMEDIDA(2);                                                          Using [ITM]
+Wrseq [F:ZITN]ZPERFIL;                                                           Using [ITM]
+Wrseq [F:ZITN]ZTUBICML;                                                          Using [ITM]
+Wrseq ZRECML;                                                                   Using [ITM]
+Wrseq ZGRAAPA;                                                                  Using [ITM]
+Wrseq TEXTO;                                                                    Using [ITM]
+Wrseq [F:ZITN]TSICOD(1);                                                         Using [ITM]
+Wrseq TEXTO1;                                                                   Using [ITM]
+Wrseq [F:ZITN]TSICOD(2);                                                         Using [ITM]
+Wrseq TEXTO2;                                                                   Using [ITM]
+Wrseq [F:ZITN]TSICOD(3);                                                         Using [ITM]
+Wrseq TEXTO3                                                                    Using [ITM]
+
+
+#antes formato Wrseq format$("N:12.2",V_COMPRAS(0));       Using [BPS]
+
+Return
+
+$INI_VAR
+Local Decimal ZCMO,ZCMREP,ZSAFSTO,STOCK_REAL, STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,ZCOSTE,ZHXCOST,
+& SALIDA_12,SALIDA_MAX,SALIDA_LIN,OF_NO_VEN, CLI, V_QTY(6),V_COSTE(6),V_VENTAS(6),V_MARGEN(6),V_QTY_VEN(6),V_LIN_VEN(6),ZQTY_OF(6),ZLIN_OF(6),
+& ZLIN_OFE_O(6),ZCLIVEN(6),ZCLIOFE(6), ZCLIOFEOCULTO(6),ZQ_VEN_ZQTY_OF(6),COBERTURA,ZCOSULCOMP
+Local Char TEXTO(80),TEXTO1(80),TEXTO2(80),TEXTO3(80),ZBPSNUM(25),ZBPSSHO(250), ZBPSNUMOF(250),ZBPSSHO_OF(250),XBPC(250),PALET(2),ZRECML(2),ZGRAAPA(2)
+Local Date WDAT,ZRCPDAT,WDAT1,WDAT2,ZLINRSPDAT,XWDAT1, ZWDAT2
+
+Raz STOCK_REAL,STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,WDAT,ZCOSTE,ZRCPDAT,ZBPSNUM,
+& ZBPSSHO,ZBPSNUMOF,ZHXCOST,WDAT1,WDAT2,ZLINRSPDAT,ZBPSSHO_OF,ZBPSSHO,ZCMO,ZCMREP,TEXTO,TEXTO1,TEXTO2,TEXTO3, SALIDA_12,SALIDA_MAX,
+& SALIDA_LIN,XWDAT1, ZWDAT2,OF_NO_VEN, CLI,XBPC,V_QTY,V_COSTE,V_VENTAS,V_MARGEN,V_QTY_VEN,V_LIN_VEN,ZQTY_OF,ZLIN_OF, ZLIN_OFE_O,ZCLIVEN,
+& ZCLIOFE,ZCLIOFEOCULTO,PALET,ZRECML,ZGRAAPA,ZQ_VEN_ZQTY_OF,COBERTURA,ZCOSULCOMP
+
+Local Char ZCANTJUS(2), WEB(2)
+Raz ZCANTJUS, WEB
+
+
+
+
+
+Return
+###################################################################
+$BUSCAR_DATOS
+
+Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '20' and IDENT2 = [F:ZITN]TSICOD(0)
+Read  [F:AXX] First
+  If !fstat
+    TEXTO=[F:AXX]TEXTE
+  Endif
+Filter [F:AXX]
+
+Filter [F:AXX1] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '21' and IDENT2 = [F:ZITN]TSICOD(1)
+Read  [F:AXX1] First
+  If !fstat
+    TEXTO1=[F:AXX1]TEXTE
+  Endif
+Filter [F:AXX1]
+
+Filter [F:AXX2] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '22' and IDENT2 = [F:ZITN]TSICOD(2)
+Read  [F:AXX2] First
+  If !fstat
+    TEXTO2=[F:AXX2]TEXTE
+  Endif
+Filter [F:AXX2]
+
+Filter [F:AXX3] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '23' and IDENT2 = [F:ZITN]TSICOD(3)
+Read  [F:AXX3] First
+  If !fstat
+    TEXTO3=[F:AXX3]TEXTE
+  Endif
+Filter [F:AXX3]
+
+##damos valores a las variables
+ZCMO=[F:ZITN]ZCMO
+ZCMREP=[F:ZITN]ZCMREP
+ZSAFSTO=[F:ZITN]ZSAFSTO
+STOCK_REAL=[F:ZITN]STOCK_REAL
+STOCK_DISP=[F:ZITN]STOCK_DISP
+STOCK_MIN=[F:ZITN]STOCK_MIN
+COSTE_MEDIO=[F:ZITN]COSTE_MEDIO
+# 06.317.599.str
+#ZCOSTE=[F:ZITN]ZCOSTE
+# 06.317.599.fin
+COSTE_M_KG=[F:ZITN]COSTE_M_KG
+CAJA=[F:ZITN]CAJA
+PACK=[F:ZITN]PACK
+ITMWEI=[F:ZITN]ITMWEI
+SALIDA_IMP=[F:ZITN]SALIDA_IMP
+ENTRADA_A=[F:ZITN]ENTRADA_A
+
+
+#ULTIMA COMPRA - CODIGO PROVEEDOR
+Filter [F:PTD] Where ITMREF=[F:ZITN]ITMREF Order By RCPDAT Desc ; PTDLIN  Desc
+Read[F:PTD]First
+  If !fstat
+      ZBPSNUM=[F:PTD]BPSNUM
+      ZRCPDAT=[F:PTD]RCPDAT
+      # 06.317.599.str
+      #ZCOSTE=([F:PTD]CPRCOE*[F:PTD]NETPRI)*100
+      If [F:PTD]NETCUR<>"EUR" Then
+        Call CONVERTDIV_DATE([F:PTD]NETCUR,"EUR",([F:PTD]CPRCOE*[F:PTD]NETPRI),1,[F:PTD]RCPDAT,ZCOSULCOMP) From ZAULIB01   #FUNCION CAMBIO DIVISA
+      Else
+          ZCOSULCOMP=([F:PTD]CPRCOE*[F:PTD]NETPRI)
+      Endif
+      ZCOSTE=ZCOSULCOMP*100
+      # 06.317.599.fin
+  Endif
+
+ZBPSSHO=""
+If ZBPSNUM<>"" Then
+#MOTE PROVEEDOR
+Filter [F:BPS] Where BPSNUM=[F:PTD]BPSNUM
+Read[F:BPS]First
+    If !fstat
+        ZBPSSHO=[F:BPS]BPSSHO
+    Endif
+Endif
+Filter [F:BPS]
+Filter [F:PTD]
+
+
+
+#####NO METEMOS ESTO EN LA VISTA########################################################################
+
+#TABLA ZPRESPD DETALLE ENTRADA RESPUESTAS ZPPD
+#BUSCAMOS FECHA ULTIMA OFERTA AL PROVEEDOR Y LUEGO BUSCAMOS LA FECHA DE 30 DÍAS MENOS Y VEMOS LA OFERTA
+Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and LINRSPDAT<>[00/00/0000] and PRI>0   Order By LINRSPDAT Desc
+Read[F:ZPPD] First
+    If !fstat
+        WDAT1=[F:ZPPD]LINRSPDAT
+        WDAT2=WDAT1-30
+    Endif
+Filter [F:ZPPD]
+
+#ENTRE ZWDAT Y LINRSPDAT VER LA MEJOR OFERTA
+# 06.319.601.ini
+#Filter [F:ZPPD] Where ITMREF=[F:ITM]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) Order By PRI Asc
+#Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0 Order By PRI Asc
+# 06.319.601.fin
+# 06.323.891.INI ORDENAMOS POR HXCOST
+Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
+# 06.323.891.FIN
+
+Read[F:ZPPD] First
+    If !fstat
+        ZBPSNUMOF=[F:ZPPD]BPSNUM
+        ZLINRSPDAT=[F:ZPPD]LINRSPDAT
+        ZHXCOST=[F:ZPPD]HXCOST
+    Endif
+Filter [F:ZPPD]
+
+
+
+ZBPSSHO_OF=""
+#MOTE PROVEEDOR MEJOR OFERTA
+Filter [F:BPS] Where BPSNUM=ZBPSNUMOF
+Read[F:BPS]First
+    If !fstat
+        ZBPSSHO_OF=[F:BPS]BPSSHO
+    Endif
+Filter [F:BPS]
+
+#Vista ZS12DBPC donde usamos la estadística ZS12D
+Filter [F:ZSDBPC] Where CRI1=[F:ZITN]ITMREF
+      For [F:ZSDBPC]
+          If !fstat
+              CLI=CLI+1
+          Endif
+      Next
+Filter [F:ZSDBPC]
+#06.320.301.FIN
+
+
+SALIDA_12=[F:ZITN]SALIDA_12
+SALIDA_LIN=[F:ZITN]SALIDA_LIN
+SALIDA_MAX=[F:ZITN]SALIDA_MAX
+OF_NO_VEN=[F:ZITN]OF_NO_VEN
+For X=0 To 5
+V_QTY_VEN(X)=[F:ZITN]V_QTY_VEN_0(X)
+V_LIN_VEN(X)=[F:ZITN]V_LIN_VEN_0(X)
+V_QTY(X)=[F:ZITN]V_QTY_0(X)
+V_COSTE(X)=[F:ZITN]V_COSTE_0(X)
+V_VENTAS(X)=[F:ZITN]V_VENTAS_0(X)
+  If V_VENTAS(X)>0
+      V_MARGEN(X)=([F:ZITN]AMT3_0(X)/V_VENTAS(X))*100
+  Else
+      V_MARGEN(X)=0
+  Endif
+
+ZQTY_OF(X)=[F:ZITN]ZQTY_OF_0(X)
+ZLIN_OF(X)=[F:ZITN]ZLIN_OF_0(X)
+ZLIN_OFE_O(X)=[F:ZITN]ZLIN_OFE_O_0(X)
+ZCLIVEN(X)=[F:ZITN]ZCLIVEN_0(X)
+ZCLIOFE(X)=[F:ZITN]ZCLIOFE_0(X)
+ZCLIOFEOCULTO(X)=[F:ZITN]ZCLIOFEOCULT(X)
+
+If ZQTY_OF(X)>0 Then
+    ZQ_VEN_ZQTY_OF(X)=V_QTY_VEN(X)/ZQTY_OF(X)
+Else
+    ZQ_VEN_ZQTY_OF(X)=0
+Endif
+
+Next
+
+PALET=[F:ZITN]PALET
+ZRECML=[F:ZITN]ZRECML
+ZGRAAPA=[F:ZITN]ZGRAAPA
+ZCANTJUS=[F:ZITN]ZCANTJUS
+WEB=[F:ZITN]WEB
+
+##VER LO QUE TARDA GENERAR EL FICHERO SINO METER ESTO EN LA VISTA
+
+COBERTURA=func ZAULIB01.GET_COBERTURA([F:ZITN]ITMREF, 'PHISP')
+
+
+Return
+
+
+
+###################################################################
+$CLOSE_TABLAS
+Close Local File [F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:ZPPD],[F:ZSDBPC],[F:BPS],[F:PTD]
+
+Return
