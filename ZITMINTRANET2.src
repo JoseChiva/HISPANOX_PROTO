@@ -13,6 +13,7 @@
 # 06.304.004 - AMG.03022022 coste última recepción
 # 06.323.891 - AMG.11032022 URGENTE - CAMPOS ÚLTIMA CONSULTA FICHERO ARTICULOS.CSV
 # 06.317.599 - AMG.17032022 Facturacions de recepcions compres
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 #############################################################
 
 ##################################################################
@@ -547,7 +548,10 @@ WEB=[F:ZITN]WEB
 
 ##VER LO QUE TARDA GENERAR EL FICHERO SINO METER ESTO EN LA VISTA
 
-COBERTURA=func ZAULIB01.GET_COBERTURA([F:ZITN]ITMREF, 'PHISP')
+# 06.339.932.ini
+#COBERTURA=func ZAULIB01.GET_COBERTURA([F:ZITN]ITMREF, 'PHISP')
+COBERTURA=func ZAULIB01.GET_COBERTURA_ITV([F:ZITN]ITMREF, 'PHISP')
+# 06.339.932.fin
 
 
 Return

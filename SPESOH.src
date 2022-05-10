@@ -18,6 +18,7 @@
 # 06.326.336 18/03/2022 ML Error variable inexistente
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 # 06.343.951 - JC.06052022.Error cargo portes art. CERT001 - EMBA002
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -627,15 +628,22 @@ Local Decimal LZCOSTMED
   Raz [M:ZSOH0]ZCOSTMEDEK
 
   # Stock disponible
-  [M:ZSOH0]ZSTODISPO      = func ZAULIB01.STOCK_DISPONIBLE([M:SOH0]SOHNUM,[M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1),[M:SOH4]SOPLIN(nolign-1),[L]I_ERROR)
+# 06.339.932.ini
+#  [M:ZSOH0]ZSTODISPO      = func ZAULIB01.STOCK_DISPONIBLE([M:SOH0]SOHNUM,[M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1),[M:SOH4]SOPLIN(nolign-1),[L]I_ERROR)
+  [M:ZSOH0]ZSTODISPO      = func ZAULIB01.STOCK_DISPONIBLE_ITV([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1))
+# 06.339.932.ini
   # Cobertura
 # 06.339.932.ini
 #  If func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)) <> 999 Then
-  If func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)) <> 0 Then
-# 06.339.932.ini
-    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)),2)
+#    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)),2)
+  If func ZAULIB01.GET_COBERTURA_ITV([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)) <> 0 Then
+    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA_ITV([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1)),2)
+# 06.339.932.fin
   Else
-    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1))
+# 06.339.932.ini
+#    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1))
+    [M:ZSOH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA_ITV([M:SOH4]ITMREF(nolign-1),[M:SOH4]DSTOFCY(nolign-1))
+# 06.339.932.ini
   Endif
   # Coste Oferta
   [M:ZSOH0]ZCOSTOFER      = 100 * LZCOSOFER

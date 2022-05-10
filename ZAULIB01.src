@@ -445,6 +445,45 @@ Local Integer I_CALIDAD
 End [L]F_STODISPO
 
 ##############################################################
+# 06.339.932
+#**
+#* devuelve el stock disponible buscando en la tabla ITMMVT
+#*
+#* @param PS_ITMREF > artículo
+#* @param PS_FCY    > planta
+#*!
+Funprog STOCK_DISPONIBLE_ITV(PS_ITMREF,PS_FCY)
+# parámetros de entrada
+Value Char PS_ITMREF,PS_FCY
+
+Local Integer LRES
+Local Decimal LSTOKIT
+
+  If !clalev([F:ZITV]) Then : Local File ITMMVT [F:ZITV] : Endif
+  If !clalev([F:ZBOD]) Then : Local File BOMD   [F:ZBOD] : Endif
+
+  Read [F:ZITV]ITV0 = PS_ITMREF;PS_FCY
+  If !fstat Then
+    LRES = [F:ZITV]PHYSTO-[F:ZITV]GLOALL-[F:ZITV]PHYALL-[F:ZITV]GLOSHT
+  Endif
+
+  Filter [F:ZBOD] Where CPNITMREF = PS_ITMREF
+  For [F:ZBOD]
+    Read [F:ZITV]ITV0 = [F:ZBOD]ITMREF;PS_FCY
+    If !fstat Then
+      LSTOKIT = [F:ZITV]PHYSTO-[F:ZITV]GLOALL-[F:ZITV]PHYALL-[F:ZITV]GLOSHT
+      If LSTOKIT < 0 Then
+        LRES += LSTOKIT
+      Endif
+    Endif
+  Next
+  Filter [F:ZBOD]
+
+  Close Local File [ZITV],[ZBOD]
+
+End LRES
+
+##############################################################
 #**
 #* devuelve el múltiple de caja para un artículo
 #*
@@ -628,15 +667,15 @@ Value Char PS_ITMREF,PS_FCY
 Local Decimal LV12,LSTOCKD,LCEPR,LRET
 Local Integer LERROR
 
-# 06.339.932.ini
-#  LRET = 999
-  LRET = 0
-# 06.339.932.fin
+  LRET = 999
 
   # obtener V12
   LV12    = func GET_V12(PS_ITMREF,PS_FCY)
   # obtener STOCK
   LSTOCKD = func STOCK_DISPONIBLE("",PS_ITMREF,PS_FCY,0,LERROR)
+# 06.339.932.ini
+  If LSTOCKD <= 0 Then : End 0 : Endif
+# 06.339.932.fin
   # obtener CEPR
   #LCEPR   = func GET_CEPR(PS_ITMREF,PS_FCY)                            # JC.230920.NEW
   # función de cálculo
@@ -646,6 +685,80 @@ Local Integer LERROR
       LRET = ar2((12*(LSTOCKD)) / LV12)                                    # JC.230920.NEW
     Endif
   Endif
+
+End LRET
+
+##############################################################
+# 06.339.932
+#**
+#* devuelve la cobertura de un artículo en función de la tabla ITMMVT
+#*
+#* @param PS_ITMREF > artículo
+#* @param PS_FCY    > planta
+#*!
+Funprog GET_COBERTURA_ITV(PS_ITMREF,PS_FCY)
+# parámetros de entrada
+Value Char PS_ITMREF,PS_FCY
+
+# declaración de variables
+Local Decimal LSTKREALITMREF,LSTKREALPADRE
+Local Decimal LSTKSOHITMREF,LSTKSOHPADRE
+Local Decimal LV12ITMREF,LV12PADRE
+Local Decimal LRET
+
+  LRET = 999
+
+  # ****ARTÍCULO QUE SE PASA COMO PARÁMETRO****
+  If !clalev([F:ITN0]) Then : Local File ZITMTRANET [F:ITN0]  : Endif
+  If !clalev([F:ITV0]) Then : Local File ITMMVT     [F:ITV0]  : Endif
+  # stock real
+  Filter [F:ITN0] Where ITMREF = PS_ITMREF
+  Read [F:ITN0] First
+  LSTKREALITMREF = [F:ITN0]STOCK_REAL
+  Filter [F:ITN0]
+  # stock en pedidos de cliente
+  Read [F:ITV0]ITV0 = PS_ITMREF;PS_FCY
+  LSTKSOHITMREF = [F:ITV0]SALSTO
+  # salidas 12 meses
+  LV12ITMREF = max(func GET_V12(PS_ITMREF,PS_FCY),0)
+
+  # ****COMPUESTOS CUANDO FORMA PARTE DE UN KIT****
+  If !clalev([F:BOD1]) Then : Local File BOMD       [F:BOD1] : Endif
+  If !clalev([F:ITN1]) Then : Local File ZITMTRANET [F:ITN1]  : Endif
+  If !clalev([F:ITV1]) Then : Local File ITMMVT     [F:ITV1]  : Endif
+
+  Filter [F:BOD1] Where CPNITMREF = PS_ITMREF
+  For [F:BOD1]
+    # stock real
+    Filter [F:ITN1] Where ITMREF = [F:BOD1]ITMREF
+    Read [F:ITN1] First
+    LSTKREALPADRE += [F:ITN1]STOCK_REAL * [F:BOD1]BOMQTY
+    Filter [F:ITN1]
+    # stock en pedido de cliente
+    Read [F:ITV1]ITV0 = [F:BOD1]ITMREF;PS_FCY
+    LSTKSOHPADRE += [F:ITV1]SALSTO * [F:BOD1]BOMQTY
+    # salidas 12 meses
+    LV12PADRE     += func GET_V12([F:BOD1]ITMREF,PS_FCY) * [F:BOD1]BOMQTY
+  Next
+  LV12PADRE = max(LV12PADRE,0)
+
+  # ****CÁLCULO DE LA COBERTURA****
+  If (LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) <= 0 Then
+    LRET = 0
+  Else
+    # fórmula indicada por Sergi
+    # cobertura = (Stock + SUMA(stock_kits/sub*qty_comp) – pend_pedidos_clientes – SUMA(pend_pedidos_clientes_kits/sub*qty_comp) ) / (ventas_12m + SUMA(ventas_12m_kits/sub*qty_comp)) * 12
+    If LV12ITMREF + LV12PADRE > 0 Then
+      LRET = ar2(((LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) / (LV12ITMREF + LV12PADRE)) * 12)
+    Elsif LV12ITMREF + LV12PADRE = 0 Then
+      LRET = 0
+    Else
+      LRET = 999
+    Endif
+  Endif
+
+
+  Close Local File [ITN0],[ITN1],[BOD1],[ITV1]
 
 End LRET
 

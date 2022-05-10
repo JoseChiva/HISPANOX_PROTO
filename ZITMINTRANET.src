@@ -11,6 +11,7 @@
 # 06.319.601 - AMG.01032022 datos última consulta fichero intranet articulos.csv
 # 06.320.301 - AMG.03032022 campo Cli fichero articulos.csv con datos incorrectos
 # 06.304.004 - AMG.03022022 coste última recepción
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 #############################################################
 
 ##################################################################
@@ -724,7 +725,10 @@ Next
 
 ##VER LO QUE TARDA GENERAR EL FICHERO SINO METER ESTO EN LA VISTA
 
-COBERTURA=func ZAULIB01.GET_COBERTURA([F:ITM]ITMREF, 'PHISP')
+# 06.339.932.ini
+#COBERTURA=func ZAULIB01.GET_COBERTURA([F:ITM]ITMREF, 'PHISP')
+COBERTURA=func ZAULIB01.GET_COBERTURA_ITV([F:ITM]ITMREF, 'PHISP')
+# 06.339.932.fin
 
 
 #ZCANTJUSTA

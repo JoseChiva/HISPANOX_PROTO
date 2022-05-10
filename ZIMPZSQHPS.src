@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+######################################################################################
+
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Local Char LUSER(50)
@@ -30,7 +33,10 @@ Local Integer LERROR
        Call ECR_TRACE("************************************************************************************************",0) From GESECRAN
     Endif
     # comprueba si no hay stock suficiente
-    LSTOCKDISP = func ZAULIB01.STOCK_DISPONIBLE("",[F:ZSQD]ITMREF,[F:ZSQD]STOFCY,0,LERROR)
+# 06.339.932.ini
+#    LSTOCKDISP = func ZAULIB01.STOCK_DISPONIBLE("",[F:ZSQD]ITMREF,[F:ZSQD]STOFCY,0,LERROR)
+    LSTOCKDISP = func ZAULIB01.STOCK_DISPONIBLE_ITV([F:ZSQD]ITMREF,[F:ZSQD]STOFCY)
+# 06.339.932.fin
     If LSTOCKDISP < [F:ZSQD]QTY Then
        Call ECR_TRACE("Stock de la línea"-num$([F:ZSQD]SQDLIN)-"del pedido"-[F:ZSQD]SQHNUM-"inferior al disponible (Disponible:"-num$(LSTOCKDISP)-[F:ZSQD]SAU+")",0) From GESECRAN
        Call ECR_TRACE("************************************************************************************************",0) From GESECRAN

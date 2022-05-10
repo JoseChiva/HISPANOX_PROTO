@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+######################################################################################
+
 #############################################################
 $ACTION
 Case ACTION
@@ -199,7 +202,10 @@ Call STODISTOT("[F:ITV]",0,0,"",ZLSTUACTDIS) From STKLIB
 [M:ZRPR0]SALSTO = [F:ITV]SALSTO
 [M:ZRPR0]ORDSTO = [F:ITV]ORDSTO
 [M:ZRPR0]STOREAL = [F:ITV]PHYSTO
-[M:ZRPR0]HXCOVER=func ZAULIB01.GET_COBERTURA([F:ZPPD]ITMREF,"PHISP")
+# 06.339.932.ini
+#[M:ZRPR0]HXCOVER=func ZAULIB01.GET_COBERTURA([F:ZPPD]ITMREF,"PHISP")
+[M:ZRPR0]HXCOVER=func ZAULIB01.GET_COBERTURA_ITV([F:ZPPD]ITMREF,"PHISP")
+# 06.339.932.fin
 If [M:ZRPR0]HXCOVER = 999 : [M:ZRPR0]HXCOVER=0 Endif
 Call DATA12MESES([M:ZRPR0]QTYBPC,[M:ZRPR0]QTYSOHLIN,[M:ZRPR0]QTYSOH,[F:ZPPD]ITMREF)
 Affzo [M:ZRPR0]
