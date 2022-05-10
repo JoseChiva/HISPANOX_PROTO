@@ -5,6 +5,7 @@
 # 06.310.959 - JC.08022022.Texto documento entrega en DlvAddComment
 # 06.314.023 - JC.04032022.Adaptación generación SOR desde VP para subcontratación
 # 06.326.685 - JC.22032022.Añadir código pedido cliente para cada línea del SOR
+# 06.338.458 - JC.10052022.Coge el tipo de portes de la ficha de cliente y debe de cogerlo del pedido
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -670,12 +671,19 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250),WL
     Endif
     Filter [ZSOQ]
 
-    Read [ZBPC]BPC0=[F:ZSOH]BPCORD
-    If [ZBPC]FREINV=10
+# 06.338.458.ini
+#    Read [ZBPC]BPC0=[F:ZSOH]BPCORD
+#    If [ZBPC]FREINV=10
+#      WCSTATT02='DEBIDO'
+#    Else
+#      WCSTATT02='PAGADO'
+#    Endif
+    If [F:ZSOH1]ZFREINV = 10 Then
       WCSTATT02='DEBIDO'
     Else
       WCSTATT02='PAGADO'
     Endif
+# 06.338.458.fin
     AA=func PUT_PROPXML('CstAtt02',WCSTATT02,3,2)
     AA=func PUT_PROPXML('CstAtt04',WCSTATT04,3,2)
     AA=func PUT_PROPXML('/CustomAttributes','',2,1)
