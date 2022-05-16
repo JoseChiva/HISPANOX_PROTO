@@ -562,7 +562,7 @@ Local Integer LNUMREGS
     If [F:ZSQD]SOHNUM <> "" Then
       LVALORVEN   += [F:ZSQD]NETPRI * [F:ZSQD]ORDQTY
 #      LMARGENVEN  += [F:ZSQD]ZPFM
-#      LLINVEN     += 1
+      LLINVEN     += 1
     Endif
 
     If [F:ZSQD]ZLINOCU <> 2 Then
