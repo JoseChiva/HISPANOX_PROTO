@@ -3,6 +3,7 @@
 # 06.288.239 : error lectura SOC - nuevo estado 'Rotura stock'
 # 06.299.137 - JC.12012022.error SOC - nuevo estado
 # 06.337.145 - JC.22022022.Errores importación ficheros
+# 06.349.237 - JC.19052022.Nuevo estado "Entrega parcial"
 ################################################################
 
 
@@ -17,7 +18,7 @@ Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), C
 Local Char WFICINP1(250), FICH2(250)
 Local Integer NFICHEROS, WNESTADO, NFICH2, I, M
 Local Char FICHEROS(250)(1..1000)
-Local Char WESTADOS(20)(1..7)         # 06.288.239.new
+Local Char WESTADOS(20)(1..8)         # 06.349.237.new
 Local Char FICHEROIMP(250), FICHEROEXP(250)
 Local Char WSITE(250), WSORCODE(250), WSTATUS(250), WUPDATEDATE(250), WCHECKNEXTSITE(250)
 Local Integer A, LFSTATFICHERO, NFICHEROS
@@ -45,6 +46,7 @@ Local Clbfile XDATA (10)
   WESTADOS(5)='Closed'
   WESTADOS(6)='StockFailure'          # 06.288.239.new
   WESTADOS(7)='EntregaCompleta'       # 06.299.137.new
+  WESTADOS(8)='EntregaParcial'        # 06.349.237.new
 
   If !clalev([F:ZPRH]) : Local File STOPREH   [ZPRH] : Endif
 
