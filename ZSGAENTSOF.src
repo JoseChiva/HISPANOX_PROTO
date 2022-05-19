@@ -15,6 +15,7 @@
 # 06.314.024 - JC.07032022.Adapación importación SOF para subcontratación
 # 06.332.553 - JC.05042022.Nº bultos incorrecto
 # 06.333.290 - JC.06042022.Error en la importación SOF del fichero para subcontrataciones por falta de PTE
+# 06.349.288 - JC.19052022.Dirección entrega cliente de cliente
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -53,7 +54,7 @@ If !clalev([F:ITV])   : Local File ITMMVT     [ITV] : Endif
 If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                                  # 06.304.506.new
 
   WFICHEROIMP='SOF0*'
-#  WFICHEROIMP='aaaSOF123'
+  WFICHEROIMP='SOF0120220405140009000'
 #  WFICHEROIMP='SOF0120220211165012000'
 #  WFICHEROIMP='SOF0120220216161912000'
   Raz NFICHEROS
@@ -3680,7 +3681,11 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
-&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.332.553.new
+&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT
+&           + ";" + [F:ZSOH1]BPDNAM(0) + ";" + [F:ZSOH1]BPDNAM(1) + ";" + [F:ZSOH1]BPDADDLIG(0) + ";" + [F:ZSOH1]BPDADDLIG(1) + ";" + [F:ZSOH1]BPDADDLIG(2)
+&           + ";" + [F:ZSOH1]BPDPOSCOD + ";" + [F:ZSOH1]BPDCTY + ";" + [F:ZSOH1]BPDSAT + ";" + [F:ZSOH1]BPDCRY + ";" + [F:ZSOH1]BPCCRYNAM + ";" + [F:ZSOH1]CNDNAM
+&           Using [ZIMP] # 06.349.288.new
+#&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.332.553.new
 #&           LDLVDAT + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.319.759
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
