@@ -4,6 +4,7 @@
 # 06.304.886 - JC.27012022.Mensaje error importacion prestashop
 # 06.309.392 - JC.04022022.Errores importación web
 # 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop (no pasa 'Facturación porte','Comentarios cli. Web', 'Prioridad entrega')
+# 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
 ########################################################################
 
 
@@ -26,6 +27,7 @@ Global  Char    GBPTNUM(250),GSQHNUM(250)
 Global  Decimal GIMPPORTES
 Global  Integer GPRIORIDAD,GZFREINV
 Local   Char    LUSR(50)
+Global  Char    GCODADR(50)                                               # 06.333.494.new
 
   LUSR  = GUSER
   GUSER ="WEB"
@@ -40,6 +42,7 @@ Local   Char    LUSR(50)
   If dim(GIMPPORTES)  > 0 Then : Kill GIMPPORTES  : Endif
   If dim(GPRIORIDAD)  > 0 Then : Kill GPRIORIDAD  : Endif
   If dim(GZFREINV)    > 0 Then : Kill GZFREINV    : Endif
+  If dim(GCODADR)     > 0 Then : Kill GCODADR     : Endif                 # 06.333.494.new
 
 Return
 
@@ -830,6 +833,8 @@ $TRANSPORTE
   Close Local File [ZBPC0],[ZBPD0]
 
   Gosub CALCULA_PORTES
+
+  GCODADR = LCODADR                                                       # 06.333.494.new
 
 Return
 

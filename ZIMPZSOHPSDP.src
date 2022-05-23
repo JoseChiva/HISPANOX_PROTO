@@ -2,6 +2,7 @@
 ######################################################################
 # JC.03112021-1    Bug. Cálculo de los portes en el pedido
 # 06.288.426       errores importación pedidos web - ML.03.01.2021
+# 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
 ######################################################################
 
 $ACTION
@@ -68,7 +69,10 @@ $IMP_VERIF_CRE
 
   Read [F:ZSFI]SFI0 = GFRENUM
   If fstat = 0 and [F:ZSFI]DACDLV <> 0 Then
-    Read [F:ZBPA]BPA0=1;[M:SOH0]BPCORD;[M:SOH1]BPAADD
+# 06.333.494.ini
+#    Read [F:ZBPA]BPA0=1;[M:SOH0]BPCORD;[M:SOH1]BPAADD
+    Read [F:ZBPA]BPA0=1;[M:SOH0]BPCORD;GCODADR
+# 06.333.494.fin
     If fstat = 0 Then
       S_PAIS          = [F:ZBPA]CRY
       S_CIUDAD        = [F:ZBPA]CTY
@@ -79,7 +83,10 @@ $IMP_VERIF_CRE
   If [M:SOH2]BPTNUM <> "" Then
     S_TRANSPORTISTA   = [M:SOH2]BPTNUM
   Else
-    Read [F:ZBPD]BPD0 = [M:SOH0]BPCORD;[M:SOH1]BPAADD
+# 06.333.494.ini
+#    Read [F:ZBPD]BPD0 = [M:SOH0]BPCORD;[M:SOH1]BPAADD
+    Read [F:ZBPD]BPD0 = [M:SOH0]BPCORD;GCODADR
+# 06.333.494.fin
     If !fstat Then
       S_TRANSPORTISTA   = [F:ZBPD]BPTNUM
     Endif
@@ -206,6 +213,7 @@ $IMP_FERME
     # lineas P
     Filter [F:ZSOP] Where SOHNUM = [F:SOH]SOHNUM
     For [ZSOP]
+      [F:ZSOP]BPAADD = GCODADR                                            # 06.333.494.new
       [F:ZSOP]CREUSR = "WEB"
       [F:ZSOP]UPDUSR = "WEB"
       Trbegin [F:ZSOP]
@@ -220,6 +228,7 @@ $IMP_FERME
     # lineas Q
     Filter [F:ZSOQ] Where SOHNUM = [F:SOH]SOHNUM
     For [ZSOQ]
+      [F:ZSOQ]BPAADD = GCODADR                                            # 06.333.494.new
       [F:ZSOQ]BPTNUM = [F:SOH]BPTNUM
       [F:ZSOQ]CREUSR = "WEB"
       [F:ZSOQ]UPDUSR = "WEB"
