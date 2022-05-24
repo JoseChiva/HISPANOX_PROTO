@@ -1049,7 +1049,7 @@ Local Char LCODADR(50)
     # si la dirección de entrega indicada en el fichero no está activa, se filtra por la dirección 'Cliente destinatario por defecto'
     Else
       If !clalev([F:BPC0]) Then : Local File BPCUSTOMER [F:BPC0] : Endif
-      Read [F:BPC0]BPC0 = [F:ZOPH2]BPCORD
+      Read [F:BPC0]BPC0 = [F:ZOPH3]BPCORD
       If !fstat Then
       Read [F:BPA0]BPA0 = 1;[F:BPC0]BPCNUM;[F:BPC0]BPDADD
         LCODADR     = [F:BPC0]BPDADD
