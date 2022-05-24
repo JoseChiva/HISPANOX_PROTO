@@ -565,6 +565,11 @@ Local Char LPTE(250)
     Gosub TRANSPORTE_SOH
     Gosub ELEM_FACT_SOH
 # 06.333.494.end
+# 06.333.494.ini
+    Raz GCODADR
+    Gosub DIR_ENTREGA_SOH
+    GCODADR = LCODADR
+# 06.333.494.fin
 
     # datos de cabecera de pedido
 # 06.333.494.ini
@@ -834,8 +839,6 @@ $TRANSPORTE
 
   Gosub CALCULA_PORTES
 
-  GCODADR = LCODADR                                                       # 06.333.494.new
-
 Return
 
 ########################################################
@@ -1030,6 +1033,32 @@ Local Char    LSAU(50)
   Endif
 
   Close Local File [ZITM4],[ZITV4]
+Return
+
+########################################################
+# # 06.333.494
+$DIR_ENTREGA_SOH
+Local Char LCODADR(50)
+  If !clalev([F:BPD0]) Then : Local File BPDLVCUST [F:BPD0] : Endif
+  If !clalev([F:BPA0]) Then : Local File BPADDRESS [F:BPA0] : Endif
+  Read [F:BPD0]BPD0 = [F:ZOPH3]BPCORD;[F:ZOPH3]CODADR
+  If !fstat Then
+    If [F:BPD0]ENAFLG = 2                                                                     # 06.309.392.new
+      Read [F:BPA0]BPA0 = 1;[F:BPD0]BPCNUM;[F:BPD0]BPAADD
+      LCODADR     = [F:ZOPH3]CODADR
+    # si la dirección de entrega indicada en el fichero no está activa, se filtra por la dirección 'Cliente destinatario por defecto'
+    Else
+      If !clalev([F:BPC0]) Then : Local File BPCUSTOMER [F:BPC0] : Endif
+      Read [F:BPC0]BPC0 = [F:ZOPH2]BPCORD
+      If !fstat Then
+      Read [F:BPA0]BPA0 = 1;[F:BPC0]BPCNUM;[F:BPC0]BPDADD
+        LCODADR     = [F:BPC0]BPDADD
+      Endif
+      Close Local File [BPC0]
+    Endif
+  Endif
+
+  Close Local File [BPD0],[BPA0]
 Return
 
 ########################################################
