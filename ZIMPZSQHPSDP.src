@@ -1,18 +1,19 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
-######################################################################################
+# 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+########################################################################
 
 $ACTION
 #Infbox ACTION
 Local Char LUSER(50)
-  LUSER = GUSER
-  GUSER = "WEB"
+#  LUSER = GUSER                                                          # 06.343.688.new
+#  GUSER = "WEB"                                                          # 06.343.688.new
   Case ACTION
     When "AP_IMPORT"      : Gosub AP_IMPORT
     When "IMP_FERME"      : Gosub IMP_FERME
     When Default
   Endcase
-  GUSER = LUSER
+#  GUSER = LUSER                                                          # 06.343.688.new
 Return
 
 ########################################################

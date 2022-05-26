@@ -5,6 +5,7 @@
 # 06.309.392 - JC.04022022.Errores importación web
 # 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop (no pasa 'Facturación porte','Comentarios cli. Web', 'Prioridad entrega')
 # 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
+# 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
 ########################################################################
 
 
@@ -29,12 +30,12 @@ Global  Integer GPRIORIDAD,GZFREINV
 Local   Char    LUSR(50)
 Global  Char    GCODADR(50)                                               # 06.333.494.new
 
-  LUSR  = GUSER
-  GUSER ="WEB"
+#  LUSR  = GUSER                                                          # 06.343.688.new
+#  GUSER ="WEB"                                                           # 06.343.688.new
   mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
   Gosub LANZA_PROCESO
   mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
-  GUSER = LUSR
+#  GUSER = LUSR                                                           # 06.343.688.new
 
   If dim(GBLOCK)      > 0 Then : Kill GBLOCK      : Endif
   If dim(GBPTNUM)     > 0 Then : Kill GBPTNUM     : Endif

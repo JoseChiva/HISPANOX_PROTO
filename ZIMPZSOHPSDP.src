@@ -3,14 +3,15 @@
 # JC.03112021-1    Bug. Cálculo de los portes en el pedido
 # 06.288.426       errores importación pedidos web - ML.03.01.2021
 # 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
-######################################################################
+# 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+########################################################################
 
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 #Infbox ACTION
 Local Char LUSER(50)
-  LUSER = GUSER
-  GUSER = "WEB"
+#  LUSER = GUSER                                                          # 06.343.688.new
+#  GUSER = "WEB"                                                          # 06.343.688.new
 #If 1=2
   Case ACTION
     When "IMP_VERIF_CRE"  : Gosub IMP_VERIF_CRE
@@ -18,7 +19,7 @@ Local Char LUSER(50)
     When Default
   Endcase
 #Endif
-  GUSER = LUSER
+#  GUSER = LUSER                                                          # 06.343.688.new
 Return
 
 ########################################################

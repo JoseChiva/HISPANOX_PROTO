@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.298.587 - JC.11012021.no funciona la importación Ofertas Web
-#################################################################
+# 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+########################################################################
 
 #If GUSER="ADEV" Then
 Gosub EXEC
@@ -17,10 +18,10 @@ Return
 ########################################################################
 $EXEC
 Local Char LUSR(50)
-  LUSR  = GUSER
-  GUSER ="WEB"
+#  LUSR  = GUSER                                                          # 06.343.688.new
+#  GUSER ="WEB"                                                           # 06.343.688.new
   Gosub GENERA_SQH
-  GUSER = LUSR
+#  GUSER = LUSR                                                           # 06.343.688.new
 Return
 
 ########################################################################
