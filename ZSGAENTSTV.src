@@ -10,6 +10,7 @@
 # 06.319.073 - AMG.28022022.tarea ZSGAENTSTV está fallando (relacionado con 06.315.530 - No renombraba el fichero .0 xq ya existía otro con ese nombre)
 # 06.326.681 - JC.21032022.Ajustes stock STV con estado QK
 # 06.324.834 - JC.22032022.No lee correctamente ciertos ficheros STV de actualización porque la estructura del fichero cambia
+# 06.347.583 - JC.30052022.Comprueba si hay suficiente stock (físico + asignado) antes de lanzar la salida. Si hay, se desasigna sino no y no se crea la salida varia
 #############################################################
 
 #If GUSER="ADEV"
@@ -457,7 +458,7 @@ Local Clbfile XDATA (10)
         Endif
         Local Decimal LQTYSX3
         # artículo, lote, estado, cantidad STV, unidad STV, cantidad disponible en X3
-        Call COMPRUEBA_STOCK(WITEMCODE,WCSTATT05FCA,LITMSTA,val(WQUANTITYVAR),WUOMCODE,LNOMFICHERO,LQTYSX3)
+        Call MUEVE_STOCK(WITEMCODE,WCSTATT05FCA,LITMSTA,val(WQUANTITYVAR),WUOMCODE,LNOMFICHERO,LQTYSX3)
         WQUANTITYVAR = num$(LQTYSX3)
       Endif
 
@@ -1002,7 +1003,7 @@ End
 #* @param PSTUSTV > unidad STV
 #* @param PQTYSAL > cantidad con la que vamos a hacer la salida
 #*!
-Subprog COMPRUEBA_STOCK(PITM,PLOT,PSTA,PQTYSTV,PSTUSTV,PNOMFICHERO,PQTYSAL)
+Subprog MUEVE_STOCK(PITM,PLOT,PSTA,PQTYSTV,PSTUSTV,PNOMFICHERO,PQTYSAL)
 Value     Char    PITM,PLOT,PSTA,PSTUSTV,PNOMFICHERO
 Value     Decimal PQTYSTV
 Variable  Decimal PQTYSAL
@@ -1023,7 +1024,32 @@ Local     Integer LDES
 
   LQTYSTVINI = PQTYSTV
 
-  # obtenemos el valor de la cantidad asignada del artículo
+# 06.347.583.ini
+  Local Decimal LSTKREAL,LSTKPHY,LSTKNOPV
+  # calcula el stock físico
+  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and STA = PSTA and LOC = "SGA" and LOT = PLOT
+  For [F:ZSTO]
+    LSTKPHY += [F:ZSTO]QTYSTU
+    Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2 and VCRTYP <> 2
+    For [F:ZSTA]
+      LSTKNOPV += [F:ZSTO]QTYSTUACT
+    Next
+    Filter [F:ZSTA]
+  Next
+  Filter [F:ZSTO]
+  Filter [F:ZSTA] Where STOCOU = 0 and ITMREF = PITM and ALLTYP = 1 and VCRTYP <> 2
+  For [F:ZSTA]
+    LSTKNOPV += [F:ZSTO]QTYSTUACT
+  Next
+  Filter [F:ZSTA]
+  LSTKREAL = LSTKPHY - LSTKNOPV
+  If PQTYSTV > LSTKREAL
+    PQTYSAL = 0
+    Goto SINSTOCK
+  Endif
+# 06.347.583.fin
+
+  # obtenemos el valor de la cantidad asignada del artículo en pedidos
 # JC.17112021.INI
 #  Filter [F:ZSTA] Where ITMREF = PITM #and VCRTYP = 2
 #  For [ZSTA]
@@ -1032,14 +1058,14 @@ Local     Integer LDES
 #  Filter [F:ZSTA]
   Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and STA = PSTA and LOC = "SGA"
   For [ZSTO]
-    # asignación detallada para el estado y ubicación específicos
+    # asignación detallada para el estado y ubicación específicos en pedidos
     Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2
     For [ZSTA]
       LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
     Next
     Filter [F:ZSTA]
   Next
-  # asignación global para el artículo
+  # asignación global en pedidos para el artículo
   Filter [F:ZSTA] Where ITMREF = PITM and STOCOU = 0 and ALLTYP = 1
   For [ZSTA]
     LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
@@ -1191,6 +1217,8 @@ Local     Integer LDES
 #Infbox "ctd.disponible:"-num$(LQTYDISPONIBLEX3)
 #Infbox "ctd.salida:"-num$(PQTYSAL)
 #Infbox "ctd.desasignadaGlobal:"-num$(LQTYDESGLOBALX3)
+
+$SINSTOCK                                                                 # 06.347.583.new
 
   If PQTYSAL = 0 Then
     If !clalev([F:ZSS0]) Then : Local File ZSTVSALCERO [F:ZSS0] : Endif
