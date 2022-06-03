@@ -1025,31 +1025,13 @@ Local     Integer LDES
   LQTYSTVINI = PQTYSTV
 
 # 06.347.583.ini
-  Local Decimal LSTKREAL,LSTKPHY,LSTKNOPV
-  # calcula el stock físico
-  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and STA = PSTA and LOC = "SGA" and LOT = PLOT
-  For [F:ZSTO]
-    LSTKPHY += [F:ZSTO]QTYSTU
-    Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2 and VCRTYP <> 2
-    For [F:ZSTA]
-      LSTKNOPV += [F:ZSTO]QTYSTUACT
-    Next
-    Filter [F:ZSTA]
-  Next
-  Filter [F:ZSTO]
-  Filter [F:ZSTA] Where STOCOU = 0 and ITMREF = PITM and ALLTYP = 1 and VCRTYP <> 2
-  For [F:ZSTA]
-    LSTKNOPV += [F:ZSTO]QTYSTUACT
-  Next
-  Filter [F:ZSTA]
-  LSTKREAL = LSTKPHY - LSTKNOPV
-  If PQTYSTV > LSTKREAL
-    PQTYSAL = 0
-    Goto SINSTOCK
-  Endif
+  Local Char    P_ITM(250),P_LOT(250),P_STA(250),P_STUSTV(250)
+  Local Decimal P_QTYSTV,P_QTYSAL
+  P_ITM = PITM : P_LOT = PLOT : P_STA = PSTA : P_STUSTV = PSTUSTV : P_QTYSTV = PQTYSTV : P_QTYSAL = PQTYSAL
+  If func CUENTA_STOCK(P_ITM,P_LOT,P_STA,P_QTYSTV,P_STUSTV,P_QTYSAL) > 0 Then : PQTYSAL = 0 : Goto SINSTOCK : Endif
 # 06.347.583.fin
 
-  # obtenemos el valor de la cantidad asignada del artículo en pedidos
+  # obtenemos el valor de la cantidad asignada del artículo
 # JC.17112021.INI
 #  Filter [F:ZSTA] Where ITMREF = PITM #and VCRTYP = 2
 #  For [ZSTA]
@@ -1058,14 +1040,14 @@ Local     Integer LDES
 #  Filter [F:ZSTA]
   Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and STA = PSTA and LOC = "SGA"
   For [ZSTO]
-    # asignación detallada para el estado y ubicación específicos en pedidos
+    # asignación detallada para el estado y ubicación específicos
     Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2
     For [ZSTA]
       LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
     Next
     Filter [F:ZSTA]
   Next
-  # asignación global en pedidos para el artículo
+  # asignación global para el artículo
   Filter [F:ZSTA] Where ITMREF = PITM and STOCOU = 0 and ALLTYP = 1
   For [ZSTA]
     LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
@@ -1295,6 +1277,8 @@ Local   Integer LCONTROL
   Filter [F:ZSD1]
   GMENSAJE3 = "NO se ha podido hacer la salida de" - num$(PQTYSTV-PQTYSAL) - PSTUSTV
 
+  If (num$(PQTYSTV-PQTYSAL) - PSTUSTV) = 0 Then : End : Endif
+
   Close Local File [ZSD1]
 
   # lanza un workflow para avisar de que la importación ha fallado
@@ -1357,3 +1341,120 @@ Value   Char    PFICHERO
   Close Local File [ZSS1]
 
 End
+
+###############################################################
+# 06.347.583.ini
+#**
+#* comprueba si existe stock suficiente para hacer la salida
+#*
+#* @param WITM    > artículo
+#* @param WLOT    > lote
+#* @param WSTA    > estado
+#* @param WQTYSTV > cantidad STV
+#* @param WSTUSTV > unidad STV
+#* @param WQTYSAL > cantidad con la que vamos a hacer la salida
+#*!
+Funprog CUENTA_STOCK(WITM,WLOT,WSTA,WQTYSTV,WSTUSTV,WQTYSAL)
+Value Char    WITM,WLOT,WSTA,WSTUSTV
+Value Decimal WQTYSTV
+Value Decimal WQTYSAL
+
+Local     Decimal WQTYFISICAX3,WQTYASIGNADAX3,WQTYDISPONIBLEX3,WQTYSTVINI
+Local     Decimal WQTYFISICATOTALX3,WQTYASIGLOBALX3,WQTYDESGLOBALX3
+
+  If !clalev([F:ZSTO]) Then : Local File STOCK        [F:ZSTO] : Endif
+  If !clalev([F:ZSTA]) Then : Local File STOALL       [F:ZSTA] : Endif
+  If !clalev([F:ZVAL]) Then : Local File ZVSTVALLSOH  [F:ZVAL] : Endif
+  If !clalev([F:ZVA2]) Then : Local File ZVSTVALLSOH2 [F:ZVA2] : Endif
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ      [F:ZSOQ] : Endif
+
+  WQTYSTVINI = WQTYSTV
+
+  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = WITM and STA = WSTA and LOC = "SGA"
+  For [ZSTO]
+    # asignación detallada para el estado y ubicación específicos
+    Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2
+    For [ZSTA]
+      WQTYASIGNADAX3 += [F:ZSTA]QTYSTU
+    Next
+    Filter [F:ZSTA]
+  Next
+  # asignación global para el artículo
+  Filter [F:ZSTA] Where ITMREF = WITM and STOCOU = 0 and ALLTYP = 1
+  For [ZSTA]
+    WQTYASIGNADAX3 += [F:ZSTA]QTYSTU
+  Next
+  Filter [F:ZSTA]
+
+  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = WITM and LOT = WLOT and STA = WSTA and LOC = "SGA"
+  Read   [F:ZSTO] First
+  If !fstat Then
+    # obtenemos el valor de la cantidad física y la disponible (física - asignada en pedidos)
+    WQTYFISICAX3      = [F:ZSTO]QTYSTU
+    If WQTYFISICAX3 - WQTYASIGNADAX3 > 0 Then
+      WQTYDISPONIBLEX3  = WQTYFISICAX3 - WQTYASIGNADAX3
+    Endif
+
+    # convertimos la QTY salida STV a la unidad de la QTY física X3
+    WQTYSTV = func ZAULIB01.CONVERTIR_CANTIDAD(WSTUSTV,[F:ZSTO]PCU,WQTYSTV)
+
+    # comprobación cantidad física por lote y estado mensaje STV vs Sage X3
+    # si QTY física X3 >= QTY salida STV ==> seguimos con el proceso
+    If WQTYFISICAX3 >= WQTYSTV Then
+    # sino, seguimos con el proceso considerando que QTY STV = QTY física X3
+    Else
+      WQTYSTV = WQTYFISICAX3
+    Endif
+
+    # comprobación cantidad disponible por lote y estado mensaje STV vs Sage X3
+    # si QTY disponible X3 >= QTY STV ==> seguimos con el proceso
+    If WQTYDISPONIBLEX3 >= WQTYSTV Then
+    Else
+      # ejecutamos automáticamente proceso cancelación (desasignación) de los pedidos según fecha pedido
+      # (desasignar primero los pedidos más recientes) hasta tener QTY disponible suficiente
+      # para registrar la salida
+      # desasigna primero los pedidos con asignación detallada (STOCOU <> 0)
+      Filter [F:ZVAL] Where STOCOU = [F:ZSTO]STOCOU and VCRTYP = 2 Order By ALLTYP Desc; ORDDAT Desc
+      For [F:ZVAL]
+        WQTYDISPONIBLEX3 += [F:ZVAL]QTY
+      Next
+      Filter [F:ZVAL]
+
+    Endif
+  Endif
+  Filter [F:ZSTO]
+
+  If WQTYSTV <= WQTYDISPONIBLEX3 Then
+    WQTYSAL = WQTYSTV
+  Else
+    WQTYSAL = WQTYDISPONIBLEX3
+  Endif
+
+  # buscamos la cantidad física total del artículo (sin tener en cuenta el lote)
+  Filter [F:ZSTO] Where ITMREF = WITM and STA = WSTA and LOC = "SGA"
+  For [F:ZSTO]
+    WQTYFISICATOTALX3  += [F:ZSTO]QTYSTU
+  Next
+  # buscamos las asignaciones globales del artículo
+  Filter [F:ZSTA] Where ITMREF = WITM and STOCOU = 0 and VCRTYP = 2
+  For [F:ZSTA]
+    WQTYASIGLOBALX3    += [F:ZSTA]QTYSTUACT
+  Next
+  Filter [F:ZSTA]
+  # si la diferencia entre cantidad física total y cantidad asignada global es igual o superior a la cantidad de salida, continuamos con el proceso
+  If WQTYFISICATOTALX3 - WQTYASIGLOBALX3 >= WQTYSTV and WQTYSAL > 0 Then
+  Else
+    # si aun así no llega a la diferencia entre stock físico total y stock asignado global, continúa desasignando los pedidos con asignación global (STOCOU = 0)
+    Filter [F:ZVA2] Where ITMREF = WITM and STOCOU = 0 and VCRTYP = 2 Order By ORDDAT Desc; SOHNUM Desc; QTYSTUACT Asc
+    For [F:ZVA2]
+      WQTYDESGLOBALX3 += [F:ZVA2]QTYSTUACT
+    Next
+    Filter [F:ZVA2]
+  Endif
+
+  Close Local File [ZSTO],[ZSTA],[ZVA2],[ZVAL],[ZSOQ]
+
+End (WQTYSTVINI - (WQTYDISPONIBLEX3 + WQTYDESGLOBALX3))
+# si la salida es <= 0 -> sí que hay stock
+# si la salida es > 0  -> no hay stock
+# 06.347.583.fin
