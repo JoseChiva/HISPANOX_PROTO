@@ -1,8 +1,11 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 #MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
-#------------------------------------------------------------------------------------
+# 06.354.819 - JC.08062022.Intrastat. Desarrollo incoterm y modo entrega.AUREN
+################################################################################
+
 $ACTION
 Case ACTION
+  When "INICRE"    : Gosub INICRE
   When "APRES_CRE" : Gosub APRES_MOD
   When "APRES_MOD" : Gosub APRES_MOD
  When Default
@@ -11,6 +14,14 @@ Return
 
 $APRES_MOD
 Call ZSGASOR('',[M:PNH1]PNHNUM) From ZSGASOR
+Return
+
+##############################################################
+$INICRE
+# 06.354.819.ini
+  If [F:BPS]MDL     = '' Then : [F:PNH]EECTRN = 3     : Endif
+  If [F:BPS]EECICT  = '' Then : [F:PNH]EECICT = 'CPT' : Endif
+# 06.354.819.fin
 Return
 
 ######################################################################################
@@ -33,4 +44,3 @@ End
 
 #MRR01 fin
 ######################################################################################
-

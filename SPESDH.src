@@ -4,6 +4,7 @@
 #DEV: JESP 20210121 Tarifas transportistas
 # 06.298.715 - JC.11012022.errores importación SOF
 # 06.331.859 - JC.04042022.Aviso de creación de entrega. Muestra los avisos por separado junto a su pedido
+# 06.354.819 - JC.08062022.Intrastat. Desarrollo incoterm y modo entrega.AUREN
 ######################################################################################
 
 ######################################################################################
@@ -15,6 +16,7 @@ Case ACTION
   When "OUVRE"       : Gosub OUVRE
   When "VERIF_CRE"   : Gosub VERIF_CRE
   When "VERIF_MOD"   : Gosub VERIF_MOD
+  When "INICRE"      : Gosub INICRE
   When "APRES_CRE"   : Gosub APRES_CRE
   When "APRES_MOD"   : Gosub APRES_MOD
   When "APRES_MODIF" : Gosub APRES_MODIF
@@ -115,6 +117,14 @@ $VERIF_MOD
 
   GPE=1
 # JC.150921.VTAS054.calculo porte en entregas.FIN
+Return
+
+##############################################################
+$INICRE
+# 06.354.819.ini
+  If [M:SDH2]MDL    = '' Then : [F:SDH]EECTRN = 3     : Endif
+  If [M:SDH2]EECICT = '' Then : [F:SDH]EECICT = 'CPT' : Endif
+# 06.354.819.fin
 Return
 
 ##############################################################

@@ -1,24 +1,35 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$ Recepciones
 # 06.300.491 - JC.01022022.Intrastat. Desarrollo automatización país origen
 # 06.314.025 - JC.07032022.Adapación generación ROR desde Recepciones para subcontratación
+# 06.354.819 - JC.08062022.Intrastat. Desarrollo incoterm y modo entrega.AUREN
 ################################################################################
 
 $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "APRES_CRE": Gosub APRES_CRE
-  When "APRES_MOD": Gosub APRES_MOD
-  When "AP_ANNULE": Gosub AP_ANNULE
-  When "SETBOUT": Gosub SETBOUT
-  When "LIENS": Gosub LIENS
-  When "PICKE" : Gosub PICKE
+  When "INICRE"       : Gosub INICRE
+  When "APRES_CRE"    : Gosub APRES_CRE
+  When "APRES_MOD"    : Gosub APRES_MOD
+  When "AP_ANNULE"    : Gosub AP_ANNULE
+  When "SETBOUT"      : Gosub SETBOUT
+  When "LIENS"        : Gosub LIENS
+  When "PICKE"        : Gosub PICKE
   When Default
 Endcase
 Return
 
 ##############################################################
 ######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$INICRE
+# 06.354.819.ini
+  If [F:BPS]MDL     = '' Then : [F:PTH]EECTRN = 3     : Endif
+  If [F:BPS]EECICT  = '' Then : [F:PTH]EECICT = 'CPT' : Endif
+# 06.354.819.fin
+Return
+
 ##############################################################
 $LIENS
 Titcol [M:PTH1]NBLIG "Arancel" For CPRCOE
