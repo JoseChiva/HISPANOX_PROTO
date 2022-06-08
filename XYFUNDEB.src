@@ -6,7 +6,7 @@ $ACTION
 
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 Case ACTION
-  When "ZRENORICRY"     : Gosub ZRENORICRY            # 06.300.491 punto de entrada específico
+  When "ZINTRASTAT_SDH"     : Gosub ZINTRASTAT_SDH            # 06.300.491 punto de entrada específico
   When Default
 Endcase
 
@@ -21,7 +21,8 @@ Return
 ##############################################################
 ##############################################################
 # 06.300.491
-$ZRENORICRY
+$ZINTRASTAT_SDH
+  # país
   If !clalev([F:ZITM]) Then : Local File ITMMASTER  [F:ZITM] : Endif
   If [M:DEBG]VCRNUM <> '' Then
     Read [F:ZITM]ITM0 = [M:DEBG]ITMREF(nolign-1)
