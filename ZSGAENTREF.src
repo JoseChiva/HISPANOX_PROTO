@@ -104,7 +104,7 @@ Local Clbfile XDATA (10)
 
 # 06.314.024.ini
     # encuentra la cadena que hay detrás del primer guión en la etiqueta ReceiptCode
-    WRECEIPTCODE = seg$(WRECEIPTCODE,1,instr(1,WRECEIPTCODE,"-")-1)
+    If instr(1,WRECEIPTCODE,"-") > 0 Then : WRECEIPTCODE = seg$(WRECEIPTCODE,1,instr(1,WRECEIPTCODE,"-")-1) : Endif
     Read [ZPTH]PTH0=WRECEIPTCODE
     If !fstat Then
       Filter [F:ZPTD] Where PTHNUM = [F:ZPTH]PTHNUM

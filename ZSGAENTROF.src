@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.299.138 - JC.12012022.envío del fichero a la carpeta ERR encaso de error para que no bloquee las peticiones batch
 # 06.314.024 - JC.10032022.Adapación importación ROF para subcontratación
+# Z001 - JC.31052022.Correo 31/05/2022 12:27 - HX Sage X3: Gestión subcontratación - “Fecha Recepcion SGA” poner la fecha del día que se procesa el fichero
 ##########################################################################################################################
 
 #If GUSER="ADEV" Then
@@ -96,12 +97,18 @@ Local Clbfile XDATA (10)
     WRECDATCONTAINERS =func GET_PROPXML(XDATA,"RecDatContainers",I)
     WRECDATDATE       =func GET_PROPXML(XDATA,"RecDatDate",I)
 
+# 06.314.024.ini
+    # encuentra la cadena que hay detrás del primer guión en la etiqueta RorCode
+    If instr(1,WRORCODE,"-") > 0 Then : WRORCODE = seg$(WRORCODE,1,instr(1,WRORCODE,"-")-1) : Endif
+# 06.314.024.fin
+
     #contar lineas
     Call ECR_TRACE("Recep. RecCode: "+WRECCODE+' RorCode: '+WRORCODE+' Fich:'+LNOMFICHERO,0) From GESECRAN
 
     Openi Using [ZZZ]
 
     Gosub RESU_WESTADOS
+
     If WNESTADO <> 0 Then                                                 # 06.299.138.new
       WDEVOLUCION=1
       If WRORCODE<>''
@@ -121,7 +128,10 @@ Local Clbfile XDATA (10)
                   Call ECR_TRACE ("***Recepción pedido subcontratación***",0) From GESECRAN
                   [F:ZPTH]ZRECCOD   = WRECCODE
                   [F:ZPTH]ZNUMCONT  = num$(WRECDATCONTAINERS)
-                  [F:ZPTH]ZDATREC   = gdat$(val(mid$(WRECDATDATE,9,2)),val(mid$(WRECDATDATE,6,2)),val(mid$(WRECDATDATE,1,4)))
+# Z001.ini
+#                  [F:ZPTH]ZDATREC   = gdat$(val(mid$(WRECDATDATE,9,2)),val(mid$(WRECDATDATE,6,2)),val(mid$(WRECDATDATE,1,4)))
+                  [F:ZPTH]ZDATREC   = date$
+# Z001.fin
                   Trbegin [F:ZPTH]
                   Rewrite [F:ZPTH]
                   If !fstat Then
