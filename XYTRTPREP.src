@@ -2,6 +2,7 @@
 # 06.308.862 - JC.02022022.VP diferent adreça entrega
 # 06.312.723 - JC.14022022.Vale preparación padre
 # 06.315.256 - JC.16022022.Aviso riesgo sobrepasado en plan de preparación
+# 06.356.782 - JC.15062022.No rellena la dirección de entrega en las órdenes de preparación
 #############################################################################
 
 $ACTION
@@ -63,6 +64,12 @@ $BOUTON
           GPE=1
     # 06.308.862.fin
         Endif
+# 06.356.782.ini
+      Else
+        Gosub BOUTON From TRTPREPA
+        Gosub UPD_DIRENTREGA
+        GPE=1
+# 06.356.782.fin
       Endif
       Filter [F:ZCR0]
       Close Local File [ZCR0]
