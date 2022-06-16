@@ -25,8 +25,10 @@ Return
 ##############################################################
 $INICRE
 # 06.354.819.ini
-  If [F:BPS]MDL     = '' Then : [F:PTH]EECTRN = 3     : Endif
-  If [F:BPS]EECICT  = '' Then : [F:PTH]EECICT = 'CPT' : Endif
+  Gosub INICRE From SUBPTHA
+  If [F:BPS]MDL     = '' and [F:BPR]DOCTYP = 2 Then : [F:PTH]MDL    = '3'   : Endif
+  If [F:BPS]EECICT  = '' and [F:BPR]DOCTYP = 2 Then : [F:PTH]EECICT = 'CPT' : Endif
+  GPE=1
 # 06.354.819.fin
 Return
 
