@@ -1,0 +1,21 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.317.470 - AMG.14032022 HORA EJECUCIÓN FICHEROS INTRANET
+# 06.360.709 - JC.23062022.Separar ficheros intranet
+##########################################################################
+
+Gosub EXEC
+End
+
+$ACTION
+Case ACTION
+  When "EXEC": Gosub EXEC
+Endcase
+Return
+
+########################################################################
+$EXEC
+  #06.317.470 AUR.INI --OPTIMIZACIÓN Fichero articulos.csv
+  #WITM="": Call ARTICULOS(WITM) From ZITMINTRANET
+  WITM="": Call ARTICULOS(WITM) From ZITMINTRANET2
+  #06.317.470 AUR.FIN
+Return
