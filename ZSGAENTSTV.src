@@ -11,6 +11,7 @@
 # 06.326.681 - JC.21032022.Ajustes stock STV con estado QK
 # 06.324.834 - JC.22032022.No lee correctamente ciertos ficheros STV de actualización porque la estructura del fichero cambia
 # 06.347.583 - JC.30052022.Comprueba si hay suficiente stock (físico + asignado) antes de lanzar la salida. Si hay, se desasigna sino no y no se crea la salida varia
+# 06.360.704 - JC.23062022.Entrada Varia repetitiva - 06.360.968 : error fichero STV02
 #############################################################
 
 #If GUSER="ADEV"
@@ -52,6 +53,7 @@ Local Clbfile XDATA (10)
   ORDSYS = "dir "+CFILE+" /A-d /b"
   Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
   LFSTATFICHERO=0
+
 
   For A=1 To NFICHEROS
     # limpia la tabla donde se guardan los artículos lote que no se pueden hacer salida por falta de stock físico
@@ -1277,7 +1279,10 @@ Local   Integer LCONTROL
   Filter [F:ZSD1]
   GMENSAJE3 = "NO se ha podido hacer la salida de" - num$(PQTYSTV-PQTYSAL) - PSTUSTV
 
-  If (num$(PQTYSTV-PQTYSAL) - PSTUSTV) = 0 Then : End : Endif
+# 06.360.704.ini
+#  If (num$(PQTYSTV-PQTYSAL) - PSTUSTV) = 0 Then : End : Endif
+  If (PQTYSTV-PQTYSAL) = 0 Then : End : Endif
+# 06.360.704.ini
 
   Close Local File [ZSD1]
 
@@ -1416,7 +1421,10 @@ Local     Decimal WQTYFISICATOTALX3,WQTYASIGLOBALX3,WQTYDESGLOBALX3
       # desasigna primero los pedidos con asignación detallada (STOCOU <> 0)
       Filter [F:ZVAL] Where STOCOU = [F:ZSTO]STOCOU and VCRTYP = 2 Order By ALLTYP Desc; ORDDAT Desc
       For [F:ZVAL]
-        WQTYDISPONIBLEX3 += [F:ZVAL]QTY
+# 06.360.704.ini
+#        WQTYDISPONIBLEX3 += [F:ZVAL]QTY
+        WQTYDISPONIBLEX3 += [F:ZVAL]QTYSTUACT
+# 06.360.704.fin
       Next
       Filter [F:ZVAL]
 
