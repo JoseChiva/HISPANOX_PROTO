@@ -1,0 +1,70 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.360.705 - JC.28062022.Fichero tarifas.csv para la intranet
+################################################################################
+
+
+Call TARIFAS("") From ZTARINTRANET
+End
+
+##################################################################
+Subprog TARIFAS(WTAR)
+Value Char WTAR
+
+  Gosub OPEN_TABLAS
+  If WTAR <> "" Then
+    Filter [F:ZSPL] Where PLI = WTAR and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  Else
+    Filter [F:ZSPL] Where (PLI = 'T10' or PLI = 'T40') and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+  Endif
+  Read [F:ZSPL] First
+  If rowcount([F:ZSPL])>0
+    Gosub CREAR_FICHERO
+    Gosub CABECERA
+    For [F:ZSPL]
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [TAR]
+  Endif
+  Filter [F:ZSPL]
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZSPL]) Then : Local File SPRICLIST [F:ZSPL] : Endif
+Return
+
+###################################################################
+$CLOSE_TABLAS
+  Close Local File [F:ZSPL]
+Return
+
+###################################################################
+$CREAR_FICHERO
+  If WTAR=""
+   Openo filpath("ZINT\ERP_to_intranet","tarifas","csv"),0          Using [TAR]
+  Else
+   Openo filpath("ZINT\ERP_to_intranet","tarifas"+"_"+WTAR,"csv"),0 Using [TAR]
+  Endif
+
+  Iomode adxifs ";"        Using [TAR]
+  Iomode adxium 50         Using [TAR]
+Return
+
+##########################################################################
+$CABECERA
+  Wrseq "Ficha tarifa";             Using [TAR]
+  Wrseq "Artículo";                 Using [TAR]
+  Wrseq "Precio";                   Using [TAR]
+  Wrseq "Dto";                      Using [TAR]
+  Wrseq "Código tarifa"             Using [TAR]
+Return
+
+##################################################################
+$ESC_REGISTRO
+  Wrseq [F:ZSPL]PLICRD;             Using [TAR]
+  Wrseq [F:ZSPL]PLICRI2;            Using [TAR]
+  Wrseq num$([F:ZSPL]PRI);          Using [TAR]
+  Wrseq num$([F:ZSPL]DCGVAL(0));    Using [TAR]
+  Wrseq [F:ZSPL]PLI                 Using [TAR]
+Return
