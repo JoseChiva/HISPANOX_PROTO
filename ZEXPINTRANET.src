@@ -1,4 +1,9 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.360.705 - JC.28062022.Fichero tarifas.csv para la intranet
+# 06.360.707 - JC.28062022.Fichero refcli.csv para la intranet
+################################################################################
+
+
 Gosub EXEC
 End
 
@@ -37,6 +42,7 @@ $EXEC
   WSTK = "" : Call STOCK(WSTK) From ZSTKINTRANET
 #  WSOH="PN2000034": Call PEDIDOSCLI(WSOH)  From ZSOHINTRANET
   WSOH="": Call PEDIDOSCLI(WSOH)  From ZSOHINTRANET
-
+  Call TARIFAS("")  From ZTARINTRANET                                                         # 06.360.705.new
+  Call REFCLI("")   From ZREFCLIINTRANET                                                      # 06.360.707.new
 
 Return
