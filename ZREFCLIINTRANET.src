@@ -1,0 +1,68 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.360.707 - JC.28062022.Fichero refcli.csv para la intranet
+################################################################################
+
+
+Call REFCLI("") From ZREFCLIINTRANET
+End
+
+##################################################################
+Subprog REFCLI(WRCLI)
+Value Char WRCLI
+
+  Gosub OPEN_TABLAS
+  If WRCLI <> "" Then
+    Filter [F:ZITU] Where ITMREFBPC = WRCLI Order By BPCNUM Asc; ITMREF Asc
+  Else
+    Filter [F:ZITU] Order By BPCNUM Asc; ITMREF Asc
+  Endif
+  Read [F:ZITU] First
+  If rowcount([F:ZITU])>0
+    Gosub CREAR_FICHERO
+    Gosub CABECERA
+    For [F:ZITU]
+      Gosub ESC_REGISTRO
+    Next
+    Openo Using [RCLI]
+  Endif
+  Filter [F:ZITU]
+  Gosub CLOSE_TABLAS
+End
+
+##################################################################
+$OPEN_TABLAS
+  If !clalev([F:ZITU]) Then : Local File ITMBPC [F:ZITU] : Endif
+Return
+
+###################################################################
+$CLOSE_TABLAS
+  Close Local File [F:ZITU]
+Return
+
+###################################################################
+$CREAR_FICHERO
+  If WRCLI=""
+   Openo filpath("ZINT\ERP_to_intranet","refcli","csv"),0            Using [RCLI]
+  Else
+   Openo filpath("ZINT\ERP_to_intranet","refcli"+"_"+WRCLI,"csv"),0  Using [RCLI]
+  Endif
+
+  Iomode adxifs ";"                           Using [RCLI]
+  Iomode adxium 50                            Using [RCLI]
+Return
+
+##########################################################################
+$CABECERA
+  Wrseq "Código cliente";                     Using [RCLI]
+  Wrseq "Código artículo";                    Using [RCLI]
+  Wrseq "Código artículo del cliente";        Using [RCLI]
+  Wrseq "Descripción artículo del cliente"    Using [RCLI]
+Return
+
+##################################################################
+$ESC_REGISTRO
+  Wrseq [F:ZITU]BPCNUM;                       Using [RCLI]
+  Wrseq [F:ZITU]ITMREF;                       Using [RCLI]
+  Wrseq [F:ZITU]ITMREFBPC;                    Using [RCLI]
+  Wrseq [F:ZITU]ITMDESBPC                     Using [RCLI]
+Return
