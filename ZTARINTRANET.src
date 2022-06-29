@@ -14,7 +14,7 @@ Value Char WTAR
   If WTAR <> "" Then
     Filter [F:ZSPL] Where PLI = WTAR and date$ >= PLISTRDAT and date$ <= PLIENDDAT
   Else
-    Filter [F:ZSPL] Where (PLI = 'T10' or PLI = 'T40') and date$ >= PLISTRDAT and date$ <= PLIENDDAT
+    Filter [F:ZSPL] Where (PLI >= 'T10' and PLI <= 'T40') and date$ >= PLISTRDAT and date$ <= PLIENDDAT
   Endif
   Read [F:ZSPL] First
   If rowcount([F:ZSPL])>0
