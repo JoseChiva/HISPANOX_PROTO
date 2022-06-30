@@ -16,6 +16,7 @@
 # 06.332.553 - JC.05042022.Nº bultos incorrecto
 # 06.333.290 - JC.06042022.Error en la importación SOF del fichero para subcontrataciones por falta de PTE
 # 06.349.288 - JC.19052022.Dirección entrega cliente de cliente
+# 06.362.268 - JC.30062022.Limpio de espacios (delante y detras) todos los campos del fichero antes de guardarlos en la tabla ZSGAENTSOF
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -274,7 +275,7 @@ $GUARDA_SOF_EN_TABLA
       WLONG   = 50
       RESULT  = [ZPRH]BPCORD
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-      RESULT  = vireblc(RESULT,1)
+      RESULT  = vireblc(RESULT,2)
       [F:ZESOF]BPCORD = RESULT
      #OSTCTL
       Read [ZBPC]BPC0 = [ZPRH]BPCORD
@@ -292,18 +293,18 @@ $GUARDA_SOF_EN_TABLA
       WLONG   = 3
       RESULT  = [ZPRH]BPAADD
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-      RESULT  = vireblc(RESULT,1)
+      RESULT  = vireblc(RESULT,2)
       [F:ZESOF]BPAADD = RESULT
      #CUR
       WLONG   = 3
       RESULT  = 'EUR'
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-      RESULT  = vireblc(RESULT,1)
+      RESULT  = vireblc(RESULT,2)
       [F:ZESOF]CUR = RESULT
      #PACNBR
       WLONG   = 1
       RESULT  = WPACNBR
-      RESULT  = vireblc(RESULT,1)
+      RESULT  = vireblc(RESULT,2)
 # 06.332.553.ini
 #      [F:ZESOF]PACNBR = RESULT
       [F:ZESOF]PACNBR = val(RESULT)
@@ -327,7 +328,7 @@ $GUARDA_SOF_EN_TABLA
       I       = IANTES
       RESULT  = CSTATT20
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-      RESULT  = vireblc(RESULT,1)
+      RESULT  = vireblc(RESULT,2)
       [F:ZESOF]ZTIPOPEDSGA = RESULT
      #PRHNUM
       [F:ZESOF]PRHNUM = WSORCODE
@@ -388,12 +389,12 @@ $GUARDA_SOF_EN_TABLA
 
         WLNENUMBER    = func GET_PROPXML(XDATA,"LneNumber",I)
         WLNENUMBER    = toupper(ctrans(left$(WLNENUMBER+space$(WLONG),WLONG)))
-        WLNENUMBER    = vireblc(WLNENUMBER,1)
+        WLNENUMBER    = vireblc(WLNENUMBER,2)
 
         WLONG         = 15
         WLNECSTATT20  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
         WLNECSTATT20  = toupper(ctrans(left$(WLNECSTATT20+space$(WLONG),WLONG)))
-        WLNECSTATT20  = vireblc(WLNECSTATT20,1)
+        WLNECSTATT20  = vireblc(WLNECSTATT20,2)
 
 #LINEAS DETALLE #######################################################
         # número de líneas detalle
@@ -430,7 +431,7 @@ $GUARDA_SOF_EN_TABLA
           WLONG   = 1
           RESULT  = 'L'
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]INDICADOR = RESULT
          #STOFCY
           WLONG   = 5
@@ -465,20 +466,20 @@ $GUARDA_SOF_EN_TABLA
           WLONG   = 250
           RESULT  = func GET_PROPXML(XDATA,"LneDItemCode",I)
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]ITMREF = RESULT
          #ITMDES
           WLONG   = 250
           Read [F:ZITM]ITM0=RESULT
           RESULT  = [ZITM]ITMDES2
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]ITMDES = RESULT
          #ZCODBULTO
           WLONG   = 18
           RESULT  = func GET_PROPXML(XDATA,"LneDClientContCode",I)
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]ZCODBULTO = RESULT
          #QTYU
           WLONG   = 250
@@ -486,14 +487,14 @@ $GUARDA_SOF_EN_TABLA
           RESULT  = WLNEQTYORDER
           Read [F:ITV]ITV0=WLNEITEMCODE;'PHISP'
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]QTY = val(RESULT)
          #SAU
           WLONG   = 250
           WLNEQTYUOMCODE  = func GET_PROPXML(XDATA,"LneDQtyUoMCode",I)
           RESULT  = WLNEQTYUOMCODE
           RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-          RESULT  = vireblc(RESULT,1)
+          RESULT  = vireblc(RESULT,2)
           [F:ZESOF]SAU = RESULT
 #         #BPSLOT
 #          WLONG     = 250
@@ -505,7 +506,7 @@ $GUARDA_SOF_EN_TABLA
 #          If ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
 #            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",I)
 #            RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#            RESULT  = vireblc(RESULT,1)
+#            RESULT  = vireblc(RESULT,2)
 #            [F:ZESOF]BPSLOT = RESULT
 #          # existe BPSLOT pero en otra línea del vale de preparación
 #          Else
@@ -516,7 +517,7 @@ $GUARDA_SOF_EN_TABLA
 #            If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
 #              RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt04",I)
 #              RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#              RESULT  = vireblc(RESULT,1)
+#              RESULT  = vireblc(RESULT,2)
 #              [F:ZESOF]BPSLOT = RESULT
 #            Endif
 #          Endif
@@ -533,7 +534,7 @@ $GUARDA_SOF_EN_TABLA
           Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
             RESULT  = func GET_PROPXML(XDATA,"LneDCstAtt01",I)
             RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-            RESULT  = vireblc(RESULT,1)
+            RESULT  = vireblc(RESULT,2)
             [F:ZESOF]ZLOTPROV = RESULT
           # existe BPSLOT pero en otra línea del vale de preparación
           Else
@@ -544,7 +545,7 @@ $GUARDA_SOF_EN_TABLA
             If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
               RESULT  = func GET_PROPXML(XDATA,"LneDCstAtt01",I)
               RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-              RESULT  = vireblc(RESULT,1)
+              RESULT  = vireblc(RESULT,2)
               [F:ZESOF]ZLOTPROV = RESULT
             Endif
           Endif
@@ -564,7 +565,7 @@ $GUARDA_SOF_EN_TABLA
           Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
             RESULT  = func GET_PROPXML(XDATA,"LneDCstAtt05",I)
             RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-            RESULT  = vireblc(RESULT,1)
+            RESULT  = vireblc(RESULT,2)
             [F:ZESOF]LOT = RESULT
           # existe LOT pero en otra línea del vale de preparación
           Else
@@ -575,7 +576,7 @@ $GUARDA_SOF_EN_TABLA
             If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
               RESULT  = func GET_PROPXML(XDATA,"LneDCstAtt05",I)
               RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-              RESULT  = vireblc(RESULT,1)
+              RESULT  = vireblc(RESULT,2)
               [F:ZESOF]LOT = RESULT
             Endif
           Endif
@@ -591,13 +592,13 @@ $GUARDA_SOF_EN_TABLA
 #          If ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
 #            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt05",I)
 #            RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#            RESULT=vireblc(RESULT,1)
+#            RESULT=vireblc(RESULT,2)
 #            [F:ZESOF]LOT = RESULT
 ### JC.02062021.STR
 ##          Elsif (CONTROL1 > CONTROL2 and CONTROL1 <> 0 and CONTROL2 <> 0) Then
 ##            RESULT  = func ZSGAENTSOF.GET_PROPXML(XDATA,"LneDCstAtt05",I)
 ##            RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-##            RESULT=vireblc(RESULT,1)
+##            RESULT=vireblc(RESULT,2)
 ##            [F:ZESOF]LOT = RESULT
 ### JC.02062021.END
 #          Endif
@@ -1493,19 +1494,19 @@ End
 #  WLONG=50
 #  RESULT=[ZPRH]BPCORD
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO]
 # #BPAADD
 #  WLONG=3
 #  RESULT=[ZPRH]BPAADD
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO]
 # #CUR
 #  WLONG=3
 #  RESULT='EUR'
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO]
 # #SHIDAT
 #  WLONG=10
@@ -1524,7 +1525,7 @@ End
 #  I=WMIOLDI
 #  RESULT=CSTATT20
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA Using [ZECO]
 #
 #  #LINEAS #######################################################333
@@ -1538,7 +1539,7 @@ End
 #    WLONG=1
 #    RESULT='L'
 #    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #   #PRHNUM
 #    WLONG=250
@@ -1551,7 +1552,7 @@ End
 #    RESULT=[ZPRE]PRHNUM
 #    # JC.END
 #    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #   #PRELIN
 #    WLONG=10
@@ -1560,20 +1561,20 @@ End
 #    RESULT=num$([ZPRE]PRELIN)
 #    # JC.END
 #    RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #   #ITMREF
 #    WLONG=250
 #    RESULT=WLNEITEMCODE
 #    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #   #ITMDES
 #    WLONG=250
 #    Read [F:ZITM]ITM0=WLNEITEMCODE
 #    RESULT=[ZITM]ITMDES2
 #    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #    #QTYU
 #    WLONG=250
@@ -1585,14 +1586,14 @@ End
 ##      Gosub CREA_ENTRADAVARIA
 ##    Endif
 #    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA;Using [ZECO]
 #    #SAU
 #    WLONG=250
 #    WLNEQTYUOMCODE=func GET_PROPXML(XDATA,"LneQtyUoMCode",I)
 #    RESULT=WLNEQTYUOMCODE
 #    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#    RESULT=vireblc(RESULT,1)
+#    RESULT=vireblc(RESULT,2)
 #    Wrseq RESULT+WLCOMA; Using [ZECO]
 #    #GROPRI
 #    Filter [ZSOP] Where SOHNUM=[F:ZPRE]ORINUM and ITMREF=WLNEITEMCODE
@@ -1646,25 +1647,25 @@ End
 ##    WLONG=250
 ##    RESULT=WLNEQTYUOMCODE
 ##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-##    RESULT=vireblc(RESULT,1)
+##    RESULT=vireblc(RESULT,2)
 ##    Wrseq RESULT+WLCOMA; Using [ZECO]
 ##   #QTYPCU
 ##    WLONG=250
 ##    RESULT=WLNEQTYORDER
 ##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-##    RESULT=vireblc(RESULT,1)
+##    RESULT=vireblc(RESULT,2)
 ##    Wrseq RESULT+WLCOMA; Using [ZECO]
 ##   #LPNNUM
 ##    WLONG=1
 ##    RESULT=''
 ##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-##    RESULT=vireblc(RESULT,1)
+##    RESULT=vireblc(RESULT,2)
 ##    Wrseq RESULT+WLCOMA; Using [ZECO]
 ##   #LOC
 ##    WLONG=250
 ##    RESULT='SGA'
 ##    RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-##    RESULT=vireblc(RESULT,1)
+##    RESULT=vireblc(RESULT,2)
 ##    Wrseq RESULT+WLCOMA Using [ZECO]
 #
 #  Next
@@ -1737,7 +1738,7 @@ $CREA_ENTRADA_VARIA
   WLONG=1
   RESULT=''
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #STOFCY
   WLONG=5
@@ -1755,56 +1756,56 @@ $CREA_ENTRADA_VARIA
   WLONG=250
   RESULT=WCOMMENT
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
  #TRSCOD
   WLONG=1
   RESULT=''
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT Using [ZECO2]
 
   #L
   WLONG=1
   RESULT='L'
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #VCRLIN
   WLONG=6
   RESULT=num$(WNLIN)
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #ITMREF
   WLONG=250
   RESULT=WITEMCODE
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #PCU
   WLONG=50
   RESULT=WUOMCODE
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #QTYPCU
   WLONG=250
   RESULT=num$(WQUANTITYVAR)
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #STU
   WLONG=50
   RESULT=WUOMCODE
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT+WLCOMA; Using [ZECO2]
   #QTYSTU
   WLONG=250
   RESULT=num$(WQUANTITYVAR)
   RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-  RESULT=vireblc(RESULT,1)
+  RESULT=vireblc(RESULT,2)
   Wrseq RESULT Using [ZECO2]
 #  #S
 #  WLONG=1
@@ -1815,31 +1816,31 @@ $CREA_ENTRADA_VARIA
 #  WLONG=50
 #  RESULT=WUOMCODE
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #QTYPCU
 #  WLONG=250
 #  RESULT=num$(WQUANTITYVAR)
 #  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #BPSLOT
 #  WLONG=250
 #  RESULT=WCSTATT04
 #  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #LOT
 #  WLONG=250
 #  RESULT=WCSTATT05
 #  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #LOC
 #  WLONG=250
 #  RESULT='SGA'
 #  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #STA
 #  WLONG=250
@@ -1848,13 +1849,13 @@ $CREA_ENTRADA_VARIA
 #    RESULT='A'
 #  Endif
 #  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT+WLCOMA; Using [ZECO2]
 #  #MTVDES
 #  WLONG=250
 #  RESULT='SOR '+LNOMFICHERO+' '+WSORCODE+' STOCK INSUFICIENTE'
 #  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-#  RESULT=vireblc(RESULT,1)
+#  RESULT=vireblc(RESULT,2)
 #  Wrseq RESULT Using [ZECO2]
 
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
