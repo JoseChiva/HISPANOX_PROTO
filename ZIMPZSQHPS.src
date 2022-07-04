@@ -5,7 +5,7 @@
 
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
-Local Char LUSER(50)
+#Local Char LUSER(50)
 #  LUSER = GUSER                                                          # 06.343.688.new
 #  GUSER = "WEB"                                                          # 06.343.688.new
   Case ACTION
@@ -71,5 +71,23 @@ Local Integer LERROR
     Endif
   Next
   Close Local File [ZSQD]
+
+# 06.343.688.ini
+  If !clalev([F:ZSQH]) Then : Local File SQUOTE [F:ZSQH] : Endif
+  Filter [F:ZSQH] Where SQHNUM = [F:SQH]SQHNUM
+  Read [F:ZSQH] First
+  If !fstat Then
+    [F:ZSQH]CREUSR = "WEB"
+    Trbegin [F:ZSQH]
+    Rewrite [F:ZSQH]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+  Endif
+  Filter [F:ZSQH]
+  Close Local File [ZSQH]
+# 06.343.688.fin
 
 Return
