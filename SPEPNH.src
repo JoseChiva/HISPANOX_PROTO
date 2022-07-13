@@ -20,7 +20,7 @@ Return
 $INICRE
 # 06.354.819.ini
   Gosub INICRE From SUBPNHA
-  If [F:BPS]MDL     = '' and [F:BPR]DOCTYP = 2 Then : [F:PNH]MDL    = '3'   : Endif
+  If [F:BPS]MDL     = '' and [F:BPR]DOCTYP = 2 Then : [F:PNH]MDL    = '3'   : [F:SDH]EECTRN = 3 : Endif
   If [F:BPS]EECICT  = '' and [F:BPR]DOCTYP = 2 Then : [F:PNH]EECICT = 'CPT' : Endif
   GPE=1
 # 06.354.819.fin

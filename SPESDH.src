@@ -123,7 +123,7 @@ Return
 $INICRE
 # 06.354.819.ini
   Gosub INICRE From SUBSDHA
-  If [M:SDH2]MDL    = '' and [F:BPR]DOCTYP = 2 Then : [F:SDH]MDL    = '3'   : Endif
+  If [M:SDH2]MDL    = '' and [F:BPR]DOCTYP = 2 Then : [F:SDH]MDL    = '3'   : [F:SDH]EECTRN = 3 : Endif
   If [M:SDH2]EECICT = '' and [F:BPR]DOCTYP = 2 Then : [F:SDH]EECICT = 'CPT' : Endif
   GPE=1
 # 06.354.819.fin
