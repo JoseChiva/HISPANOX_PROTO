@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.304.234 - JC.25012022.Error totales en ficheros csv de presupuestos modificados
+# 06.365.540 - JC.07072022.Error lin_ven y valor_ven en ofertas_cab.csv
 ################################################################################################################
 
 
@@ -559,7 +560,10 @@ Local Integer LNUMREGS
   For [F:ZSQD]
     LVALOROFE     += [F:ZSQD]NETPRI * [F:ZSQD]QTY
 #    LMARGENOFE    += [F:ZSQD]ZPFM
-    If [F:ZSQD]SOHNUM <> "" Then
+# 06.365.540.ini
+#    If [F:ZSQD]SOHNUM <> "" Then
+    If [F:ZSQD]ORDQTY > 0 Then
+# 06.365.540.fin
       LVALORVEN   += [F:ZSQD]NETPRI * [F:ZSQD]ORDQTY
 #      LMARGENVEN  += [F:ZSQD]ZPFM
       LLINVEN     += 1
@@ -569,7 +573,10 @@ Local Integer LNUMREGS
       LMARGIMP    += ([F:ZSQD]NETPRI - [F:ZSQD]ZCOSOFER) * [F:ZSQD]QTY
       LIMPLINAI   += [F:ZSQD]NETPRI * [F:ZSQD]QTY
       LNUMREGS    += 1
-      If [F:ZSQD]SOHNUM <> "" Then
+# 06.365.540.ini
+#      If [F:ZSQD]SOHNUM <> "" Then
+      If [F:ZSQD]ORDQTY > 0 Then
+# 06.365.540.fin
         LMARGVEN  += ([F:ZSQD]NETPRI - [F:ZSQD]ZCOSOFER) * [F:ZSQD]ORDQTY
         LIMPLINPE += [F:ZSQD]NETPRI * [F:ZSQD]ORDQTY
       Endif
