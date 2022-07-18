@@ -5,6 +5,7 @@
 # 06.308.334 - JC.01022022.Mensaje error REF pero no vemos el error
 # 06.314.024 - JC.10032022.Adapación importación REF para subcontratación
 # 06.315.798 - JC.15032022.Devoluciones, 2 lotes internos en un solo artículo
+# 06.369.558 - JC.18072022.Error en la importación REF del fichero por cantidad negativa
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -1182,6 +1183,7 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
 # 06.302.893.fin
 
       If WNLINOP = 1 Then                                                                     # 06.302.893.new
+        Raz LRESTANTE                                                                         # 06.369.558.new
         WLNERECORDERCODE    = func GET_PROPXML(XDATA,"LneRecOrderCode",LPOS)
         WLNERECORDERNUMBER  = func GET_PROPXML(XDATA,"LneRecOrderNumber",LPOS)
         WLNERECORDERNUMBER  = left$(WLNERECORDERNUMBER,len(WLNERECORDERNUMBER)-2)
@@ -1570,7 +1572,6 @@ Local Char    WLNEITEMCODE(250),WLNESTOCKSTATUS(250),WLNEQTYRECEIVED(250),WLNEQT
                 Else
                   Rollback
                 Endif
-
                 WLNEQTYRECEIVED = num$(val(WLNEQTYRECEIVED)-LQTYASIG)
 #              Endif
             Endif
