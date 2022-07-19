@@ -17,6 +17,7 @@
 # 06.333.290 - JC.06042022.Error en la importación SOF del fichero para subcontrataciones por falta de PTE
 # 06.349.288 - JC.19052022.Dirección entrega cliente de cliente
 # 06.362.268 - JC.30062022.Limpio de espacios (delante y detras) todos los campos del fichero antes de guardarlos en la tabla ZSGAENTSOF
+# 06.369.962 - JC.19072022.Factura incorrecta en USD
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -295,12 +296,14 @@ $GUARDA_SOF_EN_TABLA
       RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
       RESULT  = vireblc(RESULT,2)
       [F:ZESOF]BPAADD = RESULT
-     #CUR
-      WLONG   = 3
-      RESULT  = 'EUR'
-      RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
-      RESULT  = vireblc(RESULT,2)
-      [F:ZESOF]CUR = RESULT
+# 06.369.962.ini
+#     #CUR
+#      WLONG   = 3
+#      RESULT  = 'EUR'
+#      RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#      RESULT  = vireblc(RESULT,2)
+#      [F:ZESOF]CUR = RESULT
+# 06.369.962.fin
      #PACNBR
       WLONG   = 1
       RESULT  = WPACNBR
@@ -3681,7 +3684,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
-&           [F:ZESOF]BPAADD     + ";" + [F:ZESOF]CUR      + ";" + LSHIDAT               + ";" +
+&           [F:ZESOF]BPAADD     + ";" + LSHIDAT           + ";" +
 &           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT
 &           + ";" + [F:ZSOH1]BPDNAM(0) + ";" + [F:ZSOH1]BPDNAM(1) + ";" + [F:ZSOH1]BPDADDLIG(0) + ";" + [F:ZSOH1]BPDADDLIG(1) + ";" + [F:ZSOH1]BPDADDLIG(2)
 &           + ";" + [F:ZSOH1]BPDPOSCOD + ";" + [F:ZSOH1]BPDCTY + ";" + [F:ZSOH1]BPDSAT + ";" + [F:ZSOH1]BPDCRY + ";" + [F:ZSOH1]BPCCRYNAM + ";" + [F:ZSOH1]CNDNAM
@@ -3692,6 +3695,9 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
 #&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
+
+# 06.369.962.elimino la moneda (CUR) del modelo para que la entrega siempre se genere con la misma divisa que el pedido
+
     Endif
     Filter [F:ZESOF]
 # 06.300.273.ini
