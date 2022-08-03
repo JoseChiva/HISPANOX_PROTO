@@ -1,4 +1,4 @@
-#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$ 
 #MAE, le 19/11/2013, modification de la fenêtre FCNSSPR pour le bug 94534 : suppression des
 #boutons RETOUR et FIN car on ne peut pas les gérer avec la zone EXTSTO (stock prévisionnel).
 #La gestion du SUITE a été faite
@@ -324,11 +324,47 @@ Case CHGPAG
         If nolign <= MAXLIG
           Gosub LOA_LIGNE
 # JC.AUREN.ini
-#          If WSEL = 2
-#            NBLU    = 2
-#            nolign += 1
-#            NOL    += 1
-#          Endif
+          If [F:ORD]WIPTYP = 1 Then
+            If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
+            Read [F:ZSOQ]SOQ0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
+            # muestra la línea con la cantidad pendiente de entregar que no se encuentre en un documento de preparación pendiente, y fecha final con la fecha de entrega de la línea del pedido
+            [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSOQ]QTY - [F:ZSOQ]DLVQTY - [F:ZSOQ]OPRQTY - [F:ZSOQ]PREQTY - [F:ZSOQ]ODLQTY
+            If [M:ZSPR2]RMNEXTQTY(nolign-1) < 0 Then
+              [M:ZSPR2]RMNEXTQTY(nolign-1) = 0
+            Endif
+            Close Local File [ZSOQ]
+            If nolign = 1 Then
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+            Else
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Endif
+          Elsif [F:ORD]WIPTYP = 2 Then
+            If !clalev([F:ZVP1]) Then : Local File ZVPOHITMSTK [F:ZVP1] : Endif
+            Filter [F:ZVP1] Where POHNUM = [F:ORD]VCRNUM and POPLIN = [F:ORD]VCRLIN and POQSEQ = [F:ORD]VCRSEQ
+            Read   [F:ZVP1] First
+            [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZVP1]QTY_POH - [F:ZVP1]QTY_RCP - [F:ZVP1]QTY_EXP
+            If [M:ZSPR2]RMNEXTQTY(nolign-1) < 0 Then
+              [M:ZSPR2]RMNEXTQTY(nolign-1) = 0
+            Endif
+            Filter [F:ZVP1]
+            Close Local File [ZVP1]
+            If nolign = 1 Then
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+            Else
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Endif
+          Elsif find([F:ORD]WIPTYP,3) Then
+            If nolign = 1 Then
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+            Else
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Endif
+          Endif
+          If WSEL = 2
+            NBLU    = 2
+            nolign += 1
+            NOL    += 1
+          Endif
 
           # si es un pedido de proveedor
           If [F:ORD]WIPTYP = 2 Then
@@ -338,12 +374,6 @@ Case CHGPAG
           Elsif [F:ORD]WIPTYP = 1 Then
             Gosub CARGA_PREPARACION
 
-          Else
-            If WSEL = 2
-              NBLU    = 2
-              nolign += 1
-              NOL    += 1
-            Endif
           Endif
 # JC.AUREN.fin
         Else
@@ -517,6 +547,27 @@ $LOA_LIGNE
          Read [SOH]SOH0=[F:ORD]VCRNUM                    # hcb 42086
          If fstat : Raz [SOH] : Endif
          [M:ZSPR2]SOHCAT(nolign-1) = [F:SOH]SOHCAT
+# JC.AUREN.ini
+         If !clalev([F:ZSP1]) Then : Local File SORDERP  [F:ZSP1] : Endif
+         Read [F:ZSP1]SOP0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
+         If !fstat Then
+           [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP1]CPRPRI * 100
+           [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP1]NETPRI * 100
+         Endif
+         Close Local File [ZSP1]
+# JC.AUREN.fin
+      Endif
+
+# JC.AUREN.ini
+      If [F:ORD]WIPTYP = 2  & [F:ORD]WIPSTA = 1 & GMODU(5) = 2
+         If !clalev([F:ZPP0]) Then : Local File PORDERP  [F:ZPP0] : Endif
+         Read   [F:ZPP0]POP0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
+         If !fstat Then
+           [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZPP0]ZPORCOSTE
+           [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZPP0]NETPRI * 100
+         Endif
+         Close Local File [ZPP0]
+# JC.AUREN.fin
       Endif
 
 #                          HCB 270105 25558   debut
@@ -759,20 +810,20 @@ Return
 
 ############################################################
 $CARGA_EXPEDICION
-  If !clalev([F:ZVP1]) Then : Local File ZVPOHITMSTK [F:ZVP1] : Endif
+#  If !clalev([F:ZVP1]) Then : Local File ZVPOHITMSTK [F:ZVP1] : Endif
   If !clalev([F:ZPP0]) Then : Local File PORDERP  [F:ZPP0] : Endif
   Read   [F:ZPP0]POP0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
-  Filter [F:ZVP1] Where POHNUM = [F:ORD]VCRNUM and POPLIN = [F:ORD]VCRLIN and POQSEQ = [F:ORD]VCRSEQ
-  Read   [F:ZVP1] First
-  # muestra la línea con la cantidad pendiente que no se encuentre en una expedición y fecha final con la fecha de recepción de la línea del pedido
-  [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZVP1]QTY_POH - [F:ZVP1]QTY_RCP - [F:ZVP1]QTY_EXP
-  [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZVP1]EXTRCPDAT
-  [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZPP0]ZPORCOSTE
-  If WSEL = 2
-    NBLU    = 2
-    nolign += 1
-    NOL    += 1
-  Endif
+#  Filter [F:ZVP1] Where POHNUM = [F:ORD]VCRNUM and POPLIN = [F:ORD]VCRLIN and POQSEQ = [F:ORD]VCRSEQ
+#  Read   [F:ZVP1] First
+#  # muestra la línea con la cantidad pendiente que no se encuentre en una expedición y fecha final con la fecha de recepción de la línea del pedido
+#  [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZVP1]QTY_POH - [F:ZVP1]QTY_RCP - [F:ZVP1]QTY_EXP
+#  [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZVP1]EXTRCPDAT
+#  [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZPP0]ZPORCOSTE
+#  If WSEL = 2
+#    NBLU    = 2
+#    nolign += 1
+#    NOL    += 1
+#  Endif
   # y todas las líneas de expedición que no estén recepcionadas
   If !clalev([F:ZSHD]) Then : Local File SHIPMENTD  [F:ZSHD] : Endif
   If !clalev([F:ZSHH]) Then : Local File SHIPMENT   [F:ZSHH] : Endif
@@ -786,17 +837,11 @@ $CARGA_EXPEDICION
     [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSHH]SHIPDAT
     [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSHD]SHIQTYPUU - [F:ZSHD]RCPQTYPUU
     [M:ZSPR2]VCRTYP(nolign-1)     = 38
-    Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]EXTSTO(nolign-1),[M:ZSPR2]PJT(nolign-1)
+    [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+    Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
     Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
     Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
     Raz [M:ZSPR2]WIPNUM(nolign-1),[M:ZSPR2]POHTYP(nolign-1),[M:ZSPR2]SOHCAT(nolign-1)
-#    [M:ZSPR2]WIPSTA(nolign-1)    = [M:ZSPR2]WIPSTA(nolign-2)  : [M:ZSPR2]STOFCY(nolign-1) = [M:ZSPR2]STOFCY(nolign-2) : [M:ZSPR2]STRDAT(nolign-1)     = [M:ZSPR2]STRDAT(nolign-2)
-#    [M:ZSPR2]EXTQTY(nolign-1)    = [M:ZSPR2]EXTQTY(nolign-2)  : [M:ZSPR2]EXTSTO(nolign-1) = [M:ZSPR2]EXTSTO(nolign-2) : [M:ZSPR2]PJT(nolign-1)        = [M:ZSPR2]PJT(nolign-2)
-#    [M:ZSPR2]BPRNUM(nolign-1)    = [M:ZSPR2]BPRNUM(nolign-2)  : [M:ZSPR2]VCRTYP(nolign-1) = [M:ZSPR2]VCRTYP(nolign-2) : [M:ZSPR2]VCRLIN(nolign-1)     = [M:ZSPR2]VCRLIN(nolign-2)
-#    [M:ZSPR2]VCRSEQ(nolign-1)    = [M:ZSPR2]VCRSEQ(nolign-2)  : [M:ZSPR2]MRPMES(nolign-1) = [M:ZSPR2]MRPMES(nolign-2) : [M:ZSPR2]MRPQTY(nolign-1)     = [M:ZSPR2]MRPQTY(nolign-2)
-#    [M:ZSPR2]MRPDAT(nolign-1)    = [M:ZSPR2]MRPDAT(nolign-2)  : [M:ZSPR2]ORI(nolign-1)    = [M:ZSPR2]ORI(nolign-2)    : [M:ZSPR2]VCRTYPORI(nolign-1)  = [M:ZSPR2]VCRTYPORI(nolign-2)
-#    [M:ZSPR2]VCRNUMORI(nolign-1) = [M:ZSPR2]VCRNUMORI(nolign-2) : [M:ZSPR2]VCRLINORI(nolign-1) = [M:ZSPR2]VCRLINORI(nolign-2) : [M:ZSPR2]ITMREFORI(nolign-1) = [M:ZSPR2]ITMREFORI(nolign-2)
-#    [M:ZSPR2]WIPNUM(nolign-1)    = [M:ZSPR2]WIPNUM(nolign-2)    : [M:ZSPR2]POHTYP(nolign-1)    = [M:ZSPR2]POHTYP(nolign-2)    : [M:ZSPR2]SOHCAT(nolign-1)    = [M:ZSPR2]SOHCAT(nolign-2)
     If WSEL = 2
       NBLU    = 2
       nolign += 1
@@ -804,61 +849,59 @@ $CARGA_EXPEDICION
     Endif
   Next
   Filter [F:ZSHD]
-  Filter [F:ZVP1]
-  Close Local File [ZVP1],[ZSHD],[ZSHH],[ZPP0]
+#  Filter [F:ZVP1]
+#  Close Local File [ZVP1],[ZSHD],[ZSHH],[ZPP0]
+  Close Local File [ZSHD],[ZSHH],[ZPP0]
 Return
 
 ############################################################
 $CARGA_PREPARACION
-  If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
+#  If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ] : Endif
   If !clalev([F:ZSP1]) Then : Local File SORDERP  [F:ZSP1] : Endif
-  Read [F:ZSOQ]SOQ0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
+#  Read [F:ZSOQ]SOQ0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
   Read [F:ZSP1]SOP0 = [F:ORD]VCRNUM;[F:ORD]VCRLIN;[F:ORD]VCRSEQ
-  # muestra la línea con la cantidad pendiente de entregar que no se encuentre en un documento de preparación pendiente, y fecha final con la fecha de entrega de la línea del pedido
-  [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSOQ]QTY - [F:ZSOQ]DLVQTY - [F:ZSOQ]OPRQTY - [F:ZSOQ]PREQTY - [F:ZSOQ]ODLQTY
-  [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSOQ]EXTDLVDAT
-  [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP1]CPRPRI * 100
-  [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP1]NETPRI * 100
-  [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZSOQ]SHTQTY
-  If WSEL = 2
-    NBLU    = 2
-    nolign += 1
-    NOL    += 1
-  Endif
+#  # muestra la línea con la cantidad pendiente de entregar que no se encuentre en un documento de preparación pendiente, y fecha final con la fecha de entrega de la línea del pedido
+#  [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSOQ]QTY - [F:ZSOQ]DLVQTY - [F:ZSOQ]OPRQTY - [F:ZSOQ]PREQTY - [F:ZSOQ]ODLQTY
+#  [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSOQ]EXTDLVDAT
+#  [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP1]CPRPRI * 100
+#  [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP1]NETPRI * 100
+#  [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZSOQ]SHTQTY
+#  If WSEL = 2
+#    NBLU    = 2
+#    nolign += 1
+#    NOL    += 1
+#  Endif
   # y todas las líneas de expedición que no estén recepcionadas
   If !clalev([F:ZPRD]) Then : Local File STOPRED  [F:ZPRD] : Endif
   If !clalev([F:ZPRH]) Then : Local File STOPREH  [F:ZPRH] : Endif
   Filter [F:ZPRD] Where ORINUM = [F:ORD]VCRNUM and ORILIN = [F:ORD]VCRLIN and ORISEQ = [F:ORD]VCRSEQ
   For [ZPRD]
     Read [F:ZPRH]PRH0 = [F:ZPRD]PRHNUM
-    [M:ZSPR2]WIPTYP(nolign-1)     = 16
-    [M:ZSPR2]WIPTYPSTA(nolign-1)  = "VP"
-    [M:ZSPR2]VCRNUM(nolign-1)     = [F:ZPRD]PRHNUM
-    [M:ZSPR2]VCRLIN(nolign-1)     = [F:ZPRD]PRELIN
-    [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZPRH]SHIDAT
-    [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZPRD]QTYSTU
-    [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZPRD]ALLQTY
-    [M:ZSPR2]VCRTYP(nolign-1)     = 3
-    [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZPRD]SHTQTY
-    Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]EXTSTO(nolign-1),[M:ZSPR2]PJT(nolign-1)
-    Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
-    Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
-    Raz [M:ZSPR2]WIPNUM(nolign-1),[M:ZSPR2]POHTYP(nolign-1),[M:ZSPR2]SOHCAT(nolign-1)
-#    [M:ZSPR2]WIPSTA(nolign-1)    = [M:ZSPR2]WIPSTA(nolign-2)  : [M:ZSPR2]STOFCY(nolign-1) = [M:ZSPR2]STOFCY(nolign-2) : [M:ZSPR2]STRDAT(nolign-1)     = [M:ZSPR2]STRDAT(nolign-2)
-#    [M:ZSPR2]EXTQTY(nolign-1)    = [M:ZSPR2]EXTQTY(nolign-2)  : [M:ZSPR2]EXTSTO(nolign-1) = [M:ZSPR2]EXTSTO(nolign-2) : [M:ZSPR2]PJT(nolign-1)        = [M:ZSPR2]PJT(nolign-2)
-#    [M:ZSPR2]BPRNUM(nolign-1)    = [M:ZSPR2]BPRNUM(nolign-2)  : [M:ZSPR2]VCRTYP(nolign-1) = [M:ZSPR2]VCRTYP(nolign-2) : [M:ZSPR2]VCRLIN(nolign-1)     = [M:ZSPR2]VCRLIN(nolign-2)
-#    [M:ZSPR2]VCRSEQ(nolign-1)    = [M:ZSPR2]VCRSEQ(nolign-2)  : [M:ZSPR2]MRPMES(nolign-1) = [M:ZSPR2]MRPMES(nolign-2) : [M:ZSPR2]MRPQTY(nolign-1)     = [M:ZSPR2]MRPQTY(nolign-2)
-#    [M:ZSPR2]MRPDAT(nolign-1)    = [M:ZSPR2]MRPDAT(nolign-2)  : [M:ZSPR2]ORI(nolign-1)    = [M:ZSPR2]ORI(nolign-2)    : [M:ZSPR2]VCRTYPORI(nolign-1)  = [M:ZSPR2]VCRTYPORI(nolign-2)
-#    [M:ZSPR2]VCRNUMORI(nolign-1) = [M:ZSPR2]VCRNUMORI(nolign-2) : [M:ZSPR2]VCRLINORI(nolign-1) = [M:ZSPR2]VCRLINORI(nolign-2) : [M:ZSPR2]ITMREFORI(nolign-1) = [M:ZSPR2]ITMREFORI(nolign-2)
-#    [M:ZSPR2]WIPNUM(nolign-1)    = [M:ZSPR2]WIPNUM(nolign-2)    : [M:ZSPR2]POHTYP(nolign-1)    = [M:ZSPR2]POHTYP(nolign-2)    : [M:ZSPR2]SOHCAT(nolign-1)    = [M:ZSPR2]SOHCAT(nolign-2)
-    If WSEL = 2
-      NBLU    = 2
-      nolign += 1
-      NOL    += 1
+    If [F:ZPRH]DLVFLG <> 3 and [F:ZPRH]DLVFLG <> 4 Then
+      [M:ZSPR2]WIPTYP(nolign-1)     = 16
+      [M:ZSPR2]WIPTYPSTA(nolign-1)  = "VP"
+      [M:ZSPR2]VCRNUM(nolign-1)     = [F:ZPRD]PRHNUM
+      [M:ZSPR2]VCRLIN(nolign-1)     = [F:ZPRD]PRELIN
+      [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZPRH]SHIDAT
+      [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZPRD]QTYSTU
+      [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZPRD]ALLQTY
+      [M:ZSPR2]VCRTYP(nolign-1)     = 3
+      [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZPRD]SHTQTY
+      [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+      Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
+      Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
+      Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
+      Raz [M:ZSPR2]WIPNUM(nolign-1),[M:ZSPR2]POHTYP(nolign-1),[M:ZSPR2]SOHCAT(nolign-1)
+      If WSEL = 2
+        NBLU    = 2
+        nolign += 1
+        NOL    += 1
+      Endif
     Endif
   Next
   Filter [F:ZPRD]
-  Close Local File [ZSOQ],[ZPRD],[ZPRH],[ZSP1]
+#  Close Local File [ZSOQ],[ZPRD],[ZPRH],[ZSP1]
+  Close Local File [ZPRD],[ZPRH],[ZSP1]
 Return
 
 ############################################################
@@ -868,28 +911,46 @@ $CASO_ESPECIAL_VENTA_KIT
   If !clalev([F:ZSP0]) Then : Local File SORDERP  [F:ZSP0] : Endif
   Filter [F:ZBOD] Where CPNITMREF = [M:ZSPR1]ITMREF
   For [ZBOD]
-    Filter [F:ZSQ0] Where ITMREF = [F:ZBOD]ITMREF and SOQSTA = 1
+    Local Decimal LSTOCKKIT
+    If !clalev([F:ZITV]) Then : Local File ITMMVT [F:ZITV] : Endif
+#    Read [F:ZITV]ITV0 = [F:ZBOD]ITMREF;[M:ZSPR1]FCY
+    Read [F:ZITV]ITV0 = [F:ZBOD]CPNITMREF;[M:ZSPR1]FCY
+    If !fstat Then
+      LSTOCKKIT = [F:ZITV]PHYSTO-[F:ZITV]GLOALL-[F:ZITV]PHYALL-[F:ZITV]GLOSHT
+    Endif
+    Filter [F:ZSQ0] Where ITMREF = [F:ZBOD]ITMREF and SOQSTA = 1 Order By DEMDLVDAT Desc
     For [ZSQ0]
-      Read [F:ZSP0]SOP0 = [F:ZSQ0]SOHNUM;[F:ZSQ0]SOPLIN;[F:ZSQ0]SOQSEQ
-      [M:ZSPR2]WIPTYP(nolign-1)     = 17
-      [M:ZSPR2]WIPTYPSTA(nolign-1)  = "KIT"
-      [M:ZSPR2]VCRNUM(nolign-1)     = [F:ZSQ0]SOHNUM
-      [M:ZSPR2]STOFCY(nolign-1)     = [F:ZSQ0]STOFCY
-      [M:ZSPR2]STRDAT(nolign-1)     = [F:ZSQ0]ORDDAT
-      [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSQ0]ORDDAT
-      [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSQ0]QTY * [F:ZBOD]BOMQTY
-      [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZSQ0]ALLQTY
-      [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP0]CPRPRI * 100
-      [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP0]NETPRI * 100
-      [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZSQ0]SHTQTY
-      Raz [M:ZSPR2]MTOQTY(nolign-1)
-      Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]EXTSTO(nolign-1),[M:ZSPR2]PJT(nolign-1)
-      Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRLIN(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
-      Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
-      Raz [M:ZSPR2]WIPNUM(nolign-1),[M:ZSPR2]POHTYP(nolign-1),[M:ZSPR2]SOHCAT(nolign-1)
-      NBLU    = 2
-      nolign += 1
-      NOL    += 1
+      # como tenemos stock suficiente del KIT, este pedido no hace falta mostrarlo
+      If LSTOCKKIT > ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY) Then
+        LSTOCKKIT -= ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY)
+      Else
+        Read [F:ZSP0]SOP0 = [F:ZSQ0]SOHNUM;[F:ZSQ0]SOPLIN;[F:ZSQ0]SOQSEQ
+        [M:ZSPR2]WIPTYP(nolign-1)     = 17
+        [M:ZSPR2]WIPTYPSTA(nolign-1)  = "KIT"
+        [M:ZSPR2]VCRNUM(nolign-1)     = [F:ZSQ0]SOHNUM
+        [M:ZSPR2]STOFCY(nolign-1)     = [F:ZSQ0]STOFCY
+        [M:ZSPR2]STRDAT(nolign-1)     = [F:ZSQ0]ORDDAT
+        [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSQ0]ORDDAT
+        If (LSTOCKKIT - ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY)) > 0 Then
+          [M:ZSPR2]RMNEXTQTY(nolign-1)  = LSTOCKKIT - ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY)
+        Else
+          [M:ZSPR2]RMNEXTQTY(nolign-1)  = ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY)
+        Endif
+        [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZSQ0]ALLQTY * [F:ZBOD]BOMQTY
+        [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP0]CPRPRI * 100
+        [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP0]NETPRI * 100
+        [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZSQ0]SHTQTY
+        [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+        Raz [M:ZSPR2]MTOQTY(nolign-1)
+        Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]PJT(nolign-1)
+        Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRLIN(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
+        Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
+        Raz [M:ZSPR2]WIPNUM(nolign-1),[M:ZSPR2]POHTYP(nolign-1),[M:ZSPR2]SOHCAT(nolign-1)
+        NBLU    = 2
+        nolign += 1
+        NOL    += 1
+        LSTOCKKIT -= ([F:ZSQ0]QTY * [F:ZBOD]BOMQTY)
+      Endif
     Next
     Filter [F:ZSQ0]
   Next
@@ -1106,3 +1167,49 @@ End
 
 
 ######################################################################################
+Funprog GETMOTE(PWIPTYP,PBPSNUM)
+Value Integer PWIPTYP
+Value Char    PBPSNUM
+
+Local Char LRET(20)
+
+  If find(PWIPTYP,2,3,4) Then
+    If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
+    If !clalev([F:ZBPS]) Then : Local File BPSUPPLIER [F:ZBPS] : Endif
+    If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
+    If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
+    Read [F:ZAUT]CODUSR = GUSER
+    If [F:ZAUT]PRFFCT = 'ADMIN' Then
+      Read [F:ZBPS]BPS0 = PBPSNUM
+      If !fstat Then
+        LRET = [F:ZBPS]BPSSHO
+      Endif
+    Elsif [F:ZAUT]PRFFCT <> '' Then
+      Filter [F:ZAFP] Where PRFCOD = [F:ZAUT]PRFFCT and FNC = 'GESBPS' and ACS = 2
+      Read   [F:ZAFP] First
+      If !fstat Then
+        Read [F:ZBPS]BPS0 = PBPSNUM
+        If !fstat Then
+          LRET = [F:ZBPS]BPSSHO
+        Endif
+        LRET = [F:ZBPS]BPSSHO
+      Endif
+      Filter [F:ZAFP]
+    Elsif [F:ZAUT]PRFFCT = '' Then
+      Read [F:ZAME]AME0 = [F:ZAUT]CODMET
+      If !fstat Then
+        Filter [F:ZAFP] Where PRFCOD = [F:ZAME]PRFFCT and FNC = 'GESBPS' and ACS = 2
+        Read   [F:ZAFP] First
+        If !fstat Then
+          Read [F:ZBPS]BPS0 = PBPSNUM
+          If !fstat Then
+            LRET = [F:ZBPS]BPSSHO
+          Endif
+          LRET = [F:ZBPS]BPSSHO
+        Endif
+        Filter [F:ZAFP]
+      Endif
+    Endif
+    Close Local File [ZAUT],[ZBPS],[ZAFP],[ZAME]
+  Endif
+End LRET
