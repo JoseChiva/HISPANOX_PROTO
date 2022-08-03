@@ -6,6 +6,7 @@
 # 06.333.494 - JC.19042022.Error en la importación de pedido desde Prestashop (no pasa 'Facturación porte','Comentarios cli. Web', 'Prioridad entrega')
 # 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
 # 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+# 06.371.023 - JC.02082022.Error importación pedidos web (añado sleeps por si se solapan las importaciones, no he visto ninguna anomalía en el código)
 ########################################################################
 
 
@@ -64,10 +65,15 @@ Local   Integer LERRORPS
   WTRAZA=1
 
   Gosub GUARDA_FICHEROSCAB_TABLA
+  Sleep 3                                                                 # 06.371.023.new
   Gosub GUARDA_FICHEROSLIN_TABLA
+  Sleep 3                                                                 # 06.371.023.new
   Gosub IDENTIFICA_PRESUPUESTOS
+  Sleep 3                                                                 # 06.371.023.new
   Gosub GENERA_SQH
+  Sleep 3                                                                 # 06.371.023.new
   Gosub GENERA_SOH
+  Sleep 3                                                                 # 06.371.023.new
   Gosub MUESTRA_NO_PROCESADOS
 
   Call FERME_TRACE From LECFIC
@@ -349,6 +355,7 @@ Local Char    LSQHNUM(250)
 
   For [ZOPH1]
     Filter [ZOPD1] Where SOHNUM = [F:ZOPH1]SOHNUM
+    Raz LNUMLINIMPORT                                                     # 06.371.023.new
     LNUMLINSOH = rowcount([F:ZOPD1])
     For [ZOPD1]
       # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
@@ -411,6 +418,7 @@ $GENERA_SQH
 
   Filter [F:ZOPH2] Where IMPORTFLG = "N"
   For [ZOPH2]
+    Sleep 2                                                               # 06.371.023.new
     Local Char LFECHA(10), LHORA(10)
     LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
     LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,2)
@@ -540,6 +548,7 @@ Local Char LPTE(250)
 #  Filter [F:ZOPH3] Where IMPORTFLG = "Q"
   Filter [F:ZOPH3] Where IMPORTFLG = "Q" or IMPORTFLG = "E"
   For [ZOPH3]
+    Sleep 2                                                               # 06.371.023.new
     Local Char LFECHA(10), LHORA(10)
     LFECHA = vireblc(num$(date$),4) : LFECHA = mid$(LFECHA,1,2)+mid$(LFECHA,4,2)+mid$(LFECHA,7,4)
     LHORA  = vireblc(num$(time$),4) : LHORA  = mid$(LHORA,1,2)+mid$(LHORA,4,2)+mid$(LHORA,7,2)
