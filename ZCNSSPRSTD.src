@@ -335,8 +335,14 @@ Case CHGPAG
             Close Local File [ZSOQ]
             If nolign = 1 Then
               [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
-              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+              If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
+                [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+              Else
+                [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
+              Endif
             Endif
           Elsif [F:ORD]WIPTYP = 2 Then
             If !clalev([F:ZVP1]) Then : Local File ZVPOHITMSTK [F:ZVP1] : Endif
@@ -350,15 +356,31 @@ Case CHGPAG
             Close Local File [ZVP1]
             If nolign = 1 Then
               [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
               [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Endif
           Elsif find([F:ORD]WIPTYP,3) Then
             If nolign = 1 Then
               [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
-              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+              If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
+                [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+              Else
+                [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
+              Endif
             Endif
+          Elsif find([F:ORD]WIPTYP,13) Then
+            If nolign = 1 Then
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
+#              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Else
+              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Endif
+          Else
+            [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
           Endif
           If WSEL = 2
             NBLU    = 2
@@ -837,7 +859,12 @@ $CARGA_EXPEDICION
     [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZSHH]SHIPDAT
     [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZSHD]SHIQTYPUU - [F:ZSHD]RCPQTYPUU
     [M:ZSPR2]VCRTYP(nolign-1)     = 38
-    [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+    If nolign = 1 Then
+      [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]EXTSTO(nolign-1)
+#      [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]RMNEXTQTY(nolign-1)
+    Else
+      [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+    Endif
     Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
     Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
     Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
@@ -887,7 +914,17 @@ $CARGA_PREPARACION
       [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZPRD]ALLQTY
       [M:ZSPR2]VCRTYP(nolign-1)     = 3
       [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZPRD]SHTQTY
-      [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+      If nolign = 1 Then
+        [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]EXTSTO(nolign-1)
+#        [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]RMNEXTQTY(nolign-1)
+      Else
+#        [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1) + [M:ZSPR2]ALLQTY(nolign-1)
+        If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
+          [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+        Else
+          [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
+        Endif
+      Endif
       Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]STRDAT(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
       Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
       Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
@@ -940,7 +977,12 @@ $CASO_ESPECIAL_VENTA_KIT
         [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZSP0]CPRPRI * 100
         [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZSP0]NETPRI * 100
         [M:ZSPR2]SHTQTY(nolign-1)     = [F:ZSQ0]SHTQTY
-        [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+        If nolign = 1 Then
+          [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]EXTSTO(nolign-1)
+#          [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]RMNEXTQTY(nolign-1)
+        Else
+          [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+        Endif
         Raz [M:ZSPR2]MTOQTY(nolign-1)
         Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]PJT(nolign-1)
         Raz [M:ZSPR2]BPRNUM(nolign-1),[M:ZSPR2]VCRLIN(nolign-1),[M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
