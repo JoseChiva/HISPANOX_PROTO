@@ -12,6 +12,7 @@
 # 06.324.834 - JC.22032022.No lee correctamente ciertos ficheros STV de actualización porque la estructura del fichero cambia
 # 06.347.583 - JC.30052022.Comprueba si hay suficiente stock (físico + asignado) antes de lanzar la salida. Si hay, se desasigna sino no y no se crea la salida varia
 # 06.360.704 - JC.23062022.Entrada Varia repetitiva - 06.360.968 : error fichero STV02
+# 06.392.136 - JC.16092022.HX salidas de stock no ejecutadas en el fichero/s STV
 #############################################################
 
 #If GUSER="ADEV"
@@ -1313,8 +1314,8 @@ Value   Char    PFICHERO
 
   If rowcount([F:ZSS1]) > 0 Then
 
-    Global  Char    GASUNTO(250),GCORREO(250),GMENSAJE1(250),GMENSAJE3(250)
-    Global  Clbfile GMENSAJE2(2)
+    Global  Char    GASUNTO(250),GCORREO(250)
+    Global  Clbfile GMENSAJE1(2),GMENSAJE2(2),GMENSAJE3(2)
     Local   Integer LCONTROL
 
     # contenido del asunto de mensaje
@@ -1322,6 +1323,7 @@ Value   Char    PFICHERO
 
     # destinatario del mensaje
     GCORREO   = "info@hispanox.com"
+    # 06.390.632.FIN
     GCORREO   = "joseluis.chiva@auren.es"
 
     For [F:ZSS1]
@@ -1373,6 +1375,25 @@ Local     Decimal WQTYFISICATOTALX3,WQTYASIGLOBALX3,WQTYDESGLOBALX3
   If !clalev([F:ZVA2]) Then : Local File ZVSTVALLSOH2 [F:ZVA2] : Endif
   If !clalev([F:ZSOQ]) Then : Local File SORDERQ      [F:ZSOQ] : Endif
 
+# 06.392.136.ini
+  # comprueba si la cantidad de stock del artículo/lote - stock asignado de ese artículo/lote
+  # es mayor que la indicada en el fichero. Si es así, la función devuelve -1, esto indica que
+  # sí hay stock suficiente
+  Local Decimal LSTOCKLOTE,LSTOALLLOTE
+  Filter [F:ZSTO] Where STOFCY = 'PHISP' and ITMREF = WITM and STA = WSTA and LOC = 'SGA' and LOT = WLOT
+  Read   [F:ZSTO] First
+  If !fstat Then
+    LSTOCKLOTE = [F:ZSTO]QTYPCU
+    Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU
+    For [F:ZSTA]
+      LSTOALLLOTE += [F:ZSTA]QTYSTU
+    Next
+    Filter [F:ZSTA]
+  Endif
+  Filter [F:ZSTO]
+  If LSTOCKLOTE - LSTOALLLOTE >= WQTYSTV Then : End -1 : Endif
+# 06.392.136.fin
+
   WQTYSTVINI = WQTYSTV
 
   Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = WITM and STA = WSTA and LOC = "SGA"
@@ -1390,6 +1411,7 @@ Local     Decimal WQTYFISICATOTALX3,WQTYASIGLOBALX3,WQTYDESGLOBALX3
     WQTYASIGNADAX3 += [F:ZSTA]QTYSTU
   Next
   Filter [F:ZSTA]
+  Filter [F:ZSTO]
 
   Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = WITM and LOT = WLOT and STA = WSTA and LOC = "SGA"
   Read   [F:ZSTO] First
