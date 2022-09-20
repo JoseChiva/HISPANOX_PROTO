@@ -4,6 +4,7 @@
 # 06.288.426       errores importación pedidos web - ML.03.01.2021
 # 06.333.494 - JC.23052022.Error en la importación de pedido desde Prestashop (no informa correctamente del código de dirección de entrega en las líneas)
 # 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+# 06.382.604 - AMG.11082022 Traspàs comentaris clients web
 ########################################################################
 
 $ACTION
@@ -186,7 +187,12 @@ $IMP_FERME
     [F:ZSOH]CREUSR        = "WEB"
     [F:ZSOH]UPDUSR        = "WEB"
     [F:ZSOH]ALLSTA        = 3
-    [F:ZSOH]ZCOMENTARIOS  = [F:ZSQH]ZCOMENTARIOS
+    #06.382.604.INI
+    #[F:ZSOH]ZCOMENTARIOS  = [F:ZSQH]ZCOMENTARIOS
+    If [F:ZSQH]ZCOMENTARIOS<>"" Then
+      [F:ZSOH]ZCOMENTARIOS  = [F:ZSQH]ZCOMENTARIOS
+    Endif
+    #06.382.604.FIN
 
     # bloqueo del pedido si el código llega en blanco en el fichero desde la web
     Read [F:ZOPH]ZOPH0 = [F:SOH]SOHNUM
