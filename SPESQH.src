@@ -17,6 +17,7 @@
 # 06.325.878 - JC.21032022.Campo Transportista no carga información del cliente destinatario al modificar dirección de entrega
 # 06.326.337 - JC.05042022.Lentitud Sage entrada ofertas largas
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+# 06.392.153 - AMG.15092022.Avis de bloqueig a Pressupostos vendes
 ######################################################################################
 
 ######################################################################################
@@ -3152,3 +3153,31 @@ Local Char    LMESS(250),LTRA(250)
   Endif
 
 Return
+
+# 06.392.153.INI
+######################################################################################
+## Etiqueta añadida por el supervisor (pantalla SQH0) 15/09/2022 16:23:44 (ADEV)
+######################################################################################
+Subprog C_BPCORD(VALEUR)
+Variable Char    VALEUR()
+ Local Integer WOSTCTL
+    If [F:BPC]BPCRSK<>VALEUR
+      Local File BPCUSTOMER [BPC1] : # Lecture du tiers risque ss une autre abrev pour ne pas casser [F:BPC] du clt cde
+      If [F:BPC1]BPCNUM <> [F:BPC]BPCRSK
+        Read [F:BPC1]BPC0 = [F:BPC]BPCRSK
+        If fstat Raz [F:BPC1] : Endif
+      Endif
+      WOSTCTL=[F:BPC1]OSTCTL
+    Else
+      WOSTCTL=[F:BPC]OSTCTL
+    Endif
+    If WOSTCTL = 3
+      Local Integer WOK : WOK=2  # FGR 21/03/2014 : X3SUIVI98224 pas WOK=1 pour ne pas bloquer en import
+      Call AVERTIR (mess(151,199,1)-"\"-mess([F:BPC]ZMOTIVOBLOQ,6015,1), WOK) From GESECRAN
+      If WOK=1 mkstat=2 : End : Endif
+    Endif
+
+End
+# 06.392.153.FIN
+
+######################################################################################
