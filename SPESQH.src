@@ -18,6 +18,7 @@
 # 06.326.337 - JC.05042022.Lentitud Sage entrada ofertas largas
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 # 06.392.153 - AMG.15092022.Avis de bloqueig a Pressupostos vendes
+# 06.391.292 - JC.21092022.Error al crear abonament. Muestra error 'Índice erróneo AMTCOD(156) - Línea 2249 de SUBSIH
 ######################################################################################
 
 ######################################################################################
@@ -2157,7 +2158,13 @@ If !GIMPORT Then
     Endcase
   Endif
 
+# 06.391.292.ini
+#  Call AM_INVDTAAMT([M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SQH3
+  Local Integer TMPLIN: TMPLIN = nolign
+  nolign = [F:ZSFI]DACDLV
   Call AM_INVDTAAMT([M:SQH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SQH3
+  nolign = TMPLIN
+# 06.391.292.fin
 
   Affzo [M:SQH3]
 

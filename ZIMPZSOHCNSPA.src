@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.391.292 - JC.21092022.Error al crear abonament. Muestra error 'Índice erróneo AMTCOD(156) - Línea 2249 de SUBSIH
+######################################################################################
+
 $ACTION
 #If GUSER="ADEV" Then : Infbox ACTION : Endif
 #Infbox ACTION
@@ -89,7 +92,13 @@ $IMP_AVANT_MODFIC
     Endcase
   Endif
 
+# 06.391.292.ini
+#  Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
+  Local Integer TMPLIN: TMPLIN = nolign
+  nolign = [F:ZSFI]DACDLV
   Call AM_INVDTAAMT([M:SOH3]INVDTAAMT([F:ZSFI]DACDLV-1)) From W1SOH3
+  nolign = TMPLIN
+# 06.391.292.fin
 
   Affzo [M:SOH1]
   Affzo [M:SOH2]

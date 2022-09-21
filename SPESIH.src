@@ -4,7 +4,9 @@
 #AUR01 04/02/2022 ML - Error al seleccionar una factura desde abono y al duplicar factura,
 #                      flag Mail enviado/impreso papel se marcan solos
 # 06.325.516 - 26/05/2022 - ML Desvalidar factura
+# 06.391.292 - JC.21092022.Error al crear abonament. Muestra error 'Índice erróneo AMTCOD(156) - Línea 2249 de SUBSIH
 ######################################################################################
+
 $ACTION
 #If GUSER="ADMIN" Then : Infbox ACTION : Endif
 Case ACTION
@@ -79,8 +81,17 @@ $FIN_PICK
     [M:SIH2]INVDTAAMT(3) = 0
     Affzo [M:SIH2]INVDTAAMT(1)
     Affzo [M:SIH2]INVDTAAMT(3)
+# 0106647
+# 06.391.292.ini
+#    Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(1)) From W1SIH2
+#    Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(3)) From W1SIH2
+    Local Integer TMPLIN: TMPLIN = nolign
+    nolign = 2
     Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(1)) From W1SIH2
+    nolign = 4
     Call AM_INVDTAAMT([M:SIH2]INVDTAAMT(3)) From W1SIH2
+    nolign = TMPLIN
+# 06.391.292.fin
     Affzo [M:SIHV]
     GPE=1
   Endif
