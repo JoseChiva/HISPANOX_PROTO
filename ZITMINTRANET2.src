@@ -12,7 +12,8 @@
 # 06.320.301 - AMG.03032022 campo Cli fichero articulos.csv con datos incorrectos
 # 06.304.004 - AMG.03022022 coste última recepción
 # 06.323.891 - AMG.11032022 URGENTE - CAMPOS ÚLTIMA CONSULTA FICHERO ARTICULOS.CSV
-# 06.317.599 - AMG.17032022 Facturacions de recepcions compres
+# 06.317.599 - AMG.17032022 Facturacions de recepcions compres.
+# 06.351.827 - AMG.26052022 URGENTE - campos última consulta fichero articulos.csv
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 #############################################################
 
@@ -476,8 +477,11 @@ Filter [F:ZPPD]
 #Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0 Order By PRI Asc
 # 06.319.601.fin
 # 06.323.891.INI ORDENAMOS POR HXCOST
-Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
+#Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
 # 06.323.891.FIN
+# 06.351.827.ini
+Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
+# 06.351.827.fin
 
 Read[F:ZPPD] First
     If !fstat
