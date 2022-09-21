@@ -1,0 +1,91 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+############################################################################
+# Script name : ZDESCONTAB
+# Description : Descontabiliza facturas
+# Module      : Ventas
+# Version     : 1
+# Created by  : Miguel Llaja
+# Company     : Auren España
+# Created date: 26/05/2022
+############################################################################
+$ACTION
+Case ACTION
+ When "INIT"    : #
+ When "EXEC"    : Gosub EXEC
+ When "TERMINE" : #
+Endcase
+Return
+
+############################################################################
+$EXEC
+############################################################################
+If [M]INVSTA <> 3
+  Errbox "Esta factura no esta contabilizada"
+  Return
+Endif
+If !clalev([F:ZPYD]) : Local File PAYMENTD [ZPYD] : Endif
+If !clalev([F:ZHAE]) : Local File GACCENTRY [ZHAE] : Endif
+If !clalev([F:ZDAA]) : Local File GACCENTRYA [ZDAA] : Endif
+If !clalev([F:ZDAE]) : Local File GACCENTRYD [ZDAE] : Endif
+If !clalev([F:ZTVD]) : Local File TRCVCRDOC [ZTVD] : Endif
+If !clalev([F:ZSIH]) : Local File SINVOICE [ZSIH] : Endif
+If !clalev([F:ZSIV]) : Local File SINVOICEV [ZSIV] : Endif
+If !clalev([F:ZDSII]) : Local File DCLSII [ZDSII] : Endif
+
+#Control estado
+Read [F:ZHAE]HAE0=[M]GTE;[M]NUM
+If !fstat
+  #Infbox mess([F:ZHAE]STA,617,1)
+  If [F:ZHAE]STA = 2
+    Errbox "El asiento es definitivo, no se puede descontabilizar"
+    Return
+  Endif
+Endif
+
+#control pago
+Local Char PAGOS(250) : Raz PAGOS
+For [F:ZPYD] Where [F:ZPYD]VCRNUM = [M]NUM
+  PAGOS += " " + [F:ZPYD]NUM
+Next
+If PAGOS <>""
+  Errbox "Factura cobrada, "+PAGOS+ " Cancele previamente el cobro."
+  Return
+Endif
+
+Local Integer YN : YN = 1
+Call OUINON("¿Realmente desea desvalidar la factura "+[M]NUM+"?",YN) From GESECRAN
+If YN=2
+  Gosub MODIFICAR_TABLAS
+  #Gosub RESINC_SALDOS # Se hizo con la tarea batch
+  Gosub CHK_SII
+Endif
+Return
+
+############################################################################
+$MODIFICAR_TABLAS
+############################################################################
+#Trbegin
+Delete [F:ZHAE] Where [F:ZHAE]NUM = [M]NUM
+Delete [F:ZDAA] Where [F:ZDAA]NUM = [M]NUM
+Delete [F:ZDAE] Where [F:ZDAE]NUM = [M]NUM
+Delete [F:ZTVD] Where [F:ZTVD]NUM = [M]NUM
+Update [F:ZSIH] Where [F:ZSIH]NUM = [M]NUM With [F:ZSIH]STA = 1
+Update [F:ZSIV] Where [F:ZSIV]NUM = [M]NUM With [F:ZSIV]INVSTA = 1
+#F2100031
+Return
+
+############################################################################
+$RESINC_SALDOS
+############################################################################
+
+Return
+
+############################################################################
+$CHK_SII
+############################################################################
+Filter [F:ZDSII] Where [F:ZDSII]VCRNUM=[M]NUM
+If rowcount([F:ZDSII])>0
+  Infbox "La factura "+[M]NUM+" se encuentra en el Monitor SII"
+Endif
+Filter [F:ZDSII]
+Return

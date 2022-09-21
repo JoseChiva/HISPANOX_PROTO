@@ -3,7 +3,7 @@
 #MRR01 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
 #AUR01 04/02/2022 ML - Error al seleccionar una factura desde abono y al duplicar factura,
 #                      flag Mail enviado/impreso papel se marcan solos
-# 06.311.586 - 09/02/2022 - ML PORTES Importados en ABONOS
+# 06.325.516 - 26/05/2022 - ML Desvalidar factura
 ######################################################################################
 $ACTION
 #If GUSER="ADMIN" Then : Infbox ACTION : Endif
@@ -14,8 +14,38 @@ Case ACTION
   When "PICKE"        :   Gosub PICKE
   When "RAZDUP"       :   Gosub RAZDUP
 #AUR01.fin
+  When "EXEBOUT"      :   Gosub EXEBOUT # 06.325.516
+  When "OUVRE"        :   Gosub OUVRE # 06.325.516
+  When "SETBOUT"      :   Gosub SETBOUT # 06.325.516
   When Default
 Endcase
+Return
+
+$EXEBOUT
+# 06.325.516.ini
+Case BOUT
+  When "5" : Gosub RELIT From GOBJSUB
+Endcase
+# 06.325.516.fin
+Return
+
+$OUVRE
+# 06.325.516.ini
+If !clalev([F:ZAUS]) : Local File AUTILIS [ZAUS] : Endif
+# 06.325.516.fin
+Return
+
+$SETBOUT
+# 06.325.516.ini
+
+Read [F:ZAUS]CODUSR = GUSER
+If !fstat
+  If [F:ZAUS]PRFFCT <> "ADMIN" and [F:ZAUS]PRFFCT <> "XGER"
+    Call VIREBOUT(CHAINE,"5") From GOBJET
+  Endif
+Endif
+
+# 06.325.516.fin
 Return
 
 #AUR01.ini
