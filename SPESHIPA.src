@@ -18,6 +18,8 @@
 #AUR02: 20/01/2022 ML campo Campo suma en la grilla detalle de expediciones
 #AUR03: 20/01/2022 ML campo Campo planta por defecto "PHISP"
 # 06.333.348 07/04/2022 ML : Afegir camp a EXpedicions
+#06.360.976 28/07/2022 NUEVO CAMPO "Notas recepción" EN PEDIDOS COMPRAS
+
 $OUVRE
 If clalev([ZPOP])<=0  :  Local File PORDERP [ZPOP]  :  Endif
 If clalev([ZPOQ])<=0  :  Local File PORDERQ [ZPOQ]  :  Endif
@@ -79,6 +81,13 @@ For K = 0 To [M:SHIP1]NBLIG-1
   nolign = K+1
   Chgstl [M:SHIP1]ZPALENT(nolign-1) With ""
   Gosub COLOR_PALET
+
+#06.360.976.INI
+  If [M:SHIP1]ZNT(nolign-1)<>"" Then
+    Chgstl [M:SHIP1]ZNT(nolign-1) With "BACKRED"
+  Endif
+#06.360.976.FIN
+
 Next
 Gosub COLOR_PALET2
 nolign=TMPLIG
