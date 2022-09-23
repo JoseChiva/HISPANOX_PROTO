@@ -6,6 +6,7 @@
 # 06.314.023 - JC.04032022.Adaptación generación SOR desde VP para subcontratación
 # 06.326.685 - JC.22032022.Añadir código pedido cliente para cada línea del SOR
 # 06.338.458 - JC.10052022.Coge el tipo de portes de la ficha de cliente y debe de cogerlo del pedido
+# 06.394.192 - JC.23092022.HX Sage X3: Gestión subcontratación. No rellena correctamente la etiqueta DlvCntName
 ###########################################################################
 
 Call ZSGASOR('','') From ZSGASOR
@@ -502,18 +503,23 @@ Local Char WLNECSTATT03(250),WLNECOMMENT(250),WLNECTMCODE(250),WCSTATT01(250),WL
      #DeliveryContact
       AA=func PUT_PROPXML('DeliveryContact','',2,1)
       If !clalev([F:ZBPC1]) Then : Local File BPCUSTOMER [F:ZBPC1] : Endif
+      If !clalev([F:ZBPD1]) Then : Local File BPDLVCUST  [F:ZBPD1] : Endif    # 06.394.192.new
       If !clalev([F:ZAIN1]) Then : Local File CONTACTCRM [F:ZAIN1] : Endif
       Read [F:ZBPC1]BPC0=[F:ZPRH]BPCORD
       Read [F:ZAIN1]AIN0=[F:ZBPC1]CNTNAM
+      Read [F:ZBPD1]BPD0=[F:ZPRH]BPCORD;[F:ZPRH]BPAADD                        # 06.394.192.new
      #DlvCntName
-      WDLVCNTNAME = [F:ZAIN1]CNTLNA
+# 06.394.192.ini
+#      WDLVCNTNAME = [F:ZAIN1]CNTLNA
+      WDLVCNTNAME=vireblc([F:ZBPD1]BPDNAM(0)-[F:ZBPD1]BPDNAM(1),2)
+# 06.394.192.fin
       If WDLVCNTNAME <> '' Then
        AA=func PUT_PROPXML('DlvCntName',func ZAULIB01.CODIFICA_CHR(WDLVCNTNAME),3,2)
       Else
        AA=func PUT_PROPXML('DlvCntName',WDLVCNTNAME,3,2)
       Endif
       AA=func PUT_PROPXML('/DeliveryContact','',2,1)
-      Close Local File [ZBPC1],[ZAIN1]
+      Close Local File [ZBPC1],[ZBPD1],[ZAIN1]
     Endif
 # 06.314.023.fin
 
