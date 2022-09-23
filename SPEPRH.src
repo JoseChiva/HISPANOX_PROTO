@@ -84,11 +84,11 @@ Return
 
 ##############################################################
 $SETBOUT
-  If [M:PRH0]ZSGAENVIADO = 2 Then
-    Call VIREBOUT(CHAINE,"s") From GOBJET
-  Else
+#  If [M:PRH0]ZSGAENVIADO = 2 Then
+#    Call VIREBOUT(CHAINE,"s") From GOBJET
+#  Else
     CHMEN += "s"
-  Endif
+#  Endif
 Return
 
 ##############################################################
