@@ -751,7 +751,10 @@ Local Decimal LRET
     If LV12ITMREF + LV12PADRE > 0 Then
       LRET = ar2(((LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) / (LV12ITMREF + LV12PADRE)) * 12)
     Elsif LV12ITMREF + LV12PADRE = 0 Then
-      LRET = 0
+# 06.339.932.ini
+#      LRET = 0
+      LRET = 999
+# 06.339.932.fin
     Else
       LRET = 999
     Endif

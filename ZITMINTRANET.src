@@ -548,6 +548,9 @@ Filter [F:SAT] Where COD="ZS12M" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1
          Endif
      Next
 Filter [F:SAT]
+# 06.339.932.ini
+If SALIDA_12 <= 0 Then : SALIDA_12 = 0 : Endif
+# 06.339.932.fin
 
 Filter [F:SAT] Where COD="ZS12D" and CRI1=[F:ITM]ITMREF and DAT>=XWDAT1 Order By AMT Desc
      Read [F:SAT]First
