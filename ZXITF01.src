@@ -1,0 +1,94 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+############################################################################
+# Script name : ZXITF01
+# Description : Modifica costes de oferta de los artículo-planta a través de ficheros csv
+# Module      : Datos base
+# Version     : 1
+# Created by  : Jose Luis Chiva
+# Company     : Auren España
+# Created date: 04/10/2022
+############################################################################
+
+Call ZXITF01 From ZXITF01
+End
+
+############################################################################
+Subprog ZXITF01
+
+#Declaración de variables
+Local Char    WFICHEROIMP(250),WTMP(250),WRECIBIDOS(250),WTRATADOS(250),WERROR(250),CFILE(250),LNOMFICHERO(250),WFICINP1(250),WFILE(250)
+Local Integer NFICHEROS,STAT
+Local Char    FICHEROS(250)(1..1000)
+Local Clbfile XDATA (15)
+
+  WFICHEROIMP='XITF01-*'
+  Raz NFICHEROS
+
+  WTMP       = "ZINT\IMPORTX3"
+  WRECIBIDOS = "ZINT\intranet_to_ERP"
+  WTRATADOS  = "ZINT\intranet_to_ERP\processed\XITF01"
+  WERROR     = "ZINT\intranet_to_ERP\processed\ERR"
+
+  CFILE=filpath(WRECIBIDOS,WFICHEROIMP,'csv')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+
+  # no existe XITF01-*
+  If instr(1,FICHEROS(1),'csv')=0
+    End
+  Endif
+
+  If !GSERVEUR
+    Call OUVRE_TRACE ("Importación XITF01")    From LECFIC
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+  Endif
+
+  For A=1 To NFICHEROS
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+    LNOMFICHERO=ctrans(LNOMFICHERO,'.csv','')
+    WFILE=filpath(WRECIBIDOS,LNOMFICHERO,'csv')
+
+    Call ECR_TRACE("Importación XITF01, fichero "+FICHEROS(A),0) From GESECRAN
+    Call ECR_TRACE("########################################################################",0) From GESECRAN
+
+    mkstat = 0 : fstat = 0 : GERRTRACE = 0
+
+    # lanzamos la importación
+    Call IMPORTSIL ("XITF01",WFILE)From GIMPOBJ
+    If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se produce error de importación...
+      If filinfo(WFILE+".err", 7) > 0 Then
+        Call MOVE(WFILE+".err",filpath(WERROR,'',''),STAT) From ORDSYS                  # mueve el fichero .err con errores en la importación
+      Endif
+      If filinfo(WFILE, 7) > 0 Then
+        Call MOVE(WFILE,filpath(WERROR,'',''),STAT) From ORDSYS                         # mueve el fichero csv a la carpeta de procesados
+      Endif
+      Call ECR_TRACE("########################################################################",0) From GESECRAN
+      Call ECR_TRACE("Error en la importación",1) From GESECRAN
+      # lanza un workflow para avisar de que la importación ha fallado
+      Global Char GCORREO(250),GASUNTO(250),GTEXTO1(250),GTEXTO2(250)
+      GCORREO   = "joseluis.chiva@auren.es"
+      GASUNTO   = "Error importación fichero XITF01"
+      GTEXTO1   = "Error en el tratamiento del fichero"-FICHEROS(A)
+      GTEXTO2   = "Fichero con error guardado en la carpeta"-filpath(WERROR,'','')
+      GFILPATH  = filpath(WERROR,'','') + "\" + FICHEROS(A)
+      Call WORKFLOW (1,"ZXI","",GUSER) From AWRK
+      If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+      If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+      If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+    Else
+      If filinfo(WFILE,7) > 0 Then
+        Call MOVE(WFILE,filpath(WTRATADOS,'',''),STAT) From ORDSYS                      # mueve el fichero csv a la carpeta de procesados
+      Endif
+      Call ECR_TRACE("########################################################################",0) From GESECRAN
+      Call ECR_TRACE("Importación correcta",0) From GESECRAN
+    Endif
+  Next
+
+  Call FERME_TRACE From LECFIC
+  If !GSERVEUR Then
+    Call LEC_TRACE From LECFIC
+  Endif
+
+End
