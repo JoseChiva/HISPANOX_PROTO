@@ -767,6 +767,67 @@ End LRET
 
 ##############################################################
 #**
+#* devuelve la cobertura de un artículo en función de la tabla ITMMVT
+#*
+#* @param PS_ITMREF > artículo
+#* @param PS_FCY    > planta
+#*!
+Funprog GET_COBERTURA_ITV_VISTAS(PS_ITMREF,PS_FCY)
+# parámetros de entrada
+Value Char PS_ITMREF,PS_FCY
+
+# declaración de variables
+Local Decimal LSTKREALITMREF,LSTKREALPADRE
+Local Decimal LSTKSOHITMREF,LSTKSOHPADRE
+Local Decimal LV12ITMREF,LV12PADRE
+Local Decimal LRET
+
+  LRET = 999
+
+  # ****ARTÍCULO QUE SE PASA COMO PARÁMETRO****
+  If !clalev([F:ITV0]) Then : Local File ITMMVT     [F:ITV0]  : Endif
+  Read [F:ITV0]ITV0 = PS_ITMREF;PS_FCY
+  # stock real
+  LSTKREALITMREF = [F:ITV0]PHYSTO + [F:ITV0]CTLSTO + [F:ITV0]REJSTO
+  # stock en pedidos de cliente
+  LSTKSOHITMREF = [F:ITV0]SALSTO
+  # salidas 12 meses
+  LV12ITMREF = max(func GET_V12(PS_ITMREF,PS_FCY),0)
+
+  # ****COMPUESTOS CUANDO FORMA PARTE DE UN KIT****
+  If !clalev([F:ITK0]) Then : Local File ZITMINTRAKIT [F:ITK0] : Endif
+  Filter [F:ITK0] Where CPNITMREF = PS_ITMREF
+  Read [F:ITK0] First
+  If !fstat Then
+    LSTKREALPADRE = [F:ITK0]SUM_STK_REAL
+    LSTKSOHPADRE  = [F:ITK0]SUM_PED_CLI
+    LV12PADRE     = [F:ITK0]SUM_SALIDA12
+    LV12PADRE     = max(LV12PADRE,0)
+  Endif
+  Filter [F:ITK0]
+
+  # ****CÁLCULO DE LA COBERTURA****
+  If (LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) <= 0 Then
+    LRET = 0
+  Else
+    # fórmula indicada por Sergi
+    # cobertura = (Stock + SUMA(stock_kits/sub*qty_comp) – pend_pedidos_clientes – SUMA(pend_pedidos_clientes_kits/sub*qty_comp) ) / (ventas_12m + SUMA(ventas_12m_kits/sub*qty_comp)) * 12
+    If LV12ITMREF + LV12PADRE > 0 Then
+      LRET = ar2(((LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) / (LV12ITMREF + LV12PADRE)) * 12)
+    Elsif LV12ITMREF + LV12PADRE = 0 Then
+      LRET = 999
+    Else
+      LRET = 999
+    Endif
+  Endif
+
+
+  Close Local File [ITV0],[ITK0]
+
+End LRET
+
+##############################################################
+#**
 #* devuelve el porcentaje MB extra
 #*
 #* @param PS_ITMREF > artículo
