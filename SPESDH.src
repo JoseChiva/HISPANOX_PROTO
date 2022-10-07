@@ -5,6 +5,7 @@
 # 06.298.715 - JC.11012022.errores importación SOF
 # 06.331.859 - JC.04042022.Aviso de creación de entrega. Muestra los avisos por separado junto a su pedido
 # 06.354.819 - JC.08062022.Intrastat. Desarrollo incoterm y modo entrega.AUREN
+# 06.394.878 - AMG.22092022.Aviso de creación de entrega
 ######################################################################################
 
 ######################################################################################
@@ -363,6 +364,7 @@ Subprog LANZA_WORKFLOW_AVISO()
 
 Global Char GCORREO(250),GENTREGA(250),GTEXTO(250)
 Global Clbfile GPEDIDO(2)                                                 # 06.331.859.new
+Global Clbfile GCLIENTE(250)                                              # 06.394.878.new
 
   # lanza un workflow para avisar de que la importación ha fallado
 
@@ -372,6 +374,7 @@ Global Clbfile GPEDIDO(2)                                                 # 06.3
   If !clalev([F:DEE1]) Then : Local File ZDATOSENVENT [F:DEE1] : Endif
   If !clalev([F:DEE2]) Then : Local File ZDATOSENVENT [F:DEE2] : Endif
   If !clalev([F:VDM0]) Then : Local File ZVDISTMAIL   [F:VDM0] : Endif
+  If !clalev([F:ZBPA]) Then : Local File BPARTNER     [F:ZBPA] : Endif     # 06.394.878.new
 
   Execsql From "5" Sql "Truncate table" - nomap + ".ZDATOSENVENT"
 
@@ -443,6 +446,16 @@ Global Clbfile GPEDIDO(2)                                                 # 06.3
   Next
 # 06.331.859.fin
 
+# 06.394.878.ini
+Filter[F:ZBPA] Where BPRNUM=[F:SDH]BPCORD
+Read [F:ZBPA]  First
+  If !fstat
+    GCLIENTE=[F:SDH]BPCORD-"-"-[F:ZBPA]BPRSHO
+  Endif
+Filter [F:ZBPA]
+# 06.394.878.fin
+
+
   # lanza el workflow
   Call WORKFLOW (1,"ZAS","",GUSER) From AWRK
 
@@ -450,6 +463,7 @@ Global Clbfile GPEDIDO(2)                                                 # 06.3
   If dim(GENTREGA)  > 0 Then : Kill GENTREGA  : Endif
   If dim(GPEDIDO)   > 0 Then : Kill GPEDIDO   : Endif
   If dim(GTEXTO)    > 0 Then : Kill GTEXTO    : Endif
+  If dim(GCLIENTE)    > 0 Then : Kill GCLIENTE : Endif # 06.394.878.NEW
 
-  Close Local File [SDD0],[SOH0],[DEE0],[DEE1],[DEE2],[VDM0]
+  Close Local File [SDD0],[SOH0],[DEE0],[DEE1],[DEE2],[VDM0],[F:ZBPA]
 End
