@@ -1,10 +1,10 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
-#Local Char NUM
-#NUM = '10'
+Local Char NUM
+#NUM = '100'
 ###100 salinox 1000 nada
 #
-#Call ARTICULOS(NUM)
-#End
+Call ARTICULOS(NUM)
+End
 ##################################################################
 
 #############################################################
@@ -19,28 +19,10 @@
 
 ##################################################################
 Subprog ARTICULOS(WITM)
-#Variable Char WITM
-#Gosub OPEN_TABLAS
-##Filter [F:ZITN] Where ITMREF=WITM
-#Filter [F:ZITN] Where (WITM="" or ITMREF=WITM)
-##Filter [F:ZITN] Where ITMREF <= '20039' # para pruebas porque hay 59.000 articulos
-#Read [F:ZITN] First
-#If rowcount([F:ZITN])>0
-#  Gosub CREAR_FICHERO
-#  Gosub CABECERA
-#    For [F:ZITN]
-#      Gosub INI_VAR
-#      Gosub BUSCAR_DATOS
-#      Gosub ESC_REGISTRO
-#    Next
-#  Openo Using [ITM]
-#Endif
-#Gosub CLOSE_TABLAS
-#End
 Variable Char WITM
 Gosub OPEN_TABLAS
 Filter [F:ZITN] Where (WITM="" or ITMREF=WITM) Order By ITMREF
-#Filter [F:ZITN] Where ITMREF <= '20039'
+#Filter [F:ZITN] Where (ITMREF>='10' and ITMREF<='10958') Order By ITMREF
   Gosub CREAR_FICHERO
   Gosub CABECERA
     For [F:ZITN]
@@ -49,6 +31,7 @@ Filter [F:ZITN] Where (WITM="" or ITMREF=WITM) Order By ITMREF
       Gosub ESC_REGISTRO
     Next
   Openo Using [ITM]
+Filter [F:ZITN]
 Gosub CLOSE_TABLAS
 End
 
@@ -215,7 +198,9 @@ Wrseq "Descripción Categoría"; Using [ITM]
 Wrseq "Material artículo"; Using [ITM]
 Wrseq "Descripción Material"; Using [ITM]
 Wrseq "Tipo Artículo"; Using [ITM]
-Wrseq "Descripción Tipo" Using [ITM]
+Wrseq "Descripción Tipo"; Using [ITM]
+Wrseq "Coste med. ofe. fijo"; Using [ITM]
+Wrseq "Coste med. ofe. min" Using [ITM]
 
 
 
@@ -351,24 +336,27 @@ Wrseq TEXTO1;                                                                   
 Wrseq [F:ZITN]TSICOD(2);                                                         Using [ITM]
 Wrseq TEXTO2;                                                                   Using [ITM]
 Wrseq [F:ZITN]TSICOD(3);                                                         Using [ITM]
-Wrseq TEXTO3                                                                    Using [ITM]
+Wrseq TEXTO3;                                                                    Using [ITM]
+Wrseq ctrans(num$( format$("N:12.2",ZCMOFIX)),".",",");                          Using [ITM]
+Wrseq ctrans(num$( format$("N:12.2",ZCMOMIN)),".",",")                           Using [ITM]
 
 
 #antes formato Wrseq format$("N:12.2",V_COMPRAS(0));       Using [BPS]
 
 Return
 
+####################################################################
 $INI_VAR
 Local Decimal ZCMO,ZCMREP,ZSAFSTO,STOCK_REAL, STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,ZCOSTE,ZHXCOST,
 & SALIDA_12,SALIDA_MAX,SALIDA_LIN,OF_NO_VEN, CLI, V_QTY(6),V_COSTE(6),V_VENTAS(6),V_MARGEN(6),V_QTY_VEN(6),V_LIN_VEN(6),ZQTY_OF(6),ZLIN_OF(6),
-& ZLIN_OFE_O(6),ZCLIVEN(6),ZCLIOFE(6), ZCLIOFEOCULTO(6),ZQ_VEN_ZQTY_OF(6),COBERTURA,ZCOSULCOMP
+& ZLIN_OFE_O(6),ZCLIVEN(6),ZCLIOFE(6), ZCLIOFEOCULTO(6),ZQ_VEN_ZQTY_OF(6),COBERTURA,ZCOSULCOMP, ZCMOFIX, ZCMOMIN
 Local Char TEXTO(80),TEXTO1(80),TEXTO2(80),TEXTO3(80),ZBPSNUM(25),ZBPSSHO(250), ZBPSNUMOF(250),ZBPSSHO_OF(250),XBPC(250),PALET(2),ZRECML(2),ZGRAAPA(2)
 Local Date WDAT,ZRCPDAT,WDAT1,WDAT2,ZLINRSPDAT,XWDAT1, ZWDAT2
 
 Raz STOCK_REAL,STOCK_DISP,STOCK_MIN,COSTE_MEDIO,COSTE_M_KG,CAJA, PACK,ITMWEI,SALIDA_IMP,ENTRADA_A,WDAT,ZCOSTE,ZRCPDAT,ZBPSNUM,
 & ZBPSSHO,ZBPSNUMOF,ZHXCOST,WDAT1,WDAT2,ZLINRSPDAT,ZBPSSHO_OF,ZBPSSHO,ZCMO,ZCMREP,TEXTO,TEXTO1,TEXTO2,TEXTO3, SALIDA_12,SALIDA_MAX,
 & SALIDA_LIN,XWDAT1, ZWDAT2,OF_NO_VEN, CLI,XBPC,V_QTY,V_COSTE,V_VENTAS,V_MARGEN,V_QTY_VEN,V_LIN_VEN,ZQTY_OF,ZLIN_OF, ZLIN_OFE_O,ZCLIVEN,
-& ZCLIOFE,ZCLIOFEOCULTO,PALET,ZRECML,ZGRAAPA,ZQ_VEN_ZQTY_OF,COBERTURA,ZCOSULCOMP
+& ZCLIOFE,ZCLIOFEOCULTO,PALET,ZRECML,ZGRAAPA,ZQ_VEN_ZQTY_OF,COBERTURA,ZCOSULCOMP, ZCMOFIX, ZCMOMIN
 
 Local Char ZCANTJUS(2), WEB(2)
 Raz ZCANTJUS, WEB
@@ -378,6 +366,8 @@ Raz ZCANTJUS, WEB
 
 
 Return
+
+
 ###################################################################
 $BUSCAR_DATOS
 
@@ -417,6 +407,8 @@ STOCK_REAL=[F:ZITN]STOCK_REAL
 STOCK_DISP=[F:ZITN]STOCK_DISP
 STOCK_MIN=[F:ZITN]STOCK_MIN
 COSTE_MEDIO=[F:ZITN]COSTE_MEDIO
+ZCMOFIX=[F:ZITN]ZCMOFIX
+ZCMOMIN=[F:ZITN]ZCMOMIN
 # 06.317.599.str
 #ZCOSTE=[F:ZITN]ZCOSTE
 # 06.317.599.fin
@@ -429,7 +421,7 @@ ENTRADA_A=[F:ZITN]ENTRADA_A
 
 
 #ULTIMA COMPRA - CODIGO PROVEEDOR
-Filter [F:PTD] Where ITMREF=[F:ZITN]ITMREF Order By RCPDAT Desc ; PTDLIN  Desc
+Filter [F:PTD] Where ITMREF=[F:ZITN]ITMREF Order By RCPDAT Desc; PTDLIN  Desc
 Read[F:PTD]First
   If !fstat
       ZBPSNUM=[F:PTD]BPSNUM
@@ -514,6 +506,9 @@ Filter [F:ZSDBPC]
 
 
 SALIDA_12=[F:ZITN]SALIDA_12
+# 06.339.932.ini
+If SALIDA_12 <= 0 Then : SALIDA_12 = 0 : Endif
+# 06.339.932.fin
 SALIDA_LIN=[F:ZITN]SALIDA_LIN
 SALIDA_MAX=[F:ZITN]SALIDA_MAX
 OF_NO_VEN=[F:ZITN]OF_NO_VEN
@@ -554,16 +549,18 @@ WEB=[F:ZITN]WEB
 
 # 06.339.932.ini
 #COBERTURA=func ZAULIB01.GET_COBERTURA([F:ZITN]ITMREF, 'PHISP')
-COBERTURA=func ZAULIB01.GET_COBERTURA_ITV([F:ZITN]ITMREF, 'PHISP')
+#COBERTURA=func ZAULIB01.GET_COBERTURA_ITV([F:ZITN]ITMREF, 'PHISP')
+COBERTURA=999
+COBERTURA=[F:ZITN]COBERTURA
+If [F:ZITN]SALIDA_12 + [F:ZITN]SALIDA12_KIT = 0 Then : COBERTURA = 999 : Endif
+If [F:ZITN]STOCK_DISP <= 0 Then : COBERTURA = 0 : Endif
 # 06.339.932.fin
 
 
 Return
 
-
-
 ###################################################################
 $CLOSE_TABLAS
-Close Local File [F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:ZPPD],[F:ZSDBPC],[F:BPS],[F:PTD]
+Close Local File [F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:ZPPD],[F:ZSDBPC],[F:BPS],[F:PTD],[ZITN]
 
 Return
