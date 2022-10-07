@@ -19,6 +19,7 @@
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 # 06.343.951 - JC.06052022.Error cargo portes art. CERT001 - EMBA002
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+# 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -46,7 +47,10 @@ Case ACTION
   When 'FIN_PICK'    :  Gosub FIN_PICK
   When 'SEL_TABLE'   :  Gosub SEL_TABLE
   When 'VERF_TABLE'  :  Gosub VERF_TABLE
+  When "AVANTBOUT"   :  Gosub AVANTBOUT
+  When "EXEBOUT"     :  Gosub EXEBOUT
   When 'FIN'         :  Gosub FIN
+
   #FIN JESP
  When Default
 Endcase
@@ -57,7 +61,7 @@ Return
 ##############################################################
 ##############################################################
 $OUVRE
-  Global Integer GCTRLSTA,GSOHSUPPLIGDSP,GCONTROLGENJOB
+  Global Integer GCTRLSTA,GSOHSUPPLIGDSP,GCONTROLGENJOB,GGENPRH
   Raz GCONTROLGENJOB
   If clalev([F:XSOH])=0:  Local File SORDER [XSOH]: Endif
 Return
@@ -380,6 +384,21 @@ Local Decimal LZCOSTOFEREK
 
   If dim(LCON) > 0 Then : Kill LCON : Endif
 
+Return
+
+##############################################################
+$AVANTBOUT
+  Case BOUT
+    When "6"
+      GGENPRH   = 1                                                       # 06.317.883.new
+      GZPRHSOH  = 1                                                       # 06.317.883.new
+    When Default
+  Endcase
+Return
+
+##############################################################
+$EXEBOUT
+  Raz GGENPRH,GZPRHSOH                                                    # 06.317.883.new
 Return
 
 ##############################################################

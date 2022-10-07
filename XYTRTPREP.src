@@ -3,6 +3,7 @@
 # 06.312.723 - JC.14022022.Vale preparación padre
 # 06.315.256 - JC.16022022.Aviso riesgo sobrepasado en plan de preparación
 # 06.356.782 - JC.15062022.No rellena la dirección de entrega en las órdenes de preparación
+# 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 #############################################################################
 
 $ACTION
@@ -74,6 +75,35 @@ $BOUTON
       Filter [F:ZCR0]
       Close Local File [ZCR0]
 # 06.315.256.fin
+
+# 06.317.883.ini
+      If val(func AFNC.PARAM("ZVPCONCRED","")) = 2 Then
+        GZPRHSOH = 1
+        Local Integer I
+        For I=0 To [M:PREP]NBLIG-1
+          If [M:PREP]COCHAGE(I) = 2 Then
+            # actualiza el encurso
+            # desasigna el encurso de los pedidos
+            If !clalev([F:ZPRH]) Then : Local File STOPREH [F:ZPRH] : Endif
+            If !clalev([F:ZSOH]) Then : Local File SORDER  [F:ZSOH] : Endif
+            If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
+            If !clalev([F:ZSOQ]) Then : Local File SORDERQ [F:ZSOQ] : Endif
+            Read [F:ZPRH]PRH0 = [M:PREP]PRHNUM(I)
+            Read [F:ZSOH]SOH0 = [M:PREP]ORINUM(I)
+            Read [F:ZSOP]SOP0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
+            Read [F:ZSOQ]SOQ0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
+            If !fstat Then
+              Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+&                           [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+            Endif
+            # asigna el encurso al vale de preparación
+            Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+&                         0.0,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+          Endif
+        Next
+        GZPRHSOH = 1
+      Endif
+# 06.317.883.fin
   Endcase
 
 Return

@@ -12,6 +12,7 @@
 # Issue X3-132694 - 20190813 by LD : Error of non-available stock in subcontracting deliveries
 # Issue X3-150122 - 20191017 by LD : Customer Credit Limit check affects the Sub-Contract shipment process
 # Issue X3-160406 - 2019-10-14 by SR : Active/Inactive customer control
+# 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 
 #########################################################################
 # SECTION CONTENANT LES ACTIONS SUR L'OBJET                             #
@@ -2102,8 +2103,10 @@ If !([F:SDH]BETFCY=2 & [F:SDH]BETCPY=1) & !(dim([M:SDH0]SCO)>0 & [M:SDH0]SCO=2)
     Local Char WTYPMVC(1)
     WTYPMVC = "O"
     If [F:SDH]CFMFLG=2 WTYPMVC="D" Endif
-    Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
-&               0, WLIVTTC, "+", WTYPMVC, "",[F:SDH]LND) From TRTBPMVT
+    If val(func AFNC.PARAM("ZVPCONCRED","")) = 1 or GZPRHSOH = 0 Then     # 06.317.883.new
+      Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
+&                 0, WLIVTTC, "+", WTYPMVC, "",[F:SDH]LND) From TRTBPMVT
+    Endif                                                                 # 06.317.883.new
     # Issue X3-211941 - 2020-09-22 by SR
     #If GOK<1 Return Endif
     If GOK<1  Goto ERR_CREATION : Endif
@@ -2822,8 +2825,10 @@ Local Decimal COURS
     Local Char WTYPMVC(1)
     WTYPMVC = "O"
     If [F:SDH]CFMFLG=2 WTYPMVC="D" Endif
-    Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
-&               0, [F:SDH]DLVATI, "-", WTYPMVC, "",[F:SDH]LND) From TRTBPMVT
+    If val(func AFNC.PARAM("ZVPCONCRED","")) = 1 or GZPRHSOH = 0 Then     # 06.317.883.new
+      Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
+&                 0, [F:SDH]DLVATI, "-", WTYPMVC, "",[F:SDH]LND) From TRTBPMVT
+    Endif                                                                 # 06.317.883.new
     If GOK<1 Return Endif
 Endif
 # Bug 68017
@@ -3099,8 +3104,10 @@ Local Integer WSPD
     #       WSENS   = "-"
     #    Endif
     # Bug 68017
-    Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
-&                0, WLIVTTC, WSENS, "O", "", [F:SDH]LND) From TRTBPMVT
+    If val(func AFNC.PARAM("ZVPCONCRED","")) = 1 or GZPRHSOH = 0 Then     # 06.317.883.new
+      Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
+&                 0, WLIVTTC, WSENS, "O", "", [F:SDH]LND) From TRTBPMVT
+    Endif                                                                 # 06.317.883.new
     If GOK<1 Return Endif
   Endif
 
@@ -3530,8 +3537,10 @@ If !([F:SDH]BETFCY=2 & [F:SDH]BETCPY=1) &  !(dim([M:SDH0]SCO)>0 & [M:SDH0]SCO=2)
 # X3-1152 : Non invoiceable deliveries
     # Maj mouvement client (en-cours livraison)
     WLIVTTC = (-1)*WLIVTTC
-    Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
-&                0, WLIVTTC, "-", "O", "",[F:SDH]LND) From TRTBPMVT
+    If val(func AFNC.PARAM("ZVPCONCRED","")) = 1 or GZPRHSOH = 0 Then     # 06.317.883.new
+      Call MAJMVC ([F:SDH]BPCORD, [F:SDH]CUR, [F:SDH]CHGTYP, 0, [F:SDH]SHIDAT, [F:SDH]SDHNUM, [F:SDH]SALFCY,
+&                 0, WLIVTTC, "-", "O", "",[F:SDH]LND) From TRTBPMVT
+    Endif                                                                 # 06.317.883.new
     If GOK<1 Return Endif
 Endif
 
@@ -5961,8 +5970,10 @@ If ([F:SOH]APPFLG>2 | GSOHAPPOST=2) & !([F:SOH]BETFCY=2 & [F:SOH]BETCPY<=1)
        WCDEHT  = WCDEHT *(-1)
        WSENS   = "-"
     Endif
-    Call MAJMVC ([F:SOH]BPCORD, [F:SOH]CUR, [F:SOH]CHGTYP, 0, [F:SOH]ORDDAT, [F:SOH]SOHNUM, [F:SOH]SALFCY,
-&                WCDEHT, WCDETTC, WSENS, "F", "", [F:SOH]SOHCAT) From TRTBPMVT
+    If val(func AFNC.PARAM("ZVPCONCRED","")) = 1 or GZPRHSOH = 0 Then     # 06.317.883.new
+      Call MAJMVC ([F:SOH]BPCORD, [F:SOH]CUR, [F:SOH]CHGTYP, 0, [F:SOH]ORDDAT, [F:SOH]SOHNUM, [F:SOH]SALFCY,
+&                 WCDEHT, WCDETTC, WSENS, "F", "", [F:SOH]SOHCAT) From TRTBPMVT
+    Endif                                                                 # 06.317.883.new
     If GOK<1 Return Endif
     Raz WCDETTC, WCDEHT
 Endif
