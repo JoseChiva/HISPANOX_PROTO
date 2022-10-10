@@ -1,0 +1,111 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
+#############################################################################################
+
+$ACTION
+
+#If GUSER="ADEV" Then : Infbox ACTION : Endif
+Case ACTION
+  When "SYNCBPCMVT"        : Gosub SYNCBPCMVT                             # 06.317.883.new (punto de entrada)
+  When Default
+Endcase
+
+Return
+
+##############################################################
+######################    ACCIONES    ########################
+##############################################################
+##############################################################
+$SYNCBPCMVT
+
+# 06.317.883.ini
+  #------------------------------------------------------------------------
+  #    TRATAMIENTO DE LOS VALES DE PREPARACIÓN
+  #------------------------------------------------------------------------
+  If val(func AFNC.PARAM("ZVPCONCRED","")) = 2 Then
+
+    Local Decimal LORDATI
+
+    If !clalev([F:ZPRH]) Then : Local File STOPREH  [F:ZPRH]  : Endif
+    If !clalev([F:ZPRE]) Then : Local File STOPRED  [F:ZPRE]  : Endif
+    If !clalev([F:ZSOH]) Then : Local File SORDER   [F:ZSOH]  : Endif
+    If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP]  : Endif
+    If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ]  : Endif
+
+    If L_TRACE=2
+      Call ECR_TRACE(" ",0) From GESECRAN
+      Call ECR_TRACE('Tratamiento Vales de preparación',0) From GESECRAN
+      Call ECR_TRACE(string$(70,"-"),0) From GESECRAN
+    Endif
+
+    CRIT='[F:ZPRH]DLVFLG<>3 & [F:ZPRH]DLVFLG<>4'
+
+    If L_SOC   <>"" CRIT +=' & [F:ZPRH]CPY=L_SOC' Endif
+    If L_CLIENT<>"" CRIT +=' & [F:ZPRH]BPCORD=L_CLIENT'  Endif
+
+    Raz CLE1
+    Raz WCPY
+
+#    CRIT += " & [F:ZPRH]PRHNUM='VP2200280'"
+
+    Raz J,K
+    $LOOP_PRH
+    Raz I,STOP
+
+    For [ZPRH]PRH0 Where PRHNUM>CLE1 & evalue(CRIT)
+      # Si on travaille sur ttes les sociétés, on charge sa devise
+      If L_SOC="" & WCPY<>[F:ZPRH]CPY
+        Call GETDEV([F:ZPRH]STOFCY) From DEVSUB
+        WCPY=[F:ZPRH]CPY
+      Endif
+
+      Filter [F:ZPRE] Where PRHNUM=[F:ZPRH]PRHNUM
+      For [ZPRE]
+        # desasigna el encurso de los pedidos
+        Read [F:ZSOH]SOH0 = [F:ZPRE]ORINUM
+        Read [F:ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+        Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+        If !fstat Then
+          Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+&                       [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+          LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+        Endif
+      Next
+      # asigna el encurso al vale de preparación
+      If LORDATI > 0 Then
+        Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+&                     0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+      Endif
+
+      Filter [F:ZPRE]
+      I += 1
+      K += 1
+
+      If I > GMAXUPDTRS Then
+        CLE1=[F:ZPRH]PRHNUM : STOP=1 : Break
+      Endif
+    Next
+
+    If STOP Goto LOOP_PRH Endif
+
+    If L_TRACE=2
+       Call ECR_TRACE("En documentos de preparación :"-num$(K)-"Vale(s) de preparación tratado(s)",0) From GESECRAN
+    Endif
+
+    GZPRHSOH = 1
+
+  Endif
+# 06.317.883.fin
+Return
+
+##############################################################
+######################    ETIQUETAS    #######################
+##############################################################
+
+##############################################################
+#################    ACCIONES DE CAMPO    ####################
+##############################################################
+
+##############################################################
+##################    FUNCIONES PROPIAS    ###################
+##############################################################

@@ -132,13 +132,15 @@ $AFFMASK
           If !fstat Then
             Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                         [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
-          LORDATI         += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
-        Endif
+            LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+          Endif
         Next
         Filter [F:ZPR0]
         # asigna el encurso al vale de preparación
-        Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
-&                     0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+        If LORDATI > 0 Then
+          Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
+&                       0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+        Endif
         GPE=1
       Endif
     Endif
@@ -167,12 +169,14 @@ Local Decimal LORDATI
       If !fstat Then
         Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                     [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
-      LORDATI += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+        LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
       Endif
     Next
     # desasigna el encurso del vale de preparación
-    Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
-&                 0.0,LORDATI,'-','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+    If LORDATI > 0 Then
+      Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
+&                   0.0,LORDATI,'-','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+    Endif
     GPE=1
   Endif
 # 06.317.883.fin

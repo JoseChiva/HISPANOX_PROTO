@@ -88,17 +88,19 @@ $BOUTON
             If !clalev([F:ZSOH]) Then : Local File SORDER  [F:ZSOH] : Endif
             If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
             If !clalev([F:ZSOQ]) Then : Local File SORDERQ [F:ZSOQ] : Endif
+            If !clalev([F:ZPR0]) Then : Local File STOPRED [F:ZPR0] : Endif
             Read [F:ZPRH]PRH0 = [M:PREP]PRHNUM(I)
             Read [F:ZSOH]SOH0 = [M:PREP]ORINUM(I)
             Read [F:ZSOP]SOP0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
             Read [F:ZSOQ]SOQ0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
+            Read [F:ZPR0]PRE1 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
             If !fstat Then
               Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                           [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
-            Endif
             # asigna el encurso al vale de preparación
-            Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
-&                         0.0,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+              Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+&                           0.0,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+            Endif
           Endif
         Next
         GZPRHSOH = 1
