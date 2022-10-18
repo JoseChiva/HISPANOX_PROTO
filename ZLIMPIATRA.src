@@ -1,0 +1,63 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#####################################################################################
+# Src: ZLIMPIATRA
+#-------------------------------------------------------------------------------------
+# Proyecto: Estándar
+#-------------------------------------------------------------------------------------
+# Version: v12
+#-------------------------------------------------------------------------------------
+# Mantenimiento y limpieza de la carpeta TRA
+# Fecha inicio: 17/10/2022
+# Desarrollador: JCH
+# Código de asistencia: 06.396.456
+# Código de actividad: ZLTRA
+# Descripción del desarrollo: Elimina los ficheros F*.tra anteriores a PNUMMESES
+# Fecha: 17/10/2022
+#######################################################################################
+
+Local Integer LNUMMESES
+LNUMMESES = val(func AFNC.PARAM("ZNMESESTRA",""))
+Call ZLIMPIATRA(LNUMMESES)
+End
+
+######################################################################################
+Subprog ZLIMPIATRA(PNUMMESES)
+Value Integer PNUMMESES
+
+Local Char    WFICHEROIMP(250), WDIRRECIBIDOS(250), CFILE(250), LNOMFICHERO(250), LFILENAME(250)
+Local Integer NFICHEROS
+Local Integer MAXINDEX : MAXINDEX = 30000
+Local Char    FICHEROS(250)(1..MAXINDEX)
+
+Local Integer ERR_CODE
+Local Integer DIASENTRE1600Y1970
+Local Integer DIASENTRE1600YHOY
+Local Integer DIASENTRE1970YMODFILE
+
+  WFICHEROIMP='F*'
+  Raz NFICHEROS
+
+  WDIRRECIBIDOS = "TRA"
+
+  CFILE=filpath(WDIRRECIBIDOS,WFICHEROIMP,'tra')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+
+  For A=1 To NFICHEROS
+    LNOMFICHERO           = mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    LFILENAME             = LNOMFICHERO
+    LNOMFICHERO           = filpath(WDIRRECIBIDOS,LNOMFICHERO,'tra')
+    DIASENTRE1600Y1970    = nday([01/01/1970])
+    DIASENTRE1600YHOY     = nday(date$)
+    DIASENTRE1970YMODFILE = (((filinfo(LNOMFICHERO, 9)/60)/60)/24)
+    If (DIASENTRE1600YHOY-DIASENTRE1600Y1970)-(DIASENTRE1970YMODFILE) > (PNUMMESES * 30) Then
+      ERR_CODE=Delfile(LNOMFICHERO)
+      If ERR_CODE = -20 Then
+        Call ECR_TRACE("Fichero"-LFILENAME-"no existe",0) From GESECRAN
+      Elsif ERR_CODE = -27 Then
+        Call ECR_TRACE("Acceso denegado al fichero"-LFILENAME,0) From GESECRAN
+      Endif
+    Endif
+    If A = MAXINDEX Then : Break : Endif
+  Next
+End
