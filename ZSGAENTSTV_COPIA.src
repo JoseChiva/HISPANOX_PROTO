@@ -1,0 +1,1331 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#############################################################
+# JC.03112021-1    Bug. Si la cantidad física es inferior a la asignada, hacía salida de la cantidad asignada. Ahora hace salida de cero
+# JC.03112021-2    Bug. Cuando no hay suficiente cantidad en asignaciones detalladas, no hacía desasignación de pedidos con asig. global
+# 06.299.138 - JC.12012022.Error importación STV - ajustes stock
+# 06.304.886 - JC.27012022.Mensaje error importacion prestashop
+# 06.309.971 - JC.07022022.Error en la importación STV del fichero
+# 06.315.255 - JC.16022022.Error ajuste de stock STV por FusionLote antes de recibir un REF
+# 06.315.530 - JC.22022022.Mail error STV sin errores y con información no coherente. Renombrar los fichero que llegan con .0
+# 06.319.073 - AMG.28022022.tarea ZSGAENTSTV está fallando (relacionado con 06.315.530 - No renombraba el fichero .0 xq ya existía otro con ese nombre)
+# 06.326.681 - JC.21032022.Ajustes stock STV con estado QK
+# 06.324.834 - JC.22032022.No lee correctamente ciertos ficheros STV de actualización porque la estructura del fichero cambia
+#############################################################
+
+#If GUSER="ADEV"
+mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
+Call ZSGAENTSTV From ZSGAENTSTV
+mkstat = 0 : fstat = 0 : GERRTRACE = 0              # 06.304.886.new
+#Endif
+End
+
+##############################################################
+Subprog ZSGAENTSTV
+
+#Declaración de variables
+Local Char    WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), WSGAERROR(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250)
+Local Char    WFICINP1(250), FICH2(250), WREFSMR(10), WREFSMO(10)
+Local Integer NFICHEROS, WNESTADO, NFICH2, I
+Local Char    FICHEROS(250)(1..1000)
+Local Char    FICHEROIMP(250), FICHEROEXP(250)
+Local Integer A, LFSTATFICHERO, NFICHEROS, LCONTADOR
+Local Clbfile XDATA (10)
+
+  If !clalev([F:ZFCY]) : Local File FACILITY    [ZFCY] : Endif
+
+#  If !clalev([F:ZSHH]) : Local File SHIPMENT    [ZSHH] : Endif
+#  If !clalev([F:ZSHD]) : Local File SHIPMENTD   [ZSHD] : Endif
+#  If !clalev([F:ZSRH]) : Local File SRETURN     [ZSRH] : Endif
+
+  WFICHEROIMP='STV0*'
+#  WFICHEROIMP='STV0120220311133851000'
+#  WFICHEROIMP='STV0120211130080032007'
+  Raz NFICHEROS
+
+  WSGATMP       = "ZSGA\SGA\IMPORTX3"
+  WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
+  WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\STV"
+  WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"
+
+  CFILE=filpath(WSGARECIBIDOS,WFICHEROIMP,'xml')
+  ORDSYS = "dir "+CFILE+" /A-d /b"
+  Call SYSTEME2 (adxmac(-1),ORDSYS,"",NFICHEROS,FICHEROS) From ORDSYS
+  LFSTATFICHERO=0
+
+  For A=1 To NFICHEROS
+    # limpia la tabla donde se guardan los artículos lote que no se pueden hacer salida por falta de stock físico
+    Execsql From "5" Sql "Truncate table" - nomap + ".ZSTVSALCERO"
+
+#    WTRAZA=1
+    LNOMFICHERO=mid$(FICHEROS(A),1,len(FICHEROS(A))-4)
+    WFICINP1=LNOMFICHERO
+#    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
+    LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
+
+# 06.315.530.ini
+    If WFICINP1 <> LNOMFICHERO Then
+      Local Integer LSTA
+      Local Char    LSTR(250) : LSTR = mid$(WFICINP1,1,len(WFICINP1)-2)
+      Local Char    PATHORI(250),PATHDES(250)
+# 06.319.073.ini(añadimos R)
+      PATHORI = filpath(WSGARECIBIDOS,"","")+"\"+WFICINP1+".xml"
+      PATHDES = filpath(WSGARECIBIDOS,"","")+"\"+LSTR+"R.xml"
+      LSTA = renameFile(PATHORI,PATHDES)
+      If LSTA = 0 Then
+        WFICINP1    = LSTR+"R"
+        LNOMFICHERO = LSTR+"R"
+      Endif
+# 06.319.073.fin
+    Endif
+# 06.315.530.fin
+
+    Local Integer LERRORSTV                                                    # 06.299.138.new
+
+    If instr(1,FICHEROS(1),'xml')=0
+      #Call ECR_TRACE('No existe STV0*',1) From GESECRAN
+      End
+    Endif
+
+# 06.315.530.ini
+## 06.299.138.ini
+#    # control para aquellos ficheros que llegan desde el SGA con el nombre erróneo (STV0xxxxxxxxxxx.0.xml)
+#    If WFICINP1 <> LNOMFICHERO Then
+#      Call  LANZA_WORKFLOW_ERRORES(WFICINP1,LERRORSTV)
+#      Gosub MUEVE_FILE_ERR
+#      Break
+#    Endif
+## 06.299.138.fin
+# 06.315.530.fin
+
+    #Abrimos y leemos el fichero
+    Openi filpath(WSGARECIBIDOS,WFICINP1,"xml") Using [ZZZ]
+    Iomode adxifs  ""                 Using [ZZZ]
+    Iomode adxirs  ""                 Using [ZZZ]
+    Iomode adxium  50                 Using [ZZZ]
+
+    Rdseq XDATA Using [ZZZ]
+    Local Char    WSITE(250), WSTATUS(250)
+    Local Char    WITEMCODE(250),WOWNERCODE(250),WLOCATIONCODE(250),WSTAUSRCODE(250),WQUANTITYVAR(250),WUOMCODE(250)
+    Local Char    WREASONCODE(250),WCOMMENT(250),WCSTATT01FCA(250),WCSTATT02FCA(250),WCSTATT03FCA(250),WCSTATT04FCA(250),WCSTATT05FCA(250),WCSTATT06FCA(250)
+    Local Char    WCSTATT01CA(250),WCSTATT02CA(250),WCSTATT03CA(250),WCSTATT04CA(250),WCSTATT05CA(250),WCSTATT06CA(250)
+    Local Char    WREFSMR(250),WREFSMO(250),RESULT(250)
+    Local Integer WNLIN,IANT,CONTROL1,CONTROL2,WLONG
+
+# 06.315.255.ini
+    Local Integer J
+    Local Char    C1(250),C2(250)
+    J=1
+    WOPERATION = func GET_PROPXML(XDATA,"Operation",J)
+    If WOPERATION = "U" Then
+      WITEMCODE     = func GET_PROPXML(XDATA,"ItemCode",J)
+      WCSTATT05FCA  = func GET_PROPXML(XDATA,"CstAtt05",J)
+      WCSTATT16     = func GET_PROPXML(XDATA,"CstAtt16",J)
+# 06.324.834.ini
+      Local Integer R1,R2,R3,R4
+      R1=1 : R2=1 : R3=1 : R4=1
+      RESULT = func GET_PROPXML(XDATA,"FilterCustomAttributes",R1)
+      If R1=1 Then
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+        RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+        WCSTATT05FCA  = ''
+        WCSTATT05CA   = RESULT
+      Else
+        Local Integer S1, S2 : S1 = R1 : S2 = R1
+        RESULT = func GET_PROPXML(XDATA,"CustomAttributes",S1)
+        RESULT = func GET_PROPXML(XDATA,"CstAtt05",S2)
+        If S2 > S1 Then
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+          WCSTATT05FCA  = ''
+          WCSTATT05CA   = RESULT
+        Else
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05FCA  = RESULT
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          WCSTATT05CA   = RESULT
+        Endif
+      Endif
+# 06.324.834.fin
+      If !clalev([F:ZSTO0]) Then : Local File STOCK [F:ZSTO0] : Endif
+      Filter [F:ZSTO0] Where STOFCY = 'PHISP' and ITMREF = WITEMCODE and LOT = WCSTATT05FCA and STA = 'A' and  LOC = 'SGA'
+      Read [F:ZSTO0] First
+      # no existe stock para ese artículo/lote -> No procesa este fichero, se queda en cola de nuevo
+      If fstat <> 0 Then
+        Openi Using [ZZZ]
+        Goto ENDFOR
+      # existe stock para ese artículo/lote
+      Else
+        # comprobar el stock disponible
+        Local Integer WSTA
+        Local Decimal WDISPO
+        WSTA=0
+        WDISPO=0
+        If !clalev([F:ITM]) Then : Local File ITMMASTER [F:ITM] : Endif
+        If !clalev([F:ITG]) Then : Local File ITMCATEG  [F:ITG] : Endif
+        If !clalev([F:ITV]) Then : Local File ITMMVT    [F:ITV] : Endif
+        Read [F:ITM]ITM0 = WITEMCODE
+        If !fstat Then
+          Read [F:ITV]ITV0 = WITEMCODE;'PHISP'
+          If !fstat Then
+            Read [F:ITG]ITG1  = [F:ITM]TCLCOD;'PHISP'
+            If !fstat
+              If [F:ITG]GLOAAAFLG = 2   WSTA += 1  Endif
+              If [F:ITG]GLOQQQFLG = 2   WSTA += 2  Endif
+              If [F:ITG]GLORRRFLG = 2   WSTA += 4  Endif
+              Call STODISPO("","PHISP",WITEMCODE,WCSTATT05FCA,"SGA",1,WSTA,"","","","",WDISPO) From STKLIB
+              # si el stock disponible es menor que el indicado en el fichero -> No procesa este fichero, se queda en cola de nuevo
+              If WDISPO < val(WCSTATT16) Then
+                Openi Using [ZZZ]
+                Goto ENDFOR
+              Endif
+            Endif
+          Endif
+          Close Local File [ITM],[ITG],[ITV]
+        Endif
+      Endif
+      Filter [F:ZSTO0]
+      Close Local File [ZSTO0]
+    Endif
+# 06.315.255.fin
+
+    Call OUVRE_TRACE ("Imp. STV - "+LNOMFICHERO)  From LECFIC
+
+    I=1
+    WNLIN=0
+    WOPERATIONACT=''
+    While 1=1
+      WNLIN+=1
+      WOPERATION        = ""
+      WOPERATION        = func GET_PROPXML(XDATA,"Operation",I)
+      If WOPERATION=''
+        Break
+      Endif
+      WOPERATIONACT     = WOPERATION
+      WSITE             = func GET_PROPXML(XDATA,"Site",I)
+      WITEMCODE         = func GET_PROPXML(XDATA,"ItemCode",I)
+      WOWNERCODE        = func GET_PROPXML(XDATA,"OwnerCode",I)
+      WLOCATIONCODE     = func GET_PROPXML(XDATA,"LocationCode",I)
+      WSTAUSRCODE       = func GET_PROPXML(XDATA,"StaUsrCode",I)
+      If WSTAUSRCODE = 'QK' Then : WSTAUSRCODE = 'A' : Endif              # 06.326.681.new
+# 06.309.971.ini
+#      WCSTATT01FCA      = func GET_PROPXML(XDATA,"CstAtt01",I)
+#      WCSTATT02FCA      = func GET_PROPXML(XDATA,"CstAtt02",I)
+#      WCSTATT03FCA      = func GET_PROPXML(XDATA,"CstAtt03",I)
+#      WCSTATT04FCA      = func GET_PROPXML(XDATA,"CstAtt04",I)
+#      WCSTATT05FCA      = func GET_PROPXML(XDATA,"CstAtt05",I)
+#      WCSTATT06FCA      = func GET_PROPXML(XDATA,"CstAtt06",I)
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt01",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT01
+      # existe CstAtt01 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt01",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt01 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt01",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt01",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT01
+      WCSTATT01FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt02",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT02
+      # existe CstAtt02 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt02",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt02 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt02",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt02",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT02
+      WCSTATT02FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt03",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT03
+      # existe CstAtt03 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt03",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt03 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt03",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt03",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT03
+      WCSTATT03FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt04",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT04
+      # existe CstAtt04 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt04",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt04 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt04",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt04",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT04
+      WCSTATT04FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt05",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT05
+      # existe CstAtt05 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt05",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt05 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt05",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt05",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT05
+      WCSTATT05FCA      = RESULT
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt06",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCSTATT06
+      # existe CstAtt06 para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"CstAtt06",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe CstAtt06 pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"CstAtt06",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"QuantityVar",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"CstAtt06",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCSTATT06
+      WCSTATT06FCA      = RESULT
+# 06.309.971.fin
+      WQUANTITYVAR      = func GET_PROPXML(XDATA,"QuantityVar",I)
+      WUOMCODE          = func GET_PROPXML(XDATA,"UoMCode",I)
+      WREASONCODE       = func GET_PROPXML(XDATA,"ReasonCode",I)
+
+      WLONG     = 250
+      CONTROL1  = I
+      CONTROL2  = I
+      RESULT    = func GET_PROPXML(XDATA,"Comment",CONTROL1)
+      RESULT    = func GET_PROPXML(XDATA,"CstAtt05",CONTROL2)
+      If CONTROL1 = 0 and CONTROL2 = 0 Then
+        Goto ENDCOMMENT
+      # existe BPSLOT para esa línea de detalle
+      Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+        RESULT  = func GET_PROPXML(XDATA,"Comment",I)
+        RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+        RESULT  = vireblc(RESULT,1)
+      # existe BPSLOT pero en otra línea del vale de preparación
+      Else
+        CONTROL1  = I
+        CONTROL2  = I
+        RESULT    = func GET_PROPXML(XDATA,"Comment",CONTROL1)
+        RESULT    = func GET_PROPXML(XDATA,"Operation",CONTROL2)
+        If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+          RESULT  = func GET_PROPXML(XDATA,"Comment",I)
+          RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+          RESULT  = vireblc(RESULT,1)
+        Endif
+      Endif
+      $ENDCOMMENT
+      WCOMMENT          = RESULT
+
+      WCSTATT01CA       = func GET_PROPXML(XDATA,"CstAtt01",I)
+      WCSTATT02CA       = func GET_PROPXML(XDATA,"CstAtt02",I)
+      WCSTATT03CA       = func GET_PROPXML(XDATA,"CstAtt03",I)
+      WCSTATT04CA       = func GET_PROPXML(XDATA,"CstAtt04",I)
+      WCSTATT05CA       = func GET_PROPXML(XDATA,"CstAtt05",I)
+      WCSTATT06CA       = func GET_PROPXML(XDATA,"CstAtt06",I)
+      # JC.06102021.INI
+      If WOPERATIONACT='U'
+        WQUANTITYVAR    = func GET_PROPXML(XDATA,"CstAtt16",I)
+      Endif
+      # JC.06102021.FIN
+
+# 06.324.834.ini
+      If WOPERATIONACT='U'
+        Local Integer R1,R2,R3,R4
+        R1=1 : R2=1 : R3=1 : R4=1
+        RESULT = func GET_PROPXML(XDATA,"FilterCustomAttributes",R1)
+        If R1=1 Then
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+          WCSTATT05FCA  = ''
+          WCSTATT05CA   = RESULT
+        Else
+          Local Integer S1, S2 : S1 = R1 : S2 = R1
+          RESULT = func GET_PROPXML(XDATA,"CustomAttributes",S1)
+          RESULT = func GET_PROPXML(XDATA,"CstAtt05",S2)
+          If S2 > S1 Then
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R3)
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R4)
+            WCSTATT05FCA  = ''
+            WCSTATT05CA   = RESULT
+          Else
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            WCSTATT05FCA  = RESULT
+            RESULT = func GET_PROPXML(XDATA,"CustomAttributes",R2)
+            RESULT = func GET_PROPXML(XDATA,"CstAtt05",R2)
+            WCSTATT05CA   = RESULT
+          Endif
+        Endif
+      Endif
+# 06.324.834.fin
+
+      If WOPERATIONACT = "D" or WOPERATIONACT = "U" Then
+        Local Char LITMSTA(10)
+        LITMSTA=WSTAUSRCODE
+        If LITMSTA=''
+          LITMSTA='A'
+        Endif
+        Local Decimal LQTYSX3
+        # artículo, lote, estado, cantidad STV, unidad STV, cantidad disponible en X3
+        Call COMPRUEBA_STOCK(WITEMCODE,WCSTATT05FCA,LITMSTA,val(WQUANTITYVAR),WUOMCODE,LNOMFICHERO,LQTYSX3)
+        WQUANTITYVAR = num$(LQTYSX3)
+      Endif
+
+      If val(WQUANTITYVAR) > 0 Then
+        If WOPERATIONACT='C'
+          Call ECR_TRACE("Ent. Stock SGA: ItemCode: "+WITEMCODE+' QuantityVar: '+WQUANTITYVAR,0) From GESECRAN
+        Else
+          Call ECR_TRACE("Sal. Stock SGA: ItemCode: "+WITEMCODE+' QuantityVar: '+WQUANTITYVAR,0) From GESECRAN
+        Endif
+        WREFSMR=''                            # JC.06102021.NEW
+        WREFSMO=''                            # JC.06102021.NEW
+        If WOPERATIONACT='C'
+          WREFSMR='SMR'                       # JC.06102021.NEW
+          Gosub OPEN_WRITE_SMR                # JC.06102021.NEW
+          Gosub CREA_EXPORT_ZSMR
+          Openi Using [ZECO]
+        Elsif WOPERATIONACT='U'
+          # si hay cantidad disponible suficiente en X3 se crea la salida varia
+          WREFSMO='SMO'                       # JC.06102021.NEW
+          Gosub OPEN_WRITE_SMO                # JC.06102021.NEW
+          Gosub CREA_EXPORT_ZSMO
+          Openi Using [ZECO]
+          WREFSMR='SMR'                       # JC.06102021.NEW
+          Gosub OPEN_WRITE_SMR                # JC.06102021.NEW
+          Gosub CREA_EXPORT_ZSMR
+          Openi Using [ZECO]
+        Else
+          # si hay cantidad disponible suficiente en X3 se crea la salida varia
+          WREFSMO='SMO'                       # JC.06102021.NEW
+          Gosub OPEN_WRITE_SMO                # JC.06102021.NEW
+          Gosub CREA_EXPORT_ZSMO
+          Openi Using [ZECO]
+        Endif
+        If WOPERATIONACT='C'
+#          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
+          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
+          If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+            LERRORSTV += 1
+            Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+          Endif
+        Elsif WOPERATIONACT='U'
+#          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+#          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
+          Call IMPORTSIL ("ZSMR",filpath(WSGATMP,WFICINP1+WREFSMR,"",""))From GIMPOBJ         # JC.06102021.NEW
+          If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+            LERRORSTV += 1
+            Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+          Else
+            Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
+            If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+              LERRORSTV += 1
+              Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+            Endif
+          Endif
+        Else
+#          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREF,"",""))From GIMPOBJ           # JC.06102021.NEW
+          mkstat = 0 : fstat = 0 : GERRTRACE = 0
+          Call IMPORTSIL ("ZSMO",filpath(WSGATMP,WFICINP1+WREFSMO,"",""))From GIMPOBJ         # JC.06102021.NEW
+          If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+            LERRORSTV += 1
+            Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+          Endif
+        Endif
+      Endif
+
+    Wend
+
+    Openi Using [ZZZ]
+
+    Sleep 1
+
+    # JC.06102021.INI
+    If LERRORSTV <> 0 Then
+      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,LERRORSTV)
+      Gosub MUEVE_FILE_ERR
+    Else
+      Gosub MUEVE_FILE
+    Endif
+    # JC.06102021.FIN
+
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMR,"",""), 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMR,"","")
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMO,"",""), 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMO,"","")
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMR,"","")+".err", 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMR,"","")+".err"
+    Endif
+    If filinfo(filpath(WSGATMP,WFICINP1+WREFSMO,"","")+".err", 7) > 0 Then
+      System "ae_rm " + filpath(WSGATMP,WFICINP1+WREFSMO,"","")+".err"
+    Endif
+
+    Call LANZA_WORKFLOW_SIN_SALIDA(WFICHEROIMP)
+
+    Call FERME_TRACE From LECFIC
+    If !GSERVEUR Then
+      Call LEC_TRACE From LECFIC
+    Endif
+
+    $ENDFOR
+  Next
+
+End
+
+##############################################################
+# JC.06102021.NEW
+$OPEN_WRITE_SMR
+  Openo filpath(WSGATMP,WFICINP1+WREFSMR,''),0   Using [ZECO]
+  Iomode adxifs ""                            Using [ZECO]
+  Iomode adxirs chr$(13) + chr$(10)           Using [ZECO]
+  Iomode adxium 0                             Using [ZECO]
+Return
+
+##############################################################
+# JC.06102021.NEW
+$OPEN_WRITE_SMO
+  Openo filpath(WSGATMP,WFICINP1+WREFSMO,''),0   Using [ZECO]
+  Iomode adxifs ""                            Using [ZECO]
+  Iomode adxirs chr$(13) + chr$(10)           Using [ZECO]
+  Iomode adxium 0                             Using [ZECO]
+Return
+
+##############################################################
+$CREA_EXPORT_ZSMR
+Local Integer WLONG
+Local Char    WLFCY(50),RESULT(250),WLCOMILLAS(10),WLCOMA(10)
+
+  Filter [ZFCY] Where ZFCYMECALUX=WSITE
+  Read [ZFCY] First
+  WLFCY=[F:ZFCY]FCY
+  WLCOMILLAS='"'
+  WLCOMA=';'
+
+######## CABECERA
+ #E
+  WLONG=1
+  RESULT='E'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRTYP
+  WLONG=2
+  RESULT='19'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRNUM
+  WLONG=1
+  RESULT=''
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #STOFCY
+  WLONG=5
+  RESULT = WLFCY
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #IPTDAT
+  WLONG=8
+  RESULT= format$("YYYYMMDD",date$)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRDES
+  WLONG=250
+  RESULT="STV - "+WREASONCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #TRSCOD
+  WLONG=3
+  RESULT='REG'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT Using [ZECO]
+
+######## LÍNEAS
+ #L
+  WLONG=1
+  RESULT='L'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRLIN
+  WLONG=6
+  RESULT=num$(WNLIN)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #ITMREF
+  WLONG=250
+  RESULT=WITEMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #QTYPCU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #STU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #QTYSTU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #PRI
+  Gosub GET_VALORUNITARIO
+  WLONG=250
+  RESULT=num$(WLPMP)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT Using [ZECO]
+
+######## STOCK
+ #S
+  WLONG=1
+  RESULT='S'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #QTYPCU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #BPSLOT
+  WLONG=250
+  RESULT=WCSTATT04CA
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #LOT
+  WLONG=250
+  RESULT=WCSTATT05CA
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #LOC
+  WLONG=250
+  RESULT='SGA'
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #STA
+  WLONG=250
+  RESULT=WSTAUSRCODE
+  If RESULT=''
+    RESULT='A'
+  Endif
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #MTVDES
+  WLONG=250
+  RESULT="STV - "+WREASONCODE
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT Using [ZECO]
+Return
+
+
+##############################################################
+$CREA_EXPORT_ZSMO
+Local Integer WLONG
+Local Char    WLFCY(50),RESULT(250),WLCOMILLAS(10),WLCOMA(10)
+
+  Filter [ZFCY] Where ZFCYMECALUX=WSITE
+  Read [ZFCY] First
+  WLFCY=[F:ZFCY]FCY
+  WLCOMILLAS='"'
+  WLCOMA=','
+
+######## CABECERA
+ #E
+  WLONG=1
+  RESULT='E'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #VCRTYP
+  WLONG=2
+  RESULT='20'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRNUM
+  WLONG=1
+  RESULT=''
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #STOFCY
+  WLONG=5
+  RESULT=WLFCY
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #IPTDAT
+  WLONG=8
+  RESULT= format$("YYYYMMDD",date$)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #VCRDES
+  WLONG=250
+  RESULT="STV - "+WREASONCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #TRSCOD
+  WLONG=3
+  RESULT='REG'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+
+######## LÍNEAS
+ #L
+  WLONG=1
+  RESULT='L'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #VCRLIN
+  WLONG=6
+  RESULT=num$(WNLIN)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #ITMREF
+  WLONG=250
+  RESULT=WITEMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #QTYPCU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #STU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #QTYSTU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT+WLCOMA; Using [ZECO]
+ #PRI
+  Gosub GET_VALORUNITARIO
+  WLONG=250
+  RESULT=num$(WLPMP)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq RESULT Using [ZECO]
+
+######## STOCK
+ #S
+  WLONG=1
+  RESULT='S'
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #PCU
+  WLONG=50
+  RESULT=WUOMCODE
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #QTYPCU
+  WLONG=250
+  RESULT=num$(WQUANTITYVAR)
+  RESULT = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq '-'+RESULT+WLCOMA; Using [ZECO]
+# #BPSLOT
+#  WLONG=250
+#  RESULT=WCSTATT04FCA
+#  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+#  RESULT=vireblc(RESULT,1)
+#  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #LOT
+  WLONG=250
+  RESULT=WCSTATT05FCA
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #LOC
+  WLONG=250
+  RESULT='SGA'
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #STA
+  WLONG=250
+  RESULT=WSTAUSRCODE
+  If RESULT=''
+    RESULT='A'
+  Endif
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS+WLCOMA; Using [ZECO]
+ #MTVDES
+  WLONG=250
+  RESULT="STV - "+WREASONCODE
+  RESULT=toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+  RESULT=vireblc(RESULT,1)
+  Wrseq WLCOMILLAS+RESULT+WLCOMILLAS Using [ZECO]
+Return
+
+##############################################################
+$MUEVE_FILE
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGATRATADOS,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+##############################################################
+$MUEVE_FILE_ERR
+  ORDSYS = "move " + filpath(WSGARECIBIDOS,"", "","","","")+'\' + WFICINP1 + ".xml " + filpath(WSGAERROR,"", "","","","")
+  Call SYSTEME2(adxmac(-1),ORDSYS,"",NFICH2,FICH2) From ORDSYS
+Return
+
+##############################################################
+$RESU_WESTADOS
+  WNESTADO=0
+  For N=1 To 8
+    If WESTADOS(N)=WSTATUS
+      WNESTADO=N
+      Break
+    Endif
+  Next
+Return
+
+##############################################################
+$GET_VALORUNITARIO
+Local Decimal WLPMP
+  If !clalev([F:ZITV]) Then : Local File ITMMVT [F:ZITV] : Endif
+  Read [F:ZITV]ITV0 = WITEMCODE;WLFCY
+  If !fstat Then
+    WLPMP = [F:ZITV]AVC
+    If WLPMP = 0 Then
+      If !clalev([F:ZITF]) Then : Local File ITMFACILIT [F:ZITF] : Endif
+      Read [F:ZITF]ITF0 = WITEMCODE;WLFCY
+      WLPMP = [F:ZITF]ZCMO
+      Close Local File [ZITF]
+    Endif
+  Endif
+  Close Local File [ZITV]
+Return
+
+##############################################################
+Funprog GET_PROPXML(XMLSTRING,VARNAME,I)
+Value Clbfile XMLSTRING
+Value Char VARNAME
+Variable Integer I
+
+Local Integer J, OLDI
+
+  OLDI=I
+#  I=1
+  I=instr(I,XMLSTRING,VARNAME+'>')
+  If I
+    I=instr(I+len(VARNAME),XMLSTRING,'>')
+    If I
+        J=instr(I+1,XMLSTRING,'<')
+        If J
+          CRETORNO=seg$(XMLSTRING,I+1,J-1)
+          I+=len("\"+VARNAME)
+          End CRETORNO
+        Endif
+    Endif
+  Else
+    I=OLDI
+  Endif
+End ""
+
+###############################################################
+# JC.06102021.NEW
+#**
+#* envía correo con la traza y el fichero que ha generado el error
+#*
+#* @param PNOMFICH  > nombre del fichero STV
+#* @param PNUMERR   > número de errores producidos
+#*!
+Subprog LANZA_WORKFLOW_ERRORES(PNOMFICH,PNUMERR)
+Value Char    PNOMFICH
+Value Integer PNUMERR
+  # lanza un workflow para avisar de que la importación ha fallado
+  Global Char GCORREO(250),GFICHERO(250),GTEXTO1(250),GTEXTO2(250),GTEXTO3(250),GASUNTO(250)
+  GASUNTO   = "Error en la importación STV del fichero"-PNOMFICH
+  GCORREO   = "sergi.cunill@hispanox.com"
+#  GCORREO   = "sergi.cunill@hispanox.com;joseluis.chiva@auren.es"
+  GCORREO   = "joseluis.chiva@auren.es"
+  GFICHERO  = PNOMFICH
+  GTEXTO1   = "Errores producidos en el tratamiento del fichero"-PNOMFICH+".xml"
+  GTEXTO2   = "Se han producido " + num$(PNUMERR) + " errores."
+  GTEXTO3   = "Documento adjunto con la traza"
+  Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GFICHERO)  > 0 Then : Kill GFICHERO  : Endif
+  If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+  If dim(GTEXTO2)   > 0 Then : Kill GTEXTO2   : Endif
+  If dim(GTEXTO3)   > 0 Then : Kill GTEXTO3   : Endif
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+End
+
+###############################################################
+# JC.26102021.NEW
+#**
+#* comprueba si existe stock suficiente para hacer la salida
+#*
+#* @param PITM    > artículo
+#* @param PLOT    > lote
+#* @param PSTA    > estado
+#* @param PQTYSTV > cantidad STV
+#* @param PSTUSTV > unidad STV
+#* @param PQTYSAL > cantidad con la que vamos a hacer la salida
+#*!
+Subprog COMPRUEBA_STOCK(PITM,PLOT,PSTA,PQTYSTV,PSTUSTV,PNOMFICHERO,PQTYSAL)
+Value     Char    PITM,PLOT,PSTA,PSTUSTV,PNOMFICHERO
+Value     Decimal PQTYSTV
+Variable  Decimal PQTYSAL
+
+Local     Decimal LQTYFISICAX3,LQTYASIGNADAX3,LQTYDISPONIBLEX3,LQTYSTVINI
+Local     Decimal LQTYFISICATOTALX3,LQTYASIGLOBALX3,LQTYDESGLOBALX3
+Local     Integer LDES
+
+  If !clalev([F:ZSTO]) Then : Local File STOCK        [F:ZSTO] : Endif
+  If !clalev([F:ZSTA]) Then : Local File STOALL       [F:ZSTA] : Endif
+  If !clalev([F:ZVAL]) Then : Local File ZVSTVALLSOH  [F:ZVAL] : Endif
+  If !clalev([F:ZVA2]) Then : Local File ZVSTVALLSOH2 [F:ZVA2] : Endif                                    # JC.03112021-2.NEW
+  If !clalev([F:ZSOQ]) Then : Local File SORDERQ      [F:ZSOQ] : Endif
+  If !clalev([F:ZSDS]) Then : Local File ZSTVDESSOH   [F:ZSDS] : Endif
+  If !clalev([F:ZALK]) Then : Local File APLLCK       [F:ZALK] : Endif
+
+  Execsql From "5" Sql "Truncate table" - nomap + ".ZSTVDESSOH"
+
+  LQTYSTVINI = PQTYSTV
+
+  # obtenemos el valor de la cantidad asignada del artículo
+# JC.17112021.INI
+#  Filter [F:ZSTA] Where ITMREF = PITM #and VCRTYP = 2
+#  For [ZSTA]
+#    LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
+#  Next
+#  Filter [F:ZSTA]
+  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and STA = PSTA and LOC = "SGA"
+  For [ZSTO]
+    # asignación detallada para el estado y ubicación específicos
+    Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU and ALLTYP = 2
+    For [ZSTA]
+      LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
+    Next
+    Filter [F:ZSTA]
+  Next
+  # asignación global para el artículo
+  Filter [F:ZSTA] Where ITMREF = PITM and STOCOU = 0 and ALLTYP = 1
+  For [ZSTA]
+    LQTYASIGNADAX3 += [F:ZSTA]QTYSTU
+  Next
+  Filter [F:ZSTA]
+# JC.17112021.FIN
+
+  Filter [F:ZSTO] Where STOFCY = "PHISP" and ITMREF = PITM and LOT = PLOT and STA = PSTA and LOC = "SGA"
+  Read   [F:ZSTO] First
+  If !fstat Then
+    # obtenemos el valor de la cantidad física y la disponible (física - asignada en pedidos)
+    LQTYFISICAX3      = [F:ZSTO]QTYSTU
+    If LQTYFISICAX3 - LQTYASIGNADAX3 > 0 Then                                                             # JC.03112021-1.NEW
+      LQTYDISPONIBLEX3  = LQTYFISICAX3 - LQTYASIGNADAX3
+    Endif                                                                                                 # JC.03112021-1.NEW
+
+    # convertimos la QTY salida STV a la unidad de la QTY física X3
+    PQTYSTV = func ZAULIB01.CONVERTIR_CANTIDAD(PSTUSTV,[F:ZSTO]PCU,PQTYSTV)
+
+    # comprobación cantidad física por lote y estado mensaje STV vs Sage X3
+    # si QTY física X3 >= QTY salida STV ==> seguimos con el proceso
+    If LQTYFISICAX3 >= PQTYSTV Then
+    # sino, seguimos con el proceso considerando que QTY STV = QTY física X3
+    Else
+      PQTYSTV = LQTYFISICAX3
+    Endif
+
+    # comprobación cantidad disponible por lote y estado mensaje STV vs Sage X3
+    # si QTY disponible X3 >= QTY STV ==> seguimos con el proceso
+    If LQTYDISPONIBLEX3 >= PQTYSTV Then
+    Else
+      # ejecutamos automáticamente proceso cancelación (desasignación) de los pedidos según fecha pedido
+      # (desasignar primero los pedidos más recientes) hasta tener QTY disponible suficiente
+      # para registrar la salida
+      # desasigna primero los pedidos con asignación detallada (STOCOU <> 0)
+      Filter [F:ZVAL] Where STOCOU = [F:ZSTO]STOCOU and VCRTYP = 2 Order By ALLTYP Desc; ORDDAT Desc
+      For [F:ZVAL]
+        Filter [F:ZALK] Where LCKSYM = "SOH"+[F:ZVAL]SOHNUM   # desasigna sólo si el pedido no está abierto (bloqueado por alguien)
+        Read [F:ZALK] First
+        If fstat <> 0 Then
+          LDES = 1
+          Call UPD_DEASIG_SOH([F:ZVAL]SOHNUM,[F:ZVAL]SOPLIN,[F:ZVAL]SOQSEQ,[F:ZVAL]STOFCY,[F:ZVAL]SHIDAT) From ZAULIB01
+          LQTYDISPONIBLEX3 += [F:ZVAL]QTY
+          [F:ZSDS]SOHNUM  = [F:ZVAL]SOHNUM
+          [F:ZSDS]SOPLIN  = [F:ZVAL]SOPLIN
+          [F:ZSDS]SOQSEQ  = [F:ZVAL]SOQSEQ
+          [F:ZSDS]STOFCY  = [F:ZVAL]STOFCY
+          [F:ZSDS]SHIDAT  = [F:ZVAL]SHIDAT
+          [F:ZSDS]BPCORD  = [F:ZVAL]BPCORD
+          [F:ZSDS]QTY     = [F:ZVAL]QTY
+          [F:ZSDS]ALLTYP  = 2               # detallada
+          Trbegin [F:ZSDS]
+          Write   [F:ZSDS]
+          If !fstat Then
+            Commit
+          Else
+            Rollback
+          Endif
+          If LQTYDISPONIBLEX3 >= PQTYSTV Then
+            Break
+          Endif
+        Else
+# 06.299.138.ini
+          LERRORSTV += 1
+          Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVAL]SOHNUM+" porque está abierto",0) From GESECRAN
+# 06.299.138.fin
+        Endif
+        Filter [F:ZALK]
+      Next
+      Filter [F:ZVAL]
+
+    Endif
+  Endif
+  Filter [F:ZSTO]
+
+  If PQTYSTV <= LQTYDISPONIBLEX3 Then
+    PQTYSAL = PQTYSTV
+#    PQTYSAL = LQTYSTVINI
+  Else
+    PQTYSAL = LQTYDISPONIBLEX3
+  Endif
+
+  If LDES = 1 Then
+    Call LANZA_WORKFLOW_DESASIGNACIONES(PITM,PLOT,PSTA,LQTYSTVINI,PSTUSTV,PQTYSAL)
+  Endif
+
+  # JC.03112021-2.INI
+  # buscamos la cantidad física total del artículo (sin tener en cuenta el lote)
+  Filter [F:ZSTO] Where ITMREF = PITM and STA = PSTA and LOC = "SGA"
+  For [F:ZSTO]
+    LQTYFISICATOTALX3  += [F:ZSTO]QTYSTU
+  Next
+  # buscamos las asignaciones globales del artículo
+  Filter [F:ZSTA] Where ITMREF = PITM and STOCOU = 0 and VCRTYP = 2
+  For [F:ZSTA]
+    LQTYASIGLOBALX3    += [F:ZSTA]QTYSTUACT
+  Next
+  Filter [F:ZSTA]
+  # si la diferencia entre cantidad física total y cantidad asignada global es igual o superior a la cantidad de salida, continuamos con el proceso
+  If LQTYFISICATOTALX3 - LQTYASIGLOBALX3 >= PQTYSTV and PQTYSAL > 0 Then
+  Else
+    Raz LDES
+    # si aun así no llega a la diferencia entre stock físico total y stock asignado global, continúa desasignando los pedidos con asignación global (STOCOU = 0)
+    Filter [F:ZVA2] Where ITMREF = PITM and STOCOU = 0 and VCRTYP = 2 Order By ORDDAT Desc; SOHNUM Desc; QTYSTUACT Asc
+    For [F:ZVA2]
+      Filter [F:ZALK] Where LCKSYM = "SOH"+[F:ZVA2]SOHNUM   # desasigna sólo si el pedido no está abierto (bloqueado por alguien)
+      Read [F:ZALK] First
+      If fstat <> 0 Then
+        LDES = 1
+        Call UPD_DEASIG_SOH([F:ZVA2]SOHNUM,[F:ZVA2]SOPLIN,[F:ZVA2]SOQSEQ,[F:ZVA2]STOFCY,[F:ZVA2]SHIDAT) From ZAULIB01
+        LQTYDESGLOBALX3 += [F:ZVA2]QTYSTUACT
+        [F:ZSDS]SOHNUM  = [F:ZVA2]SOHNUM
+        [F:ZSDS]SOPLIN  = [F:ZVA2]SOPLIN
+        [F:ZSDS]SOQSEQ  = [F:ZVA2]SOQSEQ
+        [F:ZSDS]STOFCY  = [F:ZVA2]STOFCY
+        [F:ZSDS]SHIDAT  = [F:ZVA2]SHIDAT
+        [F:ZSDS]BPCORD  = [F:ZVA2]BPCORD
+        [F:ZSDS]QTY     = [F:ZVA2]QTYSTUACT
+        [F:ZSDS]ALLTYP  = 1                     # global
+        Trbegin [F:ZSDS]
+        Write   [F:ZSDS]
+        If !fstat Then
+          Commit
+        Else
+          Rollback
+        Endif
+        If LQTYDESGLOBALX3 >= (PQTYSTV - (LQTYFISICATOTALX3 - LQTYASIGLOBALX3)) Then
+          Break
+        Endif
+      Else
+# 06.299.138.ini
+        LERRORSTV += 1
+        Call ECR_TRACE("No se ha podido desasignar el pedido "+[F:ZVA2]SOHNUM+" porque está abierto",0) From GESECRAN
+# 06.299.138.fin
+      Endif
+      Filter [F:ZALK]
+    Next
+    Filter [F:ZVA2]
+    If LDES = 1 Then
+      Call LANZA_WORKFLOW_DESASIGNACIONES(PITM,PLOT,PSTA,LQTYSTVINI,PSTUSTV,PQTYSAL)
+    Endif
+  Endif
+  # JC.03112021-2.FIN
+
+#Infbox "ctd.SGA:"-num$(LQTYSTVINI)
+#Infbox "ctd.física:"-num$(LQTYFISICAX3)
+#Infbox "ctd.PQTYSTV:"-num$(PQTYSTV)
+#Infbox "ctd.asignada:"-num$(LQTYASIGNADAX3)
+#Infbox "ctd.disponible:"-num$(LQTYDISPONIBLEX3)
+#Infbox "ctd.salida:"-num$(PQTYSAL)
+#Infbox "ctd.desasignadaGlobal:"-num$(LQTYDESGLOBALX3)
+
+  If PQTYSAL = 0 Then
+    If !clalev([F:ZSS0]) Then : Local File ZSTVSALCERO [F:ZSS0] : Endif
+    [F:ZSS0]ITMREF      = PITM
+    [F:ZSS0]LOT         = PLOT
+    [F:ZSS0]STA         = PSTA
+    [F:ZSS0]ZQTYSTV     = LQTYSTVINI
+    [F:ZSS0]ZQTYSINSAL  = LQTYSTVINI
+    [F:ZSS0]ZNOMFICHSTV = PNOMFICHERO
+    Trbegin [F:ZSS0]
+    Write [F:ZSS0]
+    If !fstat Then
+      Commit
+    Else
+      Rollback
+    Endif
+    Close Local File [ZSS0]
+  Endif
+
+  Close Local File [ZSTO],[ZSTA],[ZVA2],[ZVAL],[ZSOQ],[ZSDS],[ZALK]
+End
+
+###############################################################
+# JC.26102021.NEW
+#**
+#* envía correo con los pedidos desasignados
+#*
+#* @param WITM    > artículo
+#* @param WLOT    > lote
+#* @param WSTA    > estado
+#* @param WQTYSTV > cantidad STV
+#* @param WSTUSTV > unidad STV
+#* @param WQTYSAL > cantidad de salida
+#*!
+Subprog LANZA_WORKFLOW_DESASIGNACIONES(PITM,PLOT,PSTA,PQTYSTV,PSTUSTV,PQTYSAL)
+Value     Char    PITM,PLOT,PSTA,PSTUSTV
+Value     Decimal PQTYSTV,PQTYSAL
+
+Global  Char    GASUNTO(250),GCORREO(250),GMENSAJE1(250),GMENSAJE3(250)
+Global  Clbfile GMENSAJE2(2)
+Local   Integer LCONTROL
+
+  # lanza un workflow para avisar de los pedidos que se han desasignado
+
+  # contenido del asunto de mensaje
+  GASUNTO   = "HX cancelación asignaciones pedidos debido a ajuste stock SGA"
+
+  # destinatario del mensaje
+  GCORREO   = "info@hispanox.com"
+  GCORREO   = "joseluis.chiva@auren.es"
+
+  # cuerpo del mensaje
+  If !clalev([F:ZSD1]) Then : Local File ZSTVDESSOH [F:ZSD1] : Endif
+
+  GMENSAJE1 = "Artículo:" - PITM - "/" - "Lote:" - PLOT - "/" - "Estado:" - PSTA - "/" - "Cantidad STV:" - num$(PQTYSTV)
+  Filter [F:ZSD1] Order By SOHNUM;ALLTYP
+  For [F:ZSD1]
+    If LCONTROL = 0 Then
+      If [F:ZSD1]ALLTYP = 1
+        GMENSAJE2 = " **** Nº pedido:"-[F:ZSD1]SOHNUM-"/ Nº línea:"-num$([F:ZSD1]SOPLIN/1000)-"/ Cliente:"-[F:ZSD1]BPCORD-"/ Cantidad:"-num$([F:ZSD1]QTY)-"/ Asignación global"
+        LCONTROL = 1
+      Else
+        GMENSAJE2 = " **** Nº pedido:"-[F:ZSD1]SOHNUM-"/ Nº línea:"-num$([F:ZSD1]SOPLIN/1000)-"/ Cliente:"-[F:ZSD1]BPCORD-"/ Cantidad:"-num$([F:ZSD1]QTY)-"/ Asignación detallada"
+        LCONTROL = 1
+      Endif
+    Else
+      If [F:ZSD1]ALLTYP = 1
+        GMENSAJE2 += chr$(13)+chr$(10)+" **** Nº pedido:"-[F:ZSD1]SOHNUM-"/ Nº línea:"-num$([F:ZSD1]SOPLIN/1000)-"/ Cliente:"-[F:ZSD1]BPCORD-"/ Cantidad:"-num$([F:ZSD1]QTY)-"/ Asignación global"
+      Else
+        GMENSAJE2 += chr$(13)+chr$(10)+" **** Nº pedido:"-[F:ZSD1]SOHNUM-"/ Nº línea:"-num$([F:ZSD1]SOPLIN/1000)-"/ Cliente:"-[F:ZSD1]BPCORD-"/ Cantidad:"-num$([F:ZSD1]QTY)-"/ Asignación detallada"
+      Endif
+    Endif
+  Next
+  Filter [F:ZSD1]
+  GMENSAJE3 = "NO se ha podido hacer la salida de" - num$(PQTYSTV-PQTYSAL) - PSTUSTV
+
+  Close Local File [ZSD1]
+
+  # lanza un workflow para avisar de que la importación ha fallado
+  Call WORKFLOW (1,"ZTV","",GUSER) From AWRK
+  If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+  If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+  If dim(GMENSAJE1) > 0 Then : Kill GMENSAJE1 : Endif
+  If dim(GMENSAJE2) > 0 Then : Kill GMENSAJE2 : Endif
+  If dim(GMENSAJE3) > 0 Then : Kill GMENSAJE3 : Endif
+  If dim(LCONTROL)  > 0 Then : Kill LCONTROL  : Endif
+End
+
+###############################################################
+# JC.26102021.NEW
+#**
+#* envía correo con los artículos/lote sin salida
+#*
+#* @param PFICHERO > nombre del fichero
+#*!
+Subprog LANZA_WORKFLOW_SIN_SALIDA(PFICHERO)
+Value   Char    PFICHERO
+
+  # lanza un workflow para avisar de las salida que no se han podido ejecutar por falta de stock
+
+  # cuerpo del mensaje
+  If !clalev([F:ZSS1]) Then : Local File ZSTVSALCERO [F:ZSS1] : Endif
+
+  If rowcount([F:ZSS1]) > 0 Then
+
+    Global  Char    GASUNTO(250),GCORREO(250),GMENSAJE1(250),GMENSAJE3(250)
+    Global  Clbfile GMENSAJE2(2)
+    Local   Integer LCONTROL
+
+    # contenido del asunto de mensaje
+    GASUNTO   = "HX salidas de stock no ejecutadas en el fichero/s STV"
+
+    # destinatario del mensaje
+    GCORREO   = "info@hispanox.com"
+    GCORREO   = "joseluis.chiva@auren.es"
+
+    For [F:ZSS1]
+      If LCONTROL = 0 Then
+        GMENSAJE1 =  " **** Artículo:"-[F:ZSS1]ITMREF-"/ Lote:"-[F:ZSS1]LOT-"/ Estado:"-[F:ZSS1]STA-"/ Cantidad STV:"-num$([F:ZSS1]ZQTYSTV)
+        GMENSAJE1 += " / Cantidad sin salida:"-num$([F:ZSS1]ZQTYSINSAL)-"/ Fichero STV:"-[F:ZSS1]ZNOMFICHSTV
+        LCONTROL = 1
+      Else
+        GMENSAJE1 += chr$(13)+chr$(10)+" **** Artículo:"-[F:ZSS1]ITMREF-"/ Lote:"-[F:ZSS1]LOT-"/ Estado:"-[F:ZSS1]STA-"/ Cantidad STV:"-num$([F:ZSS1]ZQTYSTV)
+        GMENSAJE1 += " / Cantidad sin salida:"-num$([F:ZSS1]ZQTYSINSAL)-"/ Fichero STV:"-[F:ZSS1]ZNOMFICHSTV
+      Endif
+    Next
+
+    # lanza un workflow para avisar de que la importación ha fallado
+    Call WORKFLOW (1,"ZSC","",GUSER) From AWRK
+
+    If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+    If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+    If dim(GMENSAJE1) > 0 Then : Kill GMENSAJE1 : Endif
+    If dim(LCONTROL)  > 0 Then : Kill LCONTROL  : Endif
+  Endif
+  Close Local File [ZSS1]
+
+End
