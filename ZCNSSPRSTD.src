@@ -34,6 +34,7 @@ Case GACTION
 
 Endcase
 Return
+
 ############################################################
 $AUTORIS
 Return
@@ -181,6 +182,20 @@ Endif                            # hcb graphique
   Close Local File [ZAUT],[ZAFP],[ZAME]
 # ocultar campo mote.fin
 
+
+  Local Integer K
+  For K = 0 To [M:ZSPR2]NBLIG0-1
+    If [M:ZSPR2]INTFLD(K)='Stock disponible' and [M:ZSPR2]VALFLD(K) < 0 Then
+      Chgstl [M:ZSPR2]INTFLD(K) With "BACKRED"
+      Chgstl [M:ZSPR2]VALFLD(K) With "BACKRED"
+    Else
+      Chgstl [M:ZSPR2]INTFLD(K) With ""
+      Chgstl [M:ZSPR2]VALFLD(K) With ""
+    Endif
+    Affzo [M:ZSPR2]INTFLD(K)
+    Affzo [M:ZSPR2]VALFLD(K)
+  Next
+
 Return
 
 ############################################################
@@ -224,6 +239,8 @@ Return
 ############################################################
 $LECTURE
 
+Local Decimal LSUMACOMPONENTEKIT,LSUMACANTIDADASIGNABLE
+Local Decimal LMSF,LMSP,LMSS
 Gosub RELLENA_ZORDERS
 
 #acces depuis article ou article site
@@ -392,12 +409,13 @@ Case CHGPAG
             Close Local File [ZSOQ]
             If nolign = 1 Then
               If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
-                [M:ZSPR2]ZEXTSTO(nolign-1)    = ([F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+                [M:ZSPR2]ZEXTSTO(nolign-1)      = ([F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
               Else
                 [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
               If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
@@ -405,6 +423,7 @@ Case CHGPAG
               Else
                 [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
               Endif
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
             Endif
           Elsif [F:ZORD]WIPTYP = 2 Then
             If !clalev([F:ZVP1]) Then : Local File ZVPOHITMSTK [F:ZVP1] : Endif
@@ -428,8 +447,10 @@ Case CHGPAG
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
-              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Endif
           Elsif find([F:ZORD]WIPTYP,3) Then
             If nolign = 1 Then
@@ -448,6 +469,11 @@ Case CHGPAG
                 [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
               Endif
             Endif
+            Case [M:ZSPR2]WIPTYPSTA(nolign-1)
+              When "MSF" : LMSF += ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY)
+              When "MSP" : LMSP += [M:ZSPR2]RMNEXTQTY(nolign-1)
+              When "MSS" : LMSS += [M:ZSPR2]RMNEXTQTY(nolign-1)
+            Endcase
           Elsif find([F:ZORD]WIPTYP,13) Then
             If nolign = 1 Then
               If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
@@ -481,8 +507,10 @@ Case CHGPAG
               Else
                 [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
               Endif
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
-              [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Endif
             Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
             Raz [M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
@@ -513,12 +541,14 @@ Case CHGPAG
                 Else
                   [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                 Endif
+                [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
               Else
                 If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
                   [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
                 Else
                   [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2)
                 Endif
+                [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
               Endif
               Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
               Raz [M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
@@ -543,6 +573,11 @@ Case CHGPAG
               [M:ZSPR2]ENDDAT(nolign-1)     = [F:ZORD]ENDDAT
               [M:ZSPR2]RMNEXTQTY(nolign-1)  = [F:ZORD]RMNEXTQTY
               [M:ZSPR2]ALLQTY(nolign-1)     = [F:ZORD]ALLQTY
+              If [F:ZORD]WIPTYP = 17 Then
+                LSUMACOMPONENTEKIT         += [F:ZORD]RMNEXTQTY
+              Else
+                LSUMACANTIDADASIGNABLE     += [F:ZORD]RMNEXTQTY
+              Endif
               If nolign = 1 Then
                 If [F:ZORD]WIPTYP = 17 Then
                   If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
@@ -551,6 +586,7 @@ Case CHGPAG
                   Else
                     [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                   Endif
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Elsif [F:ZORD]WIPTYP = 18
                   If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
 #                    [M:ZSPR2]ZEXTSTO(nolign-1)    = ([F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL) + ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
@@ -558,12 +594,15 @@ Case CHGPAG
                   Else
                     [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                   Endif
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Endif
               Else
                 If [F:ZORD]WIPTYP = 17 Then
-                  [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Else
-                  [M:ZSPR2]ZEXTSTO(nolign-1)  = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Endif
               Endif
               If [F:ZORD]WIPTYP = 17 Then
@@ -1253,27 +1292,45 @@ Return
 
 ###########################################################
 $MAS_DETALLE_SITUACION
+Local Integer I,J
+Local Decimal LSTKTOT,LENSOH
+
   If !clalev([F:ZVP0]) Then : Local File ZVPOHSTKP [F:ZVP0] : Endif
   Filter [F:ZVP0] Where ITMREF = [M:ZSPR1]ITMREF
   Read   [F:ZVP0] First
   If !fstat Then
-    [M:ZSPR2]INTFLD(NBLIG0)='En pedido proveedor'
-#    [M:ZSPR2]VALFLD(NBLIG0)=[F:ZVP0]QTY_POH - [F:ZVP0]QTY_EXP - [F:ZVP0]QTY_RCP
-    [M:ZSPR2]VALFLD(NBLIG0)=LQTYENPOH
-    Affzo [M:ZSPR2]INTFLD(NBLIG0)
-    Affzo [M:ZSPR2]VALFLD(NBLIG0)
-    NBLIG0 += 1
-    [M:ZSPR2]INTFLD(NBLIG0)='En expedición'
-#    [M:ZSPR2]VALFLD(NBLIG0)=[F:ZVP0]QTY_EXP
-    [M:ZSPR2]VALFLD(NBLIG0)=LQTYENSHI
-    Affzo [M:ZSPR2]INTFLD(NBLIG0)
-    Affzo [M:ZSPR2]VALFLD(NBLIG0)
-    NBLIG0 += 1
-#    [M:ZSPR2]INTFLD(NBLIG0)='Stock disponible'
-#    [M:ZSPR2]VALFLD(NBLIG0)=LQTYENSHI
-#    Affzo [M:ZSPR2]INTFLD(NBLIG0)
-#    Affzo [M:ZSPR2]VALFLD(NBLIG0)
-#    NBLIG0 += 1
+    # en pedido proveedor
+    If LQTYENPOH <> 0 Then
+      [M:ZSPR2]INTFLD(NBLIG0)='En pedido proveedor'
+      [M:ZSPR2]VALFLD(NBLIG0)=LQTYENPOH
+#      Affzo [M:ZSPR2]INTFLD(NBLIG0)
+#      Affzo [M:ZSPR2]VALFLD(NBLIG0)
+      NBLIG0 += 1
+    Endif
+    # en expedición
+    If LQTYENSHI <> 0 Then
+      [M:ZSPR2]INTFLD(NBLIG0)='En expedición'
+      [M:ZSPR2]VALFLD(NBLIG0)=LQTYENSHI
+#      Affzo [M:ZSPR2]INTFLD(NBLIG0)
+#      Affzo [M:ZSPR2]VALFLD(NBLIG0)
+      NBLIG0 += 1
+    Endif
+    # stock disponible
+    For I=0 To [M:ZSPR2]NBLIG0-1
+      J=instr(1,[M:ZSPR2]INTFLD(I),"Stock interno 'A'")
+      If J <> 0 Then
+        LSTKTOT = [M:ZSPR2]VALFLD(I)
+      Endif
+      If [M:ZSPR2]INTFLD(I) = "En pdo. cliente" Then
+        LENSOH  = [M:ZSPR2]VALFLD(I)
+      Endif
+    Next
+    If LSTKTOT - LENSOH - (LSUMACOMPONENTEKIT - LSUMACANTIDADASIGNABLE) - (LMSF + LMSP + LMSS) <> 0 Then
+      [M:ZSPR2]INTFLD(NBLIG0)='Stock disponible'
+      [M:ZSPR2]VALFLD(NBLIG0)=LSTKTOT - LENSOH - (LSUMACOMPONENTEKIT - LSUMACANTIDADASIGNABLE) - (LMSF + LMSP + LMSS)
+      NBLIG0 += 1
+    Endif
+    Affzo [M:ZSPR2]15
   Endif
   Filter [F:ZVP0]
   Close Local File [ZVP0]
