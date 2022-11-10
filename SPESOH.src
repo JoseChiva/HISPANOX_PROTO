@@ -20,6 +20,7 @@
 # 06.343.951 - JC.06052022.Error cargo portes art. CERT001 - EMBA002
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
+# 06.411.043 - JC.10112022.Control crédito. Aviso si se va a sobrepasar el credito autorizado
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -50,7 +51,6 @@ Case ACTION
   When "AVANTBOUT"   :  Gosub AVANTBOUT
   When "EXEBOUT"     :  Gosub EXEBOUT
   When 'FIN'         :  Gosub FIN
-
   #FIN JESP
  When Default
 Endcase
@@ -390,8 +390,27 @@ Return
 $AVANTBOUT
   Case BOUT
     When "6"
-      GGENPRH   = 1                                                       # 06.317.883.new
-      GZPRHSOH  = 1                                                       # 06.317.883.new
+# 06.411.043.ini
+      Local Integer CDTSTA
+      Local Decimal LTOTCRE,LCREAUT
+      # Contrôle état crédit de la commande
+      Call SDCDTSTA('',[M:SOH0]BPCORD,[M:SOH0]CHGTYP,0,[M:SOH1]CUR,[M:SOH0]ORDDAT,0,1,CDTSTA,LTOTCRE,LCREAUT) From TRTVENCDT
+      If CDTSTA <> 2 and CDTSTA <> 3 and CDTSTA <> 4 and CDTSTA <> 5 Then
+        If LTOTCRE + [M:ZSOH1]ORDINVATI > LCREAUT Then
+          Local Integer OKCAN : OKCAN = 1 :# Cancel
+          Call AVERTIR("Atención el cliente va a sobrepasar el riesgo. ¿Continuar?",OKCAN) From GESECRAN
+          If OKCAN = 1 Then
+            OK=0
+            GPE=1
+            mkstat=2
+            Return
+          Else
+            GGENPRH   = 1                                                 # 06.317.883.new
+            GZPRHSOH  = 1                                                 # 06.317.883.new
+          Endif
+        Endif
+      Endif
+# 06.411.043.fin
     When Default
   Endcase
 Return
