@@ -405,12 +405,12 @@ $AVANTBOUT
             mkstat=2
             Return
           Else
-            GGENPRH   = 1                                                 # 06.317.883.new
-            GZPRHSOH  = 1                                                 # 06.317.883.new
           Endif
         Endif
       Endif
 # 06.411.043.fin
+      GGENPRH   = 1                                                 # 06.317.883.new
+      GZPRHSOH  = 1                                                 # 06.317.883.new
     When Default
   Endcase
 Return
