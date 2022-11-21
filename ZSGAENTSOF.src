@@ -20,6 +20,7 @@
 # 06.369.962 - JC.19072022.Factura incorrecta en USD
 # 06.394.876 - JC.28092022.Error en la importación SOF con entregas de subcontratación
 # 06.410.236 - JC.07112022.problema MOLT GREU entregues 4/11. Se duplican cantidades porque el proceso se ejecuta dos veces a la vez
+# 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -3813,6 +3814,7 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
 
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
+  If val(func AFNC.PARAM("ZVPCONCRED","")) = 2 Then GZPRHSOH = 1 Endif    # 06.317.883.new
   Call IMPORTSIL ("ZSDHSOF",LFILETXT)From GIMPOBJ
   Call ECR_TRACE("Datos importsil: fstat="+num$(fstat)-"-"-"GERRTRACE="+num$(GERRTRACE),0) From GESECRAN
 
