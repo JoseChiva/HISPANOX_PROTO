@@ -18,10 +18,18 @@
 # 06.349.288 - JC.19052022.Dirección entrega cliente de cliente
 # 06.362.268 - JC.30062022.Limpio de espacios (delante y detras) todos los campos del fichero antes de guardarlos en la tabla ZSGAENTSOF
 # 06.369.962 - JC.19072022.Factura incorrecta en USD
+# 06.394.876 - JC.28092022.Error en la importación SOF con entregas de subcontratación
+# 06.410.236 - JC.07112022.problema MOLT GREU entregues 4/11. Se duplican cantidades porque el proceso se ejecuta dos veces a la vez
 ###########################################################################
 
 #If GUSER="ADEV" Then
-Call ZSGAENTSOF From ZSGAENTSOF
+# 06.410.236.ini
+Local   Integer LCTRL
+LCTRL = func ZBATCHCHK.ISRUN_BATCH_PROCESS('ZSGAENTSOF')
+If !LCTRL Then
+  Call ZSGAENTSOF From ZSGAENTSOF
+Endif
+# 06.410.236.fin
 #Endif
 
 End
@@ -30,18 +38,18 @@ End
 Subprog ZSGAENTSOF
 
 #Declaración de variables
-Local Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250), WLNEITEMCODE(250), WLNEDCSTATT05(250), WLNEQTYORDER(250)
-Local Char WFICINP1(250), FICH2(250), RESULT(250), WCSTATT03(250)
-Local Integer NFICHEROS, WNESTADO, NFICH2
-Local Char FICHEROS(250)(1..1000)
-Local Char WESTADOS(20)(1..5)
+Local   Char WSGATMP(250), SGARECIBIDOS(250), WSGATRATADOS(250), CFILE(250), LNOMFICHERO(250), WFICHEROIMP(250), WLNEITEMCODE(250), WLNEDCSTATT05(250), WLNEQTYORDER(250)
+Local   Char WFICINP1(250), FICH2(250), RESULT(250), WCSTATT03(250)
+Local   Integer NFICHEROS, WNESTADO, NFICH2
+Local   Char FICHEROS(250)(1..1000)
+Local   Char WESTADOS(20)(1..5)
 
-Local Char FICHEROIMP(250), FICHEROEXP(250)
+Local   Char FICHEROIMP(250), FICHEROEXP(250)
 
-Local Integer A, LFSTATFICHERO, NFICHEROS, WTRAZA
-Local Clbfile XDATA (15)
+Local   Integer A, LFSTATFICHERO, NFICHEROS, WTRAZA
+Local   Clbfile XDATA (15)
 
-Global Integer GSTERROR,GERRSTOCK
+Global  Integer GSTERROR,GERRSTOCK
 
 If !clalev([F:ZFCY])  : Local File FACILITY   [ZFCY] : Endif
 If !clalev([F:ZPRH])  : Local File STOPREH    [ZPRH] : Endif
@@ -59,6 +67,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 #  WFICHEROIMP='SOF0120220608095109000'
 #  WFICHEROIMP='SOF0120220211165012000'
 #  WFICHEROIMP='SOF0120220216161912000'
+#  WFICHEROIMP='SOF0120220922130610000'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -3617,6 +3626,8 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 
   If !clalev([F:ZESOF]) Then : Local File ZEXPORTSOF  [F:ZESOF] : Endif
   If !clalev([F:ZESOX]) Then : Local File ZEXPORTSOF  [F:ZESOX] : Endif
+  If !clalev([F:ZESOY]) Then : Local File ZEXPORTSOF  [F:ZESOY] : Endif   # 06.394.876.new
+  If !clalev([F:ZESO4]) Then : Local File ZVESOF4     [F:ZESO4] : Endif   # 06.394.876.new
   If !clalev([F:ZESO2]) Then : Local File ZVESOF2     [F:ZESO2] : Endif
   If !clalev([F:ZESO5]) Then : Local File ZVESOF5     [F:ZESO5] : Endif
   If !clalev([F:ZPRE])  Then : Local File STOPRED     [F:ZPRE]  : Endif
@@ -3664,6 +3675,29 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
                 LINCOTERM = [F:ZBPS]EECICT
               Endif
             Endif
+##############################################
+####### SI NOS PIDEN QUE LOS DATOS DE TRANSPORTISTA, COND. PAGO E INCOTERM TENEMOS QUE INFORMARLOS DESDE LA FICHA DE CLIENTE
+####### TENDREMOS QUE UTILIZAR EL CÓDIGO QUE HAY A CONTINUACIÓN Y COMENTAR EL ANTERIOR
+##############################################
+#            If !clalev([F:ZSCI]) Then : Local File SCOITM     [F:ZSCI] : Endif
+#            If !clalev([F:ZBPD]) Then : Local File BPDLVCUST  [F:ZBPD] : Endif
+#            If !clalev([F:ZBPC]) Then : Local File BPCUSTOMER [F:ZBPC] : Endif
+#            Filter [F:ZSCI] Where SCONUM = [F:ZPRE1]ORINUM
+#            Read   [F:ZSCI] First
+#            If !fstat Then
+#              Read [F:ZBPD]BPD0 = [F:ZSCI]BPRNUM;[F:ZSCI]BPAADD
+#              If !fstat Then
+#                LTRANSP   = [F:ZBPD]BPTNUM
+#                LINCOTERM = [F:ZBPD]EECICT
+#              Endif
+#              Read [F:ZBPC]BPC0 = [F:ZSCI]BPRNUM
+#              If !fstat Then
+#                LCONDPAGO = [F:ZBPC]PTE
+#              Endif
+#            Endif
+#            Filter [F:ZSCI]
+#            Close Local File [ZSCI],[ZBPD],[ZBPC]
+##############################################
 # 06.333.290.fin
           Endif
         Endif
@@ -3721,9 +3755,33 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
       Wrseq [F:ZES11]INDICADOR  + ";" + [F:ZES11]PRHNUM   + ";" + num$([F:ZES11]PRELIN) + ";" +
 &           [F:ZES11]ITMREF     + ";" + [F:ZES11]ITMDES   + ";" + num$([F:ZES11]QTY)    + ";" +
 &           [F:ZES11]SAU        + ";" + [F:ZES11]ZLOTPROV + ";" + [F:ZES11]ZUSRSERV     Using [ZIMP]
+
+## 06.394.876.ini
+#      # añade al fichero las líneas de stock del vale desde la tabla específica
+#      Filter [F:ZESO4] Where NOMFICH = [F:ZES11]NOMFICH and INDICADOR = "L" and PRHNUM = [F:ZES11]PRHNUM and PRELIN = [F:ZES11]PRELIN
+#      For [F:ZESO4]
+#        Wrseq "S"                 + ";" + "A"   + ";" + [F:ZESO4]SAU  + ";" +
+#&             num$([F:ZESO4]QTY)  + ";" + "SGA" + ";" + [F:ZESO4]LOT Using [ZIMP]
+#      Next
+#
+#      # desasigna las líneas del vale en el caso que sea de subcontratación
+#      Filter [F:ZESOY] Where NOMFICH = [F:ZES11]NOMFICH and INDICADOR = [F:ZES11]INDICADOR and PRHNUM = [F:ZES11]PRHNUM and PRELIN = [F:ZES11]PRELIN
+#      Read   [F:ZESOY] First
+#      If !fstat Then
+#        If [F:ZESOY]SDHTYP = 'ES' Then
+#          Local Integer LTYP,LRET,LLIN,LSEQ,LOPT : LTYP = 3 : LLIN = [F:ZESOY]PRELIN : LSEQ = 0 : LOPT = 0
+#          Local Char LITM(100),LNUM(100) : LITM = [F:ZESOY]ITMREF : LNUM = [F:ZESOY]PRHNUM
+#          Local Decimal LQTA,LSHT : LQTA = [F:ZESOY]QTY : LSHT = [F:ZESOY]QTY
+#          Call DELALL(LTYP,LNUM,LLIN,LSEQ,LITM,LOPT,LQTA,LSHT,LRET) From STKALL
+#        Endif
+#      Endif
+#      Filter [F:ZESOY]
+## 06.394.876.fin
+
     Next
     Filter [F:ZES11]
 # 06.300.273.fin
+
     # añade al fichero, desde la tabla de líneas de vale de preparación, aquellas líneas que contengan artículos que no gestionen stock (CERT001)
     Filter [F:ZESOX] Where NOMFICH = [F:ZESOF]NOMFICH and INDICADOR = "H" and SDHNUM = [F:ZESOF]SDHNUM Order By PRHNUM;PRELIN
     For [F:ZESOX]
@@ -3753,50 +3811,51 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
   # lanzamos la importación
   Call ECR_TRACE("########################################################################",0) From GESECRAN
   Call ECR_TRACE("Lanza la importación",0) From GESECRAN
+
   mkstat = 0 : fstat = 0 : GERRTRACE = 0
   Call IMPORTSIL ("ZSDHSOF",LFILETXT)From GIMPOBJ
   Call ECR_TRACE("Datos importsil: fstat="+num$(fstat)-"-"-"GERRTRACE="+num$(GERRTRACE),0) From GESECRAN
 
   # gestiona un error en la importación
 # 06.314.358.ini
-#  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
-  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 or GERRSTOCK = 1 Then          # si se produce error de importación...
-# 06.314.358.fin
-    If filinfo(LFILETXT+".err", 7) > 0 Then
-      Call MOVE(LFILETXT+".err",LDIRIMPORTERROR,STAT) From ORDSYS                 # mueve el fichero .err con errores en la importación
-    Endif
-    If filinfo(LFILEXML, 7) > 0 Then
-      Call MOVE(LFILEXML,LDIRIMPORTERROR,STAT) From ORDSYS                        # mueve el fichero xml a la carpeta de procesados
-    Endif
-    Call  LANZA_WORKFLOW_ERRORES(PNOMFICH)
-    Call ECR_TRACE("########################################################################",0) From GESECRAN
-    Call ECR_TRACE("Error en la importación",1) From GESECRAN
-#    # lanza un workflow para avisar de que la importación ha fallado
-#    Global Char GCORREO(250),GASUNTO(250),GTEXTO1(250)
-#    GCORREO   = "joseluis.chiva@auren.es"
-#    GASUNTO   = "Error importación fichero SOF"
-#    GTEXTO1   = "Fichero"-PNOMFICH
-#    GFILPATH  = LDIRIMPORTERROR + "\" + PNOMFICH + ".xml"
-#    Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
-#    If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
-#    If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
-#    If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
-  Else
-#    Call MOVE(LFILETXT,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero txt a la carpeta de procesados
-    If filinfo(LFILEXML,7) > 0 Then
-      Call MOVE(LFILEXML,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero xml a la carpeta de procesados
-    Endif
-    Call ECR_TRACE("########################################################################",0) From GESECRAN
-    Call ECR_TRACE("Importación correcta",0) From GESECRAN
-
-  Endif
-
-  If filinfo(LFILETXT, 7) > 0 Then
-    System "ae_rm " + LFILETXT
-  Endif
-#  If filinfo(LFILETXT+".err", 7) > 0 Then
-#    System "ae_rm " + LFILETXT+".err"
+##  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                           # si se produce error de importación...
+#  If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 or GERRSTOCK = 1 Then          # si se produce error de importación...
+## 06.314.358.fin
+#    If filinfo(LFILETXT+".err", 7) > 0 Then
+#      Call MOVE(LFILETXT+".err",LDIRIMPORTERROR,STAT) From ORDSYS                 # mueve el fichero .err con errores en la importación
+#    Endif
+#    If filinfo(LFILEXML, 7) > 0 Then
+#      Call MOVE(LFILEXML,LDIRIMPORTERROR,STAT) From ORDSYS                        # mueve el fichero xml a la carpeta de procesados
+#    Endif
+#    Call  LANZA_WORKFLOW_ERRORES(PNOMFICH)
+#    Call ECR_TRACE("########################################################################",0) From GESECRAN
+#    Call ECR_TRACE("Error en la importación",1) From GESECRAN
+##    # lanza un workflow para avisar de que la importación ha fallado
+##    Global Char GCORREO(250),GASUNTO(250),GTEXTO1(250)
+##    GCORREO   = "joseluis.chiva@auren.es"
+##    GASUNTO   = "Error importación fichero SOF"
+##    GTEXTO1   = "Fichero"-PNOMFICH
+##    GFILPATH  = LDIRIMPORTERROR + "\" + PNOMFICH + ".xml"
+##    Call WORKFLOW (1,"ZSF","",GUSER) From AWRK
+##    If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+##    If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+##    If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+#  Else
+##    Call MOVE(LFILETXT,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero txt a la carpeta de procesados
+#    If filinfo(LFILEXML,7) > 0 Then
+#      Call MOVE(LFILEXML,LDIRIMPORTTRATADOS,STAT) From ORDSYS                         # mueve el fichero xml a la carpeta de procesados
+#    Endif
+#    Call ECR_TRACE("########################################################################",0) From GESECRAN
+#    Call ECR_TRACE("Importación correcta",0) From GESECRAN
+#
 #  Endif
+#
+#  If filinfo(LFILETXT, 7) > 0 Then
+#    System "ae_rm " + LFILETXT
+#  Endif
+##  If filinfo(LFILETXT+".err", 7) > 0 Then
+##    System "ae_rm " + LFILETXT+".err"
+##  Endif
 
   Call ECR_TRACE("########################################################################",0) From GESECRAN
 
