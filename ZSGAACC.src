@@ -1,4 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
+# 06.414.509 JC.22112022.Nota CLIA expirada
+#####################################################################
+
 Call ZSGAACC('') From ZSGAACC
 
 End
@@ -164,7 +167,10 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
     AA=func PUT_PROPXML('/Contact','',2,1)
     #CustomAttributes
     AA=func PUT_PROPXML('CustomAttributes','',2,1)
-     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM
+# 06.414.509.ini
+#     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM
+     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM and EFFDAT<=date$ and ENDDAT>=date$
+# 06.414.509.fin
      WRETORNO=''
      For [ZNTS]
 # JC.31122021.INI
