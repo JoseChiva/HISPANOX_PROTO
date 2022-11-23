@@ -169,7 +169,7 @@ For [ZBPC] Where BPCNUM<>'ZDIEGO' and evalue(WFILTERBPC)
     AA=func PUT_PROPXML('CustomAttributes','',2,1)
 # 06.414.509.ini
 #     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM
-     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM and EFFDAT<=date$ and ENDDAT>=date$
+     Filter [ZNTS] Where NTGCOD='CLIA' and BPCNUM=[F:ZBPC]BPCNUM and EFFDAT<=date$ and (ENDDAT>=date$ or ENDDAT=[00/00/0000])
 # 06.414.509.fin
      WRETORNO=''
      For [ZNTS]
