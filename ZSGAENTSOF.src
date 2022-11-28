@@ -32,7 +32,6 @@ If !LCTRL Then
 Endif
 # 06.410.236.fin
 #Endif
-
 End
 
 ##############################################################
@@ -44,10 +43,11 @@ Local   Char WFICINP1(250), FICH2(250), RESULT(250), WCSTATT03(250)
 Local   Integer NFICHEROS, WNESTADO, NFICH2
 Local   Char FICHEROS(250)(1..1000)
 Local   Char WESTADOS(20)(1..5)
+Local   Char WSGASUBC(250)
 
 Local   Char FICHEROIMP(250), FICHEROEXP(250)
 
-Local   Integer A, LFSTATFICHERO, NFICHEROS, WTRAZA
+Local   Integer A, LFSTATFICHERO, NFICHEROS, WTRAZA, LESSUBC
 Local   Clbfile XDATA (15)
 
 Global  Integer GSTERROR,GERRSTOCK
@@ -75,6 +75,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
   WSGARECIBIDOS = "ZSGA\SGA\SGA_to_ERP"
   WSGATRATADOS  = "ZSGA\SGA\SGA_to_ERP\processed\SOF"
   WSGAERROR     = "ZSGA\SGA\SGA_to_ERP\processed\ERR"
+  WSGASUBC      = "ZSGA\SGA\SGA_to_ERP\processed\SOF_subc"
 
   WESTADOS(1)='Working'
   WESTADOS(2)='Release'
@@ -135,6 +136,10 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
     Gosub GUARDA_SOF_EN_TABLA
     Openi Using [ZZZ]
+# 06.394.876.ini
+    LESSUB = func ES_SUBCONTRATACION(WSGARECIBIDOS,WSGASUBC)
+    If LESSUB Then : Break : Endif
+# 06.394.876.fin
     Local Integer LRDO
     Local Char LMSG(250)
     Call  COMPRUEBA_VP(LNOMFICHERO)
@@ -3986,3 +3991,46 @@ Value Char    PNOMFICH
   Filter [F:ZESO9]
   Close Local File [ZESO9],[ZBPD0]
 End
+
+###############################################################
+# 06.394.876
+#**
+#* comprueba si el vale proviene de una orden de subcontratación
+#*
+#*!
+Funprog ES_SUBCONTRATACION(PSGAREC,PSGASUB)
+Value Char    PSGAREC,PSGASUB
+
+Local Integer LRES,LSTAT
+Local Char    LDIRREC(250),LDIRSUB(250),LFILESUBC(250)
+
+  If !clalev([F:ZESOF1]) Then : Local File ZEXPORTSOF [F:ZESOF1] : Endif
+  If !clalev([F:ZESCO1]) Then : Local File SCOHEAD    [F:ZESCO1] : Endif
+  Filter [ZESOF1] Where INDICADOR = 'L'
+  For [ZESOF1]
+    Read [F:ZESCO1]SCO0 = [F:ZESOF1]SOHNUM
+    If !fstat Then
+      LDIRREC   = filpath(PSGAREC,"","")
+      LDIRSUB   = filpath(PSGASUB,"","")
+      LFILESUBC = LDIRREC+"\"+[F:ZESOF1]NOMFICH+".xml"
+      If filinfo(LFILESUBC,7) > 0 Then
+        # mueve el fichero xml a la carpeta de procesados
+        Call MOVE(LFILESUBC,LDIRSUB,LSTAT) From ORDSYS
+        # lanza un workflow para avisar de que el vale proviene de una OS
+        Global Char GCORREO(250),GTEXTO1(250),GASUNTO(250)
+        GASUNTO   = "Orden de subcontratación en fichero SOF"
+        GCORREO   = "joseluis.chiva@auren.es"
+        GTEXTO1   = "El fichero"-[F:ZESOF1]NOMFICH+".xml contiene un vale de preparación con origen en una orden de subcontratación."+chr$(13)+chr$(10)+chr$(13)+chr$(10)
+        GTEXTO1  += "Se ha movido a la carpeta"-LDIRSUB
+        Call WORKFLOW (1,"ZSS","",GUSER) From AWRK
+        If dim(GCORREO)   > 0 Then : Kill GCORREO   : Endif
+        If dim(GTEXTO1)   > 0 Then : Kill GTEXTO1   : Endif
+        If dim(GASUNTO)   > 0 Then : Kill GASUNTO   : Endif
+      Endif
+      LRES = 1
+      Break
+    Endif
+  Next
+  Filter [ZESOF1]
+  Close Local File [ZESOF1],[ZESCO1]
+End LRES
