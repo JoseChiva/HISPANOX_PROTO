@@ -32,52 +32,119 @@ $SYNCBPCMVT
     If !clalev([F:ZSOP]) Then : Local File SORDERP  [F:ZSOP]  : Endif
     If !clalev([F:ZSOQ]) Then : Local File SORDERQ  [F:ZSOQ]  : Endif
 
+#    If L_TRACE=2
+#      Call ECR_TRACE(" ",0) From GESECRAN
+#      Call ECR_TRACE('Tratamiento Vales de preparación',0) From GESECRAN
+#      Call ECR_TRACE(string$(70,"-"),0) From GESECRAN
+#    Endif
+#
+#    CRIT='[F:ZPRH]DLVFLG<>3 & [F:ZPRH]DLVFLG<>4'
+#
+#    If L_SOC   <>"" CRIT +=' & [F:ZPRH]CPY=L_SOC' Endif
+#    If L_CLIENT<>"" CRIT +=' & [F:ZPRH]BPCORD=L_CLIENT'  Endif
+#
+#    Raz CLE1
+#    Raz WCPY
+#
+##    CRIT += " & [F:ZPRH]PRHNUM='VP2200280'"
+#
+#    Raz J,K
+#    $LOOP_PRH
+#    Raz I,STOP
+#
+##If GUSER="ADEV" Then : Infbox num$(CLE1) : Infbox num$(CRIT) : Infbox "L_SOC:"-num$(L_SOC) : Infbox "L_CLIENT:"-L_CLIENT : Endif
+#    For [ZPRH]PRH0 Where PRHNUM>CLE1 & evalue(CRIT)
+#      # Si on travaille sur ttes les sociétés, on charge sa devise
+#      If L_SOC="" & WCPY<>[F:ZPRH]CPY
+#        Call GETDEV([F:ZPRH]STOFCY) From DEVSUB
+#        WCPY=[F:ZPRH]CPY
+#      Endif
+#
+#      Filter [F:ZPRE] Where PRHNUM=[F:ZPRH]PRHNUM
+#      For [ZPRE]
+#        # desasigna el encurso de los pedidos
+#        Read [F:ZSOH]SOH0 = [F:ZPRE]ORINUM
+#        Read [F:ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+#        Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+#        If !fstat Then
+#          Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+#&                       [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+#          LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+#        Endif
+#      Next
+#      # asigna el encurso al vale de preparación
+#      If LORDATI > 0 Then
+#        Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+#&                     0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+#      Endif
+#
+#      Filter [F:ZPRE]
+#      I += 1
+#      K += 1
+#
+#      If I > GMAXUPDTRS Then
+#        CLE1=[F:ZPRH]PRHNUM : STOP=1 : Break
+#      Endif
+#    Next
+#
+#    If STOP Goto LOOP_PRH Endif
+#
+#    If L_TRACE=2
+#       Call ECR_TRACE("En documentos de preparación :"-num$(K)-"Vale(s) de preparación tratado(s)",0) From GESECRAN
+#    Endif
+#
+#    GZPRHSOH = 1
+
+
+
     If L_TRACE=2
       Call ECR_TRACE(" ",0) From GESECRAN
       Call ECR_TRACE('Tratamiento Vales de preparación',0) From GESECRAN
       Call ECR_TRACE(string$(70,"-"),0) From GESECRAN
     Endif
 
-    CRIT='[F:ZPRH]DLVFLG<>3 & [F:ZPRH]DLVFLG<>4'
+    CRIT='1=1'
 
     If L_SOC   <>"" CRIT +=' & [F:ZPRH]CPY=L_SOC' Endif
     If L_CLIENT<>"" CRIT +=' & [F:ZPRH]BPCORD=L_CLIENT'  Endif
 
     Raz CLE1
     Raz WCPY
-
-#    CRIT += " & [F:ZPRH]PRHNUM='VP2200280'"
-
     Raz J,K
     $LOOP_PRH
     Raz I,STOP
-
     For [ZPRH]PRH0 Where PRHNUM>CLE1 & evalue(CRIT)
       # Si on travaille sur ttes les sociétés, on charge sa devise
       If L_SOC="" & WCPY<>[F:ZPRH]CPY
         Call GETDEV([F:ZPRH]STOFCY) From DEVSUB
         WCPY=[F:ZPRH]CPY
       Endif
+      GOK=1
+      If [F:ZPRH]DLVFLG<>3 and [F:ZPRH]DLVFLG<>4 Then
+        Raz LORDATI
 
-      Filter [F:ZPRE] Where PRHNUM=[F:ZPRH]PRHNUM
-      For [ZPRE]
-        # desasigna el encurso de los pedidos
-        Read [F:ZSOH]SOH0 = [F:ZPRE]ORINUM
-        Read [F:ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
-        Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
-        If !fstat Then
-          Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
-&                       [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
-          LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+        Filter [F:ZPRE] Where PRHNUM=[F:ZPRH]PRHNUM
+        For [ZPRE]
+          # desasigna el encurso de los pedidos
+          Read [F:ZSOH]SOH0 = [F:ZPRE]ORINUM
+          Read [F:ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+          Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
+          If !fstat Then
+            Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+&                         ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+            LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
+          Endif
+        Next
+#Infbox num$(LORDATI)
+        # asigna el encurso al vale de preparación
+        If LORDATI > 0 Then
+          Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+&                       0.0,ar2(LORDATI),'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
         Endif
-      Next
-      # asigna el encurso al vale de preparación
-      If LORDATI > 0 Then
-        Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
-&                     0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+        Filter [F:ZPRE]
+
       Endif
 
-      Filter [F:ZPRE]
       I += 1
       K += 1
 

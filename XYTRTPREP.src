@@ -122,10 +122,10 @@ $BOUTON
             Read [F:ZSOQ]SOQ0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
             If !fstat Then
               Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
-&                           [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+&                           ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
             # asigna el encurso al vale de preparación
               Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
-&                           0.0,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+&                           0.0,ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
             Endif
           Endif
         Next
