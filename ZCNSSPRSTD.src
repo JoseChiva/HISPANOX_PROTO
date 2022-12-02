@@ -373,6 +373,18 @@ SUITE  = 0
 RETOUR = 0
 NBLU   = 1
 # Issue 38432 - 2017-10-13 by MAE : ajout du 3 (actualiser)
+
+#JC.AUREN.ini
+  Local Integer B,V
+  Local Decimal LSTKINTERNOA
+  For B=0 To [M:ZSPR2]NBLIG0-1
+    V=instr(1,[M:ZSPR2]INTFLD(B),"Stock interno 'A'")
+    If V <> 0 Then
+      LSTKINTERNOA = [M:ZSPR2]VALFLD(B)
+    Endif
+  Next
+#JC.AUREN.fin
+
 Case CHGPAG
   When 1,3 :
     nolign = 1
@@ -414,7 +426,8 @@ Case CHGPAG
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
-              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
               If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
@@ -446,7 +459,8 @@ Case CHGPAG
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
-              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
               [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
               [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
@@ -460,10 +474,15 @@ Case CHGPAG
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              Case [M:ZSPR2]WIPTYPSTA(nolign-1)
+#                When "MSF" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+#                When "MSP" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#                When "MSS" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              Endcase
               Case [M:ZSPR2]WIPTYPSTA(nolign-1)
-                When "MSF" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
-                When "MSP" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
-                When "MSS" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                When "MSF" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+                When "MSP" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                When "MSS" : [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - [M:ZSPR2]RMNEXTQTY(nolign-1)
               Endcase
             Else
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]ZEXTSTO(nolign-2) - [M:ZSPR2]RMNEXTQTY(nolign-1)
@@ -492,7 +511,8 @@ Case CHGPAG
               Endif
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]EXTSTO(nolign-1)
 #              [M:ZSPR2]ZEXTSTO(nolign-1)    = [M:ZSPR2]RMNEXTQTY(nolign-1)
-              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
               [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
               [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
@@ -518,11 +538,23 @@ Case CHGPAG
               Else
                 [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
               Endif
-              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+#              [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+              [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Else
               [M:ZSPR2]ZEXTSTO(nolign-1)      = [M:ZSPR2]ZEXTSTO(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
               [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]ZSTKREALPREV(nolign-2) + [M:ZSPR2]RMNEXTQTY(nolign-1)
             Endif
+            # muestra Coste% en las expediciones
+            If !clalev([F:ZPP1])  Then : Local File PORDERP    [F:ZPP1]  : Endif
+            If !clalev([F:ZSHD1]) Then : Local File SHIPMENTD  [F:ZSHD1] : Endif
+            Read   [F:ZSHD1]SHD0 = [F:ZORD]VCRNUM;[F:ZORD]VCRLIN
+            If !fstat Then
+              Read   [F:ZPP1]POP0 = [F:ZSHD1]POHNUM;[F:ZSHD1]POPLIN;[F:ZSHD1]POQSEQ
+              If !fstat Then
+                [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZPP1]ZPORCOSTE
+              Endif
+            Endif
+          Close Local File [ZPP1],[ZSHD1]
             Raz [M:ZSPR2]WIPSTA(nolign-1),[M:ZSPR2]STOFCY(nolign-1),[M:ZSPR2]EXTQTY(nolign-1),[M:ZSPR2]PJT(nolign-1)
             Raz [M:ZSPR2]VCRSEQ(nolign-1),[M:ZSPR2]MRPMES(nolign-1),[M:ZSPR2]MRPQTY(nolign-1)
             Raz [M:ZSPR2]MRPDAT(nolign-1),[M:ZSPR2]ORI(nolign-1),[M:ZSPR2]VCRTYPORI(nolign-1),[M:ZSPR2]VCRNUMORI(nolign-1),[M:ZSPR2]VCRLINORI(nolign-1),[M:ZSPR2]ITMREFORI(nolign-1)
@@ -554,9 +586,11 @@ Case CHGPAG
                   [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                 Endif
                 If [F:ZPRD]ORITYP <> 4 Then
-                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Else
-                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+#                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
                 Endif
               Else
                 If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
@@ -606,7 +640,8 @@ Case CHGPAG
                   Else
                     [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                   Endif
-                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+#                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 - [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA - [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Elsif [F:ZORD]WIPTYP = 18
                   If [M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1) > 0 Then
 #                    [M:ZSPR2]ZEXTSTO(nolign-1)    = ([F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL) + ([M:ZSPR2]RMNEXTQTY(nolign-1) - [M:ZSPR2]ALLQTY(nolign-1))
@@ -614,7 +649,8 @@ Case CHGPAG
                   Else
                     [M:ZSPR2]ZEXTSTO(nolign-1)    = [F:ITV]PHYSTO-[F:ITV]PHYALL-[F:ITV]GLOALL
                   Endif
-                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+#                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = [M:ZSPR2]PHYSTO1 + [M:ZSPR2]RMNEXTQTY(nolign-1)
+                  [M:ZSPR2]ZSTKREALPREV(nolign-1) = LSTKINTERNOA + [M:ZSPR2]RMNEXTQTY(nolign-1)
                 Endif
               Else
                 If [F:ZORD]WIPTYP = 17 Then
@@ -879,7 +915,7 @@ $LOA_LIGNE
          Read   [F:ZPP0]POP0 = [F:ZORD]VCRNUM;[F:ZORD]VCRLIN;[F:ZORD]VCRSEQ
          If !fstat Then
            [M:ZSPR2]ZCOSTE(nolign-1)     = [F:ZPP0]ZPORCOSTE
-           [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZPP0]NETPRI * 100
+#           [M:ZSPR2]ZPRECIO(nolign-1)    = [F:ZPP0]NETPRI * 100
          Endif
          Close Local File [ZPP0]
 # JC.AUREN.fin
