@@ -5,6 +5,7 @@
 # 06.356.782 - JC.15062022.No rellena la dirección de entrega en las órdenes de preparación
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 # 06.411.043 - JC.10112022.Control crédito. Aviso si se va a sobrepasar el credito autorizado
+# 06.414.395 - JC.01122022.Saldo contable con negativos
 #############################################################################
 
 $ACTION
@@ -121,11 +122,19 @@ $BOUTON
             Read [F:ZSOP]SOP0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
             Read [F:ZSOQ]SOQ0 = [M:PREP]ORINUM(I);[M:PREP]ORILIN(I);[M:PREP]ORISEQ(I)
             If !fstat Then
+# 06.414.395.ini
+#              Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+#&                           [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
               Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                           ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
             # asigna el encurso al vale de preparación
+# 06.414.395.ini
+#              Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+#&                           0.0,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
               Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
 &                           0.0,ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
             Endif
           Endif
         Next

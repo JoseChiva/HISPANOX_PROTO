@@ -4,6 +4,7 @@
 # 06.302.178 - JC.18012022.camp entrada texto línea VP -  LneComment en el SOR
 # 06.308.862 - JC.02022022.VP diferent adreça entrega
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
+# 06.414.395 - JC.01122022.Saldo contable con negativos
 #############################################################################################
 
 $ACTION
@@ -130,16 +131,24 @@ $AFFMASK
           Read [F:ZSOP]SOP0 = [F:ZPR0]ORINUM;[F:ZPR0]ORILIN;[F:ZPR0]ORISEQ
           Read [F:ZSOQ]SOQ0 = [F:ZPR0]ORINUM;[F:ZPR0]ORILIN;[F:ZPR0]ORISEQ
           If !fstat Then
+# 06.414.395.ini
+#            Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+#&                         [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
             Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                         ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
             LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
           Endif
         Next
         Filter [F:ZPR0]
         # asigna el encurso al vale de preparación
         If LORDATI > 0 Then
+# 06.414.395.ini
+#          Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
+#&                       0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
           Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
 &                       0.0,ar2(LORDATI),'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
         Endif
         GPE=1
       Endif
@@ -167,15 +176,23 @@ Local Decimal LORDATI
       Read [F:ZSOP]SOP0 = [M:PRH1]ORINUM(LCON);[M:PRH1]ORILIN(LCON);[M:PRH1]ORISEQ(LCON)
       Read [F:ZSOQ]SOQ0 = [M:PRH1]ORINUM(LCON);[M:PRH1]ORILIN(LCON);[M:PRH1]ORISEQ(LCON)
       If !fstat Then
+# 06.414.395.ini
+#        Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+#&                     [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'+','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
         Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                     ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'+','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
         LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
       Endif
     Next
     # desasigna el encurso del vale de preparación
     If LORDATI > 0 Then
+# 06.414.395.ini
+#      Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
+#&                   0.0,LORDATI,'-','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
       Call  MAJMVC ([F:PRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:PRH]SHIDAT,[F:PRH]PRHNUM,[F:PRH]STOFCY,
 &                   0.0,ar2(LORDATI),'-','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
     Endif
     GPE=1
   Endif

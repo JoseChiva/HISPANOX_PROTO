@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
+# 06.414.395 - JC.01122022.Saldo contable con negativos
 #############################################################################################
 
 $ACTION
@@ -130,16 +131,24 @@ $SYNCBPCMVT
           Read [F:ZSOP]SOP0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
           Read [F:ZSOQ]SOQ0 = [F:ZPRE]ORINUM;[F:ZPRE]ORILIN;[F:ZPRE]ORISEQ
           If !fstat Then
+# 06.414.395.ini
+#            Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
+#&                         [F:ZSOQ]QTY*[F:ZSOP]NETPRINOT,[F:ZSOQ]QTY*[F:ZSOP]NETPRIATI,'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
             Call  MAJMVC ([F:ZSOH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZSOH]ORDDAT,[F:ZSOH]SOHNUM,[F:ZSOP]SALFCY,
 &                         ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRINOT),ar2([F:ZSOQ]QTY*[F:ZSOP]NETPRIATI),'-','F',"",[F:ZSOP]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
             LORDATI       += [F:ZSOQ]QTY*[F:ZSOP]NETPRIATI
           Endif
         Next
 #Infbox num$(LORDATI)
         # asigna el encurso al vale de preparación
         If LORDATI > 0 Then
+# 06.414.395.ini
+#          Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
+#&                       0.0,LORDATI,'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
           Call  MAJMVC ([F:ZPRH]BPCORD,[F:ZSOH]CUR,[F:ZSOH]CHGTYP,0,[F:ZPRH]SHIDAT,[F:ZPRH]PRHNUM,[F:ZPRH]STOFCY,
 &                       0.0,ar2(LORDATI),'+','O',"",[F:ZSOH]SOHCAT) From TRTBPMVT
+# 06.414.395.fin
         Endif
         Filter [F:ZPRE]
 
