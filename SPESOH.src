@@ -21,6 +21,7 @@
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 # 06.411.043 - JC.10112022.Control crédito. Aviso si se va a sobrepasar el credito autorizado
+# 06.415.737 - AMG.24112022.archivo csv individual pedidos cliente
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -223,6 +224,10 @@ Local Decimal LVALORMIN :   LVALORMIN = func ZAULIB01.GET_LIMITEBPT([M:SOH2]BPTN
   Call AM_ZFREINV([M:SOH2]ZFREINV)
 #  Gosub CALCULAR_TARIFA_TRANSPORTISTA
 
+# 06.415.737.INI
+Call PEDIDOSCLI([M:SOH0]SOHNUM) From ZSOHINTRANET
+# 06.415.737.FIN
+
   # bloqueo
 # 06.288.473.ini
 #  If ([M:SOH2]ZFREINV=3 or [M:SOH2]ZFREINV=4 or [M:SOH2]ZFREINV=5 or [M:SOH2]ZFREINV=6 or [M:SOH2]ZFREINV=7) and [M:SOH4]ORDINVNOT<LVALORMIN Then
@@ -268,6 +273,12 @@ $APRES_CRE
 Local Integer LCON
 Local Decimal LZCOSOFER
 Local Decimal LZCOSTOFEREK
+
+# 06.415.737.INI
+Call PEDIDOSCLI([M:SOH0]SOHNUM) From ZSOHINTRANET
+# 06.415.737.FIN
+
+
   For LCON=0 To [M:SOH4]NBLIG-1
     Read [F:SOP]SOP3 = [M:SOH0]SOHNUM;[M:SOH4]SOPLIN(LCON)
     Read [F:SOQ]SOQ0 = [M:SOH0]SOHNUM;[M:SOH4]SOPLIN(LCON);[M:SOH4]SOPLIN(LCON)
