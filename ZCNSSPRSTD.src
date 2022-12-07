@@ -149,25 +149,15 @@ Endif                            # hcb graphique
 
 
 # ocultar campo mote.ini
-  If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
-  If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
-  If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
-  Read [F:ZAUT]CODUSR = GUSER
-  If [F:ZAUT]PRFFCT = 'ADMIN' Then
-    Chgfmt [M:ZSPR2]ZMOTE With "K:10"
-  Elsif [F:ZAUT]PRFFCT <> '' Then
-    Filter [F:ZAFP] Where PRFCOD = [F:ZAUT]PRFFCT and FNC = 'GESBPS' and ACS = 2
-    Read   [F:ZAFP] First
-    If !fstat Then
+  If [F:ZORD]WIPTYP = 2 or [F:ZORD]WIPTYP = 13 or [F:ZORD]WIPTYP = 15 Then
+    If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
+    If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
+    If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
+    Read [F:ZAUT]CODUSR = GUSER
+    If [F:ZAUT]PRFFCT = 'ADMIN' Then
       Chgfmt [M:ZSPR2]ZMOTE With "K:10"
-    Else
-      Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
-    Endif
-    Filter [F:ZAFP]
-  Elsif [F:ZAUT]PRFFCT = '' Then
-    Read [F:ZAME]AME0 = [F:ZAUT]CODMET
-    If !fstat Then
-      Filter [F:ZAFP] Where PRFCOD = [F:ZAME]PRFFCT and FNC = 'GESBPS' and ACS = 2
+    Elsif [F:ZAUT]PRFFCT <> '' Then
+      Filter [F:ZAFP] Where PRFCOD = [F:ZAUT]PRFFCT and FNC = 'GESBPS' and ACS = 2
       Read   [F:ZAFP] First
       If !fstat Then
         Chgfmt [M:ZSPR2]ZMOTE With "K:10"
@@ -175,11 +165,23 @@ Endif                            # hcb graphique
         Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
       Endif
       Filter [F:ZAFP]
+    Elsif [F:ZAUT]PRFFCT = '' Then
+      Read [F:ZAME]AME0 = [F:ZAUT]CODMET
+      If !fstat Then
+        Filter [F:ZAFP] Where PRFCOD = [F:ZAME]PRFFCT and FNC = 'GESBPS' and ACS = 2
+        Read   [F:ZAFP] First
+        If !fstat Then
+          Chgfmt [M:ZSPR2]ZMOTE With "K:10"
+        Else
+          Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
+        Endif
+        Filter [F:ZAFP]
+      Endif
+    Else
+      Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
     Endif
-  Else
-    Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
+    Close Local File [ZAUT],[ZAFP],[ZAME]
   Endif
-  Close Local File [ZAUT],[ZAFP],[ZAME]
 # ocultar campo mote.fin
 
   Local Integer K
