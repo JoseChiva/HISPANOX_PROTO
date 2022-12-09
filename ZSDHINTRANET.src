@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.302.184 - JC.18012022.añadir campo ZUSRSERV fichero albaranes.csv
+# 06.420.001 - JC.09122022.Ajuste fichero albaranes.csv
 ############################################################################
 
 Local Char WSDH
@@ -17,7 +18,8 @@ Variable Char WSDH
     Filter [F:SDH] Where SDHNUM=WSDH
   Else
 #    Filter [F:SDH] Where (WSDH="" or SDHNUM=WSDH) and DLVDAT >= DIAUNOMESANT and DLVDAT <= date$
-    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT
+#    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT
+    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT and SDHTYP <> 'ES'   # 06.420.001.new
   Endif
 
   Read [F:SDH] First
