@@ -15,7 +15,8 @@ Variable Char WSDH
   Gosub OPEN_TABLAS
   Gosub CALCULARFECHA
   If WSDH <> "" Then
-    Filter [F:SDH] Where SDHNUM=WSDH
+#    Filter [F:SDH] Where SDHNUM=WSDH
+    Filter [F:SDH] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                         # 06.420.001.new
   Else
 #    Filter [F:SDH] Where (WSDH="" or SDHNUM=WSDH) and DLVDAT >= DIAUNOMESANT and DLVDAT <= date$
 #    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT
