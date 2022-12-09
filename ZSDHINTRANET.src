@@ -50,7 +50,7 @@ End
 Subprog ALBARAN(WSDH)
 Variable Char WSDH
 Gosub OPEN_TABLAS
-Filter [F:SDH] Where SDHNUM=WSDH
+Filter [F:SDH] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                             # 06.420.001.new
 Read [F:SDH] First
 If !fstat Then
   If rowcount([F:SDH])>0
