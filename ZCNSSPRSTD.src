@@ -147,43 +147,6 @@ If [M:ZSPR2]NBLIG > 0             # hcb graphique
    CHMEN += "12"                 # hcb graphique
 Endif                            # hcb graphique
 
-
-# ocultar campo mote.ini
-  If [F:ZORD]WIPTYP = 2 or [F:ZORD]WIPTYP = 13 or [F:ZORD]WIPTYP = 15 Then
-    If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
-    If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
-    If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
-    Read [F:ZAUT]CODUSR = GUSER
-    If [F:ZAUT]PRFFCT = 'ADMIN' Then
-      Chgfmt [M:ZSPR2]ZMOTE With "K:10"
-    Elsif [F:ZAUT]PRFFCT <> '' Then
-      Filter [F:ZAFP] Where PRFCOD = [F:ZAUT]PRFFCT and FNC = 'GESBPS' and ACS = 2
-      Read   [F:ZAFP] First
-      If !fstat Then
-        Chgfmt [M:ZSPR2]ZMOTE With "K:10"
-      Else
-        Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
-      Endif
-      Filter [F:ZAFP]
-    Elsif [F:ZAUT]PRFFCT = '' Then
-      Read [F:ZAME]AME0 = [F:ZAUT]CODMET
-      If !fstat Then
-        Filter [F:ZAFP] Where PRFCOD = [F:ZAME]PRFFCT and FNC = 'GESBPS' and ACS = 2
-        Read   [F:ZAFP] First
-        If !fstat Then
-          Chgfmt [M:ZSPR2]ZMOTE With "K:10"
-        Else
-          Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
-        Endif
-        Filter [F:ZAFP]
-      Endif
-    Else
-      Chgfmt [M:ZSPR2]ZMOTE With "-K:10"
-    Endif
-    Close Local File [ZAUT],[ZAFP],[ZAME]
-  Endif
-# ocultar campo mote.fin
-
   Local Integer K
   For K = 0 To [M:ZSPR2]NBLIG0-1
     If [M:ZSPR2]INTFLD(K)='Stock disponible' and [M:ZSPR2]VALFLD(K) < 0 Then
@@ -2008,11 +1971,12 @@ Value Char    PBPSNUM
 
 Local Char LRET(20)
 
-#  If find(PWIPTYP,2,3,4) Then
-    If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
-    If !clalev([F:ZBPR]) Then : Local File BPARTNER   [F:ZBPR] : Endif
-    If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
-    If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
+  If !clalev([F:ZAUT]) Then : Local File AUTILIS    [F:ZAUT] : Endif
+  If !clalev([F:ZBPR]) Then : Local File BPARTNER   [F:ZBPR] : Endif
+  If !clalev([F:ZAFP]) Then : Local File AFCTPRF    [F:ZAFP] : Endif
+  If !clalev([F:ZAME]) Then : Local File AMETUTI    [F:ZAME] : Endif
+
+  If find(PWIPTYP,2,13,15) Then
     Read [F:ZAUT]CODUSR = GUSER
     If [F:ZAUT]PRFFCT = 'ADMIN' Then
       Read [F:ZBPR]BPR0 = PBPSNUM
@@ -2028,6 +1992,8 @@ Local Char LRET(20)
           LRET = [F:ZBPR]BPRSHO
         Endif
         LRET = [F:ZBPR]BPRSHO
+      Else
+        LRET = ''
       Endif
       Filter [F:ZAFP]
     Elsif [F:ZAUT]PRFFCT = '' Then
@@ -2041,10 +2007,19 @@ Local Char LRET(20)
             LRET = [F:ZBPR]BPRSHO
           Endif
           LRET = [F:ZBPR]BPRSHO
+        Else
+          LRET = ''
         Endif
         Filter [F:ZAFP]
       Endif
+    Else
+      LRET = ''
     Endif
-    Close Local File [ZAUT],[ZBPR],[ZAFP],[ZAME]
-#  Endif
+  Else
+    Read [F:ZBPR]BPR0 = PBPSNUM
+    If !fstat Then
+      LRET = [F:ZBPR]BPRSHO
+    Endif
+  Endif
+  Close Local File [ZAUT],[ZBPR],[ZAFP],[ZAME]
 End LRET
