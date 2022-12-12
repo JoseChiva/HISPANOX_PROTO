@@ -3,6 +3,7 @@
 #ASR COMP-51 campo arancel
 #MRR01 - 24/08/2020 - Cod. act. ZQ020 - Campo Fecha EXTRCPDAT del pedido en cabecera y líneas
 #MRR02 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
+# 06.418.635 - JC.07122022.Nova linia comanda compres, no calcula el campo 'Coste real compra'
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla POH2) 20/02/2020 16:33:52 (ADMIN)
 ######################################################################################
@@ -117,6 +118,26 @@ Local Integer LCON
   Next
 # JC.05102021.COST-004.FIN
 
+# 06.418.635.ini
+  If GFONCTION = "GESPOH"
+    Local Decimal WMNT
+    Local Integer WRET
+    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
+    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
+    For [ZPOQ]
+      WMNT = [F:ZPOQ]LINCSTPUR
+      Raz WRET
+      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
+      If WRET
+        GMESSAGE = mess(795,197,1)
+        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
+        GOK = 0
+        Break
+      Endif
+    Next
+    Close Local File [ZPOQ]
+  Endif
+# 06.418.635.fin
 Return
 
 #######################################################
@@ -129,6 +150,27 @@ Local Integer LCON
     Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
   Next
 # JC.05102021.COST-004.FIN
+
+# 06.418.635.ini
+  If GFONCTION = "GESPOH"
+    Local Decimal WMNT
+    Local Integer WRET
+    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
+    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
+    For [ZPOQ]
+      WMNT = [F:ZPOQ]LINCSTPUR
+      Raz WRET
+      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
+      If WRET
+        GMESSAGE = mess(795,197,1)
+        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
+        GOK = 0
+        Break
+      Endif
+    Next
+    Close Local File [ZPOQ]
+  Endif
+# 06.418.635.fin
 Return
 
 #######################################################
