@@ -22,6 +22,7 @@
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 # 06.411.043 - JC.10112022.Control crédito. Aviso si se va a sobrepasar el credito autorizado
 # 06.415.737 - AMG.24112022.archivo csv individual pedidos cliente
+# 06.420.740 - JC.12122022.Nova pantalla stock proyectado HX. Abrir la nueva pantalla de stock proyectado desde las líneas
 #######################################################################################
 
 Call RESTAQTY_SOHPA("PA2100015",1000,2400,600)
@@ -2871,12 +2872,20 @@ End
 Subprog B20_NBLIG
 Local Char    PARAM(20)(1..4)
 
-  GACTION   = "CONSSPR"
+# 06.420.740.ini
+#  GACTION   = "CONSSPR"
+#  PARAM(1)  = "0"
+#  PARAM(2)  = [M:SOH4]DSTOFCY(nolign-1)
+#  PARAM(3)  = [M:SOH4]ITMREF(nolign-1)
+#  PARAM(4)  = ""
+#  Call GCONSULT("SPR","",PARAM) From GCONSULT
+  GACTION   = "ZCONSSPR"
   PARAM(1)  = "0"
   PARAM(2)  = [M:SOH4]DSTOFCY(nolign-1)
   PARAM(3)  = [M:SOH4]ITMREF(nolign-1)
   PARAM(4)  = ""
-  Call GCONSULT("SPR","",PARAM) From GCONSULT
+  Call GCONSULT("ZSPR","",PARAM) From GCONSULT
+# 06.420.740.fin
 End
 
 ##############################################################
