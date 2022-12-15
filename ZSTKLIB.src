@@ -2,6 +2,8 @@
 #MRR01 - 06/05/2020 - Cód.act.: ZQ008 - Cálculo campo CMO
 #MLGA -  02/06/2020 - Desactivo en importacion
 #MLGA -  05/08/2020 - He anulado el calculo porque me da divion by zero al intentar borrar RECEPCIONES
+# 06.420.738 - JC.13122022.CM Rep articles subcontractació
+################################################################
 
 ################################################################
 $ACTION
@@ -173,6 +175,7 @@ Raz WQTY, WAMT, WCMREP
 
   If !clalev([F:ITF1]) Then : Local File ITMFACILIT [F:ITF1]  : Endif
   If !clalev([F:POQ1]) Then : Local File PORDERQ    [F:POQ1]  : Endif
+  If !clalev([F:MFC1]) Then : Local File MFGCOST    [F:MFC1]  : Endif     # 06.420.738.new
 
 #  Filter [F:POQ1] Where POHFCY = PFCY and ITMREF = PITMREF and LINSTA < 3 and QTYSTU-RETQTYSTU > 0
 #  For [F:POQ1]
@@ -198,8 +201,22 @@ Raz WQTY, WAMT, WCMREP
     Endif
   Endif
   For [F:POQ1]
-    WQTY += [F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU
-    WAMT += ([F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU) * [F:POQ1]CPR
+# 06.420.738.ini
+#    WQTY += [F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU
+#    WAMT += ([F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU) * [F:POQ1]CPR
+    If [F:POQ1]LINTYP <> 2 Then
+      WAMT += ([F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU) * [F:POQ1]CPR
+      WQTY += [F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU
+    Else
+      Filter [F:MFC1] Where VCRNUM = [F:POQ1]VCRNUMORI and VCRLIN = [F:POQ1]VCRLINORI and MFCTYP = 1
+      Read   [F:MFC1] First
+      If !fstat Then
+        WAMT += ([F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU) * ([F:MFC1]OVETOT + [F:MFC1]CSTTOT)
+        WQTY += [F:POQ1]QTYPUU - [F:POQ1]RCPQTYPUU
+      Endif
+      Filter [F:MFC1]
+    Endif
+# 06.420.738.fin
   Next
   Filter [F:POQ1]
 
@@ -217,7 +234,7 @@ Raz WQTY, WAMT, WCMREP
     Endif
   Endif
 
-  Close Local File [ITF1],[POQ1]
+  Close Local File [ITF1],[POQ1],[MFC1]
 
 End
 # JC.05102021.COST-004.FIN
