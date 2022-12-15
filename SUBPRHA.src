@@ -1,5 +1,6 @@
 #<AdxTL>@(#)3.0.0.0 $Revision$
 #MLGA - Genera XML SOR - Al pasar el estado a ENTREGABLE
+# 06.421.122 - JC.15122022.VP subcontratación cancelado
 #########################################################################
 # Gestion des Bons de Préparation                               SUBPRHA #
 #-----------------------------------------------------------------------#
@@ -1184,7 +1185,7 @@ If GOK=1
          GOK=0 : Call FSTA("PRH") From GLOCK
 #MLGA - Ini.AUREN
       Else
-         Call ZSGASOR([M:PRH0]PRHNUM,'') From ZSGASOR     # JC.20052021 - SI DECIDIMOS QUE LA GENERACIÓN DEL SOR NO SE HAGA DESDE EL BOTÓN ENTREGABLE, TENGO QUE COMENTAR ESTA LÍNEA
+#         Call ZSGASOR([M:PRH0]PRHNUM,'') From ZSGASOR                    # 06.421.122.new
 #MLGA - Fin.AUREN
       Endif
    Endif
