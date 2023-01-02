@@ -13,6 +13,7 @@
 # 06.347.583 - JC.30052022.Comprueba si hay suficiente stock (físico + asignado) antes de lanzar la salida. Si hay, se desasigna sino no y no se crea la salida varia
 # 06.360.704 - JC.23062022.Entrada Varia repetitiva - 06.360.968 : error fichero STV02
 # 06.392.136 - JC.16092022.HX salidas de stock no ejecutadas en el fichero/s STV
+# 06.426.523 - JC.02012023.Lectura ficheros
 #############################################################
 
 #If GUSER="ADEV"
@@ -66,8 +67,15 @@ Local Clbfile XDATA (10)
 #    LNOMFICHERO=ctrans(LNOMFICHERO,'.xml','')
     LNOMFICHERO=func ZAULIB01.REPLACE(LNOMFICHERO,'.xml','')
 
+# 06.426.523.ini
+    Local Char LSUFIJO(250)
+    LSUFIJO = mid$(WFICINP1,len(WFICINP1)-1,len(WFICINP1))
+# 06.426.523.fin
+
 # 06.315.530.ini
-    If WFICINP1 <> LNOMFICHERO Then
+#    If WFICINP1 <> LNOMFICHERO Then                                                        # 06.426.523.new
+    If LSUFIJO='.0' or LSUFIJO='.1' or LSUFIJO='.2' or LSUFIJO='.3' or LSUFIJO='.4'
+&   or LSUFIJO='.5' or LSUFIJO='.6' or LSUFIJO='.7' or LSUFIJO='.8' or LSUFIJO='.9' Then    # 06.426.523.new
       Local Integer LSTA
       Local Char    LSTR(250) : LSTR = mid$(WFICINP1,1,len(WFICINP1)-2)
       Local Char    PATHORI(250),PATHDES(250)
