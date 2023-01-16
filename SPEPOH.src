@@ -4,6 +4,7 @@
 #MRR01 - 24/08/2020 - Cod. act. ZQ020 - Campo Fecha EXTRCPDAT del pedido en cabecera y líneas
 #MRR02 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
 # 06.418.635 - JC.07122022.Nova linia comanda compres, no calcula el campo 'Coste real compra'
+# 06.432.583 - JC.16012023.Notas recepción pedidos compras - expediciones
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla POH2) 20/02/2020 16:33:52 (ADMIN)
 ######################################################################################
@@ -144,12 +145,32 @@ Return
 $APRES_MOD
   Call PEDIDOSPROV([F:POH]POHNUM) From ZPOHINTRANET
 
+  If !clalev([F:ZSHD]) Then : Local File SHIPMENTD  [F:ZSHD] : Endif      # 06.432.583.new
+
 # JC.05102021.COST-004.INI
 Local Integer LCON
   For LCON = 0 To [M:POH2]NBLIG-1
     Call CALC_CMREP([M:POH2]ITMREF(LCON),[M:POH0]POHFCY) From ZSTKLIB
+# 06.432.583.ini
+    Filter [F:ZSHD] Where POHNUM = [M:POH0]POHNUM and POPLIN = [M:POH2]POPLIN(LCON)
+    Read   [F:ZSHD] First
+#Infbox num$(fstat)
+    If !fstat Then
+      [F:ZSHD]ZNT = [M:POH2]ZNT(LCON)
+      Trbegin [F:ZSHD]
+      Rewrite [F:ZSHD]
+      If !fstat Then
+        Commit
+      Else
+        Rollback
+      Endif
+    Endif
+    Filter [F:ZSHD]
+# 06.432.583.fin
   Next
 # JC.05102021.COST-004.FIN
+
+  Close Local File [ZSHD]                                                 # 06.432.583.new
 
 # 06.418.635.ini
   If GFONCTION = "GESPOH"
