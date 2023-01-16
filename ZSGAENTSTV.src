@@ -14,6 +14,7 @@
 # 06.360.704 - JC.23062022.Entrada Varia repetitiva - 06.360.968 : error fichero STV02
 # 06.392.136 - JC.16092022.HX salidas de stock no ejecutadas en el fichero/s STV
 # 06.426.523 - JC.02012023.Lectura ficheros
+# 06.429.830 - JC.16012023.HX salidas de stock no ejecutadas en el fichero/s STV
 #############################################################
 
 #If GUSER="ADEV"
@@ -1020,7 +1021,7 @@ Value     Decimal PQTYSTV
 Variable  Decimal PQTYSAL
 
 Local     Decimal LQTYFISICAX3,LQTYASIGNADAX3,LQTYDISPONIBLEX3,LQTYSTVINI
-Local     Decimal LQTYFISICATOTALX3,LQTYASIGLOBALX3,LQTYDESGLOBALX3
+Local     Decimal LQTYFISICATOTALX3,LQTYASIGLOBALX3,LQTYDESGLOBALX3,LQTYASIGNADALOTEX3
 Local     Integer LDES
 
   If !clalev([F:ZSTO]) Then : Local File STOCK        [F:ZSTO] : Endif
@@ -1073,6 +1074,17 @@ Local     Integer LDES
     LQTYFISICAX3      = [F:ZSTO]QTYSTU
     If LQTYFISICAX3 - LQTYASIGNADAX3 > 0 Then                                                             # JC.03112021-1.NEW
       LQTYDISPONIBLEX3  = LQTYFISICAX3 - LQTYASIGNADAX3
+# 06.429.830.ini
+    Else
+      Filter [F:ZSTA] Where STOCOU = [F:ZSTO]STOCOU
+      For [F:ZSTA]
+        LQTYASIGNADALOTEX3 += [F:ZSTA]QTYSTU
+      Next
+      Filter [F:ZSTA]
+      If LQTYFISICAX3 - LQTYASIGNADALOTEX3 >= PQTYSTV Then
+        LQTYDISPONIBLEX3 = LQTYFISICAX3 - LQTYASIGNADALOTEX3
+      Endif
+# 06.429.830.fin
     Endif                                                                                                 # JC.03112021-1.NEW
 
     # convertimos la QTY salida STV a la unidad de la QTY física X3
