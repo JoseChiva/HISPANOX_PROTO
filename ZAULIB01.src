@@ -2108,3 +2108,51 @@ Local Char      WEANCOD(20)
   Endif
 
 End WEANCOD
+
+
+#######################
+# 06.423.928 : AFEGIR CAMPS COLUMNA ESQUERRA
+#**
+#* codifica caracteres
+#*
+#* @param PNUMFACVEN   = número factura
+#*!
+Funprog ZTOTPAG(PNUMFACVEN)
+#Función utilizada para obtener el total pagado del vencimiento de factura de venta
+Value Char  PNUMFACVEN
+Local Char PAGOTOTALVEN(15)
+
+If !clalev ([F:ZVT]) : Local File ZVTOTFAC [F:ZVT] : Endif
+
+  Read [F:ZVT]ZVT0 = PNUMFACVEN
+  If fstat = 0 Then
+    If [F:ZVT]SUMVEN=0 Then
+      PAGOTOTALVEN=""
+    Else
+      PAGOTOTALVEN =ctrans(num$( format$("N:12.2",[F:ZVT]SUMVEN)),".",",")
+    Endif
+  Endif
+
+Close Local File [F:ZVT]
+
+End PAGOTOTALVEN
+
+#Funprog ZTOTPAG(PNUMFACVEN)
+##Función utilizada para obtener el total pagado del vencimiento de factura de venta
+#Value Char  PNUMFACVEN
+#Local Decimal PAGOTOTALVEN(15)
+#
+#If !clalev ([F:ZVT]) : Local File ZVTOTFAC [F:ZVT] : Endif
+#
+#  Read [F:ZVT]ZVT0 = PNUMFACVEN
+#  If fstat = 0 Then
+#    If [F:ZVT]SUMVEN=0 Then
+#      PAGOTOTALVEN=0
+#    Else
+#      PAGOTOTALVEN =[F:ZVT]SUMVEN
+#    Endif
+#  Endif
+#
+#Close Local File [F:ZVT]
+#
+#End PAGOTOTALVEN
