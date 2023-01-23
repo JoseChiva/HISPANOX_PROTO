@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.341.808 - JC.09052022.No se informa del envasado caija/pack cuando el valor es 1
+# 06.434.539 - JC.23012023.Fichero ITM. Añadir etiquetas CstAtt04 y CstAtt05
 ####################################################################################################################
 
 Local Char PITM : PITM = ''
@@ -272,6 +273,10 @@ For [ZITM] Where ITMREF<'A' and evalue(WFILTERITM)
        Endif
        AA=func PUT_PROPXML('CstAtt02',CVALOR,3,2)
        AA=func PUT_PROPXML('CstAtt03',[F:ZITM]EANCOD,3,2)
+# 06.434.539.ini
+       AA=func PUT_PROPXML('CstAtt04',num$([F:ZITM]PCUSTUCOE(1)),3,2)
+       AA=func PUT_PROPXML('CstAtt05',num$([F:ZITM]PCUSTUCOE(0)),3,2)
+# 06.434.539.fin
 #       AA=func PUT_PROPXML('CnvQuantity',num$([F:ZITM]PCUSTUCOE),3,2)
      AA=func PUT_PROPXML('/CustomAttributes','',2,1)
     AA=func PUT_PROPXML('/Item','',1,1)
