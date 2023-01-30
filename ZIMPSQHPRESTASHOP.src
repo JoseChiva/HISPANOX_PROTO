@@ -1,6 +1,7 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.298.587 - JC.11012021.no funciona la importación Ofertas Web
 # 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
+# 06.437.202 - JC.30012023.Ofertas WEB duplicadas
 ########################################################################
 
 #If GUSER="ADEV" Then
@@ -164,9 +165,14 @@ Local Integer LERRIMPORT
     # lee la tabla temporal para lanzar filtrar las líneas a procesar del presupuesto
     Filter [F:ZQP1]
     For [ZQP1]
-      # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
-      Filter [F:ZSQD] Where BPCORD = [F:ZQP1]BPCNUM and ITMREF = [F:ZQP1]ITMREF and QTY = [F:ZQP1]QTY and GROPRI = ([F:ZQP1]GROPRI/100) and ORDQTY = 0
+#      # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto                  (y no haya cantidad pedida)
+#      Filter [F:ZSQD] Where BPCORD = [F:ZQP1]BPCNUM and ITMREF = [F:ZQP1]ITMREF and QTY = [F:ZQP1]QTY and GROPRI = ([F:ZQP1]GROPRI/100) and ORDQTY = 0
+#&                     and QUODAT >= (date$-15) and QUODAT <= date$     # entre los presupuestos de los últimos 15 días
+# 06.437.202.ini
+      # busca si existe alguna línea de algún presupuesto donde coincidan cliente, artículo, cantidad y   precio bruto
+      Filter [F:ZSQD] Where BPCORD = [F:ZQP1]BPCNUM and ITMREF = [F:ZQP1]ITMREF and QTY = [F:ZQP1]QTY and GROPRI = ([F:ZQP1]GROPRI/100)
 &                     and QUODAT >= (date$-15) and QUODAT <= date$     # entre los presupuestos de los últimos 15 días
+# 06.437.202.fin
       Read [F:ZSQD] First
       If !fstat Then
         # busca que ese presupuesto sea de tipo OW (web)
