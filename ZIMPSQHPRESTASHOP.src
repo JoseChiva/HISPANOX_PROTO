@@ -1,7 +1,8 @@
-#<AdxTL>@(#)0.0.0.0 $Revision$
+#<AdxTL>@(#)0.0.0.0 $Revision$ 
 # 06.298.587 - JC.11012021.no funciona la importación Ofertas Web
 # 06.343.688 - JC.26052022.Error usuari creació WEB. Se crean pedidos manualmente y en BBDD está con el usuario WEB como creación
 # 06.437.202 - JC.30012023.Ofertas WEB duplicadas
+# 06.440.872 - AMG.080223.importación presupuestos web
 ########################################################################
 
 #If GUSER="ADEV" Then
@@ -360,10 +361,23 @@ Return
 Subprog LANZA_WORKFLOW(PNOMFICH,PERRIMPORT)
 Value Char    PNOMFICH
 Value Integer PERRIMPORT
+Local Char US12(100)
+
+# 06.440.872.ini
+If !clalev([F:ZAUS]) : Local File AUTILIS [F:ZAUS] : Endif
+Filter [F:ZAUS] Where USR="US12"
+Read  [F:ZAUS]First
+  If !fstat
+    US12=[F:ZAUS]ADDEML
+  Endif
+# 06.440.872.fin
+
   # lanza un workflow para avisar de que la importación ha fallado
   Global Char GCORREO(250),GFICHERO(250),GASUNTO(250),GMENSAJE(250)
 #  GCORREO    = "joseluis.chiva@auren.es"
-  GCORREO    = "sergi.cunill@hispanox.com"
+# 06.440.872.ini
+  GCORREO    = "sergi.cunill@hispanox.com"+";"+US12
+# 06.440.872.fin
   GFICHERO   = PNOMFICH
   GASUNTO    = "Traza importación presupuesto Prestashop"
   If PERRIMPORT = 1 Then
