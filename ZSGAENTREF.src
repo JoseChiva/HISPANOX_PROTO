@@ -6,6 +6,7 @@
 # 06.314.024 - JC.10032022.Adapación importación REF para subcontratación
 # 06.315.798 - JC.15032022.Devoluciones, 2 lotes internos en un solo artículo
 # 06.369.558 - JC.18072022.Error en la importación REF del fichero por cantidad negativa
+# 06.444.880 - JC.20022023.Importación recepción 196 líneas
 ##############################################################
 
 #If GUSER="ADEV" Then                        # JC.22092021.NEW
@@ -25,7 +26,10 @@ Local Char FICHEROS(250)(1..1000)
 Local Char WESTADOS(20)(1..8)
 Local Char FICHEROIMP(250), FICHEROEXP(250)
 Local Integer A, LFSTATFICHERO, NFICHEROS, LERROR
-Local Clbfile XDATA (10)
+# 06.444.880.ini
+#Local Clbfile XDATA (10)
+Local Clbfile XDATA (15)
+# 06.444.880.fin
 
   WESTADOS(1)='Closed'
 
@@ -170,19 +174,19 @@ Local Clbfile XDATA (10)
 #      System "ae_rm " + filpath(WSGATMP,WFICINP1,"","")
 # JC.25112021-EXP.INI
     Elsif WEXPEDICION=2 Then
-      Gosub GUARDA_REFEXP_EN_TABLA
-      Gosub OPEN_WRITE
-      Gosub CREA_EXPORT_EXP
-      Openi Using [ZECO]
-      Sleep 1
-      mkstat = 0 : fstat = 0 : GERRTRACE = 0
-      Call IMPORTSIL ("ZPTHFL",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ
-      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
-        LERROR += 1
-        Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
-        System "ae_rm " + filpath(WSGATMP,WFICINP1,"err","")
-      Endif
-      System "ae_rm " + filpath(WSGATMP,WFICINP1,"","")
+#      Gosub GUARDA_REFEXP_EN_TABLA
+#      Gosub OPEN_WRITE
+#      Gosub CREA_EXPORT_EXP
+#      Openi Using [ZECO]
+#      Sleep 1
+#      mkstat = 0 : fstat = 0 : GERRTRACE = 0
+#      Call IMPORTSIL ("ZPTHFL",filpath(WSGATMP,WFICINP1,"",""))From GIMPOBJ
+#      If (fstat <> 0 and fstat <> 4) or GERRTRACE <> 0 Then                               # si se producen errores
+#        LERROR += 1
+#        Call ECR_TRACE("ERROR!!!!!!!!!!!!!",0) From GESECRAN
+#        System "ae_rm " + filpath(WSGATMP,WFICINP1,"err","")
+#      Endif
+#      System "ae_rm " + filpath(WSGATMP,WFICINP1,"","")
 # JC.25112021-EXP.FIN
     Else
       mkstat = 0 : fstat = 0 : GERRTRACE = 0
@@ -197,14 +201,14 @@ Local Clbfile XDATA (10)
 
     $END_ESPTHSC                                                          # 06.314.024.new
 
-    # JC.01122021.INI
-    If LERROR <> 0 Then
-      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,LERROR)
-      Gosub MUEVE_FILE_ERR
-    Else
-      Gosub MUEVE_FILE                                                                             # JC.22092021.NEW
-    Endif
-    # JC.01122021.FIN
+#    # JC.01122021.INI
+#    If LERROR <> 0 Then
+#      Call  LANZA_WORKFLOW_ERRORES(LNOMFICHERO,LERROR)
+#      Gosub MUEVE_FILE_ERR
+#    Else
+#      Gosub MUEVE_FILE                                                                             # JC.22092021.NEW
+#    Endif
+#    # JC.01122021.FIN
 
     Call FERME_TRACE From LECFIC
 
@@ -213,6 +217,10 @@ Local Clbfile XDATA (10)
     Endif
 
   Next
+
+# 06.444.880.ini
+  If dim(XDATA)>0 Then : Kill XDATA : Endif
+# 06.444.880.fin
 
 End
 
