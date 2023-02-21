@@ -20,6 +20,7 @@
 # 06.392.153 - AMG.15092022.Avis de bloqueig a Pressupostos vendes
 # 06.391.292 - JC.21092022.Error al crear abonament. Muestra error 'Índice erróneo AMTCOD(156) - Línea 2249 de SUBSIH
 # 06.420.740 - JC.12122022.Nova pantalla stock proyectado HX. Abrir la nueva pantalla de stock proyectado desde las líneas
+# 06.444.648 - JC.21022023.Lentitud en presupuestos y pedidos
 ######################################################################################
 
 ######################################################################################
@@ -422,13 +423,20 @@ Local Decimal LZCOSTMED
 # 06.339.932.ini
 #    If func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 999 Then
 #      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)),2)
+# 06.444.648.ini
+#    If func ZAULIB01.GET_COBERTURA_ITV_VISTAS([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 0 Then
+#      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA_ITV_VISTAS([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)),2)
     If func ZAULIB01.GET_COBERTURA_ITV([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)) <> 0 Then
       [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.REDONDEA_ALZA(func ZAULIB01.GET_COBERTURA_ITV([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1)),2)
+# 06.444.648.ini
 # 06.339.932.fin
     Else
 # 06.339.932.ini
 #      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))
+# 06.444.648.ini
+#      [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA_ITV_VISTAS([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))
       [M:ZSQH0]ZCOBERTURA     = func ZAULIB01.GET_COBERTURA_ITV([M:SQH2]ITMREF(nolign-1),[M:SQH2]DSTOFCY(nolign-1))
+# 06.444.648.fin
 # 06.339.932.fin
     Endif
     # Coste Oferta
@@ -664,8 +672,10 @@ End
 ######################################################################################
 Subprog C_NBLIG
 #If GUSER="ADEV" Then : Infbox "entro c_nblig"-num$([M:ZSQH1]GROPRI(nolign-1)) : Endif
-  Gosub DETALLE_ARTICULOS
-  Affzo [M:SQH2]
+  If [M:SQH2]ITMREF(nolign-1) <> '' Then
+    Gosub DETALLE_ARTICULOS
+    Affzo [M:SQH2]
+  Endif
 End
 
 ######################################################################################

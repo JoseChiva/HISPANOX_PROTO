@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+# 06.444.648 - JC.21022023.Lentitud en presupuestos y pedidos
 ###############################################################################
 
 #If !clalev([F:ZSID]) Then : Local File SINVOICED  [F:ZSID] : Endif
@@ -760,9 +761,24 @@ Local Decimal LRET
     Endif
   Endif
 
-
   Close Local File [ITN0],[ITN1],[BOD1],[ITV1]
 
+#  If !clalev([F:ZVI0]) Then : Local File ZITMTRANET [F:ZVI0] : Endif
+#  Read [F:ZVI0]ZITN0 = PS_ITMREF
+#  If !fstat Then
+#    If [F:ZVI0]COBERTURA <= 0 Then
+#      LRET = 0
+#    Else
+#      If [F:ZVI0]COBERTURA > 0 Then
+#        LRET = ar2([F:ZVI0]COBERTURA)
+#      Elsif [F:ZVI0]COBERTURA = 0 Then
+#        LRET = 999
+#      Else
+#        LRET = 999
+#      Endif
+#    Endif
+#  Endif
+#  Close Local File [ZVI0]
 End LRET
 
 ##############################################################
@@ -821,7 +837,6 @@ Local Decimal LRET
     Endif
   Endif
 
-
   Close Local File [ITV0],[ITK0]
 
 End LRET
@@ -842,7 +857,10 @@ Value Char PS_ITMREF,PS_FCY,PS_COC
 Local Decimal LCOB, LRET : Raz LCOB, LRET
 
   # obtener COBERTURA
-  LCOB = func GET_COBERTURA(PS_ITMREF,PS_FCY)
+# 06.444.648.ini
+#  LCOB = func GET_COBERTURA(PS_ITMREF,PS_FCY)
+  LCOB = func GET_COBERTURA_ITV(PS_ITMREF,PS_FCY)
+# 06.444.648.fin
 
   If !clalev([F:ZMBE])  Then : Local File ZMBEXTRA  [F:ZMBE]  : Endif
   If !clalev([F:XMBE])  Then : Local File ZMBEXTRA  [F:XMBE]  : Endif
@@ -1391,6 +1409,42 @@ Variable  Decimal PCAMBIO
   If  clalev([F:TCH0]) Then : Close Local File      [F:TCH0] : Endif
 
 End
+
+#######################
+#**
+#* convierte divisas en una fecha
+#*
+#* @param PDIVISAORI  > divisa origen
+#* @param PDIVISADES  > divisa destino
+#* @param PCANTIDAD   > cantidad a cambiar
+#* @param PTIPO       > tipo de cambio (1=cambio día; 2=cambio mes; 3=cambio medio; 4=cambio DEB)
+#* @param PDATE       > fecha
+#*!
+Funprog CONVERTDIV_DATE_F(PDIVISAORI,PDIVISADES,PCANTIDAD,PTIPO,PDATE)
+Value     Char    PDIVISAORI
+Value     Char    PDIVISADES
+Value     Decimal PCANTIDAD
+Value     Integer PTIPO
+Value     Date    PDATE
+
+Local     Decimal LRET
+
+  If PDIVISAORI = PDIVISADES Then
+    LRET = PCANTIDAD
+    End
+  Endif
+
+  If !clalev([F:TCH0]) Then : Local File TABCHANGE  [F:TCH0] : Endif
+
+  Filter [F:TCH0] Where CHGTYP = PTIPO and CURDEN = PDIVISADES and CUR = PDIVISAORI and PDATE >= CHGSTRDAT Order By CHGSTRDAT Desc
+  Read [F:TCH0] First
+  If !fstat Then
+    LRET = (PCANTIDAD * [F:TCH0]CHGRAT)
+  Endif
+  Filter [F:TCH0]
+  If  clalev([F:TCH0]) Then : Close Local File      [F:TCH0] : Endif
+
+End LRET
 
 ##############################################################
 #**

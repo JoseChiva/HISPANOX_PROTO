@@ -920,8 +920,10 @@ End
 ######################################################################################
 Subprog C_NBLIG
 ##If GUSER="ADEV" Then : Infbox "entro c_nblig"-num$([M:SOH4]ZPFM(nolign-1)) : Endif
-  Gosub DETALLE_ARTICULOS
-  Affzo [M:SOH4]
+  If [M:SOH4]ITMREF(nolign-1) <> '' Then
+    Gosub DETALLE_ARTICULOS
+    Affzo [M:SOH4]
+  Endif
 ##If GUSER="ADEV" Then : Infbox "salgo c_nblig"-num$([M:SOH4]ZPFM(nolign-1)) : Endif
 End
 
