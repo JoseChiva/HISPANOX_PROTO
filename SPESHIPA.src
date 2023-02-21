@@ -19,6 +19,8 @@
 #AUR03: 20/01/2022 ML campo Campo planta por defecto "PHISP"
 # 06.333.348 07/04/2022 ML : Afegir camp a EXpedicions
 #06.360.976 28/07/2022 NUEVO CAMPO "Notas recepción" EN PEDIDOS COMPRAS
+# 06.443.559 -JC.15022023.Valor cambio dia en expediciones
+###############################################################################################
 
 $OUVRE
 If clalev([ZPOP])<=0  :  Local File PORDERP [ZPOP]  :  Endif
@@ -91,6 +93,10 @@ For K = 0 To [M:SHIP1]NBLIG-1
 Next
 Gosub COLOR_PALET2
 nolign=TMPLIG
+
+# 06.443.559.ini
+  Chgtzn [M:SHIP0]ZCAMBIODIA With "Cambio del día"-mid$(date$,7,2)+"/"+mid$(date$,5,2)+"/"+mid$(date$,3,2)
+# 06.443.559.fin
 Return
 
 #############################################################################
