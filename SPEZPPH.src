@@ -2,6 +2,7 @@
 # 06.322.340 -JC.08032022 referencia interna en pantalla ofertas proveedores
 # 06.322.341 08/03/2022 ML Añadir campo cambio divisa en ofertas de proveedores
 # 06.319.638 10/03/2022 ML Opción eliminar oferta de proveedor
+# 06.432.595 17/01/2023 AMG campo referencia interna en ofertas de proveedores
 #############################################################################################
 
 
@@ -1497,6 +1498,9 @@ Local Integer LCON
 
   For LCON=0 To [M:ZPPH2]NBLIG-1
     [M:ZPPH2]LINPQHREF(LCON) = VALEUR
+# 06.432.595.ini
+    [M:ZPPH2]UPDFLG(LCON) = 2
+# 06.432.595.fin
     Affzo [M:ZPPH2]LINPQHREF(LCON)
   Next
 End
