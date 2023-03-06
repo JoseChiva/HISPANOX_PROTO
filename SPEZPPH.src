@@ -3,6 +3,7 @@
 # 06.322.341 08/03/2022 ML Añadir campo cambio divisa en ofertas de proveedores
 # 06.319.638 10/03/2022 ML Opción eliminar oferta de proveedor
 # 06.432.595 17/01/2023 AMG campo referencia interna en ofertas de proveedores
+# 06.448.635 - JC.06032023.Traer la divisa del proveedor en vez del tercero
 #############################################################################################
 
 
@@ -594,8 +595,12 @@ If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
 #Endif
 Affzo [M:ZPPH1]CPRCOE
 #[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
-Read [BPR] BPR0 = VALEUR
-[M:ZPPH1]CUR = [BPR]CUR
+# 06.448.635.ini
+#Read [BPR] BPR0 = VALEUR
+#[M:ZPPH1]CUR = [BPR]CUR
+Read [F:BPS]BPS0 = VALEUR
+[M:ZPPH1]CUR = [F:BPS]CUR
+# 06.448.635.fin
 # 06.322.341.ini
 [M:ZPPH1]CHGDIV=1
 If [M:ZPPH1]CUR <> "EUR" and [M:ZPPH1]CUR<> ""
