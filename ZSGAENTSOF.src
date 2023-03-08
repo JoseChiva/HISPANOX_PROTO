@@ -3857,9 +3857,9 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 #
 #  Endif
 #
-#  If filinfo(LFILETXT, 7) > 0 Then
-#    System "ae_rm " + LFILETXT
-#  Endif
+##  If filinfo(LFILETXT, 7) > 0 Then
+##    System "ae_rm " + LFILETXT
+##  Endif
 ##  If filinfo(LFILETXT+".err", 7) > 0 Then
 ##    System "ae_rm " + LFILETXT+".err"
 ##  Endif
