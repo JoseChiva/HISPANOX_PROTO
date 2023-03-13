@@ -5,6 +5,7 @@
 #MRR02 - 12/11/2020 - Cod.act.: ZQ024 - Descripcion 2 del articulo
 # 06.418.635 - JC.07122022.Nova linia comanda compres, no calcula el campo 'Coste real compra'
 # 06.432.583 - JC.16012023.Notas recepción pedidos compras - expediciones
+# 06.450.784 - JC.08032023.Valores pedido 'Coste real compra' incorrectos
 ######################################################################################
 ## Etiqueta añadida por el supervisor (pantalla POH2) 20/02/2020 16:33:52 (ADMIN)
 ######################################################################################
@@ -119,26 +120,28 @@ Local Integer LCON
   Next
 # JC.05102021.COST-004.FIN
 
-# 06.418.635.ini
-  If GFONCTION = "GESPOH"
-    Local Decimal WMNT
-    Local Integer WRET
-    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
-    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
-    For [ZPOQ]
-      WMNT = [F:ZPOQ]LINCSTPUR
-      Raz WRET
-      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
-      If WRET
-        GMESSAGE = mess(795,197,1)
-        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
-        GOK = 0
-        Break
-      Endif
-    Next
-    Close Local File [ZPOQ]
-  Endif
-# 06.418.635.fin
+# 06.450.784.ini (comento la actuación anterior para que no se procese)
+## 06.418.635.ini
+#  If GFONCTION = "GESPOH"
+#    Local Decimal WMNT
+#    Local Integer WRET
+#    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
+#    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
+#    For [ZPOQ]
+#      WMNT = [F:ZPOQ]LINCSTPUR
+#      Raz WRET
+#      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
+#      If WRET
+#        GMESSAGE = mess(795,197,1)
+#        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
+#        GOK = 0
+#        Break
+#      Endif
+#    Next
+#    Close Local File [ZPOQ]
+#  Endif
+## 06.418.635.fin
+# 06.450.784.fin (comento la actuación anterior para que no se procese)
 Return
 
 #######################################################
@@ -154,7 +157,6 @@ Local Integer LCON
 # 06.432.583.ini
     Filter [F:ZSHD] Where POHNUM = [M:POH0]POHNUM and POPLIN = [M:POH2]POPLIN(LCON)
     Read   [F:ZSHD] First
-#Infbox num$(fstat)
     If !fstat Then
       [F:ZSHD]ZNT = [M:POH2]ZNT(LCON)
       Trbegin [F:ZSHD]
@@ -172,26 +174,28 @@ Local Integer LCON
 
   Close Local File [ZSHD]                                                 # 06.432.583.new
 
-# 06.418.635.ini
-  If GFONCTION = "GESPOH"
-    Local Decimal WMNT
-    Local Integer WRET
-    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
-    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
-    For [ZPOQ]
-      WMNT = [F:ZPOQ]LINCSTPUR
-      Raz WRET
-      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
-      If WRET
-        GMESSAGE = mess(795,197,1)
-        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
-        GOK = 0
-        Break
-      Endif
-    Next
-    Close Local File [ZPOQ]
-  Endif
-# 06.418.635.fin
+# 06.450.784.ini (comento la actuación anterior para que no se procese)
+## 06.418.635.ini
+#  If GFONCTION = "GESPOH"
+#    Local Decimal WMNT
+#    Local Integer WRET
+#    If !clalev([F:ZPOQ]) Then : Local File PORDERQ [F:ZPOQ] : Endif
+#    Filter [F:ZPOQ] Where POHNUM = [M:POH0]POHNUM
+#    For [ZPOQ]
+#      WMNT = [F:ZPOQ]LINCSTPUR
+#      Raz WRET
+#      Call MAJ_REACSTPUR([F:ZPOQ]POHNUM,[F:ZPOQ]POPLIN,[F:ZPOQ]POQSEQ,WMNT,WRET) From STCCLC
+#      If WRET
+#        GMESSAGE = mess(795,197,1)
+#        Call ECR_TRACE([F:ZPOQ]POHNUM+"/"+num$([F:ZPOQ]POPLIN)-GMESSAGE,1) From GESECRAN
+#        GOK = 0
+#        Break
+#      Endif
+#    Next
+#    Close Local File [ZPOQ]
+#  Endif
+## 06.418.635.fin
+# 06.450.784.fin (comento la actuación anterior para que no se procese)
 Return
 
 #######################################################
