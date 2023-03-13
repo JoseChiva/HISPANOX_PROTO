@@ -709,76 +709,84 @@ Local Decimal LRET
 
   LRET = 999
 
-  # ****ARTÍCULO QUE SE PASA COMO PARÁMETRO****
-  If !clalev([F:ITN0]) Then : Local File ZITMTRANET [F:ITN0]  : Endif
-  If !clalev([F:ITV0]) Then : Local File ITMMVT     [F:ITV0]  : Endif
-  # stock real
-  Filter [F:ITN0] Where ITMREF = PS_ITMREF
-  Read [F:ITN0] First
-  LSTKREALITMREF = [F:ITN0]STOCK_REAL
-  Filter [F:ITN0]
-  # stock en pedidos de cliente
-  Read [F:ITV0]ITV0 = PS_ITMREF;PS_FCY
-  LSTKSOHITMREF = [F:ITV0]SALSTO
-  # salidas 12 meses
-  LV12ITMREF = max(func GET_V12(PS_ITMREF,PS_FCY),0)
+# 06.444.648.ini
+#  # ****ARTÍCULO QUE SE PASA COMO PARÁMETRO****
+#  If !clalev([F:ITN0]) Then : Local File ZITMTRANET [F:ITN0]  : Endif
+#  If !clalev([F:ITV0]) Then : Local File ITMMVT     [F:ITV0]  : Endif
+#  # stock real
+#  Filter [F:ITN0] Where ITMREF = PS_ITMREF
+#  Read [F:ITN0] First
+#  LSTKREALITMREF = [F:ITN0]STOCK_REAL
+#  Filter [F:ITN0]
+#  # stock en pedidos de cliente
+#  Read [F:ITV0]ITV0 = PS_ITMREF;PS_FCY
+#  LSTKSOHITMREF = [F:ITV0]SALSTO
+#  # salidas 12 meses
+#  LV12ITMREF = max(func GET_V12(PS_ITMREF,PS_FCY),0)
+#
+#  # ****COMPUESTOS CUANDO FORMA PARTE DE UN KIT****
+#  If !clalev([F:BOD1]) Then : Local File BOMD       [F:BOD1] : Endif
+#  If !clalev([F:ITN1]) Then : Local File ZITMTRANET [F:ITN1]  : Endif
+#  If !clalev([F:ITV1]) Then : Local File ITMMVT     [F:ITV1]  : Endif
+#
+#  Filter [F:BOD1] Where CPNITMREF = PS_ITMREF
+#  For [F:BOD1]
+#    # stock real
+#    Filter [F:ITN1] Where ITMREF = [F:BOD1]ITMREF
+#    Read [F:ITN1] First
+#    LSTKREALPADRE += [F:ITN1]STOCK_REAL * [F:BOD1]BOMQTY
+#    Filter [F:ITN1]
+#    # stock en pedido de cliente
+#    Read [F:ITV1]ITV0 = [F:BOD1]ITMREF;PS_FCY
+#    LSTKSOHPADRE += [F:ITV1]SALSTO * [F:BOD1]BOMQTY
+#    # salidas 12 meses
+#    LV12PADRE     += func GET_V12([F:BOD1]ITMREF,PS_FCY) * [F:BOD1]BOMQTY
+#  Next
+#  LV12PADRE = max(LV12PADRE,0)
+#
+#  # ****CÁLCULO DE LA COBERTURA****
+#  If (LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) <= 0 Then
+#    LRET = 0
+#  Else
+#    # fórmula indicada por Sergi
+#    # cobertura = (Stock + SUMA(stock_kits/sub*qty_comp) – pend_pedidos_clientes – SUMA(pend_pedidos_clientes_kits/sub*qty_comp) ) / (ventas_12m + SUMA(ventas_12m_kits/sub*qty_comp)) * 12
+#    If LV12ITMREF + LV12PADRE > 0 Then
+#      LRET = ar2(((LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) / (LV12ITMREF + LV12PADRE)) * 12)
+#    Elsif LV12ITMREF + LV12PADRE = 0 Then
+## 06.339.932.ini
+##      LRET = 0
+#      LRET = 999
+## 06.339.932.fin
+#    Else
+#      LRET = 999
+#    Endif
+#  Endif
+#
+#  Close Local File [ITN0],[ITN1],[BOD1],[ITV1]
 
-  # ****COMPUESTOS CUANDO FORMA PARTE DE UN KIT****
-  If !clalev([F:BOD1]) Then : Local File BOMD       [F:BOD1] : Endif
-  If !clalev([F:ITN1]) Then : Local File ZITMTRANET [F:ITN1]  : Endif
-  If !clalev([F:ITV1]) Then : Local File ITMMVT     [F:ITV1]  : Endif
-
-  Filter [F:BOD1] Where CPNITMREF = PS_ITMREF
-  For [F:BOD1]
-    # stock real
-    Filter [F:ITN1] Where ITMREF = [F:BOD1]ITMREF
-    Read [F:ITN1] First
-    LSTKREALPADRE += [F:ITN1]STOCK_REAL * [F:BOD1]BOMQTY
-    Filter [F:ITN1]
-    # stock en pedido de cliente
-    Read [F:ITV1]ITV0 = [F:BOD1]ITMREF;PS_FCY
-    LSTKSOHPADRE += [F:ITV1]SALSTO * [F:BOD1]BOMQTY
-    # salidas 12 meses
-    LV12PADRE     += func GET_V12([F:BOD1]ITMREF,PS_FCY) * [F:BOD1]BOMQTY
-  Next
-  LV12PADRE = max(LV12PADRE,0)
-
-  # ****CÁLCULO DE LA COBERTURA****
-  If (LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) <= 0 Then
-    LRET = 0
-  Else
-    # fórmula indicada por Sergi
-    # cobertura = (Stock + SUMA(stock_kits/sub*qty_comp) – pend_pedidos_clientes – SUMA(pend_pedidos_clientes_kits/sub*qty_comp) ) / (ventas_12m + SUMA(ventas_12m_kits/sub*qty_comp)) * 12
-    If LV12ITMREF + LV12PADRE > 0 Then
-      LRET = ar2(((LSTKREALITMREF + LSTKREALPADRE - LSTKSOHITMREF - LSTKSOHPADRE) / (LV12ITMREF + LV12PADRE)) * 12)
-    Elsif LV12ITMREF + LV12PADRE = 0 Then
-# 06.339.932.ini
+#  If !clalev([F:ITN0]) Then : Local File ZITMTRANET [F:ITN0]  : Endif
+#  Filter [F:ITN0] Where ITMREF = PS_ITMREF
+#  Read [F:ITN0] First
+#  If !fstat Then
+#    LRET = [F:ITN0]COBERTURA
+#    If LRET <= 0 Then
 #      LRET = 0
-      LRET = 999
-# 06.339.932.fin
-    Else
-      LRET = 999
+#    Endif
+#  Endif
+#
+#  Close Local File [ITN0]
+  If !clalev([F:ITC0]) Then : Local File ZITMCOB [F:ITC0]  : Endif
+  Read [F:ITC0]ZITC0 = PS_ITMREF
+  If !fstat Then
+    LRET = [F:ITC0]COBERTURA
+    If LRET <= 0 Then
+      LRET = 0
     Endif
   Endif
 
-  Close Local File [ITN0],[ITN1],[BOD1],[ITV1]
+  Close Local File [ITC0]
+# 06.444.648.fin
 
-#  If !clalev([F:ZVI0]) Then : Local File ZITMTRANET [F:ZVI0] : Endif
-#  Read [F:ZVI0]ZITN0 = PS_ITMREF
-#  If !fstat Then
-#    If [F:ZVI0]COBERTURA <= 0 Then
-#      LRET = 0
-#    Else
-#      If [F:ZVI0]COBERTURA > 0 Then
-#        LRET = ar2([F:ZVI0]COBERTURA)
-#      Elsif [F:ZVI0]COBERTURA = 0 Then
-#        LRET = 999
-#      Else
-#        LRET = 999
-#      Endif
-#    Endif
-#  Endif
-#  Close Local File [ZVI0]
 End LRET
 
 ##############################################################
@@ -2163,7 +2171,6 @@ Local Char      WEANCOD(20)
 
 End WEANCOD
 
-
 #######################
 # 06.423.928 : AFEGIR CAMPS COLUMNA ESQUERRA
 #**
@@ -2190,23 +2197,3 @@ If !clalev ([F:ZVT]) : Local File ZVTOTFAC [F:ZVT] : Endif
 Close Local File [F:ZVT]
 
 End PAGOTOTALVEN
-
-#Funprog ZTOTPAG(PNUMFACVEN)
-##Función utilizada para obtener el total pagado del vencimiento de factura de venta
-#Value Char  PNUMFACVEN
-#Local Decimal PAGOTOTALVEN(15)
-#
-#If !clalev ([F:ZVT]) : Local File ZVTOTFAC [F:ZVT] : Endif
-#
-#  Read [F:ZVT]ZVT0 = PNUMFACVEN
-#  If fstat = 0 Then
-#    If [F:ZVT]SUMVEN=0 Then
-#      PAGOTOTALVEN=0
-#    Else
-#      PAGOTOTALVEN =[F:ZVT]SUMVEN
-#    Endif
-#  Endif
-#
-#Close Local File [F:ZVT]
-#
-#End PAGOTOTALVEN
