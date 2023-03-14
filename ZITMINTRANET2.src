@@ -15,6 +15,7 @@ End
 # 06.317.599 - AMG.17032022 Facturacions de recepcions compres.
 # 06.351.827 - AMG.26052022 URGENTE - campos última consulta fichero articulos.csv
 # 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+# 06.452.986 - JC.14032023.Error campo cost última consulta en articulos.csv
 #############################################################
 
 ##################################################################
@@ -472,7 +473,10 @@ Filter [F:ZPPD]
 #Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 or LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
 # 06.323.891.FIN
 # 06.351.827.ini
-Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0  Order By HXCOST Asc
+# 06.452.986.ini
+#Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0 Order By HXCOST Asc
+Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0 and HXCOST<>0  Order By HXCOST Asc
+# 06.452.986.fin
 # 06.351.827.fin
 
 Read[F:ZPPD] First
@@ -480,6 +484,12 @@ Read[F:ZPPD] First
         ZBPSNUMOF=[F:ZPPD]BPSNUM
         ZLINRSPDAT=[F:ZPPD]LINRSPDAT
         ZHXCOST=[F:ZPPD]HXCOST
+# 06.452.986.ini
+        # divisa
+        If [F:ZPPD]LINCUR <> "EUR" Then
+          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",ZHXCOST,1,ZHXCOST) From ZAULIB01
+        Endif
+# 06.452.986.fin
     Endif
 Filter [F:ZPPD]
 

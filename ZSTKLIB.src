@@ -3,6 +3,7 @@
 #MLGA -  02/06/2020 - Desactivo en importacion
 #MLGA -  05/08/2020 - He anulado el calculo porque me da divion by zero al intentar borrar RECEPCIONES
 # 06.420.738 - JC.13122022.CM Rep articles subcontractació
+# 06.452.986 - JC.14032023.Error campo cost última consulta en articulos.csv
 ################################################################
 
 ################################################################
@@ -251,56 +252,93 @@ End
 Subprog CALC_CUCONS(PITMREF,PFCY)
 Value   Char  PITMREF,PFCY
 
-Local Date    WDATMAX
-Local Decimal WPRIMIN,WPRIMACT  : WPRIMACT = 999999999
+# 06.452.986.ini
+#Local Date    WDATMAX
+#Local Decimal WPRIMIN,WPRIMACT  : WPRIMACT = 999999999
+#
+#  Raz WDATMAX
+#
+#  If !clalev([F:ITF1])  Then : Local File ITMFACILIT  [F:ITF1]  : Endif
+#  If !clalev([F:ZPD1])  Then : Local File ZPRESPD     [F:ZPD1]  : Endif
+#  If !clalev([F:ZPD2])  Then : Local File ZPRESPD     [F:ZPD2]  : Endif
+#
+#  # busca la respuesta más reciente
+#  Filter [F:ZPD1] Where ITMREF = PITMREF Order By LINRSPDAT Desc
+#  Read [F:ZPD1] First
+#  If !fstat Then
+#    WDATMAX = [F:ZPD1]LINRSPDAT
+#  Endif
+#  Filter [F:ZPD1]
+#  # filtra sobre las vista que muestra líneas de respuesta por planta, artículo y fecha
+#  # (respuestas de los últimos 30 días anteriores a la fecha de la última respuesta)
+#  Filter [F:ZPD2] Where ITMREF = PITMREF and LINRSPDAT <= WDATMAX and LINRSPDAT >= (WDATMAX-30)
+#  For [F:ZPD2]
+#    Read [F:ITF1]ITF0 = [F:ZPD2]ITMREF;PFCY
+#    If !fstat Then
+#      WPRIMIN = [F:ZPD2]PRI
+#      # descuento
+#      If [F:ZPD2]LDISCRGVAL1 <> 0 Then
+#        WPRIMIN = WPRIMIN - ((WPRIMIN * [F:ZPD2]LDISCRGVAL1)/100)
+#      Endif
+#      # arancel
+#      If [F:ZPD2]LINCPRCOE <> 0 Then
+#        WPRIMIN = WPRIMIN * [F:ZPD2]LINCPRCOE
+#      Endif
+#      # divisa
+#      If [F:ZPD2]LINCUR <> "EUR" Then
+#        Local Decimal LCAMBIO
+#        Call CONVERTDIV([F:ZPD2]LINCUR,"EUR",WPRIMIN,1,WPRIMIN) From ZAULIB01
+#      Endif
+#      If WPRIMIN > 0 and (WPRIMIN < WPRIMACT) Then
+#        Trbegin [F:ITF1]
+#        [F:ITF1]ZCUCONS = WPRIMIN
+#        Rewrite [F:ITF1]
+#        If !fstat Then
+#          Commit
+#          WPRIMACT = WPRIMIN
+#        Else
+#          Rollback
+#        Endif
+#      Endif
+#    Endif
+#  Next
+#  Filter [F:ZPD2]
+#
+#  Close Local File [ITF1],[ZPD1],[ZPD2]
+If !clalev([F:ITF2]) Then : Local File ITMFACILIT [F:ITF2]  : Endif
+If !clalev([F:ZPPD]) Then : Local File ZPRESPD    [F:ZPPD]  : Endif
+Local Date WDAT1,WDAT2
 
-  Raz WDATMAX
+  For [F:ITF2] Where ITMREF = PITMREF and STOFCY = PFCY
+    Filter [F:ZPPD] Where ITMREF=[F:ITF2]ITMREF and LINRSPDAT<>[00/00/0000] and PRI>0   Order By LINRSPDAT Desc
+    Read[F:ZPPD] First
+      If !fstat
+        WDAT1=[F:ZPPD]LINRSPDAT
+        WDAT2=WDAT1-30
+      Endif
+    Filter [F:ZPPD]
 
-  If !clalev([F:ITF1])  Then : Local File ITMFACILIT  [F:ITF1]  : Endif
-  If !clalev([F:ZPD1])  Then : Local File ZPRESPD     [F:ZPD1]  : Endif
-  If !clalev([F:ZPD2])  Then : Local File ZPRESPD     [F:ZPD2]  : Endif
-
-  # busca la respuesta más reciente
-  Filter [F:ZPD1] Where ITMREF = PITMREF Order By LINRSPDAT Desc
-  Read [F:ZPD1] First
-  If !fstat Then
-    WDATMAX = [F:ZPD1]LINRSPDAT
-  Endif
-  Filter [F:ZPD1]
-  # filtra sobre las vista que muestra líneas de respuesta por planta, artículo y fecha
-  # (respuestas de los últimos 30 días anteriores a la fecha de la última respuesta)
-  Filter [F:ZPD2] Where ITMREF = PITMREF and LINRSPDAT <= WDATMAX and LINRSPDAT >= (WDATMAX-30)
-  For [F:ZPD2]
-    Read [F:ITF1]ITF0 = [F:ZPD2]ITMREF;PFCY
-    If !fstat Then
-      WPRIMIN = [F:ZPD2]PRI
-      # descuento
-      If [F:ZPD2]LDISCRGVAL1 <> 0 Then
-        WPRIMIN = WPRIMIN - ((WPRIMIN * [F:ZPD2]LDISCRGVAL1)/100)
-      Endif
-      # arancel
-      If [F:ZPD2]LINCPRCOE <> 0 Then
-        WPRIMIN = WPRIMIN * [F:ZPD2]LINCPRCOE
-      Endif
-      # divisa
-      If [F:ZPD2]LINCUR <> "EUR" Then
-        Local Decimal LCAMBIO
-        Call CONVERTDIV([F:ZPD2]LINCUR,"EUR",WPRIMIN,1,WPRIMIN) From ZAULIB01
-      Endif
-      If WPRIMIN > 0 and (WPRIMIN < WPRIMACT) Then
-        Trbegin [F:ITF1]
-        [F:ITF1]ZCUCONS = WPRIMIN
-        Rewrite [F:ITF1]
-        If !fstat Then
+    #ENTRE ZWDAT Y LINRSPDAT VER LA MEJOR OFERTA
+    Filter [F:ZPPD] Where ITMREF=[F:ITF2]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0 and HXCOST<>0  Order By HXCOST Asc
+    Read[F:ZPPD] First
+      If !fstat
+        [F:ITF2]ZCUCONS = [F:ZPPD]HXCOST/100
+        # divisa
+        If [F:ZPPD]LINCUR <> "EUR" Then
+          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",[F:ITF2]ZCUCONS,1,[F:ITF2]ZCUCONS) From ZAULIB01
+        Endif
+        Trbegin [F:ITF2]
+        Rewrite [F:ITF2]
+        If !fstat
           Commit
-          WPRIMACT = WPRIMIN
         Else
           Rollback
         Endif
       Endif
-    Endif
+    Filter [F:ZPPD]
   Next
-  Filter [F:ZPD2]
 
-  Close Local File [ITF1],[ZPD1],[ZPD2]
+  Close Local File [ITF2],[ZPPD]
+# 06.452.986.fin
+
 End
