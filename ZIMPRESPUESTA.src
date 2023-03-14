@@ -21,6 +21,52 @@ $IMP_ZONE
   Endif
   If [M:ZPPH0]BPSNUM = '' Then
     [M:ZPPH0]BPSNUM = [F:ZPPH]BPSNUM : Affzo [M:ZPPH0]BPSNUM
+    # bpsupplier
+    If !clalev([F:ZBPS]) Then : Local File BPSUPPLIER [F:ZBPS]: Endif
+    Read [F:ZBPS]BPS0 = [F:ZPPH]BPSNUM
+    If !fstat Then
+      [M:ZPPH0]BPSNAM   = [F:ZBPS]BPSNAM  : Affzo [M:ZPPH0]BPSNAM
+      [M:ZPPH0]BPSSHO   = [F:ZBPS]BPSSHO  : Affzo [M:ZPPH0]BPSSHO
+      [M:ZPPH1]EECICT   = [F:ZBPS]EECICT  : Affzo [M:ZPPH1]EECICT
+      [M:ZPPH1]MDL      = [F:ZBPS]MDL     : Affzo [M:ZPPH1]MDL
+      [M:ZPPH1]PRIDIV   = [F:ZBPS]ZUNPRE  : Affzo [M:ZPPH1]PRIDIV
+    Endif
+    Close Local File [ZBPS]
+    # pquotatf
+    If !clalev([F:LPQF]) Then : Local File PQUOTATF [F:LPQF]: Endif
+    Read [F:LPQF]PQF0 = [F:ZPPH]PQHNUM;[F:ZPPH]BPSNUM
+    If !fstat Then
+      [M:ZPPH1]CPRCOE = [F:LPQF]ZCPRCOE   : Affzo [M:ZPPH1]CPRCOE
+    Endif
+    If [F:LPQF]ZCPRCOE = 0 : [M:ZPPH1]CPRCOE = 1 Endif
+    Close Local File [LPQF]
+    # pquotat
+    If !clalev([F:ZPQH]) Then : Local File PQUOTAT [F:ZPQH] : Endif
+    Read [F:ZPQH]PQH0 = [F:ZPPH]PQHNUM
+    If !fstat Then
+      [M:ZPPH0]PQHREF = [F:ZPQH]PQHREF    : Affzo [M:ZPPH0]PQHREF
+    Endif
+    Close Local File [ZPQH]
+    # tabchange
+    [M:ZPPH1]CHGDIV=1
+    If !clalev([F:ZTCH]) : Local File TABCHANGE [F:ZTCH] : Endif
+    If [M:ZPPH1]CUR <> "EUR" and [M:ZPPH1]CUR <> ""
+      Filter [F:ZTCH] Where CUR = 'EUR' and CURDEN = [M:ZPPH1]CUR  Order By CHGSTRDAT Desc
+      Read [F:ZTCH]First
+      If !fstat
+        [M:ZPPH1]CHGDIV = [F:ZTCH]CHGDIV  : Affzo [M:ZPPH1]CHGDIV
+      Endif
+      Filter [F:ZTCH]
+    Endif
+    Close Local File [ZTCH]
+    # atextra
+    If !clalev([F:ZBPR]) Then : Local File BPARTNER [F:ZBPR] : Endif
+    If !clalev([F:ZAXX]) Then : Local File ATEXTRA  [F:ZAXX] : Endif
+    Read [F:ZBPR]BPR0 = [F:ZPPH]BPSNUM
+    Read [F:ZAXX]AXX0 = "TABCOUNTRY";"CRYDES";"SPA";[F:ZBPR]CRY;""
+    If !fstat Then
+      [M:ZPPH0]CRYDES = [F:ZAXX]TEXTE     : Affzo [M:ZPPH0]CRYDES
+    Endif
   Endif
 # 06.450.432.fin
 Return

@@ -55,6 +55,7 @@ If clalev([F:ZZPPD])=0: Local File ZPRESPD [ZZPPD]: Endif
 If clalev([F:FCY])=0: Local File FACILITY [FCY]: Endif
 If clalev([F:ITP])=0: Local File ITMBPS [ITP]: Endif
 If clalev([F:BPS])=0: Local File BPSUPPLIER [BPS]: Endif
+If clalev([F:BPR])=0: Local File BPARTNER [BPR]: Endif
 
 Local Integer ACTUALIZACION
 ACTUALIZACION = 0
@@ -596,7 +597,7 @@ If [F:LPQF]ZCPRCOE = 0 :[M:ZPPH1]CPRCOE = 1 Endif
 Affzo [M:ZPPH1]CPRCOE
 #[M:ZPPD1]PLISTC = [F:BPS]PLISTC ZUNPRE
 # 06.448.635.ini
-#Read [BPR] BPR0 = VALEUR
+Read [BPR] BPR0 = VALEUR
 #[M:ZPPH1]CUR = [BPR]CUR
 Read [F:BPS]BPS0 = VALEUR
 [M:ZPPH1]CUR = [F:BPS]CUR
