@@ -1,5 +1,6 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.329.867 - JC.29032022.Cuando se crea un VP desde pedido no se rellenan los campos Z de la pantalla de detalle
+# 06.457.067 - JC.28032023.Añadir transportista en filtro VP Padre
 #####################################################################################################################
 
 $ACTION
@@ -35,6 +36,7 @@ $BEFWRIPRE
   [F:PRE]ZBPDSAT      = [F:SOH]BPDSAT
   [F:PRE]ZBPDCRY      = [F:SOH]BPDCRY
   [F:PRE]ZBPDCRYNAM   = [F:SOH]BPDCRYNAM
+  [F:PRE]ZBPTNUM      = [F:SOH]BPTNUM                                     # 06.457.067.new
 # 06.329.867.fin
 Return
 

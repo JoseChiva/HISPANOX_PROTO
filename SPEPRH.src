@@ -5,6 +5,7 @@
 # 06.308.862 - JC.02022022.VP diferent adreça entrega
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 # 06.414.395 - JC.01122022.Saldo contable con negativos
+# 06.457.067 - JC.28032023.Añadir transportista en filtro VP Padre
 #############################################################################################
 
 $ACTION
@@ -223,6 +224,7 @@ Local Clbfile LCRIT(2)
   LCRIT += " and BPDSAT      = [M:PRH1]ZBPDSAT(0)"
   LCRIT += " and BPDCRY      = [M:PRH1]ZBPDCRY(0)"
   LCRIT += " and BPDCRYNAM   = [M:PRH1]ZBPDCRYNAM(0)"
+  LCRIT += " and BPTNUM      = [M:PRH1]ZBPTNUM(0)"                        # 06.457.067.new
 # 06.308.862.ini
   Default File [F:ZVVP1]
   Filter [F:ZVVP1] Where evalue(LCRIT)
