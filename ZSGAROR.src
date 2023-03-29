@@ -2,6 +2,7 @@
 # JC.24112021-1. Añadir líneas de detalle de lote
 # 06.304.683 - JC.27012022.Versión kit en el ROR para artículos con estructura KIT
 # 06.315.798 - JC.15032022.Devoluciones, 2 lotes internos en un solo artículo
+# 06.456.445 - JC.29032023.Devolución material proceso de subcontratación. No quieren que genere el fichero si la dev. es de subcontratación
 ##############################################################
 
 #FILTRO EXTERNO
@@ -88,7 +89,10 @@ Raz I
     Endif
     WFILTERSHH+=' & SHIPNUM=WVALORSHH'
   Endif
-  WFILTERSRH='1=1'
+# 06.456.445.ini
+#  WFILTERSRH='1=1'
+  WFILTERSRH='SRHTYP<>"SRC"'
+# 06.456.445.fin
   If WVALORSRH<>''
     If GTRACE=''
       WTRAZA=2
