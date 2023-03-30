@@ -1,10 +1,11 @@
 #<AdxTL>@(#)0.0.0.0 $Revision$
 # 06.302.184 - JC.18012022.añadir campo ZUSRSERV fichero albaranes.csv
 # 06.420.001 - JC.09122022.Ajuste fichero albaranes.csv
+# 06.433.043 - ML.18012023.Se agrega devoluciones al fichero de albaranes.csv
 ############################################################################
 
 Local Char WSDH
-#WSDH="EN2100308"
+#WSDH="EN2100427"
 #Call ALBARAN(WSDH) From ZSDHINTRANET
 Call ALBARANES(WSDH) From ZSDHINTRANET
 End
@@ -14,6 +15,8 @@ Subprog ALBARANES(WSDH)
 Variable Char WSDH
   Gosub OPEN_TABLAS
   Gosub CALCULARFECHA
+  Gosub CREAR_FICHERO_LIN # 06.433.043.new
+  Gosub CABECERA_ALBARANES # 06.433.043.new
   If WSDH <> "" Then
 #    Filter [F:SDH] Where SDHNUM=WSDH
     Filter [F:SDH] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                         # 06.420.001.new
@@ -26,8 +29,8 @@ Variable Char WSDH
   Read [F:SDH] First
   If !fstat Then
     If rowcount([F:SDH])>0
-      Gosub CREAR_FICHERO_LIN
-      Gosub CABECERA_ALBARANES
+      #Gosub CREAR_FICHERO_LIN    # 06.433.043
+      #Gosub CABECERA_ALBARANES   # 06.433.043
       For [F:SDH]SDH0
         Gosub CLIENTE_TRANSPORTISTA
         Filter [F:SDD] Where SDHNUM=[F:SDH]SDHNUM
@@ -41,9 +44,11 @@ Variable Char WSDH
          Gosub ESC_REGISTRO
        Next
       Next
-      Openo Using [SDH]
+      #Openo Using [SDH]  # 06.433.043
     Endif
   Endif
+  Gosub DEVOL  # 06.433.043.new
+  Openo Using [SDH]   # 06.433.043.new
 End
 
 ##################################################################
@@ -754,3 +759,118 @@ Endif
 Return
 
 ###################################################################
+$DEVOL
+
+# 06.433.043.ini
+#Abrir tablas
+If !clalev([F:ZSRH]) : Local File SRETURN [ZSRH] : Endif
+If !clalev([F:ZSRD]) : Local File SRETURND [ZSRD] : Endif
+If !clalev([F:ZITM]) : Local File ITMMASTER [ZITM] : Endif
+If !clalev([F:ZSDD]) : Local File SDELIVERYD [ZSDD] : Endif
+If !clalev([F:ZSDH]) : Local File SDELIVERY [ZSDH] : Endif
+If !clalev([F:ZBPR]) : Local File BPARTNER [ZBPR] : Endif
+
+
+Gosub CALCULARFECHA
+Filter [F:ZSRH] Where RTNDAT >= DIAUNOMESANT and RTNDAT <= ULTDIAMESACT
+#Filter [F:ZSRH] Where RTNDAT >= (date$-385) and RTNDAT <= (date$-21)
+
+If rowcount([F:ZSRH])>0
+  #Gosub CABECERA_ALBARANES # Comentar esto porque no va
+  For [F:ZSRH]
+    Local Char MOTE(250), NOMBRE_AG(250), NIF(250), NOMBRE_AG(250)
+    #CLIENTE
+    Read  [F:ZBPR]BPR0 = [F:ZSRH]BPCORD
+    If !fstat Then
+      MOTE       = [F:ZBPR]BPRSHO
+      NOMBRE_AG  = [F:ZBPR]BPRNAM(0)
+      NIF        = [F:ZBPR]CRN
+    Endif
+
+    For [F:ZSRD] Where [F:ZSRD]SRHNUM=[F:ZSRH]SRHNUM and [F:ZSRD]QTY<>0 and [F:ZSRD]RTNCNOFLG=2
+
+     Read [F:ZSDD]SDD0=[F:ZSRD]SDHNUM;[F:ZSRD]SDDLIN
+     If !fstat
+      LUNIDADPRECIO = ""
+      Read [F:ZSDH]SDH0=[F:ZSDD]SDHNUM
+      If [F:ZSDD]ZUNPRE <> "" Then
+        Case [F:ZSDD]ZUNPRE
+          When "UN"     : LUNIDADPRECIO = "u"
+          When "CEN"    : LUNIDADPRECIO = "%"
+          When "MIL"    : LUNIDADPRECIO = "m"
+        Endcase
+      # si el campo no está en la línea de la entrega, debe coger el valor de este campo en el pedido
+      Else
+        If !clalev([F:ZSOP]) : Local File SORDERP [ZSOP] : Endif
+        Read [F:ZSOP]SOP3 = [F:ZSDD]SOHNUM;[F:ZSDD]SOPLIN
+        If !fstat Then
+          Case [F:ZSOP]ZUNPRE
+            When "UN"     : LUNIDADPRECIO = "u"
+            When "CEN"    : LUNIDADPRECIO = "%"
+            When "MIL"    : LUNIDADPRECIO = "m"
+            When Default  : LUNIDADPRECIO = ""
+        Endcase
+        Endif
+      Endif
+
+     ###############
+      Local Decimal LPRECIOCLIENTE
+      LPRECIOCLIENTE = [F:ZSDD]ZPRECLI
+      If LPRECIOCLIENTE = 0 Then
+        If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
+        Read [F:ZSOP]SOP3 = [F:ZSDD]SOHNUM;[F:ZSDD]SOPLIN
+        If !fstat Then
+          LPRECIOCLIENTE = [F:ZSOP]ZPRECLI
+        Endif
+        Close Local File [ZSOP]
+      Endif
+     ###############
+      Local Decimal LPESOLIN
+      LPESOLIN    = func ZAULIB01.CONVERTIR_CANTIDAD([F:ZSDD]WEU,"KG",[F:ZSDD]UNTWEI*[F:ZSRD]QTY)
+      Gosub ESC_REGISTRO_DEV
+     Endif
+   Next
+  Next
+Endif
+Filter [F:ZSRH]
+# 06.433.043.fin
+Return
+
+##################################################################
+$ESC_REGISTRO_DEV
+# 06.433.043.ini
+Wrseq [F:ZSDH]BPCORD;                                  Using [SDH] # cliente
+Wrseq MOTE;                                           Using [SDH] # mote
+Wrseq [F:ZSRH]SRHNUM;                                  Using [SDH] # n_alb
+Wrseq [F:ZSRD]SRDLIN;                                  Using [SDH] # n_lin
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:ZSRH]RTNDAT);     Using [SDH] # fecha
+Wrseq [F:ZSDD]ITMREF;                                  Using [SDH] # inventario
+Wrseq [F:ZSDD]ZITMDES2;                                Using [SDH] # familia
+Wrseq "";                                   Using [SDH] # norma
+Wrseq -1*[F:ZSRD]QTY;                                     Using [SDH] # cantidad
+Wrseq LUNIDADPRECIO;                                  Using [SDH] # unidad precio
+Wrseq [F:ZSDH]CUR;                                     Using [SDH] # divisa
+Wrseq ctrans(num$(LPRECIOCLIENTE),".",",");           Using [SDH] # precio cliente
+Wrseq ctrans(num$([F:ZSDD]DISCRGVAL1),".",",");        Using [SDH] # dto
+Wrseq ctrans(num$(([F:ZSDD]NETPRI*100)),".",",");      Using [SDH] # precio_neto
+Wrseq ctrans(num$(([F:ZSDD]CPRPRI*100)),".",",");      Using [SDH] # coste
+Wrseq ctrans(num$([F:ZSDD]NETPRINOT*[F:ZSRD]QTY*(-1)),".",",");    Using [SDH] # importe
+Wrseq ctrans(num$([F:ZSDD]PFM*[F:ZSRD]QTY*(-1)),".",",");    Using [SDH] # margen
+Wrseq ctrans(num$(-1*LPESOLIN),".",",");                 Using [SDH] # peso
+
+Wrseq "";                                           Using [SDH] # ubic
+Wrseq "";                                           Using [SDH] # lote
+Wrseq "";                                  Using [SDH] # ag_trans
+Wrseq "";                                      Using [SDH] # nombre_ag
+Wrseq "";                             Using [SDH] # sector
+Wrseq "";                                        Using [SDH] # granel
+Wrseq "";                                        Using [SDH] # lote proveedor
+Wrseq "";                                        Using [SDH] # proveedor (del lote)
+Wrseq "";                                     Using [SDH] # referencia artículo cliente
+Wrseq "";                                     Using [SDH] # descripción artículo cliente
+Wrseq "";                                       Using [SDH] # descripción ventas de la nueva tabla máscaras
+Wrseq "";                              Using [SDH] # cód.pedido cliente
+Wrseq "";                              Using [SDH] # nº línea pedido cli
+Wrseq ""                                 Using [SDH] # preparador
+# 06.433.043.fin
+Return
