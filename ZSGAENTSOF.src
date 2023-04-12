@@ -21,6 +21,7 @@
 # 06.394.876 - JC.28092022.Error en la importación SOF con entregas de subcontratación
 # 06.410.236 - JC.07112022.problema MOLT GREU entregues 4/11. Se duplican cantidades porque el proceso se ejecuta dos veces a la vez
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
+# 06.462.615 - JC.12042023.Eliminación del caráter ';' en la dirección de entrega para que no impida la generación de la entrega
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -3722,21 +3723,32 @@ Local Char    LSHIDAT(15),LDLVDAT(15),LMESSAGE(250)
 
       LSHIDAT = left$(num$([F:ZESOF]SHIDAT),2)+mid$(num$([F:ZESOF]SHIDAT),4,2)+mid$(num$([F:ZESOF]SHIDAT),7,4)
       LDLVDAT = left$(num$([F:ZESOF]DLVDAT),2)+mid$(num$([F:ZESOF]DLVDAT),4,2)+mid$(num$([F:ZESOF]DLVDAT),7,4)
+# 06.462.615.ini
       Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
 &           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
 &           [F:ZESOF]BPAADD     + ";" + LSHIDAT           + ";" +
 &           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT
-&           + ";" + [F:ZSOH1]BPDNAM(0) + ";" + [F:ZSOH1]BPDNAM(1) + ";" + [F:ZSOH1]BPDADDLIG(0) + ";" + [F:ZSOH1]BPDADDLIG(1) + ";" + [F:ZSOH1]BPDADDLIG(2)
-&           + ";" + [F:ZSOH1]BPDPOSCOD + ";" + [F:ZSOH1]BPDCTY + ";" + [F:ZSOH1]BPDSAT + ";" + [F:ZSOH1]BPDCRY + ";" + [F:ZSOH1]BPCCRYNAM + ";" + [F:ZSOH1]CNDNAM
-&           Using [ZIMP] # 06.349.288.new
-#&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.332.553.new
-#&           LDLVDAT + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.319.759
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
-#&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
+&           + ";" + ctrans([F:ZSOH1]BPDNAM(0),";","") + ";" + ctrans([F:ZSOH1]BPDNAM(1),";","") + ";" + ctrans([F:ZSOH1]BPDADDLIG(0),";","") + ";"
+&           + ctrans([F:ZSOH1]BPDADDLIG(1),";","") + ";" + ctrans([F:ZSOH1]BPDADDLIG(2),";","") + ";" + ctrans([F:ZSOH1]BPDPOSCOD,";","") + ";"
+&           + ctrans([F:ZSOH1]BPDCTY,";","") + ";" + ctrans([F:ZSOH1]BPDSAT,";","") + ";" + ctrans([F:ZSOH1]BPDCRY,";","") + ";"
+&           + ctrans([F:ZSOH1]BPCCRYNAM,";","") + ";" + ctrans([F:ZSOH1]CNDNAM,";","")
+&           Using [ZIMP]
+#      Wrseq [F:ZESOF]INDICADOR  + ";" + [F:ZESOF]SALFCY   + ";" + [F:ZESOF]STOFCY       + ";" +
+#&           [F:ZESOF]SDHNUM     + ";" + [F:ZESOF]SDHTYP   + ";" + [F:ZESOF]BPCORD       + ";" +
+#&           [F:ZESOF]BPAADD     + ";" + LSHIDAT           + ";" +
+#&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT
+#&           + ";" + [F:ZSOH1]BPDNAM(0) + ";" + [F:ZSOH1]BPDNAM(1) + ";" + [F:ZSOH1]BPDADDLIG(0) + ";" + [F:ZSOH1]BPDADDLIG(1) + ";" + [F:ZSOH1]BPDADDLIG(2)
+#&           + ";" + [F:ZSOH1]BPDPOSCOD + ";" + [F:ZSOH1]BPDCTY + ";" + [F:ZSOH1]BPDSAT + ";" + [F:ZSOH1]BPDCRY + ";" + [F:ZSOH1]BPCCRYNAM + ";" + [F:ZSOH1]CNDNAM
+#&           Using [ZIMP] # 06.349.288.new
+##&           LDLVDAT + ";" + num$(LPACNBR)   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.332.553.new
+##&           LDLVDAT + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO + ";" + LINCOTERM + ";" + LCTYINCOT Using [ZIMP] # 06.319.759
+##&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP + ";" + LCONDPAGO Using [ZIMP]      # 06.310.719.new
+##&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP + ";" + LCONFCOOP Using [ZIMP]      # 06.309.060.new
+##&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  + ";" + LTRANSP Using [ZIMP]      # 06.298.127.new
+##&           LDLVDAT             + ";" + [F:ZESOF]PACNBR   + ";" + [F:ZESOF]ZTIPOPEDSGA  Using [ZIMP]
 
 # 06.369.962.elimino la moneda (CUR) del modelo para que la entrega siempre se genere con la misma divisa que el pedido
+# 06.462.615.fin
 
     Endif
     Filter [F:ZESOF]
