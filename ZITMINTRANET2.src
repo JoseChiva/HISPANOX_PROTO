@@ -484,12 +484,12 @@ Read[F:ZPPD] First
         ZBPSNUMOF=[F:ZPPD]BPSNUM
         ZLINRSPDAT=[F:ZPPD]LINRSPDAT
         ZHXCOST=[F:ZPPD]HXCOST
-# 06.452.986.ini
-        # divisa
-        If [F:ZPPD]LINCUR <> "EUR" Then
-          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",ZHXCOST,1,ZHXCOST) From ZAULIB01
-        Endif
-# 06.452.986.fin
+## 06.452.986.ini
+#        # divisa
+#        If [F:ZPPD]LINCUR <> "EUR" Then
+#          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",ZHXCOST,1,ZHXCOST) From ZAULIB01
+#        Endif
+## 06.452.986.fin
     Endif
 Filter [F:ZPPD]
 

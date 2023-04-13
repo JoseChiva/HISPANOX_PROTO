@@ -323,10 +323,10 @@ Local Date WDAT1,WDAT2
     Read[F:ZPPD] First
       If !fstat
         [F:ITF2]ZCUCONS = [F:ZPPD]HXCOST/100
-        # divisa
-        If [F:ZPPD]LINCUR <> "EUR" Then
-          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",[F:ITF2]ZCUCONS,1,[F:ITF2]ZCUCONS) From ZAULIB01
-        Endif
+#        # divisa
+#        If [F:ZPPD]LINCUR <> "EUR" Then
+#          Call CONVERTDIV([F:ZPPD]LINCUR,"EUR",[F:ITF2]ZCUCONS,1,[F:ITF2]ZCUCONS) From ZAULIB01
+#        Endif
         Trbegin [F:ITF2]
         Rewrite [F:ITF2]
         If !fstat
