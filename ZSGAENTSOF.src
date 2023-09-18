@@ -22,6 +22,7 @@
 # 06.410.236 - JC.07112022.problema MOLT GREU entregues 4/11. Se duplican cantidades porque el proceso se ejecuta dos veces a la vez
 # 06.317.883 - JC.06102022.CONSULTA  campo Total Crédito
 # 06.462.615 - JC.12042023.Eliminación del caráter ';' en la dirección de entrega para que no impida la generación de la entrega
+# 06.518.676 - JC.18092023.Error en la importación SOF cuando no existe la etiqueta LneCstAtt20
 ###########################################################################
 
 #If GUSER="ADEV" Then
@@ -69,7 +70,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 #  WFICHEROIMP='SOF0120220608095109000'
 #  WFICHEROIMP='SOF0120220211165012000'
 #  WFICHEROIMP='SOF0120220216161912000'
-  WFICHEROIMP='SOF0120230914164344000'
+#  WFICHEROIMP='SOF0120230914164344000'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -137,7 +138,6 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
     Gosub GUARDA_SOF_EN_TABLA
     Openi Using [ZZZ]
-End
 # 06.394.876.ini
     LESSUB = func ES_SUBCONTRATACION(WSGARECIBIDOS,WSGASUBC)
     If LESSUB Then : Break : Endif
@@ -412,12 +412,10 @@ $GUARDA_SOF_EN_TABLA
         WLNENUMBER    = vireblc(WLNENUMBER,2)
 
         WLONG         = 15
-
-###############################################################################################################################################################################
+# 06.518.676.ini
 #        WLNECSTATT20  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
 #        WLNECSTATT20  = toupper(ctrans(left$(WLNECSTATT20+space$(WLONG),WLONG)))
 #        WLNECSTATT20  = vireblc(WLNECSTATT20,2)
-
           WLNECSTATT20 = ''
           CONTROL1  = I
           CONTROL2  = I
@@ -430,7 +428,6 @@ $GUARDA_SOF_EN_TABLA
             RESULT  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
             RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
             RESULT  = vireblc(RESULT,2)
-#            [F:ZESOF]ZLOTPROV = RESULT
             WLNECSTATT20 = RESULT
           # existe LneCstAtt20 pero en otra línea del vale de preparación
           Else
@@ -442,21 +439,11 @@ $GUARDA_SOF_EN_TABLA
               RESULT  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
               RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
               RESULT  = vireblc(RESULT,2)
-#              [F:ZESOF]ZLOTPROV = RESULT
               WLNECSTATT20 = RESULT
             Endif
           Endif
           $ENDWLNECSTATT20
-
-
-###############################################################################################################################################################################
-
-
-
-
-
-
-
+# 06.518.676.fin
 
 #LINEAS DETALLE #######################################################
         # número de líneas detalle
@@ -483,7 +470,6 @@ $GUARDA_SOF_EN_TABLA
           Endif
         Wend
 
-Infbox WLNENUMBERDETAIL+":"-num$(WLNENUMBER)-"-"-num$(WNLINDETAIL)
         For M=1 To WNLINDETAIL
           Raz CONTROL1, CONTROL2
           Trbegin [F:ZESOF]
