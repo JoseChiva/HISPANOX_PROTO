@@ -69,7 +69,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 #  WFICHEROIMP='SOF0120220608095109000'
 #  WFICHEROIMP='SOF0120220211165012000'
 #  WFICHEROIMP='SOF0120220216161912000'
-#  WFICHEROIMP='SOF0120220922130610000'
+  WFICHEROIMP='SOF0120230914164344000'
   Raz NFICHEROS
 
   WSGATMP       = "ZSGA\SGA\IMPORTX3"
@@ -137,6 +137,7 @@ If !clalev([F:ZBPD])  : Local File BPDLVCUST  [ZBPD] : Endif                    
 
     Gosub GUARDA_SOF_EN_TABLA
     Openi Using [ZZZ]
+End
 # 06.394.876.ini
     LESSUB = func ES_SUBCONTRATACION(WSGARECIBIDOS,WSGASUBC)
     If LESSUB Then : Break : Endif
@@ -360,8 +361,8 @@ $GUARDA_SOF_EN_TABLA
       Write [F:ZESOF]
       If !fstat Then
         Commit
-        Call ECR_TRACE("Guarda en tabla el VP:"-WSORCODE,0) From GESECRAN
-        Call ECR_TRACE("---------------------------------------",0) From GESECRAN
+#        Call ECR_TRACE("Guarda en tabla el VP:"-WSORCODE,0) From GESECRAN
+#        Call ECR_TRACE("---------------------------------------",0) From GESECRAN
         GSTERROR = 0
       Else
         Rollback
@@ -411,9 +412,51 @@ $GUARDA_SOF_EN_TABLA
         WLNENUMBER    = vireblc(WLNENUMBER,2)
 
         WLONG         = 15
-        WLNECSTATT20  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
-        WLNECSTATT20  = toupper(ctrans(left$(WLNECSTATT20+space$(WLONG),WLONG)))
-        WLNECSTATT20  = vireblc(WLNECSTATT20,2)
+
+###############################################################################################################################################################################
+#        WLNECSTATT20  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
+#        WLNECSTATT20  = toupper(ctrans(left$(WLNECSTATT20+space$(WLONG),WLONG)))
+#        WLNECSTATT20  = vireblc(WLNECSTATT20,2)
+
+          WLNECSTATT20 = ''
+          CONTROL1  = I
+          CONTROL2  = I
+          RESULT    = func GET_PROPXML(XDATA,"LneCstAtt20",CONTROL1)
+          RESULT    = func GET_PROPXML(XDATA,"LneDetails",CONTROL2)
+          If CONTROL1 = 0 and CONTROL2 = 0 Then
+            Goto ENDWLNECSTATT20
+          # existe LneCstAtt20 para esa línea de detalle
+          Elsif ((CONTROL1 < CONTROL2) and CONTROL1 <> 0) or CONTROL2 = 0 Then
+            RESULT  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
+            RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+            RESULT  = vireblc(RESULT,2)
+#            [F:ZESOF]ZLOTPROV = RESULT
+            WLNECSTATT20 = RESULT
+          # existe LneCstAtt20 pero en otra línea del vale de preparación
+          Else
+            CONTROL1  = I
+            CONTROL2  = I
+            RESULT    = func GET_PROPXML(XDATA,"LneCstAtt20",CONTROL1)
+            RESULT    = func GET_PROPXML(XDATA,"LneNumber",CONTROL2)
+            If (CONTROL1 < CONTROL2) and (CONTROL1 <> 0) and (CONTROL2 = 0) Then
+              RESULT  = func GET_PROPXML(XDATA,"LneCstAtt20",I)
+              RESULT  = toupper(ctrans(left$(RESULT+space$(WLONG),WLONG)))
+              RESULT  = vireblc(RESULT,2)
+#              [F:ZESOF]ZLOTPROV = RESULT
+              WLNECSTATT20 = RESULT
+            Endif
+          Endif
+          $ENDWLNECSTATT20
+
+
+###############################################################################################################################################################################
+
+
+
+
+
+
+
 
 #LINEAS DETALLE #######################################################
         # número de líneas detalle
@@ -440,6 +483,7 @@ $GUARDA_SOF_EN_TABLA
           Endif
         Wend
 
+Infbox WLNENUMBERDETAIL+":"-num$(WLNENUMBER)-"-"-num$(WNLINDETAIL)
         For M=1 To WNLINDETAIL
           Raz CONTROL1, CONTROL2
           Trbegin [F:ZESOF]
