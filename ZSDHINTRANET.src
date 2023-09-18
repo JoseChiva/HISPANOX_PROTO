@@ -2,6 +2,7 @@
 # 06.302.184 - JC.18012022.añadir campo ZUSRSERV fichero albaranes.csv
 # 06.420.001 - JC.09122022.Ajuste fichero albaranes.csv
 # 06.433.043 - ML.18012023.Se agrega devoluciones al fichero de albaranes.csv
+# 06.458.930 - JC.30032023.Error creación ficheros csv intranet
 ############################################################################
 
 Local Char WSDH
@@ -19,22 +20,22 @@ Variable Char WSDH
   Gosub CABECERA_ALBARANES # 06.433.043.new
   If WSDH <> "" Then
 #    Filter [F:SDH] Where SDHNUM=WSDH
-    Filter [F:SDH] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                         # 06.420.001.new
+    Filter [F:SDHZ] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                         # 06.420.001.new
   Else
 #    Filter [F:SDH] Where (WSDH="" or SDHNUM=WSDH) and DLVDAT >= DIAUNOMESANT and DLVDAT <= date$
 #    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT
-    Filter [F:SDH] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT and SDHTYP <> 'ES'   # 06.420.001.new
+    Filter [F:SDHZ] Where DLVDAT >= DIAUNOMESANT and DLVDAT <= ULTDIAMESACT and SDHTYP <> 'ES'   # 06.420.001.new
   Endif
 
-  Read [F:SDH] First
+  Read [F:SDHZ] First
   If !fstat Then
-    If rowcount([F:SDH])>0
+    If rowcount([F:SDHZ])>0
       #Gosub CREAR_FICHERO_LIN    # 06.433.043
       #Gosub CABECERA_ALBARANES   # 06.433.043
-      For [F:SDH]SDH0
+      For [F:SDHZ]SDH0
         Gosub CLIENTE_TRANSPORTISTA
-        Filter [F:SDD] Where SDHNUM=[F:SDH]SDHNUM
-        For [F:SDD]
+        Filter [F:SDDZ] Where SDHNUM=[F:SDHZ]SDHNUM
+        For [F:SDDZ]
          Gosub DATOS_ARTICULO
          Gosub UNIDAD_PRECIO
          Gosub PRECIO_CLIENTE
@@ -55,10 +56,10 @@ End
 Subprog ALBARAN(WSDH)
 Variable Char WSDH
 Gosub OPEN_TABLAS
-Filter [F:SDH] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                             # 06.420.001.new
-Read [F:SDH] First
+Filter [F:SDHZ] Where SDHNUM=WSDH and SDHTYP <> 'ES'                                             # 06.420.001.new
+Read [F:SDHZ] First
 If !fstat Then
-  If rowcount([F:SDH])>0
+  If rowcount([F:SDHZ])>0
     Gosub CREAR_FICHERO
     Gosub CABECERA_ALBARAN
     Gosub CLIENTE_TRANSPORTISTA
@@ -72,9 +73,9 @@ If !fstat Then
     Gosub OBSERVACIONES
     Gosub ESC_REGISTRO_CAB
     Gosub LINEAS_ALBARAN
-    For [F:SDH]SDH0
-      Filter [F:SDD] Where SDHNUM=[F:SDH]SDHNUM
-      For [F:SDD]
+    For [F:SDHZ]SDH0
+      Filter [F:SDDZ] Where SDHNUM=[F:SDHZ]SDHNUM
+      For [F:SDDZ]
         Gosub DATOS_ARTICULO
         Gosub UNIDAD_PRECIO
         Gosub PRECIO_CLIENTE
@@ -91,22 +92,38 @@ End
 
 ##################################################################
 $OPEN_TABLAS
-Local File ITMMASTER
-Local File SDELIVERY
-Local File SDELIVERYD
-Local File ITMBPC
-Local File BPADDRESS
-Local File BPARTNER
-#Local File CONTACT
-Local File BPCUSTOMER
-Local File TABCUR
-Local File TABCHANGE
-Local File STOJOU
-Local File STOLOT
-Local File STOALL
-Local File STOCK
-Local File ZMASCARA
-Local File STOPRED
+# 06.458.930.ini
+#Local File ITMMASTER
+#Local File SDELIVERY
+#Local File SDELIVERYD
+#Local File ITMBPC
+#Local File BPADDRESS
+#Local File BPARTNER
+#Local File BPCUSTOMER
+#Local File TABCUR
+#Local File TABCHANGE
+#Local File STOJOU
+#Local File STOLOT
+#Local File STOALL
+#Local File STOCK
+#Local File ZMASCARA
+#Local File STOPRED
+If !clalev([F:ITMZ]) Then : Local File ITMMASTER  [F:ITMZ] : Endif
+If !clalev([F:SDHZ]) Then : Local File SDELIVERY  [F:SDHZ] : Endif
+If !clalev([F:SDDZ]) Then : Local File SDELIVERYD [F:SDDZ] : Endif
+If !clalev([F:ITUZ]) Then : Local File ITMBPC     [F:ITUZ] : Endif
+If !clalev([F:BPAZ]) Then : Local File BPADDRESS  [F:BPAZ] : Endif
+If !clalev([F:BPRZ]) Then : Local File BPARTNER   [F:BPRZ] : Endif
+If !clalev([F:BPCZ]) Then : Local File BPCUSTOMER [F:BPCZ] : Endif
+If !clalev([F:TCUZ]) Then : Local File TABCUR     [F:TCUZ] : Endif
+If !clalev([F:TCHZ]) Then : Local File TABCHANGE  [F:TCHZ] : Endif
+If !clalev([F:STJZ]) Then : Local File STOJOU     [F:STJZ] : Endif
+If !clalev([F:STLZ]) Then : Local File STOLOT     [F:STLZ] : Endif
+If !clalev([F:STAZ]) Then : Local File STOALL     [F:STAZ] : Endif
+If !clalev([F:STOZ]) Then : Local File STOCK      [F:STOZ] : Endif
+If !clalev([F:ZMAZ]) Then : Local File ZMASCARA   [F:ZMAZ] : Endif
+If !clalev([F:PREZ]) Then : Local File STOPRED    [F:PREZ] : Endif
+# 06.458.930.fin
 
 Return
 
@@ -280,62 +297,62 @@ $DATOS_ARTICULO
 Local Char DESCRIPCION2(250), DESCRIPCION3(250), DESCARTCLI(250), REFERENCIA(250),LBPSLOT(250),BPSNUML(250)
 Local Char LOTE(250),UBIC(250),ZMASCARA(250),ALMACEN(250)
 
-LBPSLOT = [F:SDD]ZLOTPROVSGA
+LBPSLOT = [F:SDDZ]ZLOTPROVSGA
 
-Read [F:ITM]ITM0=[F:SDD]ITMREF
-Filter [F:ITU] Where ITMREF = [F:SDD]ITMREF and BPCNUM = [F:SDD]BPCORD
-Read [F:ITU] First
+Read [F:ITMZ]ITM0=[F:SDDZ]ITMREF
+Filter [F:ITUZ] Where ITMREF = [F:SDDZ]ITMREF and BPCNUM = [F:SDDZ]BPCORD
+Read [F:ITUZ] First
 If !fstat Then
-  DESCARTCLI = [F:ITU]ITMDESBPC
-  REFERENCIA = [F:ITU]ITMREFBPC
+  DESCARTCLI = [F:ITUZ]ITMDESBPC
+  REFERENCIA = [F:ITUZ]ITMREFBPC
 Endif
 
-Filter [F:ITM] Where ITMREF = [F:SDD]ITMREF
-Read [F:ITM] First
+Filter [F:ITMZ] Where ITMREF = [F:SDDZ]ITMREF
+Read [F:ITMZ] First
 If !fstat Then
-  DESCRIPCION2 = [F:ITM]ITMDES2
-  DESCRIPCION3 = [F:ITM]ITMDES3
+  DESCRIPCION2 = [F:ITMZ]ITMDES2
+  DESCRIPCION3 = [F:ITMZ]ITMDES3
 Endif
 
-If [F:SDH]CFMFLG = 2
-  Filter [F:STJ] Where VCRNUM = [F:SDD]SDHNUM and VCRLIN = [F:SDD]SDDLIN
-  Read [F:STJ] First
+If [F:SDHZ]CFMFLG = 2
+  Filter [F:STJZ] Where VCRNUM = [F:SDDZ]SDHNUM and VCRLIN = [F:SDDZ]SDDLIN
+  Read [F:STJZ] First
   If !fstat
 #    LBPSLOT  = [F:STJ]BPSLOT
-    If rowcount([F:STJ]) = 1 Then
-      LOTE    = [F:STJ]LOT
+    If rowcount([F:STJZ]) = 1 Then
+      LOTE    = [F:STJZ]LOT
     Endif
-    UBIC    = [F:STJ]LOC
+    UBIC    = [F:STJZ]LOC
 #    Filter [F:STL] Where ITMREF = [F:SDD]ITMREF and LOT = [F:STJ]LOT
     If LBPSLOT <> "" Then
-      Filter [F:STL] Where ITMREF = [F:SDD]ITMREF and BPSLOT = LBPSLOT
-      Read [F:STL] First
+      Filter [F:STLZ] Where ITMREF = [F:SDDZ]ITMREF and BPSLOT = LBPSLOT
+      Read [F:STLZ] First
       If !fstat
-        BPSNUML = [F:STL]BPSNUM
+        BPSNUML = [F:STLZ]BPSNUM
       Else
         BPSNUML = ""
       Endif
     Endif
   Endif
 Else
-  Filter [F:STA] Where VCRNUM = [F:SDD]SDHNUM and VCRLIN = [F:SDD]SDDLIN
-  Read [F:STA] First
+  Filter [F:STAZ] Where VCRNUM = [F:SDDZ]SDHNUM and VCRLIN = [F:SDDZ]SDDLIN
+  Read [F:STAZ] First
   If !fstat
-    Filter [F:STO] Where ITMREF = [F:STA]ITMREF and STOCOU = [F:STA]STOCOU and STOFCY = [F:STA]STOFCY
-    Read [F:STO]First
+    Filter [F:STOZ] Where ITMREF = [F:STAZ]ITMREF and STOCOU = [F:STAZ]STOCOU and STOFCY = [F:STAZ]STOFCY
+    Read [F:STOZ]First
     If !fstat
-#      LBPSLOT   =  [F:STO]BPSLOT
-      If rowcount([F:STA]) = 1 Then
-        LOTE     =  [F:STO]LOT
+#      LBPSLOT   =  [F:ZMAZ]BPSLOT
+      If rowcount([F:STAZ]) = 1 Then
+        LOTE     =  [F:STOZ]LOT
       Endif
-      UBIC     =  [F:STO]LOC
-      ALMACEN  =  [F:STO]LOCTYP
+      UBIC     =  [F:STOZ]LOC
+      ALMACEN  =  [F:STOZ]LOCTYP
 #      Filter [F:STL] Where ITMREF = [F:SDD]ITMREF and LOT = [L]LOTE
       If LBPSLOT <> "" Then
-        Filter [F:STL] Where ITMREF = [F:SDD]ITMREF and BPSLOT = LBPSLOT
-        Read [F:STL] First
+        Filter [F:STLZ] Where ITMREF = [F:SDDZ]ITMREF and BPSLOT = LBPSLOT
+        Read [F:STLZ] First
         If !fstat
-           BPSNUML = [F:STL]BPSNUM
+           BPSNUML = [F:STLZ]BPSNUM
          Else
            BPSNUML = ""
         Endif
@@ -346,9 +363,9 @@ Else
 Endif
 
 
-Read [F:ZMAS]ZMA0 = [F:ITM]ZMASK
+Read [F:ZMAZ]ZMA0 = [F:ITMZ]ZMASK
 If !fstat
-  [L]ZMASCARA = [F:ZMAS]ZDESMAS1
+  [L]ZMASCARA = [F:ZMAZ]ZDESMAS1
 Endif
 
 Return
@@ -359,15 +376,15 @@ Local Char    LUNIDADPRECIO(250)
 
   If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
 
-  If [F:SDD]ZUNPRE <> "" Then
-    Case [F:SDD]ZUNPRE
+  If [F:SDDZ]ZUNPRE <> "" Then
+    Case [F:SDDZ]ZUNPRE
       When "UN"     : LUNIDADPRECIO = "u"
       When "CEN"    : LUNIDADPRECIO = "%"
       When "MIL"    : LUNIDADPRECIO = "m"
     Endcase
   # si el campo no está en la línea de la entrega, debe coger el valor de este campo en el pedido
   Else
-    Read [F:ZSOP]SOP3 = [F:SDD]SOHNUM;[F:SDD]SOPLIN
+    Read [F:ZSOP]SOP3 = [F:SDDZ]SOHNUM;[F:SDDZ]SOPLIN
     If !fstat Then
       Case [F:ZSOP]ZUNPRE
         When "UN"     : LUNIDADPRECIO = "u"
@@ -385,10 +402,10 @@ Return
 $PRECIO_CLIENTE
 Local Decimal LPRECIOCLIENTE
 
-  LPRECIOCLIENTE = [F:SDD]ZPRECLI
+  LPRECIOCLIENTE = [F:SDDZ]ZPRECLI
   If LPRECIOCLIENTE = 0 Then
     If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
-    Read [F:ZSOP]SOP3 = [F:SDD]SOHNUM;[F:SDD]SOPLIN
+    Read [F:ZSOP]SOP3 = [F:SDDZ]SOHNUM;[F:SDDZ]SOPLIN
     If !fstat Then
       LPRECIOCLIENTE = [F:ZSOP]ZPRECLI
     Endif
@@ -400,26 +417,26 @@ Return
 ##################################################################
 $PESO
 Local Decimal LPESO,LPESOMANUAL
-  LPESO       = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDH]WEU,"KG",[F:SDH]NETWEI)
-  LPESOMANUAL = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDH]WEU,"KG",[F:SDH]GROWEI)
+  LPESO       = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDHZ]WEU,"KG",[F:SDHZ]NETWEI)
+  LPESOMANUAL = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDHZ]WEU,"KG",[F:SDHZ]GROWEI)
 Return
 
 ##################################################################
 $PESO_LIN
 Local Decimal LPESOLIN
-  LPESOLIN    = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDD]WEU,"KG",[F:SDD]UNTWEI*[F:SDD]QTY)
+  LPESOLIN    = func ZAULIB01.CONVERTIR_CANTIDAD([F:SDDZ]WEU,"KG",[F:SDDZ]UNTWEI*[F:SDDZ]QTY)
 Return
 
 ##################################################################
 $GRANEL
 Local Decimal LCANTCAJA
 Local Char    LGRANEL(250) : LGRANEL = ""
-  If [F:SDD]SOHNUM <> "" Then
-    Read [F:ITM]ITM0 = [F:SDD]ITMREF
+  If [F:SDDZ]SOHNUM <> "" Then
+    Read [F:ITMZ]ITM0 = [F:SDDZ]ITMREF
     If !fstat Then
-      If [F:ITM]TCLCOD <> "CERT" Then
-        LCANTCAJA = func ZAULIB01.CANTIDAD_CAJA([F:SDD]ITMREF)
-        If mod([F:SDD]QTY,LCANTCAJA) <> 0 Then
+      If [F:ITMZ]TCLCOD <> "CERT" Then
+        LCANTCAJA = func ZAULIB01.CANTIDAD_CAJA([F:SDDZ]ITMREF)
+        If mod([F:SDDZ]QTY,LCANTCAJA) <> 0 Then
           LGRANEL = "X"
         Endif
       Endif
@@ -431,7 +448,7 @@ Return
 $DATOS_PED_CLI
 Local Char LCODPEDCLI(250),LNUMLINCLI(250)
   If !clalev([F:ZSOP]) Then : Local File SORDERP [F:ZSOP] : Endif
-  Read [F:ZSOP]SOP3 = [F:SDD]SOHNUM;[F:SDD]SOPLIN
+  Read [F:ZSOP]SOP3 = [F:SDDZ]SOHNUM;[F:SDDZ]SOPLIN
   If !fstat Then
     LCODPEDCLI  = [F:ZSOP]ZCUSORDREF
     LNUMLINCLI  = [F:ZSOP]ZNUMLINCLI
@@ -443,7 +460,7 @@ Return
 $IMPORTES
 Local Decimal LTOTALBRUTO,LTOTALNETO
   If !clalev([F:ZSDD]) Then : Local File SDELIVERYD [F:ZSDD] : Endif
-  Filter [F:ZSDD] Where SDHNUM = [F:SDH]SDHNUM
+  Filter [F:ZSDD] Where SDHNUM = [F:SDHZ]SDHNUM
   For [F:ZSDD]
     LTOTALBRUTO += [F:ZSDD]GROPRI * [F:ZSDD]QTY
     LTOTALNETO  += [F:ZSDD]NETPRI * [F:ZSDD]QTY
@@ -458,25 +475,25 @@ Local Decimal DTOPOR,DTOIMP,TRAPOR,TRAIMP,DPPPOR,DPPIMP,DFAPOR,DFAIMP
 
   If !clalev([F:ZSVF]) Then : Local File SVCRFOOT [F:ZSVF] : Endif
   # dto
-  Read [F:ZSVF]SVF0 = [F:SDH]SDHNUM;2;1
+  Read [F:ZSVF]SVF0 = [F:SDHZ]SDHNUM;2;1
   If !fstat Then
     DTOPOR = [F:ZSVF]DTAAMT
     DTOIMP = [F:ZSVF]DTANOT
   Endif
   # transporte
-  Read [F:ZSVF]SVF0 = [F:SDH]SDHNUM;2;2
+  Read [F:ZSVF]SVF0 = [F:SDHZ]SDHNUM;2;2
   If !fstat Then
     TRAPOR = [F:ZSVF]DTAAMT
     TRAIMP = [F:ZSVF]DTANOT
   Endif
   # dto pp
-  Read [F:ZSVF]SVF0 = [F:SDH]SDHNUM;2;3
+  Read [F:ZSVF]SVF0 = [F:SDHZ]SDHNUM;2;3
   If !fstat Then
     DPPPOR = [F:ZSVF]DTAAMT
     DPPIMP = [F:ZSVF]DTANOT
   Endif
   # fac.anticipo
-  Read [F:ZSVF]SVF0 = [F:SDH]SDHNUM;2;4
+  Read [F:ZSVF]SVF0 = [F:SDHZ]SDHNUM;2;4
   If !fstat Then
     DFAPOR = [F:ZSVF]DTAAMT
     DFAIMP = [F:ZSVF]DTANOT
@@ -492,7 +509,7 @@ Local Decimal RECPOR,RECIMP
   If !clalev([F:ZSVV]) Then : Local File SVCRVAT [F:ZSVV] : Endif
 
   # iva
-  Filter [F:ZSVV] Where VCRTYP = 2 and VCRNUM = [F:SDH]SDHNUM and VATTYP = 1
+  Filter [F:ZSVV] Where VCRTYP = 2 and VCRNUM = [F:SDHZ]SDHNUM and VATTYP = 1
   Read [F:ZSVV] First
   If !fstat Then
     BIMP    = [F:ZSVV]BASTAX
@@ -502,7 +519,7 @@ Local Decimal RECPOR,RECIMP
   Filter [F:ZSVV]
 
   # recargo equivalencia
-  Filter [F:ZSVV] Where VCRTYP = 2 and VCRNUM = [F:SDH]SDHNUM and VATTYP = 2
+  Filter [F:ZSVV] Where VCRTYP = 2 and VCRNUM = [F:SDHZ]SDHNUM and VATTYP = 2
   Read [F:ZSVV] First
   If !fstat Then
     RECPOR  = [F:ZSVV]VATRAT
@@ -519,7 +536,7 @@ $OBSERVACIONES
 Local Clbfile LOBSER1
 
   If !clalev([F:ZTCB]) Then : Local File TEXCLOB [F:ZTCB] : Endif
-  Read [F:ZTCB]TXC0 = [F:SDH]SDHTEX1
+  Read [F:ZTCB]TXC0 = [F:SDHZ]SDHTEX1
   If !fstat Then
     LOBSER1 = [F:ZTCB]TEXTE
     If instr(1,[F:ZTCB]TEXTE,chr$(10)) <> 0 and instr(1,[F:ZTCB]TEXTE,chr$(13)) <> 0 Then
@@ -535,54 +552,54 @@ Return
 
 ##################################################################
 $ESC_REGISTRO
-Wrseq [F:SDH]BPCORD;                                  Using [SDH] # cliente
+Wrseq [F:SDHZ]BPCORD;                                  Using [SDH] # cliente
 Wrseq MOTE;                                           Using [SDH] # mote
-Wrseq [F:SDH]SDHNUM;                                  Using [SDH] # n_alb
-Wrseq [F:SDD]SDDLIN;                                  Using [SDH] # n_lin
-Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SDH]SHIDAT);     Using [SDH] # fecha
-Wrseq [F:SDD]ITMREF;                                  Using [SDH] # inventario
-Wrseq [F:SDD]ZITMDES2;                                Using [SDH] # familia
+Wrseq [F:SDHZ]SDHNUM;                                  Using [SDH] # n_alb
+Wrseq [F:SDDZ]SDDLIN;                                  Using [SDH] # n_lin
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SDHZ]SHIDAT);     Using [SDH] # fecha
+Wrseq [F:SDDZ]ITMREF;                                  Using [SDH] # inventario
+Wrseq [F:SDDZ]ZITMDES2;                                Using [SDH] # familia
 Wrseq DESCRIPCION3;                                   Using [SDH] # norma
-Wrseq [F:SDD]QTY;                                     Using [SDH] # cantidad
+Wrseq [F:SDDZ]QTY;                                     Using [SDH] # cantidad
 Wrseq LUNIDADPRECIO;                                  Using [SDH] # unidad precio
-Wrseq [F:SDH]CUR;                                     Using [SDH] # divisa
+Wrseq [F:SDHZ]CUR;                                     Using [SDH] # divisa
 Wrseq ctrans(num$(LPRECIOCLIENTE),".",",");           Using [SDH] # precio cliente
-Wrseq ctrans(num$([F:SDD]DISCRGVAL1),".",",");        Using [SDH] # dto
-Wrseq ctrans(num$(([F:SDD]NETPRI*100)),".",",");      Using [SDH] # precio_neto
-Wrseq ctrans(num$(([F:SDD]CPRPRI*100)),".",",");      Using [SDH] # coste
-Wrseq ctrans(num$([F:SDD]NETPRINOT*[F:SDD]QTY),".",",");    Using [SDH] # importe
-Wrseq ctrans(num$([F:SDD]PFM*[F:SDD]QTY),".",",");    Using [SDH] # margen
+Wrseq ctrans(num$([F:SDDZ]DISCRGVAL1),".",",");        Using [SDH] # dto
+Wrseq ctrans(num$(([F:SDDZ]NETPRI*100)),".",",");      Using [SDH] # precio_neto
+Wrseq ctrans(num$(([F:SDDZ]CPRPRI*100)),".",",");      Using [SDH] # coste
+Wrseq ctrans(num$([F:SDDZ]NETPRINOT*[F:SDDZ]QTY),".",",");    Using [SDH] # importe
+Wrseq ctrans(num$([F:SDDZ]PFM*[F:SDDZ]QTY),".",",");    Using [SDH] # margen
 # 06.302.184.ini
 #Wrseq ctrans(num$(LPESO),".",",");                    Using [SDH] # peso
 Wrseq ctrans(num$(LPESOLIN),".",",");                 Using [SDH] # peso
 # 06.302.184.fin
 Wrseq UBIC;                                           Using [SDH] # ubic
 Wrseq LOTE;                                           Using [SDH] # lote
-Wrseq [F:SDH]BPTNUM;                                  Using [SDH] # ag_trans
+Wrseq [F:SDHZ]BPTNUM;                                  Using [SDH] # ag_trans
 Wrseq NOMBRE_AG;                                      Using [SDH] # nombre_ag
-Wrseq [F:SDH]ZTIPOPEDSGA;                             Using [SDH] # sector
+Wrseq [F:SDHZ]ZTIPOPEDSGA;                             Using [SDH] # sector
 Wrseq LGRANEL;                                        Using [SDH] # granel
 Wrseq LBPSLOT;                                        Using [SDH] # lote proveedor
 Wrseq BPSNUML;                                        Using [SDH] # proveedor (del lote)
 Wrseq REFERENCIA;                                     Using [SDH] # referencia artículo cliente
 Wrseq DESCARTCLI;                                     Using [SDH] # descripción artículo cliente
 Wrseq ZMASCARA;                                       Using [SDH] # descripción ventas de la nueva tabla máscaras
-Wrseq [F:SDD]ZCUSORDREF;                              Using [SDH] # cód.pedido cliente
-Wrseq [F:SDD]ZNUMLINCLI;                              Using [SDH] # nº línea pedido cli
-Wrseq [F:SDD]ZUSRSERV                                 Using [SDH] # preparador                            # 06.302.184.new
+Wrseq [F:SDDZ]ZCUSORDREF;                              Using [SDH] # cód.pedido cliente
+Wrseq [F:SDDZ]ZNUMLINCLI;                              Using [SDH] # nº línea pedido cli
+Wrseq [F:SDDZ]ZUSRSERV                                 Using [SDH] # preparador                            # 06.302.184.new
 
 Return
 
 ##################################################################
 $ESC_REGISTRO_CAB
-Wrseq [F:SDH]SDHNUM;                                  Using [SDH] # n_alb
-Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SDH]SHIDAT);     Using [SDH] # fecha
-Wrseq [F:SDH]BPCORD;                                  Using [SDH] # cliente
+Wrseq [F:SDHZ]SDHNUM;                                  Using [SDH] # n_alb
+Wrseq format$("DZ:DD[/]MM[/]YYYY",[F:SDHZ]SHIDAT);     Using [SDH] # fecha
+Wrseq [F:SDHZ]BPCORD;                                  Using [SDH] # cliente
 Wrseq MOTE;                                           Using [SDH] # mote
 Wrseq PROVEEDOR;                                      Using [SDH] # proveedor
-Wrseq [F:SDH]BPDNAM(0);                               Using [SDH] # rsoc
-Wrseq [F:SDH]BPDNAM(1);                               Using [SDH] # nom
-Wrseq [F:SDH]BPAADD;                                  Using [SDH] # dir
+Wrseq [F:SDHZ]BPDNAM(0);                               Using [SDH] # rsoc
+Wrseq [F:SDHZ]BPDNAM(1);                               Using [SDH] # nom
+Wrseq [F:SDHZ]BPAADD;                                  Using [SDH] # dir
 Wrseq DESC_DIREC;                                     Using [SDH] # descripción dirección
 Wrseq DIREC1;                                         Using [SDH] # descripción dirección
 Wrseq DIREC2;                                         Using [SDH] # descripción dirección
@@ -591,14 +608,14 @@ Wrseq POB;                                            Using [SDH] # pob
 Wrseq PRO;                                            Using [SDH] # pro
 Wrseq NIF;                                            Using [SDH] # nif
 Wrseq PAIS;                                           Using [SDH] # país
-Wrseq [F:SDH]EECICT;                                  Using [SDH] # incoterm
+Wrseq [F:SDHZ]EECICT;                                  Using [SDH] # incoterm
 Wrseq REPRE;                                          Using [SDH] # repre
-Wrseq ctrans(num$([F:SDD]REPRAT1),".",",");           Using [SDH] # comi
-Wrseq [F:SDH]CUR;                                     Using [SDH] # moneda
+Wrseq ctrans(num$([F:SDDZ]REPRAT1),".",",");           Using [SDH] # comi
+Wrseq [F:SDHZ]CUR;                                     Using [SDH] # moneda
 Wrseq DESC_MONEDA;                                    Using [SDH] # desc_moneda
-Wrseq num$([F:SDH]CHGTYP);                            Using [SDH] # unidad_cambio
+Wrseq num$([F:SDHZ]CHGTYP);                            Using [SDH] # unidad_cambio
 Wrseq ctrans(num$(CAMBIO),".",",");                   Using [SDH] # cambio
-Wrseq [F:SDH]PTE;                                     Using [SDH] # forma_de_pago
+Wrseq [F:SDHZ]PTE;                                     Using [SDH] # forma_de_pago
 #Wrseq "1er Giro";                                     Using [SDH] # 1er_giro
 #Wrseq "Intervalo";                                    Using [SDH] # intervalo
 #Wrseq "N_giros";                                      Using [SDH] # n_giros
@@ -606,15 +623,15 @@ Wrseq [F:SDH]PTE;                                     Using [SDH] # forma_de_pag
 #Wrseq "DP_2";                                         Using [SDH] # dp_2
 #Wrseq "DP_3";                                         Using [SDH] # dp_3
 #Wrseq "Fin_mes";                                      Using [SDH] # fin_mes
-Wrseq [F:SDH]BPCINV;                                  Using [SDH] # cli_fra
-Wrseq [F:SDH]BPTNUM;                                  Using [SDH] # ag_trans
+Wrseq [F:SDHZ]BPCINV;                                  Using [SDH] # cli_fra
+Wrseq [F:SDHZ]BPTNUM;                                  Using [SDH] # ag_trans
 Wrseq NOMBRE_AG;                                      Using [SDH] # nombre_ag
-Wrseq [F:SDH]CREUSR;                                  Using [SDH] # usuario
+Wrseq [F:SDHZ]CREUSR;                                  Using [SDH] # usuario
 #Wrseq "Almacén";                                      Using [SDH] # almacen
-Wrseq [F:SDH]ZTIPOPEDSGA;                             Using [SDH] # zona (tip.ped.SGA)
+Wrseq [F:SDHZ]ZTIPOPEDSGA;                             Using [SDH] # zona (tip.ped.SGA)
 Wrseq ctrans(num$(LPESO),".",",");                    Using [SDH] # peso
 Wrseq ctrans(num$(LPESOMANUAL),".",",");              Using [SDH] # peso_manual
-Wrseq ctrans(num$([F:SDH]PACNBR),".",",");            Using [SDH] # bultos
+Wrseq ctrans(num$([F:SDHZ]PACNBR),".",",");            Using [SDH] # bultos
 Wrseq ctrans(num$(LTOTALNETO),".",",");               Using [SDH] # total_bruto (me dice Sergi que hay que pasar el total neto)
 #Wrseq "Portes_Pag-Deb";                               Using [SDH] # portes_pag-deb
 Wrseq ctrans(num$(TRAIMP),".",",");                   Using [SDH] # imp_portes
@@ -638,36 +655,36 @@ Return
 ##################################################################
 $ESC_REGISTRO_LIN
 #lineas
-Wrseq [F:SDD]SDDLIN;                                  Using [SDH] # n_lin
-Wrseq [F:SDD]ITMREF;                                  Using [SDH] # inventario
+Wrseq [F:SDDZ]SDDLIN;                                  Using [SDH] # n_lin
+Wrseq [F:SDDZ]ITMREF;                                  Using [SDH] # inventario
 Wrseq LCODPEDCLI;                                     Using [SDH] # pedido
 Wrseq REFERENCIA;                                     Using [SDH] # referencia
-Wrseq [F:SDD]ZITMDES2;                                Using [SDH] # familia
+Wrseq [F:SDDZ]ZITMDES2;                                Using [SDH] # familia
 Wrseq DESCRIPCION3;                                   Using [SDH] # norma
-Wrseq [F:SDD]QTY;                                     Using [SDH] # cantidad
+Wrseq [F:SDDZ]QTY;                                     Using [SDH] # cantidad
 Wrseq ctrans(num$(LPRECIOCLIENTE),".",",");           Using [SDH] # precio cliente
 Wrseq LUNIDADPRECIO;                                  Using [SDH] # unidad precio
-Wrseq [F:SDH]CUR;                                     Using [SDH] # divisa
-Wrseq ctrans(num$([F:SDD]DISCRGVAL1),".",",");        Using [SDH] # dto
-Wrseq ctrans(num$(([F:SDD]NETPRI*100)),".",",");      Using [SDH] # precio_neto
-Wrseq ctrans(num$([F:SDD]NETPRINOT*[F:SDD]QTY),".",",");    Using [SDH] # importe
-Wrseq ctrans(num$(([F:SDD]CPRPRI*100)),".",",");      Using [SDH] # costem_eur
+Wrseq [F:SDHZ]CUR;                                     Using [SDH] # divisa
+Wrseq ctrans(num$([F:SDDZ]DISCRGVAL1),".",",");        Using [SDH] # dto
+Wrseq ctrans(num$(([F:SDDZ]NETPRI*100)),".",",");      Using [SDH] # precio_neto
+Wrseq ctrans(num$([F:SDDZ]NETPRINOT*[F:SDDZ]QTY),".",",");    Using [SDH] # importe
+Wrseq ctrans(num$(([F:SDDZ]CPRPRI*100)),".",",");      Using [SDH] # costem_eur
 Wrseq ctrans(num$(LPESOLIN),".",",");                 Using [SDH] # peso
 #Wrseq [F:SDD]LOC;                                     Using [SDH] # ubic
 #Wrseq [F:SDD]LOT;                                     Using [SDH] # lot
 Wrseq UBIC;                                           Using [SDH] # ubic
 Wrseq LOTE;                                           Using [SDH] # lote
-Wrseq [F:SDH]ZTIPOPEDSGA;                             Using [SDH] # sector
+Wrseq [F:SDHZ]ZTIPOPEDSGA;                             Using [SDH] # sector
 Wrseq LGRANEL;                                        Using [SDH] # granel
 Wrseq LBPSLOT;                                        Using [SDH] # lote proveedor
 Wrseq BPSNUML;                                        Using [SDH] #
 Wrseq DESCARTCLI;                                     Using [SDH] # descripción artículo cliente
 Wrseq REFERENCIA;                                     Using [SDH] # referencia artículo cliente
 Wrseq ZMASCARA;                                       Using [SDH] # descripción ventas de la nueva tabla máscaras
-Wrseq [F:SDD]ZUSRSERV;                                Using [SDH] # preparador_1
+Wrseq [F:SDDZ]ZUSRSERV;                                Using [SDH] # preparador_1
 #Wrseq "";                                             Using [SDH] # preparador_2
-Wrseq [F:SDD]ZCUSORDREF;                              Using [SDH] # cód.pedido cliente
-Wrseq [F:SDD]ZNUMLINCLI                               Using [SDH] # nº línea pedido cli
+Wrseq [F:SDDZ]ZCUSORDREF;                              Using [SDH] # cód.pedido cliente
+Wrseq [F:SDDZ]ZNUMLINCLI                               Using [SDH] # nº línea pedido cli
 
 Return
 
@@ -676,17 +693,17 @@ $CLIENTE_TRANSPORTISTA
 Local Char MOTE(250), NOMBRE_AG(250), NIF(250), NOMBRE_AG(250)
 
 #CLIENTE
-Filter [F:BPR] Where BPRNUM = [F:SDH]BPCORD
-Read  [F:BPR] First
+Filter [F:BPRZ] Where BPRNUM = [F:SDHZ]BPCORD
+Read  [F:BPRZ] First
 If !fstat Then
-  MOTE       = [F:BPR]BPRSHO
-  NOMBRE_AG  = [F:BPR]BPRNAM(0)
-  NIF        = [F:BPR]CRN
+  MOTE       = [F:BPRZ]BPRSHO
+  NOMBRE_AG  = [F:BPRZ]BPRNAM(0)
+  NIF        = [F:BPRZ]CRN
 Endif
 
 #TRANSPORTISTA
 If !clalev([F:BPR1]): Local File BPARTNER[BPR1]: Endif
-Filter [F:BPR1] Where BPRNUM = [F:SDH]BPTNUM
+Filter [F:BPR1] Where BPRNUM = [F:SDHZ]BPTNUM
 Read  [F:BPR1] First
 If !fstat Then
   NOMBRE_AG = [F:BPR1]BPRNAM
@@ -698,11 +715,11 @@ Return
 $PROVEEDOR
 Local Char PROVEEDOR(250), REPRE(250)
 
-Filter [F:BPC] Where BPCNUM = [F:SDH]BPCINV
-Read  [F:BPC] First
+Filter [F:BPCZ] Where BPCNUM = [F:SDHZ]BPCINV
+Read  [F:BPCZ] First
 If !fstat Then
-  PROVEEDOR = [F:BPC]BPCBPSNUM
-  REPRE     = [F:BPC]REP
+  PROVEEDOR = [F:BPCZ]BPCBPSNUM
+  REPRE     = [F:BPCZ]REP
 Endif
 
 Return
@@ -723,13 +740,13 @@ Local Char DESC_DIREC(250), CP(250), POB(250), PRO(250), PAIS(250),DIREC1(250),D
 #  PRO        = [F:BPA]SAT
 #  PAIS       = [F:BPA]CRY
 #Endif
-  DESC_DIREC = [F:SDH]BPDADDLIG(0)
-  DIREC1     = [F:SDH]BPDADDLIG(1)
-  DIREC2     = [F:SDH]BPDADDLIG(2)
-  CP         = [F:SDH]BPDPOSCOD
-  POB        = [F:SDH]BPDCTY
-  PRO        = [F:SDH]BPDSAT
-  PAIS       = [F:SDH]BPDCRY
+  DESC_DIREC = [F:SDHZ]BPDADDLIG(0)
+  DIREC1     = [F:SDHZ]BPDADDLIG(1)
+  DIREC2     = [F:SDHZ]BPDADDLIG(2)
+  CP         = [F:SDHZ]BPDPOSCOD
+  POB        = [F:SDHZ]BPDCTY
+  PRO        = [F:SDHZ]BPDSAT
+  PAIS       = [F:SDHZ]BPDCRY
 
 Return
 
@@ -738,17 +755,17 @@ $MONEDA
 Local Char DESC_MONEDA(250)
 Local Decimal CAMBIO
 
-Filter [F:TCU] Where CUR = [F:SDH]CUR
-Read  [F:TCU] First
+Filter [F:TCUZ] Where CUR = [F:SDHZ]CUR
+Read  [F:TCUZ] First
 If !fstat Then
-  DESC_MONEDA = [F:TCU]CURDES
+  DESC_MONEDA = [F:TCUZ]CURDES
 Endif
 
-If [F:SDH]CUR <> 'EUR'
-  Filter [F:TCH] Where CUR = [F:SDH]CUR and CURDEN = 'EUR'
-  Read [F:TCH] First
+If [F:SDHZ]CUR <> 'EUR'
+  Filter [F:TCHZ] Where CUR = [F:SDHZ]CUR and CURDEN = 'EUR'
+  Read [F:TCHZ] First
   If !fstat
-    CAMBIO = [F:TCH]REVCOURS
+    CAMBIO = [F:TCHZ]REVCOURS
   Else
     CAMBIO = 1
   Endif
