@@ -12,12 +12,15 @@ End
 # 06.320.301 - AMG.03032022 campo Cli fichero articulos.csv con datos incorrectos
 # 06.304.004 - AMG.03022022 coste última recepción
 # 06.323.891 - AMG.11032022 URGENTE - CAMPOS ÚLTIMA CONSULTA FICHERO ARTICULOS.CSV
-# 06.317.599 - AMG.17032022 Facturacions de recepcions compres.
+# 06.317.599 - AMG.17032022 Facturacions de recepcions compres
 # 06.351.827 - AMG.26052022 URGENTE - campos última consulta fichero articulos.csv
-# 06.339.932 - JC.02052022.Errores cálculo cobertura artículos
+# 06.339.932 - JC.27092022.Errores cálculo cobertura artículos
+# 06.395.072 - JC.28092022.URGENTE ficheros csv y lentitud servidor
 # 06.452.986 - JC.14032023.Error campo cost última consulta en articulos.csv
+# 06.526.211 - JC.06102023.Optimización tiempo creación articulos.csv
 #############################################################
 
+# 06.395.072.ini
 ##################################################################
 Subprog ARTICULOS(WITM)
 Variable Char WITM
@@ -41,10 +44,15 @@ $OPEN_TABLAS
 Local File ATEXTRA
 Local File ZPRESPD
 If !clalev([F:ZSDBPC]) : Local File ZS12DBPC[ZSDBPC]: Endif
-If !clalev([F:AXX1])   : Local File ATEXTRA[AXX1]: Endif
-If !clalev([F:AXX2])   : Local File ATEXTRA[AXX2]: Endif
-If !clalev([F:AXX3])   : Local File ATEXTRA[AXX3]: Endif
-If !clalev([F:ZITN])   : Local File ZITMTRANET[ZITN]: Endif
+#If !clalev([F:AXX1])   : Local File ATEXTRA[AXX1]: Endif
+#If !clalev([F:AXX2])   : Local File ATEXTRA[AXX2]: Endif
+#If !clalev([F:AXX3])   : Local File ATEXTRA[AXX3]: Endif
+# 06.526.211.ini
+#If !clalev([F:ZITN])   : Local File ZITMTRANET[ZITN]: Endif
+If !clalev([F:ZITN])   : Local File ZITMTRANETMO[ZITN]: Endif
+If !clalev([F:ZPTD])   : Local File PRECEIPTD[ZPTD]: Endif
+If !clalev([F:ZBPS])   : Local File BPSUPPLIER[ZBPS]: Endif
+# 06.526.211.fin
 If !clalev([F:ZPPD])   : Local File ZPRESPD[ZPPD]: Endif
 Local File PRECEIPTD
 Local File BPSUPPLIER
@@ -372,33 +380,39 @@ Return
 ###################################################################
 $BUSCAR_DATOS
 
-Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '20' and IDENT2 = [F:ZITN]TSICOD(0)
-Read  [F:AXX] First
-  If !fstat
-    TEXTO=[F:AXX]TEXTE
-  Endif
-Filter [F:AXX]
-
-Filter [F:AXX1] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '21' and IDENT2 = [F:ZITN]TSICOD(1)
-Read  [F:AXX1] First
-  If !fstat
-    TEXTO1=[F:AXX1]TEXTE
-  Endif
-Filter [F:AXX1]
-
-Filter [F:AXX2] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '22' and IDENT2 = [F:ZITN]TSICOD(2)
-Read  [F:AXX2] First
-  If !fstat
-    TEXTO2=[F:AXX2]TEXTE
-  Endif
-Filter [F:AXX2]
-
-Filter [F:AXX3] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '23' and IDENT2 = [F:ZITN]TSICOD(3)
-Read  [F:AXX3] First
-  If !fstat
-    TEXTO3=[F:AXX3]TEXTE
-  Endif
-Filter [F:AXX3]
+# 06.526.211.ini
+#Filter [F:AXX] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '20' and IDENT2 = [F:ZITN]TSICOD(0)
+#Read  [F:AXX] First
+#  If !fstat
+#    TEXTO=[F:AXX]TEXTE
+#  Endif
+#Filter [F:AXX]
+#
+#Filter [F:AXX1] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '21' and IDENT2 = [F:ZITN]TSICOD(1)
+#Read  [F:AXX1] First
+#  If !fstat
+#    TEXTO1=[F:AXX1]TEXTE
+#  Endif
+#Filter [F:AXX1]
+#
+#Filter [F:AXX2] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '22' and IDENT2 = [F:ZITN]TSICOD(2)
+#Read  [F:AXX2] First
+#  If !fstat
+#    TEXTO2=[F:AXX2]TEXTE
+#  Endif
+#Filter [F:AXX2]
+#
+#Filter [F:AXX3] Where CODFIC = 'ATABDIV' and ZONE = 'LNGDES' and LANGUE = 'SPA' and IDENT1 = '23' and IDENT2 = [F:ZITN]TSICOD(3)
+#Read  [F:AXX3] First
+#  If !fstat
+#    TEXTO3=[F:AXX3]TEXTE
+#  Endif
+#Filter [F:AXX3]
+TEXTO=[F:ZITN]TEXTO0
+TEXTO1=[F:ZITN]TEXTO1
+TEXTO2=[F:ZITN]TEXTO2
+TEXTO3=[F:ZITN]TEXTO3
+# 06.526.211.fin
 
 ##damos valores a las variables
 ZCMO=[F:ZITN]ZCMO
@@ -421,41 +435,50 @@ SALIDA_IMP=[F:ZITN]SALIDA_IMP
 ENTRADA_A=[F:ZITN]ENTRADA_A
 
 
-#ULTIMA COMPRA - CODIGO PROVEEDOR
-Filter [F:PTD] Where ITMREF=[F:ZITN]ITMREF Order By RCPDAT Desc; PTDLIN  Desc
-Read[F:PTD]First
-  If !fstat
-      ZBPSNUM=[F:PTD]BPSNUM
-      ZRCPDAT=[F:PTD]RCPDAT
-      # 06.317.599.str
-      #ZCOSTE=([F:PTD]CPRCOE*[F:PTD]NETPRI)*100
-      If [F:PTD]NETCUR<>"EUR" Then
-        Call CONVERTDIV_DATE([F:PTD]NETCUR,"EUR",([F:PTD]CPRCOE*[F:PTD]NETPRI),1,[F:PTD]RCPDAT,ZCOSULCOMP) From ZAULIB01   #FUNCION CAMBIO DIVISA
-      Else
-          ZCOSULCOMP=([F:PTD]CPRCOE*[F:PTD]NETPRI)
-      Endif
-      ZCOSTE=ZCOSULCOMP*100
-      # 06.317.599.fin
-  Endif
+## 06.526.211.ini
+##ULTIMA COMPRA - CODIGO PROVEEDOR
+#Filter [F:ZPTD] Where ITMREF=[F:ZITN]ITMREF Order By RCPDAT Desc; PTDLIN  Desc
+#Read[F:ZPTD]First
+#  If !fstat
+#      ZBPSNUM=[F:PTD]BPSNUM
+#      ZRCPDAT=[F:PTD]RCPDAT
+#      # 06.317.599.str
+#      #ZCOSTE=([F:PTD]CPRCOE*[F:PTD]NETPRI)*100
+#      If [F:PTD]NETCUR<>"EUR" Then
+#        Call CONVERTDIV_DATE([F:PTD]NETCUR,"EUR",([F:PTD]CPRCOE*[F:PTD]NETPRI),1,[F:PTD]RCPDAT,ZCOSULCOMP) From ZAULIB01   #FUNCION CAMBIO DIVISA
+#      Else
+#          ZCOSULCOMP=([F:PTD]CPRCOE*[F:PTD]NETPRI)
+#      Endif
+#      ZCOSTE=ZCOSULCOMP*100
+#      # 06.317.599.fin
+#  Endif
+
+ZBPSNUM=[F:ZITN]BPSNUM
+ZRCPDAT=[F:ZITN]RCPDAT
+ZCOSTE=[F:ZITN]ZCOSTE2
+# 06.526.211.fin
 
 ZBPSSHO=""
-If ZBPSNUM<>"" Then
-#MOTE PROVEEDOR
-Filter [F:BPS] Where BPSNUM=[F:PTD]BPSNUM
-Read[F:BPS]First
-    If !fstat
-        ZBPSSHO=[F:BPS]BPSSHO
-    Endif
-Endif
-Filter [F:BPS]
-Filter [F:PTD]
-
+# 06.526.211.ini
+#If ZBPSNUM<>"" Then
+##MOTE PROVEEDOR
+#Filter [F:ZBPS] Where BPSNUM=[F:ZPTD]BPSNUM
+#Read[F:ZBPS]First
+#    If !fstat
+#        ZBPSSHO=[F:ZBPS]BPSSHO
+#    Endif
+#Endif
+#Filter [F:ZBPS]
+#Filter [F:ZPTD]
+ZBPSSHO=[F:ZITN]BPSSHO
+# 06.526.211.fin
 
 
 #####NO METEMOS ESTO EN LA VISTA########################################################################
 
 #TABLA ZPRESPD DETALLE ENTRADA RESPUESTAS ZPPD
 #BUSCAMOS FECHA ULTIMA OFERTA AL PROVEEDOR Y LUEGO BUSCAMOS LA FECHA DE 30 DÍAS MENOS Y VEMOS LA OFERTA
+# 06.526.211.ini
 Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and LINRSPDAT<>[00/00/0000] and PRI>0   Order By LINRSPDAT Desc
 Read[F:ZPPD] First
     If !fstat
@@ -463,6 +486,9 @@ Read[F:ZPPD] First
         WDAT2=WDAT1-30
     Endif
 Filter [F:ZPPD]
+#  WDAT1=[F:ZITN]LINRSPDAT
+#  WDAT2=WDAT1-30
+# 06.526.211.fin
 
 #ENTRE ZWDAT Y LINRSPDAT VER LA MEJOR OFERTA
 # 06.319.601.ini
@@ -475,6 +501,7 @@ Filter [F:ZPPD]
 # 06.351.827.ini
 # 06.452.986.ini
 #Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0 Order By HXCOST Asc
+# 06.526.211.ini
 Filter [F:ZPPD] Where ITMREF=[F:ZITN]ITMREF and (LINRSPDAT<=WDAT1 and LINRSPDAT>=WDAT2) and PRI>0 and HXCOST<>0  Order By HXCOST Asc
 # 06.452.986.fin
 # 06.351.827.fin
@@ -492,25 +519,35 @@ Read[F:ZPPD] First
 ## 06.452.986.fin
     Endif
 Filter [F:ZPPD]
+#  ZBPSNUMOF=[F:ZITN]BPSNUM
+#  ZLINRSPDAT=[F:ZITN]LINRSPDAT2
+#  ZHXCOST=[F:ZITN]HXCOST
+# 06.526.211.fin
 
 
 
 ZBPSSHO_OF=""
 #MOTE PROVEEDOR MEJOR OFERTA
-Filter [F:BPS] Where BPSNUM=ZBPSNUMOF
-Read[F:BPS]First
-    If !fstat
-        ZBPSSHO_OF=[F:BPS]BPSSHO
-    Endif
-Filter [F:BPS]
+# 06.526.211.ini
+#Filter [F:ZBPS] Where BPSNUM=ZBPSNUMOF
+#Read[F:ZBPS]First
+#    If !fstat
+#        ZBPSSHO_OF=[F:ZBPS]BPSSHO
+#    Endif
+#Filter [F:ZBPS]
+  ZBPSSHO_OF=[F:ZITN]BPSSHO
+# 06.526.211.fin
 
 #Vista ZS12DBPC donde usamos la estadística ZS12D
 Filter [F:ZSDBPC] Where CRI1=[F:ZITN]ITMREF
-      For [F:ZSDBPC]
-          If !fstat
-              CLI=CLI+1
-          Endif
-      Next
+# 06.526.211.ini
+  CLI = rowcount([F:ZSDBPC])
+#      For [F:ZSDBPC]
+#          If !fstat
+#              CLI=CLI+1
+#          Endif
+#      Next
+# 06.526.211.fin
 Filter [F:ZSDBPC]
 #06.320.301.FIN
 
@@ -560,10 +597,10 @@ WEB=[F:ZITN]WEB
 # 06.339.932.ini
 #COBERTURA=func ZAULIB01.GET_COBERTURA([F:ZITN]ITMREF, 'PHISP')
 #COBERTURA=func ZAULIB01.GET_COBERTURA_ITV([F:ZITN]ITMREF, 'PHISP')
-COBERTURA=999
 COBERTURA=[F:ZITN]COBERTURA
-If [F:ZITN]SALIDA_12 + [F:ZITN]SALIDA12_KIT = 0 Then : COBERTURA = 999 : Endif
-If [F:ZITN]STOCK_DISP <= 0 Then : COBERTURA = 0 : Endif
+If STOCK_DISP > 0 and SALIDA_12 <= 0 Then
+  COBERTURA=999
+Endif
 # 06.339.932.fin
 
 
@@ -571,6 +608,9 @@ Return
 
 ###################################################################
 $CLOSE_TABLAS
-Close Local File [F:AXX3],[F:AXX2],[F:AXX1],[F:AXX],[F:ZPPD],[F:ZSDBPC],[F:BPS],[F:PTD],[ZITN]
+# 06.526.211.ini
+#Close Local File [F:AXX3],[F:AXX2],[F:AXX1],[F:AXX]
+Close Local File [F:ZPPD],[F:ZSDBPC],[F:ZBPS],[F:ZPTD],[ZITN]
+# 06.526.211.fin
 
 Return
